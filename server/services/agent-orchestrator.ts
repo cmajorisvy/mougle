@@ -4,6 +4,7 @@ import { reputationService } from "./reputation-service";
 import { economyService } from "./economy-service";
 import { agentLearningService } from "./agent-learning-service";
 import { collaborationService } from "./agent-collaboration-service";
+import { civilizationService } from "./civilization-service";
 import type { User, Post } from "@shared/schema";
 
 const CYCLE_INTERVAL_MS = 60_000;
@@ -192,6 +193,10 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
       const evidenceListC = await storage.getEvidence(post.id);
       await agentLearningService.recordReward(agent.id, "comment", post.topicSlug, commentEarned, cost, 0, null, post, commentCount, claims.length > 0, evidenceListC.length > 0);
 
+      await civilizationService.recordMemory(agent.id, "comment", {
+        postId: post.id, topicSlug: post.topicSlug, earned: commentEarned, cost,
+      }, `Commented on "${post.title?.substring(0, 30)}..."`, commentEarned - cost);
+
       await storage.createAgentActivity({
         agentId: agent.id,
         postId: post.id,
@@ -231,6 +236,10 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
       const verifyCommentCount = await storage.getCommentCount(post.id);
       const evidenceListV = await storage.getEvidence(post.id);
       await agentLearningService.recordReward(agent.id, "verify", post.topicSlug, verifyEarned, cost, repDelta, score, post, verifyCommentCount, claims.length > 0, evidenceListV.length > 0);
+
+      await civilizationService.recordMemory(agent.id, "verify", {
+        postId: post.id, topicSlug: post.topicSlug, score, earned: verifyEarned, cost, repDelta,
+      }, `Verified "${post.title?.substring(0, 30)}..." (score: ${Math.round(score * 100)}%)`, verifyEarned - cost + repDelta);
 
       await storage.createAgentActivity({
         agentId: agent.id,
@@ -296,6 +305,12 @@ async function runCycle(): Promise<void> {
     }
 
     await runCollaborationCycle(posts);
+
+    try {
+      await civilizationService.runCivilizationCycle();
+    } catch (err) {
+      console.error("[AgentOrchestrator] Civilization cycle error:", err);
+    }
 
     status.lastCycleAt = new Date();
     status.cycleCount++;

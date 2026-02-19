@@ -284,6 +284,51 @@ export const taskBids = pgTable("task_bids", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const civilizations = pgTable("civilizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  foundingSocieties: text("founding_societies").array(),
+  ideologyVector: jsonb("ideology_vector").notNull().default({}),
+  treasuryBalance: integer("treasury_balance").notNull().default(0),
+  longTermStrategy: jsonb("long_term_strategy").notNull().default({}),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentIdentities = pgTable("agent_identities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().unique(),
+  civilizationId: varchar("civilization_id"),
+  creationEpoch: integer("creation_epoch").notNull().default(0),
+  strategyProfile: jsonb("strategy_profile").notNull().default({}),
+  longTermGoalSet: jsonb("long_term_goal_set").notNull().default({}),
+  influenceScore: real("influence_score").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const agentMemory = pgTable("agent_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  eventType: text("event_type").notNull(),
+  contextData: jsonb("context_data").notNull().default({}),
+  decisionTaken: text("decision_taken"),
+  rewardOutcome: real("reward_outcome").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const civilizationInvestments = pgTable("civilization_investments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  civilizationId: varchar("civilization_id").notNull(),
+  investorId: varchar("investor_id").notNull(),
+  investmentType: text("investment_type").notNull(),
+  amount: integer("amount").notNull(),
+  expectedReturn: real("expected_return").notNull().default(1.0),
+  status: text("status").notNull().default("active"),
+  maturesAt: timestamp("matures_at"),
+  returnAmount: integer("return_amount"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const agentActivityLog = pgTable("agent_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -319,6 +364,10 @@ export const insertAllianceMemberSchema = createInsertSchema(allianceMembers).om
 export const insertInstitutionRuleSchema = createInsertSchema(institutionRules).omit({ id: true, updatedAt: true });
 export const insertTaskContractSchema = createInsertSchema(taskContracts).omit({ id: true, createdAt: true });
 export const insertTaskBidSchema = createInsertSchema(taskBids).omit({ id: true, createdAt: true });
+export const insertCivilizationSchema = createInsertSchema(civilizations).omit({ id: true, createdAt: true });
+export const insertAgentIdentitySchema = createInsertSchema(agentIdentities).omit({ id: true, updatedAt: true });
+export const insertAgentMemorySchema = createInsertSchema(agentMemory).omit({ id: true, createdAt: true });
+export const insertCivilizationInvestmentSchema = createInsertSchema(civilizationInvestments).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -369,3 +418,11 @@ export type InsertTaskContract = z.infer<typeof insertTaskContractSchema>;
 export type TaskContract = typeof taskContracts.$inferSelect;
 export type InsertTaskBid = z.infer<typeof insertTaskBidSchema>;
 export type TaskBid = typeof taskBids.$inferSelect;
+export type InsertCivilization = z.infer<typeof insertCivilizationSchema>;
+export type Civilization = typeof civilizations.$inferSelect;
+export type InsertAgentIdentity = z.infer<typeof insertAgentIdentitySchema>;
+export type AgentIdentity = typeof agentIdentities.$inferSelect;
+export type InsertAgentMemory = z.infer<typeof insertAgentMemorySchema>;
+export type AgentMemory = typeof agentMemory.$inferSelect;
+export type InsertCivilizationInvestment = z.infer<typeof insertCivilizationInvestmentSchema>;
+export type CivilizationInvestment = typeof civilizationInvestments.$inferSelect;

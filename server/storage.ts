@@ -23,12 +23,17 @@ import {
   type InstitutionRule, type InsertInstitutionRule,
   type TaskContract, type InsertTaskContract,
   type TaskBid, type InsertTaskBid,
+  type Civilization, type InsertCivilization,
+  type AgentIdentity, type InsertAgentIdentity,
+  type AgentMemory, type InsertAgentMemory,
+  type CivilizationInvestment, type InsertCivilizationInvestment,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
   agentSocieties, societyMembers, delegatedTasks, agentMessages,
   governanceProposals, governanceVotes, alliances, allianceMembers,
   institutionRules, taskContracts, taskBids,
+  civilizations, agentIdentities, agentMemory, civilizationInvestments,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -146,6 +151,25 @@ export interface IStorage {
 
   deleteSocietyMember(id: string): Promise<void>;
   deleteSociety(id: string): Promise<void>;
+
+  getCivilizations(): Promise<Civilization[]>;
+  getCivilization(id: string): Promise<Civilization | undefined>;
+  createCivilization(civ: InsertCivilization): Promise<Civilization>;
+  updateCivilization(id: string, data: Partial<Civilization>): Promise<Civilization>;
+
+  getAgentIdentity(agentId: string): Promise<AgentIdentity | undefined>;
+  upsertAgentIdentity(agentId: string, data: Partial<AgentIdentity>): Promise<AgentIdentity>;
+  getAgentIdentities(): Promise<AgentIdentity[]>;
+  getIdentitiesByCivilization(civilizationId: string): Promise<AgentIdentity[]>;
+
+  addAgentMemory(entry: InsertAgentMemory): Promise<AgentMemory>;
+  getAgentMemories(agentId: string, limit: number): Promise<AgentMemory[]>;
+  getAgentMemoriesByType(agentId: string, eventType: string, limit: number): Promise<AgentMemory[]>;
+
+  createInvestment(inv: InsertCivilizationInvestment): Promise<CivilizationInvestment>;
+  getInvestments(civilizationId: string): Promise<CivilizationInvestment[]>;
+  getActiveInvestments(): Promise<CivilizationInvestment[]>;
+  updateInvestment(id: string, data: Partial<CivilizationInvestment>): Promise<CivilizationInvestment>;
 }
 
 function computeRank(reputation: number): string {
@@ -660,6 +684,81 @@ export class DatabaseStorage implements IStorage {
     await db.delete(delegatedTasks).where(eq(delegatedTasks.societyId, id));
     await db.delete(agentMessages).where(eq(agentMessages.societyId, id));
     await db.delete(agentSocieties).where(eq(agentSocieties.id, id));
+  }
+
+  async getCivilizations(): Promise<Civilization[]> {
+    return db.select().from(civilizations).orderBy(desc(civilizations.createdAt));
+  }
+
+  async getCivilization(id: string): Promise<Civilization | undefined> {
+    const [c] = await db.select().from(civilizations).where(eq(civilizations.id, id));
+    return c;
+  }
+
+  async createCivilization(civ: InsertCivilization): Promise<Civilization> {
+    const [created] = await db.insert(civilizations).values(civ).returning();
+    return created;
+  }
+
+  async updateCivilization(id: string, data: Partial<Civilization>): Promise<Civilization> {
+    const [updated] = await db.update(civilizations).set(data).where(eq(civilizations.id, id)).returning();
+    return updated;
+  }
+
+  async getAgentIdentity(agentId: string): Promise<AgentIdentity | undefined> {
+    const [identity] = await db.select().from(agentIdentities).where(eq(agentIdentities.agentId, agentId));
+    return identity;
+  }
+
+  async upsertAgentIdentity(agentId: string, data: Partial<AgentIdentity>): Promise<AgentIdentity> {
+    const existing = await this.getAgentIdentity(agentId);
+    if (existing) {
+      const [updated] = await db.update(agentIdentities).set({ ...data, updatedAt: new Date() }).where(eq(agentIdentities.agentId, agentId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(agentIdentities).values({ agentId, ...data } as any).returning();
+    return created;
+  }
+
+  async getAgentIdentities(): Promise<AgentIdentity[]> {
+    return db.select().from(agentIdentities).orderBy(desc(agentIdentities.influenceScore));
+  }
+
+  async getIdentitiesByCivilization(civilizationId: string): Promise<AgentIdentity[]> {
+    return db.select().from(agentIdentities).where(eq(agentIdentities.civilizationId, civilizationId));
+  }
+
+  async addAgentMemory(entry: InsertAgentMemory): Promise<AgentMemory> {
+    const [created] = await db.insert(agentMemory).values(entry).returning();
+    return created;
+  }
+
+  async getAgentMemories(agentId: string, limit: number): Promise<AgentMemory[]> {
+    return db.select().from(agentMemory).where(eq(agentMemory.agentId, agentId)).orderBy(desc(agentMemory.createdAt)).limit(limit);
+  }
+
+  async getAgentMemoriesByType(agentId: string, eventType: string, limit: number): Promise<AgentMemory[]> {
+    return db.select().from(agentMemory).where(
+      and(eq(agentMemory.agentId, agentId), eq(agentMemory.eventType, eventType))
+    ).orderBy(desc(agentMemory.createdAt)).limit(limit);
+  }
+
+  async createInvestment(inv: InsertCivilizationInvestment): Promise<CivilizationInvestment> {
+    const [created] = await db.insert(civilizationInvestments).values(inv).returning();
+    return created;
+  }
+
+  async getInvestments(civilizationId: string): Promise<CivilizationInvestment[]> {
+    return db.select().from(civilizationInvestments).where(eq(civilizationInvestments.civilizationId, civilizationId)).orderBy(desc(civilizationInvestments.createdAt));
+  }
+
+  async getActiveInvestments(): Promise<CivilizationInvestment[]> {
+    return db.select().from(civilizationInvestments).where(eq(civilizationInvestments.status, "active")).orderBy(asc(civilizationInvestments.maturesAt));
+  }
+
+  async updateInvestment(id: string, data: Partial<CivilizationInvestment>): Promise<CivilizationInvestment> {
+    const [updated] = await db.update(civilizationInvestments).set(data).where(eq(civilizationInvestments.id, id)).returning();
+    return updated;
   }
 }
 

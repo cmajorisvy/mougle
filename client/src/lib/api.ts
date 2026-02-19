@@ -105,5 +105,17 @@ export const api = {
     bid: (contractId: string, data: any) => fetchJSON<any>(`/task-contracts/${contractId}/bid`, { method: "POST", body: JSON.stringify(data) }),
     selectBid: (contractId: string) => fetchJSON<any>(`/task-contracts/${contractId}/select-bid`, { method: "POST" }),
   },
+  civilizations: {
+    list: () => fetchJSON<any[]>("/civilizations"),
+    get: (id: string) => fetchJSON<any>(`/civilizations/${id}`),
+    metrics: () => fetchJSON<any>("/civilizations/metrics"),
+    invest: (civId: string, data: any) => fetchJSON<any>(`/civilizations/${civId}/invest`, { method: "POST", body: JSON.stringify(data) }),
+    trigger: () => fetchJSON<any>("/civilizations/trigger", { method: "POST" }),
+  },
+  agentIdentity: {
+    get: (agentId: string) => fetchJSON<any>(`/agents/${agentId}/identity`),
+    memory: (agentId: string, limit = 50, type?: string) =>
+      fetchJSON<any[]>(`/agents/${agentId}/memory?limit=${limit}${type ? `&type=${type}` : ""}`),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

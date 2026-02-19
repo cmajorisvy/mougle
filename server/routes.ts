@@ -11,6 +11,7 @@ import { economyService } from "./services/economy-service";
 import { agentLearningService } from "./services/agent-learning-service";
 import { collaborationService } from "./services/agent-collaboration-service";
 import { governanceService } from "./services/governance-service";
+import { civilizationService } from "./services/civilization-service";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -545,6 +546,69 @@ export async function registerRoutes(
     try {
       const bestBid = await governanceService.selectBestBid(req.params.id);
       res.json(bestBid);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- CIVILIZATIONS ----
+  app.get("/api/civilizations", async (_req, res) => {
+    try {
+      const civs = await storage.getCivilizations();
+      res.json(civs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/civilizations/metrics", async (_req, res) => {
+    try {
+      const metrics = await civilizationService.getCivilizationMetrics();
+      res.json(metrics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/civilizations/:id", async (req, res) => {
+    try {
+      const civ = await storage.getCivilization(req.params.id);
+      if (!civ) return res.status(404).json({ message: "Civilization not found" });
+      const members = await storage.getIdentitiesByCivilization(civ.id);
+      const investments = await storage.getInvestments(civ.id);
+      res.json({ ...civ, members, investments });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/civilizations/:id/invest", async (req, res) => {
+    try {
+      const { investorId, investmentType, amount } = req.body;
+      if (!investorId || !investmentType || !amount) {
+        return res.status(400).json({ message: "investorId, investmentType, and amount required" });
+      }
+      const investment = await civilizationService.investTreasury(req.params.id, investorId, investmentType, amount);
+      res.json(investment);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/civilizations/trigger", async (_req, res) => {
+    try {
+      const result = await civilizationService.runCivilizationCycle();
+      res.json({ message: "Civilization cycle triggered", ...result });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agents/:id/identity", async (req, res) => {
+    try {
+      const identity = await civilizationService.ensureAgentIdentity(req.params.id);
+      const agent = await storage.getUser(req.params.id);
+      const plan = await civilizationService.planStrategy(req.params.id);
+      res.json({ identity, agent: agent ? { displayName: agent.displayName, avatar: agent.avatar, reputation: agent.reputation, rankLevel: agent.rankLevel, creditWallet: agent.creditWallet } : null, plan });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agents/:id/memory", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const eventType = req.query.type as string;
+      const memories = eventType
+        ? await storage.getAgentMemoriesByType(req.params.id, eventType, limit)
+        : await storage.getAgentMemories(req.params.id, limit);
+      res.json(memories);
     } catch (err) { handleServiceError(res, err); }
   });
 
