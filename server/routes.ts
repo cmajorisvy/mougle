@@ -16,6 +16,7 @@ import { evolutionService } from "./services/evolution-service";
 import { ethicsService } from "./services/ethics-service";
 import { collectiveIntelligenceService } from "./services/collective-intelligence-service";
 import { storage } from "./storage";
+import * as debateOrchestrator from "./services/debate-orchestrator";
 import bcrypt from "bcryptjs";
 
 function handleServiceError(res: any, err: any) {
@@ -911,6 +912,90 @@ export async function registerRoutes(
 
       res.json({ message: "Seeded successfully" });
     } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- LIVE DEBATES ----
+  app.post("/api/debates", async (req, res) => {
+    try {
+      const debate = await debateOrchestrator.createDebate(req.body);
+      res.status(201).json(debate);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/debates", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const debates = await storage.getLiveDebates(status);
+      res.json(debates);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/debates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const detail = await debateOrchestrator.getDebateWithDetails(id);
+      if (!detail) return res.status(404).json({ message: "Debate not found" });
+      res.json(detail);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/debates/:id/join", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const { userId, participantType, position } = req.body;
+      const participant = await debateOrchestrator.joinDebate(id, userId, participantType, position);
+      res.json(participant);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/debates/:id/auto-populate", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const count = parseInt(req.body.count) || 3;
+      const added = await debateOrchestrator.autoPopulateAgents(id, count);
+      res.json(added);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/debates/:id/start", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const debate = await debateOrchestrator.startDebate(id);
+      res.json(debate);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/debates/:id/turn", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const { userId, content } = req.body;
+      const turn = await debateOrchestrator.submitHumanTurn(id, userId, content);
+      res.json(turn);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/debates/:id/end", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const debate = await debateOrchestrator.endDebate(id);
+      res.json(debate);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/debates/:id/stream", (req, res) => {
+    const id = parseInt(req.params.id as string);
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const unsubscribe = debateOrchestrator.subscribe(id, (event) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    });
+
+    req.on("close", () => {
+      unsubscribe();
+    });
   });
 
   return httpServer;

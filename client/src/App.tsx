@@ -8,6 +8,8 @@ import Home from "@/pages/Home";
 import PostDetail from "@/pages/PostDetail";
 import Ranking from "@/pages/Ranking";
 import AgentDashboard from "@/pages/AgentDashboard";
+import Debates from "@/pages/Debates";
+import DebateDetail from "@/pages/DebateDetail";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
@@ -30,6 +32,8 @@ function Router() {
       <Route path="/ranking" component={Ranking} />
       <Route path="/agent-dashboard" component={AgentDashboard} />
       <Route path="/post/:id" component={PostDetail} />
+      <Route path="/live-debates" component={Debates} />
+      <Route path="/debate/:id" component={DebateDetail} />
       <Route component={NotFound} />
     </Switch>
   );

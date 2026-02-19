@@ -36,6 +36,9 @@ import {
   type GlobalMetrics, type InsertGlobalMetrics,
   type GlobalGoalField, type InsertGlobalGoalField,
   type GlobalInsight, type InsertGlobalInsight,
+  type LiveDebate, type InsertLiveDebate,
+  type DebateParticipant, type InsertDebateParticipant,
+  type DebateTurn, type InsertDebateTurn,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -46,6 +49,7 @@ import {
   agentGenomes, agentLineage, culturalMemory,
   ethicalProfiles, ethicalRules, ethicalEvents,
   globalMetrics, globalGoalField, globalInsights,
+  liveDebates, debateParticipants, debateTurns,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -222,6 +226,22 @@ export interface IStorage {
   getGlobalInsight(id: string): Promise<GlobalInsight | undefined>;
   getGlobalInsights(status?: string): Promise<GlobalInsight[]>;
   updateGlobalInsight(id: string, data: Partial<GlobalInsight>): Promise<GlobalInsight>;
+
+  createLiveDebate(debate: InsertLiveDebate): Promise<LiveDebate>;
+  getLiveDebate(id: number): Promise<LiveDebate | undefined>;
+  getLiveDebates(status?: string): Promise<LiveDebate[]>;
+  updateLiveDebate(id: number, data: Partial<LiveDebate>): Promise<LiveDebate>;
+
+  addDebateParticipant(participant: InsertDebateParticipant): Promise<DebateParticipant>;
+  getDebateParticipants(debateId: number): Promise<DebateParticipant[]>;
+  getDebateParticipant(id: number): Promise<DebateParticipant | undefined>;
+  updateDebateParticipant(id: number, data: Partial<DebateParticipant>): Promise<DebateParticipant>;
+  removeDebateParticipant(id: number): Promise<void>;
+
+  createDebateTurn(turn: InsertDebateTurn): Promise<DebateTurn>;
+  getDebateTurns(debateId: number): Promise<DebateTurn[]>;
+  getDebateTurn(id: number): Promise<DebateTurn | undefined>;
+  updateDebateTurn(id: number, data: Partial<DebateTurn>): Promise<DebateTurn>;
 }
 
 function computeRank(reputation: number): string {
@@ -975,6 +995,70 @@ export class DatabaseStorage implements IStorage {
 
   async updateGlobalInsight(id: string, data: Partial<GlobalInsight>): Promise<GlobalInsight> {
     const [updated] = await db.update(globalInsights).set(data).where(eq(globalInsights.id, id)).returning();
+    return updated;
+  }
+
+  async createLiveDebate(debate: InsertLiveDebate): Promise<LiveDebate> {
+    const [created] = await db.insert(liveDebates).values(debate).returning();
+    return created;
+  }
+
+  async getLiveDebate(id: number): Promise<LiveDebate | undefined> {
+    const [debate] = await db.select().from(liveDebates).where(eq(liveDebates.id, id));
+    return debate;
+  }
+
+  async getLiveDebates(status?: string): Promise<LiveDebate[]> {
+    if (status) {
+      return db.select().from(liveDebates).where(eq(liveDebates.status, status)).orderBy(desc(liveDebates.createdAt));
+    }
+    return db.select().from(liveDebates).orderBy(desc(liveDebates.createdAt));
+  }
+
+  async updateLiveDebate(id: number, data: Partial<LiveDebate>): Promise<LiveDebate> {
+    const [updated] = await db.update(liveDebates).set(data).where(eq(liveDebates.id, id)).returning();
+    return updated;
+  }
+
+  async addDebateParticipant(participant: InsertDebateParticipant): Promise<DebateParticipant> {
+    const [created] = await db.insert(debateParticipants).values(participant).returning();
+    return created;
+  }
+
+  async getDebateParticipants(debateId: number): Promise<DebateParticipant[]> {
+    return db.select().from(debateParticipants).where(eq(debateParticipants.debateId, debateId)).orderBy(asc(debateParticipants.speakingOrder));
+  }
+
+  async getDebateParticipant(id: number): Promise<DebateParticipant | undefined> {
+    const [p] = await db.select().from(debateParticipants).where(eq(debateParticipants.id, id));
+    return p;
+  }
+
+  async updateDebateParticipant(id: number, data: Partial<DebateParticipant>): Promise<DebateParticipant> {
+    const [updated] = await db.update(debateParticipants).set(data).where(eq(debateParticipants.id, id)).returning();
+    return updated;
+  }
+
+  async removeDebateParticipant(id: number): Promise<void> {
+    await db.delete(debateParticipants).where(eq(debateParticipants.id, id));
+  }
+
+  async createDebateTurn(turn: InsertDebateTurn): Promise<DebateTurn> {
+    const [created] = await db.insert(debateTurns).values(turn).returning();
+    return created;
+  }
+
+  async getDebateTurns(debateId: number): Promise<DebateTurn[]> {
+    return db.select().from(debateTurns).where(eq(debateTurns.debateId, debateId)).orderBy(asc(debateTurns.roundNumber), asc(debateTurns.turnOrder));
+  }
+
+  async getDebateTurn(id: number): Promise<DebateTurn | undefined> {
+    const [turn] = await db.select().from(debateTurns).where(eq(debateTurns.id, id));
+    return turn;
+  }
+
+  async updateDebateTurn(id: number, data: Partial<DebateTurn>): Promise<DebateTurn> {
+    const [updated] = await db.update(debateTurns).set(data).where(eq(debateTurns.id, id)).returning();
     return updated;
   }
 }

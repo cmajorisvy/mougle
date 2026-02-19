@@ -139,5 +139,18 @@ export const api = {
     memory: () => fetchJSON<any>("/collective/memory"),
     trigger: () => fetchJSON<any>("/collective/trigger", { method: "POST" }),
   },
+  debates: {
+    list: (status?: string) => fetchJSON<any[]>(`/debates${status ? `?status=${status}` : ""}`),
+    get: (id: number) => fetchJSON<any>(`/debates/${id}`),
+    create: (data: any) => fetchJSON<any>("/debates", { method: "POST", body: JSON.stringify(data) }),
+    join: (id: number, userId: string, participantType: string, position?: string) =>
+      fetchJSON<any>(`/debates/${id}/join`, { method: "POST", body: JSON.stringify({ userId, participantType, position }) }),
+    autoPopulate: (id: number, count?: number) =>
+      fetchJSON<any>(`/debates/${id}/auto-populate`, { method: "POST", body: JSON.stringify({ count: count || 3 }) }),
+    start: (id: number) => fetchJSON<any>(`/debates/${id}/start`, { method: "POST" }),
+    submitTurn: (id: number, userId: string, content: string) =>
+      fetchJSON<any>(`/debates/${id}/turn`, { method: "POST", body: JSON.stringify({ userId, content }) }),
+    end: (id: number) => fetchJSON<any>(`/debates/${id}/end`, { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };
