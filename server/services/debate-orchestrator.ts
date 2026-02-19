@@ -384,6 +384,114 @@ export async function getDebateWithDetails(debateId: number) {
   return { ...debate, participants: enrichedParticipants, turns };
 }
 
+export async function quickRunDebate(debateId: number, agentCount: number = 3, rounds?: number): Promise<any> {
+  const debate = await storage.getLiveDebate(debateId);
+  if (!debate) throw new Error("Debate not found");
+  if (debate.status === "live") throw new Error("Debate is already live");
+  if (debate.status === "completed") throw new Error("Debate is already completed");
+
+  const participants = await storage.getDebateParticipants(debateId);
+  if (participants.length < 2) {
+    await autoPopulateAgents(debateId, agentCount);
+  }
+
+  const updatedParticipants = await storage.getDebateParticipants(debateId);
+  if (updatedParticipants.length < 2) throw new Error("Not enough agents available to run debate");
+
+  const totalRounds = rounds || debate.totalRounds || 3;
+  const maxRounds = Math.min(totalRounds, 3);
+
+  await storage.updateLiveDebate(debateId, {
+    status: "live",
+    currentRound: 1,
+    startedAt: new Date(),
+  });
+
+  const activeParticipants = updatedParticipants.filter(p => p.isActive);
+
+  for (let round = 1; round <= maxRounds; round++) {
+    await storage.updateLiveDebate(debateId, { currentRound: round });
+
+    for (let turnIdx = 0; turnIdx < activeParticipants.length; turnIdx++) {
+      const participant = activeParticipants[turnIdx];
+      const currentDebate = await storage.getLiveDebate(debateId);
+      if (!currentDebate) break;
+
+      try {
+        const existingTurns = await storage.getDebateTurns(debateId);
+        const recentContext = existingTurns.slice(-6).map(t => `[Turn ${t.turnOrder}]: ${t.content}`).join("\n");
+        const user = await storage.getUser(participant.userId);
+        const agentName = user?.displayName || "AI Agent";
+
+        const systemPrompt = `You are ${agentName}, an AI debater in a live debate.
+Topic: "${debate.topic}"
+Your position: ${participant.position || "Open to discussion"}
+Format: ${debate.format || "structured"}
+
+Rules:
+- Respond with ${WORD_LIMIT.min}-${WORD_LIMIT.max} words
+- Be persuasive and articulate
+- Reference previous points when relevant
+- Stay on topic
+- Be respectful but assertive`;
+
+        const messages: any[] = [{ role: "system", content: systemPrompt }];
+        if (recentContext) {
+          messages.push({ role: "user", content: `Previous debate turns:\n${recentContext}\n\nNow it's your turn to speak. Deliver your argument.` });
+        } else {
+          messages.push({ role: "user", content: "You are the first speaker. Deliver your opening argument." });
+        }
+
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages,
+          max_tokens: 200,
+        });
+
+        const content = response.choices[0]?.message?.content || "I have no further arguments at this time.";
+        const wordCount = content.split(/\s+/).length;
+
+        await storage.createDebateTurn({
+          debateId,
+          participantId: participant.id,
+          roundNumber: round,
+          turnOrder: turnIdx + 1,
+          content,
+          wordCount,
+          durationSeconds: null,
+          audioUrl: null,
+          tcsScore: null,
+          audienceReaction: null,
+          startedAt: new Date(),
+          endedAt: new Date(),
+        });
+
+        await storage.updateDebateParticipant(participant.id, {
+          turnsUsed: (participant.turnsUsed || 0) + 1,
+        });
+
+        console.log(`[QuickRun] Debate ${debateId} - Round ${round}, ${agentName} delivered turn`);
+      } catch (err: any) {
+        console.error(`[QuickRun] Error generating turn for participant ${participant.id}:`, err?.message);
+      }
+    }
+  }
+
+  const updated = await storage.updateLiveDebate(debateId, {
+    status: "completed",
+    endedAt: new Date(),
+    currentSpeakerId: null,
+  });
+
+  console.log(`[QuickRun] Debate ${debateId} completed, triggering flywheel...`);
+
+  runFlywheelPipeline(debateId).catch(err => {
+    console.log(`[Flywheel] Auto-trigger for debate ${debateId} failed:`, err?.message || err);
+  });
+
+  return updated;
+}
+
 export async function autoPopulateAgents(debateId: number, count: number = 3) {
   const agents = await storage.getAgentUsers();
   const debate = await storage.getLiveDebate(debateId);

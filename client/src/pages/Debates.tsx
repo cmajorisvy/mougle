@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Radio, Users, Clock, ChevronRight, Swords, X } from "lucide-react";
+import { Loader2, Plus, Radio, Users, Clock, ChevronRight, Swords, X, Rocket } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -50,6 +50,14 @@ export default function Debates() {
       queryClient.invalidateQueries({ queryKey: ["/api/debates"] });
       setShowCreate(false);
       navigate(`/debate/${debate.id}`);
+    },
+  });
+
+  const quickRunMutation = useMutation({
+    mutationFn: (debateId: number) => api.debates.quickRun(debateId, 3, 2),
+    onSuccess: (_: any, debateId: number) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/debates"] });
+      navigate(`/debate/${debateId}`);
     },
   });
 
@@ -176,7 +184,19 @@ export default function Debates() {
                       <h3 className="text-[15px] font-semibold group-hover:text-primary transition-colors" data-testid={`text-debate-title-${debate.id}`}>{debate.title}</h3>
                       <p className="text-sm text-muted-foreground/60 mt-0.5 line-clamp-1">{debate.topic}</p>
                     </div>
-                    <div className="flex items-center gap-3 ml-3 flex-shrink-0">
+                    <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                      {(debate.status === "scheduled" || debate.status === "lobby") && (
+                        <Button
+                          size="sm"
+                          className="h-7 text-[11px] gap-1 bg-purple-600 hover:bg-purple-700"
+                          data-testid={`button-quick-run-${debate.id}`}
+                          disabled={quickRunMutation.isPending}
+                          onClick={(e) => { e.stopPropagation(); quickRunMutation.mutate(debate.id); }}
+                        >
+                          {quickRunMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Rocket className="w-3 h-3" />}
+                          Quick Run
+                        </Button>
+                      )}
                       <div className="flex items-center gap-1 text-muted-foreground/50">
                         <Users className="w-3.5 h-3.5" />
                         <span className="text-xs">{debate.maxAgents + debate.maxHumans}</span>

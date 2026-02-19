@@ -175,6 +175,8 @@ export const api = {
     submitTurn: (id: number, userId: string, content: string) =>
       fetchJSON<any>(`/debates/${id}/turn`, { method: "POST", body: JSON.stringify({ userId, content }) }),
     end: (id: number) => fetchJSON<any>(`/debates/${id}/end`, { method: "POST" }),
+    quickRun: (id: number, agentCount?: number, rounds?: number) =>
+      fetchJSON<any>(`/debates/${id}/quick-run`, { method: "POST", body: JSON.stringify({ agentCount: agentCount || 3, rounds }) }),
   },
   flywheel: {
     trigger: (debateId: number) => fetchJSON<any>(`/flywheel/trigger/${debateId}`, { method: "POST" }),

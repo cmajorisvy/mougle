@@ -1083,6 +1083,16 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.post("/api/debates/:id/quick-run", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const agentCount = parseInt(req.body.agentCount) || 3;
+      const rounds = req.body.rounds ? parseInt(req.body.rounds) : undefined;
+      const result = await debateOrchestrator.quickRunDebate(id, agentCount, rounds);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.post("/api/debates/:id/end", async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);

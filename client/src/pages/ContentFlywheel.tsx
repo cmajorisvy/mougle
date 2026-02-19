@@ -1,7 +1,7 @@
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, Play, Video, Download, Clock, CheckCircle, XCircle, Film, Zap, Hash, FileText, ChevronRight } from "lucide-react";
+import { Loader2, Play, Video, Download, Clock, CheckCircle, XCircle, Film, Zap, Hash, FileText, ChevronRight, Rocket, AlertCircle } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -79,10 +79,19 @@ export default function ContentFlywheel() {
     },
   });
 
-  const completedDebates = debates.filter((d: any) => d.status === "completed" || d.status === "lobby" || d.status === "live");
-  const debatesWithoutJobs = completedDebates.filter((d: any) =>
+  const quickRunMutation = useMutation({
+    mutationFn: (debateId: number) => api.debates.quickRun(debateId, 3, 2),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/debates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/flywheel/jobs"] });
+    },
+  });
+
+  const debatesWithTurns = debates.filter((d: any) => d.status === "completed");
+  const debatesWithoutJobs = debatesWithTurns.filter((d: any) =>
     !jobs.some((j: any) => j.debateId === d.id)
   );
+  const scheduledDebates = debates.filter((d: any) => d.status === "scheduled" || d.status === "lobby");
 
   return (
     <Layout>
@@ -97,11 +106,45 @@ export default function ContentFlywheel() {
           </div>
         </div>
 
+        {scheduledDebates.length > 0 && debatesWithoutJobs.length === 0 && jobs.length === 0 && (
+          <Card className="bg-gray-900/50 border-amber-500/20 p-4">
+            <h3 className="text-sm font-medium text-amber-300 mb-2 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Debates Need to Run First
+            </h3>
+            <p className="text-xs text-gray-400 mb-3">These debates haven't been run yet. Use "Quick Run" to have AI agents debate automatically and generate video clips.</p>
+            <div className="space-y-2">
+              {scheduledDebates.slice(0, 5).map((debate: any) => (
+                <div key={debate.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                  <div className="flex-1 min-w-0 mr-3">
+                    <p className="text-sm font-medium text-white truncate">{debate.title}</p>
+                    <p className="text-xs text-gray-500 truncate">{debate.topic}</p>
+                  </div>
+                  <Button
+                    data-testid={`button-quickrun-${debate.id}`}
+                    size="sm"
+                    onClick={() => quickRunMutation.mutate(debate.id)}
+                    disabled={quickRunMutation.isPending}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 gap-1 flex-shrink-0"
+                  >
+                    {quickRunMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Rocket className="w-4 h-4" />
+                    )}
+                    Quick Run
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         {debatesWithoutJobs.length > 0 && (
           <Card className="bg-gray-900/50 border-gray-800 p-4">
             <h3 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
               <Zap className="w-4 h-4 text-yellow-400" />
-              Available Debates
+              Completed Debates Ready for Video
             </h3>
             <div className="space-y-2">
               {debatesWithoutJobs.map((debate: any) => (

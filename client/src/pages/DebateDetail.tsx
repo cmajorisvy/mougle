@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, Volume2, ChevronLeft, Zap, CheckCircle2, AlertTriangle, BarChart3 } from "lucide-react";
+import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, Volume2, ChevronLeft, Zap, CheckCircle2, AlertTriangle, BarChart3, Film, Video, Rocket } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ShareButtons } from "@/components/social/ShareButtons";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -209,6 +209,28 @@ export default function DebateDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/debates", debateId] }),
   });
 
+  const quickRunMutation = useMutation({
+    mutationFn: () => api.debates.quickRun(debateId!, 3, 2),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/debates", debateId] }),
+  });
+
+  const flywheelMutation = useMutation({
+    mutationFn: () => api.flywheel.trigger(debateId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/flywheel/debate", debateId] });
+    },
+  });
+
+  const { data: flywheelJob } = useQuery({
+    queryKey: ["/api/flywheel/debate", debateId],
+    queryFn: () => api.flywheel.debateJob(debateId!).catch(() => null),
+    enabled: !!debateId,
+    refetchInterval: (query) => {
+      const d = query.state.data;
+      return d?.status === "processing" ? 3000 : false;
+    },
+  });
+
   const submitTurnMutation = useMutation({
     mutationFn: (content: string) => api.debates.submitTurn(debateId!, debate?.currentSpeakerId || "", content),
     onSuccess: () => {
@@ -316,7 +338,128 @@ export default function DebateDetail() {
                 {startMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                 Start Debate
               </Button>
+              <Button
+                onClick={() => quickRunMutation.mutate()}
+                disabled={quickRunMutation.isPending}
+                size="sm"
+                className="gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                data-testid="button-quick-run"
+              >
+                {quickRunMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                {quickRunMutation.isPending ? "Running AI Debate..." : "Quick Run (AI Only)"}
+              </Button>
             </div>
+            {quickRunMutation.isPending && (
+              <div className="mt-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <p className="text-sm text-purple-300 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  AI agents are debating and generating video clips... This may take a minute.
+                </p>
+              </div>
+            )}
+            {quickRunMutation.isError && (
+              <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                <p className="text-sm text-red-300">{(quickRunMutation.error as any)?.message || "Failed to run debate"}</p>
+              </div>
+            )}
+          </Card>
+        )}
+
+        {debateStatus === "completed" && allTurns.length > 0 && (
+          <Card className="p-4 bg-card border-purple-500/10">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold flex items-center gap-2 text-purple-400">
+                <Film className="w-4 h-4" />
+                Video Generation
+              </h3>
+              {flywheelJob?.status && (
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  flywheelJob.status === "completed" ? "bg-green-500/20 text-green-400" :
+                  flywheelJob.status === "processing" ? "bg-yellow-500/20 text-yellow-400" :
+                  flywheelJob.status === "failed" ? "bg-red-500/20 text-red-400" :
+                  "bg-blue-500/20 text-blue-400"
+                }`}>
+                  {flywheelJob.status}
+                </span>
+              )}
+            </div>
+            {!flywheelJob ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Generate viral short-form video clips from this debate's highlights.</p>
+                <Button
+                  onClick={() => flywheelMutation.mutate()}
+                  disabled={flywheelMutation.isPending}
+                  size="sm"
+                  className="gap-2 bg-purple-600 hover:bg-purple-700"
+                  data-testid="button-generate-clips"
+                >
+                  {flywheelMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
+                  Generate Video Clips
+                </Button>
+                {flywheelMutation.isError && (
+                  <p className="text-xs text-red-400">{(flywheelMutation.error as any)?.message || "Failed to start video generation"}</p>
+                )}
+              </div>
+            ) : flywheelJob.status === "processing" ? (
+              <div className="space-y-2">
+                <p className="text-sm text-yellow-300 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating clips... {flywheelJob.completedClips}/{flywheelJob.totalClips}
+                </p>
+                <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div className="bg-purple-500 h-full transition-all" style={{ width: `${flywheelJob.totalClips > 0 ? (flywheelJob.completedClips / flywheelJob.totalClips) * 100 : 0}%` }} />
+                </div>
+              </div>
+            ) : flywheelJob.status === "completed" ? (
+              <div className="space-y-3">
+                <p className="text-sm text-green-400 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {flywheelJob.completedClips} clips generated!
+                </p>
+                {flywheelJob.clips && flywheelJob.clips.length > 0 && (
+                  <div className="space-y-2">
+                    {flywheelJob.clips.filter((c: any) => c.status === "rendered").map((clip: any) => (
+                      <div key={clip.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                        <div className="flex-1 min-w-0 mr-2">
+                          <p className="text-sm font-medium text-white truncate">{clip.title}</p>
+                          <p className="text-xs text-gray-500">{clip.durationSeconds}s · {clip.format}</p>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <a href={api.flywheel.clipVideoUrl(clip.id)} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="outline" className="text-xs h-7 gap-1" data-testid={`button-play-clip-${clip.id}`}>
+                              <Play className="w-3 h-3" /> Play
+                            </Button>
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  onClick={() => navigate(`/flywheel/${flywheelJob.id}`)}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs gap-1.5"
+                  data-testid="button-view-flywheel"
+                >
+                  <Film className="w-3 h-3" /> View All in Content Flywheel
+                </Button>
+              </div>
+            ) : flywheelJob.status === "failed" ? (
+              <div className="space-y-2">
+                <p className="text-sm text-red-400">{flywheelJob.errorMessage || "Video generation failed"}</p>
+                <Button
+                  onClick={() => flywheelMutation.mutate()}
+                  disabled={flywheelMutation.isPending}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs gap-1.5"
+                  data-testid="button-retry-clips"
+                >
+                  <Video className="w-4 h-4" /> Retry
+                </Button>
+              </div>
+            ) : null}
           </Card>
         )}
 
