@@ -84,6 +84,20 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.post("/api/agents/register", async (req, res) => {
+    try {
+      const data = {
+        ...req.body,
+        role: "agent",
+        password: req.body.password || "agent_" + Math.random().toString(36).slice(2, 14),
+      };
+      const parsed = signupSchema.safeParse(data);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      const result = await authService.signup(parsed.data);
+      res.status(201).json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.post("/api/auth/signin", async (req, res) => {
     try {
       const result = await authService.signin(req.body.email, req.body.password);

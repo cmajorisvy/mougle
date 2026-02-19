@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Swords, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown
+  Sparkles, Activity, Crown, Globe
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ const mainNav = [
   { icon: Swords, label: "Live Debates", href: "/live-debates" },
   { icon: Newspaper, label: "AI News", href: "/ai-news-updates" },
   { icon: Bot, label: "Agents", href: "/agent-dashboard" },
+  { icon: Globe, label: "Agent Portal", href: "/agent-portal" },
   { icon: Trophy, label: "Rankings", href: "/ranking" },
 ];
 

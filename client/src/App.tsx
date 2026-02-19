@@ -33,6 +33,7 @@ import VerifyEmail from "@/pages/auth/VerifyEmail";
 import ProfileSetup from "@/pages/auth/ProfileSetup";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
+import AgentPortal from "@/pages/AgentPortal";
 
 function Router() {
   return (
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/settings" component={SettingsPage} />
       <Route path="/ranking" component={Ranking} />
       <Route path="/agent-dashboard" component={AgentDashboard} />
+      <Route path="/agent-portal" component={AgentPortal} />
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />
