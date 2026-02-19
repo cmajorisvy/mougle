@@ -48,6 +48,8 @@ import {
   type SocialAccount, type InsertSocialAccount,
   type SocialPost, type InsertSocialPost,
   type PromotionScore, type InsertPromotionScore,
+  type SocialPerformance, type InsertSocialPerformance,
+  type GrowthPattern, type InsertGrowthPattern,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -62,6 +64,7 @@ import {
   flywheelJobs, generatedClips,
   newsArticles, newsComments, newsReactions, newsShares,
   socialAccounts, socialPosts, promotionScores,
+  socialPerformance, growthPatterns,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -311,6 +314,18 @@ export interface IStorage {
   getPromotionScoreByContent(contentType: string, contentId: string): Promise<PromotionScore | undefined>;
   updatePromotionScore(id: number, data: Partial<PromotionScore>): Promise<PromotionScore>;
   getPendingReviewPromotions(): Promise<PromotionScore[]>;
+
+  createSocialPerformance(perf: InsertSocialPerformance): Promise<SocialPerformance>;
+  getSocialPerformance(limit?: number): Promise<SocialPerformance[]>;
+  getSocialPerformanceByPlatform(platform: string, limit?: number): Promise<SocialPerformance[]>;
+  getSocialPerformanceSince(since: Date): Promise<SocialPerformance[]>;
+  getTopViralPosts(limit?: number): Promise<SocialPerformance[]>;
+
+  createGrowthPattern(pattern: InsertGrowthPattern): Promise<GrowthPattern>;
+  getGrowthPatterns(platform?: string): Promise<GrowthPattern[]>;
+  getActiveGrowthPatterns(platform?: string): Promise<GrowthPattern[]>;
+  getGrowthPattern(id: number): Promise<GrowthPattern | undefined>;
+  updateGrowthPattern(id: number, data: Partial<GrowthPattern>): Promise<GrowthPattern>;
 }
 
 function computeRank(reputation: number): string {
@@ -1415,6 +1430,68 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(promotionScores)
       .where(eq(promotionScores.decision, "review"))
       .orderBy(desc(promotionScores.totalScore));
+  }
+
+  async createSocialPerformance(perf: InsertSocialPerformance): Promise<SocialPerformance> {
+    const [created] = await db.insert(socialPerformance).values(perf).returning();
+    return created;
+  }
+
+  async getSocialPerformance(limit = 50): Promise<SocialPerformance[]> {
+    return db.select().from(socialPerformance)
+      .orderBy(desc(socialPerformance.collectedAt)).limit(limit);
+  }
+
+  async getSocialPerformanceByPlatform(platform: string, limit = 50): Promise<SocialPerformance[]> {
+    return db.select().from(socialPerformance)
+      .where(eq(socialPerformance.platform, platform))
+      .orderBy(desc(socialPerformance.collectedAt)).limit(limit);
+  }
+
+  async getSocialPerformanceSince(since: Date): Promise<SocialPerformance[]> {
+    return db.select().from(socialPerformance)
+      .where(sql`${socialPerformance.collectedAt} >= ${since}`)
+      .orderBy(desc(socialPerformance.collectedAt));
+  }
+
+  async getTopViralPosts(limit = 10): Promise<SocialPerformance[]> {
+    return db.select().from(socialPerformance)
+      .orderBy(desc(socialPerformance.viralScore)).limit(limit);
+  }
+
+  async createGrowthPattern(pattern: InsertGrowthPattern): Promise<GrowthPattern> {
+    const [created] = await db.insert(growthPatterns).values(pattern).returning();
+    return created;
+  }
+
+  async getGrowthPatterns(platform?: string): Promise<GrowthPattern[]> {
+    if (platform) {
+      return db.select().from(growthPatterns)
+        .where(eq(growthPatterns.platform, platform))
+        .orderBy(desc(growthPatterns.learnedAt));
+    }
+    return db.select().from(growthPatterns).orderBy(desc(growthPatterns.learnedAt));
+  }
+
+  async getActiveGrowthPatterns(platform?: string): Promise<GrowthPattern[]> {
+    if (platform) {
+      return db.select().from(growthPatterns)
+        .where(and(eq(growthPatterns.isActive, true), eq(growthPatterns.platform, platform)))
+        .orderBy(desc(growthPatterns.confidence));
+    }
+    return db.select().from(growthPatterns)
+      .where(eq(growthPatterns.isActive, true))
+      .orderBy(desc(growthPatterns.confidence));
+  }
+
+  async getGrowthPattern(id: number): Promise<GrowthPattern | undefined> {
+    const [pattern] = await db.select().from(growthPatterns).where(eq(growthPatterns.id, id));
+    return pattern;
+  }
+
+  async updateGrowthPattern(id: number, data: Partial<GrowthPattern>): Promise<GrowthPattern> {
+    const [updated] = await db.update(growthPatterns).set(data).where(eq(growthPatterns.id, id)).returning();
+    return updated;
   }
 }
 

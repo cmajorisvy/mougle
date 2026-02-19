@@ -33,7 +33,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "systems";
+type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -45,6 +45,7 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "flywheel", label: "Flywheel", icon: Film },
   { id: "social", label: "Social", icon: Share2 },
   { id: "promotion", label: "Promotion", icon: Zap },
+  { id: "growth", label: "Growth Brain", icon: Brain },
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
@@ -1288,6 +1289,264 @@ function PromotionTab() {
   );
 }
 
+function GrowthBrainTab() {
+  const { data: analytics, refetch: refetchAnalytics } = useQuery({
+    queryKey: ["admin-growth-analytics"],
+    queryFn: () => api.admin.growth.analytics(),
+  });
+
+  const learnMutation = useMutation({
+    mutationFn: () => api.admin.growth.learn(),
+    onSuccess: () => refetchAnalytics(),
+  });
+
+  const [optimizePlatform, setOptimizePlatform] = useState("twitter");
+  const [optimizeResult, setOptimizeResult] = useState<any>(null);
+  const optimizeMutation = useMutation({
+    mutationFn: (platform: string) => api.admin.growth.optimize(platform),
+    onSuccess: (data) => setOptimizeResult(data),
+  });
+
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Brain className="w-6 h-6 text-purple-400" />
+            AI Growth Brain
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Self-learning system that optimizes promotion strategies from social media performance
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            data-testid="button-learn-now"
+            size="sm"
+            onClick={() => learnMutation.mutate()}
+            disabled={learnMutation.isPending}
+            className="bg-purple-600/20 text-purple-300 border border-purple-500/20 hover:bg-purple-600/30"
+          >
+            {learnMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Brain className="w-4 h-4 mr-1" />}
+            Learn Now
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => refetchAnalytics()}
+            className="bg-gray-800/50 text-gray-400 border border-gray-700/50 hover:bg-gray-700/50"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+
+      {learnMutation.isSuccess && learnMutation.data && (
+        <Card className="bg-green-900/20 border-green-500/20 p-4">
+          <div className="flex items-center gap-2 text-green-300 text-sm font-medium mb-2">
+            <Check className="w-4 h-4" /> Learning Complete
+          </div>
+          <p className="text-xs text-green-400/70">
+            Collected {learnMutation.data.collected} records, created {learnMutation.data.patternsCreated} new patterns
+          </p>
+          {learnMutation.data.insights?.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {learnMutation.data.insights.map((insight: string, i: number) => (
+                <li key={i} className="text-xs text-green-400/60 flex items-start gap-1.5">
+                  <Sparkles className="w-3 h-3 mt-0.5 flex-shrink-0" /> {insight}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard icon={Database} label="Performance Records" value={analytics?.totalPerformanceRecords || 0} color="bg-blue-500/10 text-blue-400" />
+        <StatCard icon={TrendingUp} label="Viral Posts" value={analytics?.viralPosts?.length || 0} color="bg-green-500/10 text-green-400" />
+        <StatCard icon={Sparkles} label="Learned Patterns" value={analytics?.patterns?.length || 0} color="bg-purple-500/10 text-purple-400" />
+        <StatCard icon={Activity} label="Prediction Accuracy" value={`${analytics?.predictionAccuracy || 0}%`} color="bg-yellow-500/10 text-yellow-400" />
+      </div>
+
+      {analytics?.lastLearnedAt && (
+        <p className="text-[11px] text-gray-600">Last learned: {new Date(analytics.lastLearnedAt).toLocaleString()}</p>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-green-400" />
+            Top Viral Posts
+          </h3>
+          {analytics?.viralPosts?.length > 0 ? (
+            <div className="space-y-2">
+              {analytics.viralPosts.slice(0, 8).map((post: any, i: number) => (
+                <div key={post.id} data-testid={`viral-post-${post.id}`} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/30 border border-gray-800/50">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`text-xs font-bold ${i < 3 ? "text-yellow-400" : "text-gray-500"}`}>#{i + 1}</span>
+                    <div className="min-w-0">
+                      <span className="text-xs text-white truncate block">{post.contentType}:{post.contentId}</span>
+                      <span className="text-[10px] text-gray-500">{post.platform}</span>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className="text-sm font-bold text-green-400">{post.viralScore?.toFixed(1)}</span>
+                    <div className="text-[10px] text-gray-500">{post.impressions} imp</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p data-testid="text-no-viral" className="text-xs text-gray-500 text-center py-6">No performance data yet. Click "Learn Now" to collect data.</p>
+          )}
+        </Card>
+
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            Learned Insights
+          </h3>
+          {analytics?.patterns?.length > 0 ? (
+            <div className="space-y-2">
+              {analytics.patterns.map((pattern: any) => (
+                <div key={pattern.id} data-testid={`pattern-${pattern.id}`} className="p-2.5 rounded-lg bg-gray-800/30 border border-gray-800/50">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      pattern.patternType === "timing" ? "bg-blue-500/20 text-blue-300" :
+                      pattern.patternType === "content" ? "bg-green-500/20 text-green-300" :
+                      "bg-purple-500/20 text-purple-300"
+                    }`}>{pattern.patternType}</span>
+                    <span className="text-[10px] text-gray-500">{pattern.platform} | {pattern.sampleSize} samples</span>
+                  </div>
+                  <p className="text-xs text-gray-300 mt-1">{pattern.insight}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[10px] text-gray-500">Confidence:</span>
+                    <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500" style={{ width: `${(pattern.confidence || 0) * 100}%` }} />
+                    </div>
+                    <span className="text-[10px] text-gray-400">{((pattern.confidence || 0) * 100).toFixed(0)}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p data-testid="text-no-patterns" className="text-xs text-gray-500 text-center py-6">No patterns learned yet. Run learning cycle to discover insights.</p>
+          )}
+        </Card>
+      </div>
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <Globe className="w-4 h-4 text-blue-400" />
+          Platform Performance
+        </h3>
+        {analytics?.platformStats?.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {analytics.platformStats.map((stat: any) => (
+              <div key={stat.platform} data-testid={`platform-stat-${stat.platform}`} className="p-3 rounded-lg bg-gray-800/30 border border-gray-800/50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-white capitalize">{stat.platform}</span>
+                  <span className="text-xs text-gray-500">{stat.totalPosts} posts</span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Avg Viral Score</span>
+                    <span className="text-green-400 font-medium">{stat.avgViralScore}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Avg Impressions</span>
+                    <span className="text-blue-300">{stat.avgImpressions}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Avg Clicks</span>
+                    <span className="text-cyan-300">{stat.avgClicks}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Avg Shares</span>
+                    <span className="text-pink-300">{stat.avgShares}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Best Time</span>
+                    <span className="text-yellow-300">{stat.bestHour}:00 {dayNames[stat.bestDay]}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 text-center py-4">No platform data available yet.</p>
+        )}
+      </Card>
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+          <Cpu className="w-4 h-4 text-cyan-400" />
+          Strategy Optimizer
+        </h3>
+        <div className="flex items-center gap-3 mb-3">
+          <select
+            data-testid="select-optimize-platform"
+            value={optimizePlatform}
+            onChange={(e) => setOptimizePlatform(e.target.value)}
+            className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-white"
+          >
+            <option value="twitter">Twitter/X</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="facebook">Facebook</option>
+            <option value="reddit">Reddit</option>
+          </select>
+          <Button
+            data-testid="button-optimize"
+            size="sm"
+            onClick={() => optimizeMutation.mutate(optimizePlatform)}
+            disabled={optimizeMutation.isPending}
+            className="bg-cyan-600/20 text-cyan-300 border border-cyan-500/20 hover:bg-cyan-600/30"
+          >
+            {optimizeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Cpu className="w-4 h-4 mr-1" />}
+            Optimize
+          </Button>
+        </div>
+        {optimizeResult && (
+          <div data-testid="optimize-result" className="p-3 rounded-lg bg-cyan-900/10 border border-cyan-500/10">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <span className="text-[10px] text-gray-500 block">Best Hour</span>
+                <span className="text-sm font-bold text-cyan-300">{optimizeResult.bestHour}:00</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-500 block">Best Day</span>
+                <span className="text-sm font-bold text-cyan-300">{dayNames[optimizeResult.bestDay]}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-500 block">Caption Length</span>
+                <span className="text-sm font-bold text-cyan-300">{optimizeResult.captionLength} chars</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-500 block">Hashtags</span>
+                <span className="text-sm font-bold text-cyan-300">{optimizeResult.hashtagCount}</span>
+              </div>
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[10px] text-gray-500">Confidence:</span>
+              <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500" style={{ width: `${(optimizeResult.confidence || 0) * 100}%` }} />
+              </div>
+              <span className="text-[10px] text-gray-400">{((optimizeResult.confidence || 0) * 100).toFixed(0)}%</span>
+            </div>
+            {optimizeResult.platforms?.length > 0 && (
+              <div className="mt-2">
+                <span className="text-[10px] text-gray-500">Ranked platforms: </span>
+                <span className="text-[10px] text-cyan-300">{optimizeResult.platforms.join(" > ")}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function SystemsTab() {
   const [triggerResults, setTriggerResults] = useState<Record<string, string>>({});
 
@@ -1432,6 +1691,7 @@ export default function AdminDashboard() {
     flywheel: FlywheelTab,
     social: SocialTab,
     promotion: PromotionTab,
+    growth: GrowthBrainTab,
     systems: SystemsTab,
   }[activeTab];
 

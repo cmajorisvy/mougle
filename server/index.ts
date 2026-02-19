@@ -110,6 +110,8 @@ app.use((req, res, next) => {
       socialPublisherService.startAutoPublisher(5);
       const { promotionSelectorAgent } = await import("./services/promotion-selector-agent");
       promotionSelectorAgent.startWorker(10);
+      const { growthBrainService } = await import("./services/growth-brain-service");
+      growthBrainService.startWorker(30);
     },
   );
 })();

@@ -1575,5 +1575,62 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ---- AI GROWTH BRAIN ----
+  app.get("/api/admin/growth/analytics", requireAdmin, async (_req, res) => {
+    try {
+      const { growthBrainService } = await import("./services/growth-brain-service");
+      const analytics = await growthBrainService.getAnalytics();
+      res.json(analytics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/growth/performance", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const platform = req.query.platform as string | undefined;
+      if (platform) {
+        const data = await storage.getSocialPerformanceByPlatform(platform, limit);
+        return res.json(data);
+      }
+      const data = await storage.getSocialPerformance(limit);
+      res.json(data);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/growth/viral", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const data = await storage.getTopViralPosts(limit);
+      res.json(data);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/growth/patterns", requireAdmin, async (req, res) => {
+    try {
+      const platform = req.query.platform as string | undefined;
+      const data = await storage.getGrowthPatterns(platform);
+      res.json(data);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/growth/learn", requireAdmin, async (_req, res) => {
+    try {
+      const { growthBrainService } = await import("./services/growth-brain-service");
+      const collected = await growthBrainService.collectPerformanceFromSocialPosts();
+      const result = await growthBrainService.analyzeAndLearn();
+      res.json({ collected, ...result });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/growth/optimize", requireAdmin, async (req, res) => {
+    try {
+      const { platform } = req.body;
+      if (!platform) return res.status(400).json({ message: "platform required" });
+      const { growthBrainService } = await import("./services/growth-brain-service");
+      const strategy = await growthBrainService.optimizeForPlatform(platform);
+      res.json(strategy);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

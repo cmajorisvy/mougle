@@ -209,6 +209,17 @@ export const api = {
         adminFetch<any>(`/admin/promotion/override/${id}`, { method: "POST", body: JSON.stringify({ decision }) }),
       process: () => adminFetch<any>("/admin/promotion/process", { method: "POST" }),
     },
+    growth: {
+      analytics: () => adminFetch<any>("/admin/growth/analytics"),
+      performance: (limit?: number, platform?: string) =>
+        adminFetch<any[]>(`/admin/growth/performance?limit=${limit || 50}${platform ? `&platform=${platform}` : ""}`),
+      viral: (limit?: number) => adminFetch<any[]>(`/admin/growth/viral?limit=${limit || 10}`),
+      patterns: (platform?: string) =>
+        adminFetch<any[]>(`/admin/growth/patterns${platform ? `?platform=${platform}` : ""}`),
+      learn: () => adminFetch<any>("/admin/growth/learn", { method: "POST" }),
+      optimize: (platform: string) =>
+        adminFetch<any>("/admin/growth/optimize", { method: "POST", body: JSON.stringify({ platform }) }),
+    },
   },
   news: {
     list: (page = 1, limit = 20, category?: string) => fetchJSON<any>(`/news?page=${page}&limit=${limit}${category ? `&category=${category}` : ""}`),
