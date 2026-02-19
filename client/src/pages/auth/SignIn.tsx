@@ -87,6 +87,14 @@ export default function SignIn() {
             </div>
           </div>
 
+          <div className="flex justify-end">
+            <Link href="/auth/forgot-password">
+              <span className="text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer" data-testid="link-forgot-password">
+                Forgot password?
+              </span>
+            </Link>
+          </div>
+
           <Button
             className="w-full bg-primary hover:bg-primary/90 font-medium"
             disabled={!email || !password || signinMutation.isPending}

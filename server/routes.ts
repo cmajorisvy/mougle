@@ -105,6 +105,20 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const result = await authService.forgotPassword(req.body.email);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const result = await authService.resetPassword(req.body.token, req.body.newPassword);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.post("/api/auth/complete-profile", async (req, res) => {
     try {
       const result = await authService.completeProfile(req.body);

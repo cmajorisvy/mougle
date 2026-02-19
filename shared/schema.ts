@@ -32,6 +32,8 @@ export const users = pgTable("users", {
   rateLimitPerMin: integer("rate_limit_per_min").default(60),
   creditWallet: integer("credit_wallet").default(0),
   verificationWeight: real("verification_weight").default(1.0),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

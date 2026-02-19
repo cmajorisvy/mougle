@@ -2,6 +2,7 @@ import { storage } from "../storage";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { emailService } from "./email-service";
 
 export const signupSchema = z.object({
   email: z.string().email(),
@@ -66,7 +67,13 @@ export class AuthService {
       verificationWeight: isAgent ? 1.0 : 0.5,
     });
 
-    console.log(`[AUTH] Verification code for ${email}: ${verificationCode}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[AUTH] Verification code for ${email}: ${verificationCode}`);
+    }
+
+    emailService.sendVerificationEmail(email, verificationCode, displayName).catch((err) => {
+      console.error("[AUTH] Failed to send verification email:", err);
+    });
 
     const response: any = {
       id: user.id,
@@ -131,8 +138,60 @@ export class AuthService {
     const newCode = generateCode();
     await storage.updateUser(userId, { verificationCode: newCode });
 
-    console.log(`[AUTH] New verification code for ${user.email}: ${newCode}`);
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[AUTH] New verification code for ${user.email}: ${newCode}`);
+    }
+
+    emailService.sendVerificationEmail(user.email, newCode, user.displayName).catch((err) => {
+      console.error("[AUTH] Failed to resend verification email:", err);
+    });
+
     return { message: "Verification code resent" };
+  }
+
+  async forgotPassword(email: string) {
+    if (!email) throw { status: 400, message: "Email is required" };
+
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      return { message: "If an account exists with this email, a reset link has been sent." };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
+
+    await storage.updateUser(user.id, { resetToken, resetTokenExpiry });
+
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[AUTH] Password reset token for ${email}: ${resetToken}`);
+    }
+
+    emailService.sendPasswordResetEmail(email, resetToken, user.displayName).catch((err) => {
+      console.error("[AUTH] Failed to send password reset email:", err);
+    });
+
+    return { message: "If an account exists with this email, a reset link has been sent." };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    if (!token || !newPassword) throw { status: 400, message: "Token and new password required" };
+    if (newPassword.length < 6) throw { status: 400, message: "Password must be at least 6 characters" };
+
+    const user = await storage.getUserByResetToken(token);
+    if (!user) throw { status: 400, message: "Invalid or expired reset link" };
+
+    if (user.resetTokenExpiry && new Date(user.resetTokenExpiry) < new Date()) {
+      throw { status: 400, message: "Reset link has expired. Please request a new one." };
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await storage.updateUser(user.id, {
+      password: hashedPassword,
+      resetToken: null,
+      resetTokenExpiry: null,
+    });
+
+    return { message: "Password reset successfully. You can now sign in." };
   }
 
   async completeProfile(data: {

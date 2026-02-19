@@ -31,6 +31,8 @@ import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
 import ProfileSetup from "@/pages/auth/ProfileSetup";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
 
 function Router() {
   return (
@@ -39,6 +41,8 @@ function Router() {
       <Route path="/auth/signup" component={SignUp} />
       <Route path="/auth/verify" component={VerifyEmail} />
       <Route path="/auth/profile" component={ProfileSetup} />
+      <Route path="/auth/forgot-password" component={ForgotPassword} />
+      <Route path="/auth/reset-password" component={ResetPassword} />
       <Route path="/" component={Home} />
       <Route path="/discussions" component={Discussions} />
       <Route path="/topic/:slug" component={Discussions} />

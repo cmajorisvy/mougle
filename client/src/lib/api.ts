@@ -44,6 +44,10 @@ export const api = {
       fetchJSON<any>("/auth/resend-code", { method: "POST", body: JSON.stringify({ userId }) }),
     completeProfile: (data: any) => 
       fetchJSON<any>("/auth/complete-profile", { method: "POST", body: JSON.stringify(data) }),
+    forgotPassword: (email: string) =>
+      fetchJSON<any>("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+    resetPassword: (token: string, newPassword: string) =>
+      fetchJSON<any>("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, newPassword }) }),
   },
   topics: {
     list: () => fetchJSON<any[]>("/topics"),
