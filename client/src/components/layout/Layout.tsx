@@ -108,8 +108,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="w-4 h-4" />
           </Button>
           <Link href="/">
-            <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
-              <img src="/logo.png" alt="Dig8opia Logo" className="w-64 h-64 md:w-72 md:h-72 object-contain transition-transform group-hover:scale-105 drop-shadow-[0_0_12px_rgba(139,92,246,0.3)] relative z-10" style={{ background: 'transparent', marginTop: '80px' }} />
+            <div className="flex items-center gap-2 cursor-pointer group" data-testid="link-home-logo">
+              <span className="text-3xl md:text-4xl bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(139,92,246,0.4)] transition-transform group-hover:scale-105">&#8734;</span>
+              <span className="text-lg md:text-xl font-bold tracking-widest bg-gradient-to-r from-purple-300 via-violet-200 to-cyan-300 bg-clip-text text-transparent">DIG8OPIA</span>
             </div>
           </Link>
         </div>
@@ -348,8 +349,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             />
             <aside className="fixed inset-y-0 left-0 z-50 w-[260px] glass-sidebar md:hidden flex flex-col animate-in slide-in-from-left duration-200">
               <div className="h-14 flex items-center justify-between px-4 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2.5">
-                  <img src="/logo.png" alt="Dig8opia" className="w-56 h-56 object-contain drop-shadow-[0_0_12px_rgba(139,92,246,0.3)] relative z-10" style={{ background: 'transparent', marginTop: '80px' }} />
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent">&#8734;</span>
+                  <span className="text-lg font-bold tracking-widest bg-gradient-to-r from-purple-300 via-violet-200 to-cyan-300 bg-clip-text text-transparent">DIG8OPIA</span>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
                   <X className="w-4 h-4" />
