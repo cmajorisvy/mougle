@@ -300,6 +300,7 @@ export const api = {
     usage: (userId: string) => fetchJSON<any>(`/billing/usage/${userId}`),
     founderAnalytics: () => adminFetch<any>("/admin/billing/analytics"),
     founderFlywheel: () => adminFetch<any>("/admin/billing/flywheel"),
+    founderPhaseTransition: () => adminFetch<any>("/admin/billing/phase-transition"),
   },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

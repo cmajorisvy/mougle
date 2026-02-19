@@ -1698,6 +1698,18 @@ function SystemsTab() {
             </div>
           </div>
         </Card>
+        <Card className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-purple-500/20 p-4 cursor-pointer hover:border-purple-400/40 transition-colors"
+          onClick={() => window.location.href = "/admin/phase-transition"} data-testid="link-phase-transition">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-black/20 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-purple-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Phase Transition Monitor</p>
+              <p className="text-[11px] text-gray-400">Autonomous growth tracking & self-sustainability index</p>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );

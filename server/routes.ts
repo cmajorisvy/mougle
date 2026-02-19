@@ -1952,6 +1952,10 @@ export async function registerRoutes(
     try { res.json(await billingService.getRevenueFlywheelData()); } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/admin/billing/phase-transition", requireAdmin, async (_req, res) => {
+    try { res.json(await billingService.getPhaseTransitionData()); } catch (err) { handleServiceError(res, err); }
+  });
+
   app.post("/api/admin/billing/flywheel/sync", requireAdmin, async (_req, res) => {
     try { 
       await billingService.syncFlywheelMetrics();
