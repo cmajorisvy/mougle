@@ -197,6 +197,18 @@ export const api = {
     debates: () => adminFetch<any[]>("/admin/debates"),
     deleteDebate: (id: number) => adminFetch<any>(`/admin/debates/${id}`, { method: "DELETE" }),
     triggerSystem: (system: string) => adminFetch<any>(`/admin/trigger/${system}`, { method: "POST" }),
+    promotion: {
+      scores: (limit?: number, status?: string) =>
+        adminFetch<any[]>(`/admin/promotion/scores?limit=${limit || 50}${status ? `&status=${status}` : ""}`),
+      score: (id: number) => adminFetch<any>(`/admin/promotion/scores/${id}`),
+      reviewQueue: () => adminFetch<any[]>("/admin/promotion/review-queue"),
+      evaluate: (data: { contentType: string; contentId: string }) =>
+        adminFetch<any>("/admin/promotion/evaluate", { method: "POST", body: JSON.stringify(data) }),
+      evaluateAll: () => adminFetch<any>("/admin/promotion/evaluate-all", { method: "POST" }),
+      override: (id: number, decision: string) =>
+        adminFetch<any>(`/admin/promotion/override/${id}`, { method: "POST", body: JSON.stringify({ decision }) }),
+      process: () => adminFetch<any>("/admin/promotion/process", { method: "POST" }),
+    },
   },
   news: {
     list: (page = 1, limit = 20, category?: string) => fetchJSON<any>(`/news?page=${page}&limit=${limit}${category ? `&category=${category}` : ""}`),

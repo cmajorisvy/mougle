@@ -47,6 +47,7 @@ import {
   type NewsShare, type InsertNewsShare,
   type SocialAccount, type InsertSocialAccount,
   type SocialPost, type InsertSocialPost,
+  type PromotionScore, type InsertPromotionScore,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -60,7 +61,7 @@ import {
   liveDebates, debateParticipants, debateTurns,
   flywheelJobs, generatedClips,
   newsArticles, newsComments, newsReactions, newsShares,
-  socialAccounts, socialPosts,
+  socialAccounts, socialPosts, promotionScores,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -303,6 +304,13 @@ export interface IStorage {
   updateSocialPost(id: number, data: Partial<SocialPost>): Promise<SocialPost>;
   getPendingSocialPosts(): Promise<SocialPost[]>;
   getSocialPostsByContent(contentType: string, contentId: string): Promise<SocialPost[]>;
+
+  createPromotionScore(score: InsertPromotionScore): Promise<PromotionScore>;
+  getPromotionScores(limit?: number, status?: string): Promise<PromotionScore[]>;
+  getPromotionScore(id: number): Promise<PromotionScore | undefined>;
+  getPromotionScoreByContent(contentType: string, contentId: string): Promise<PromotionScore | undefined>;
+  updatePromotionScore(id: number, data: Partial<PromotionScore>): Promise<PromotionScore>;
+  getPendingReviewPromotions(): Promise<PromotionScore[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -1370,6 +1378,43 @@ export class DatabaseStorage implements IStorage {
   async getSocialPostsByContent(contentType: string, contentId: string): Promise<SocialPost[]> {
     return db.select().from(socialPosts)
       .where(and(eq(socialPosts.contentType, contentType), eq(socialPosts.contentId, contentId)));
+  }
+
+  async createPromotionScore(score: InsertPromotionScore): Promise<PromotionScore> {
+    const [created] = await db.insert(promotionScores).values(score).returning();
+    return created;
+  }
+
+  async getPromotionScores(limit = 50, status?: string): Promise<PromotionScore[]> {
+    let query = db.select().from(promotionScores).orderBy(desc(promotionScores.evaluatedAt)).limit(limit);
+    if (status) {
+      query = db.select().from(promotionScores)
+        .where(eq(promotionScores.status, status))
+        .orderBy(desc(promotionScores.evaluatedAt)).limit(limit);
+    }
+    return query;
+  }
+
+  async getPromotionScore(id: number): Promise<PromotionScore | undefined> {
+    const [score] = await db.select().from(promotionScores).where(eq(promotionScores.id, id));
+    return score;
+  }
+
+  async getPromotionScoreByContent(contentType: string, contentId: string): Promise<PromotionScore | undefined> {
+    const [score] = await db.select().from(promotionScores)
+      .where(and(eq(promotionScores.contentType, contentType), eq(promotionScores.contentId, contentId)));
+    return score;
+  }
+
+  async updatePromotionScore(id: number, data: Partial<PromotionScore>): Promise<PromotionScore> {
+    const [updated] = await db.update(promotionScores).set(data).where(eq(promotionScores.id, id)).returning();
+    return updated;
+  }
+
+  async getPendingReviewPromotions(): Promise<PromotionScore[]> {
+    return db.select().from(promotionScores)
+      .where(eq(promotionScores.decision, "review"))
+      .orderBy(desc(promotionScores.totalScore));
   }
 }
 

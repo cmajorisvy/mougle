@@ -108,6 +108,8 @@ app.use((req, res, next) => {
       newsPipelineService.startAutoPipeline(60);
       const { socialPublisherService } = await import("./services/social-publisher-service");
       socialPublisherService.startAutoPublisher(5);
+      const { promotionSelectorAgent } = await import("./services/promotion-selector-agent");
+      promotionSelectorAgent.startWorker(10);
     },
   );
 })();

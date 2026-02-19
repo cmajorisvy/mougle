@@ -33,7 +33,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "systems";
+type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "systems";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -44,6 +44,7 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "agents", label: "Agents", icon: Bot },
   { id: "flywheel", label: "Flywheel", icon: Film },
   { id: "social", label: "Social", icon: Share2 },
+  { id: "promotion", label: "Promotion", icon: Zap },
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
@@ -970,6 +971,323 @@ function SocialTab() {
   );
 }
 
+const SCORE_COLORS: Record<string, string> = {
+  auto_promote: "text-green-400",
+  review: "text-yellow-400",
+  no_promotion: "text-gray-400",
+};
+
+const STATUS_BADGES: Record<string, { bg: string; text: string }> = {
+  approved: { bg: "bg-green-900/30", text: "text-green-400" },
+  promoted: { bg: "bg-emerald-900/30", text: "text-emerald-400" },
+  pending_review: { bg: "bg-yellow-900/30", text: "text-yellow-400" },
+  rejected: { bg: "bg-red-900/30", text: "text-red-400" },
+  pending: { bg: "bg-gray-800", text: "text-gray-400" },
+};
+
+function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="w-24 text-muted-foreground">{label}</span>
+      <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(value, 100)}%` }} />
+      </div>
+      <span className="w-8 text-right font-mono">{value.toFixed(0)}</span>
+    </div>
+  );
+}
+
+function PromotionTab() {
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [evalContentType, setEvalContentType] = useState("news");
+  const [evalContentId, setEvalContentId] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const { data: scores = [], refetch: refetchScores } = useQuery({
+    queryKey: ["admin-promotion-scores", filterStatus],
+    queryFn: () => api.admin.promotion.scores(50, filterStatus || undefined),
+  });
+
+  const { data: reviewQueue = [], refetch: refetchQueue } = useQuery({
+    queryKey: ["admin-promotion-review"],
+    queryFn: () => api.admin.promotion.reviewQueue(),
+  });
+
+  const evaluateMutation = useMutation({
+    mutationFn: (data: { contentType: string; contentId: string }) => api.admin.promotion.evaluate(data),
+    onSuccess: () => { refetchScores(); refetchQueue(); },
+  });
+
+  const evaluateAllMutation = useMutation({
+    mutationFn: () => api.admin.promotion.evaluateAll(),
+    onSuccess: () => { refetchScores(); refetchQueue(); },
+  });
+
+  const overrideMutation = useMutation({
+    mutationFn: ({ id, decision }: { id: number; decision: string }) => api.admin.promotion.override(id, decision),
+    onSuccess: () => { refetchScores(); refetchQueue(); },
+  });
+
+  const processMutation = useMutation({
+    mutationFn: () => api.admin.promotion.process(),
+    onSuccess: () => { refetchScores(); refetchQueue(); },
+  });
+
+  const autoPromoted = scores.filter((s: any) => s.decision === "auto_promote" || s.status === "promoted").length;
+  const inReview = reviewQueue.length;
+  const rejected = scores.filter((s: any) => s.status === "rejected").length;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-display font-bold flex items-center gap-2">
+          <Zap className="w-5 h-5 text-yellow-400" /> AI Promotion Engine
+        </h2>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => evaluateAllMutation.mutate()}
+            disabled={evaluateAllMutation.isPending}
+            className="gap-1.5 border-gray-700"
+            data-testid="button-evaluate-all"
+          >
+            <Brain className="w-3.5 h-3.5" />
+            {evaluateAllMutation.isPending ? "Evaluating..." : "Evaluate All"}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => processMutation.mutate()}
+            disabled={processMutation.isPending}
+            className="gap-1.5 bg-purple-600 hover:bg-purple-700"
+            data-testid="button-process-promotions"
+          >
+            <Send className="w-3.5 h-3.5" />
+            {processMutation.isPending ? "Processing..." : "Process Queue"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="text-2xl font-bold text-green-400">{autoPromoted}</div>
+          <div className="text-xs text-muted-foreground mt-1">Auto-Promoted</div>
+        </Card>
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="text-2xl font-bold text-yellow-400">{inReview}</div>
+          <div className="text-xs text-muted-foreground mt-1">Needs Review</div>
+        </Card>
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="text-2xl font-bold text-gray-400">{rejected}</div>
+          <div className="text-xs text-muted-foreground mt-1">Not Promoted</div>
+        </Card>
+      </div>
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-purple-400" /> Evaluate Content
+        </h3>
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground">Content Type</label>
+            <select
+              value={evalContentType}
+              onChange={(e) => setEvalContentType(e.target.value)}
+              className="w-full mt-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm"
+              data-testid="select-eval-content-type"
+            >
+              {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground">Content ID</label>
+            <Input
+              value={evalContentId}
+              onChange={(e) => setEvalContentId(e.target.value)}
+              placeholder="e.g. 1"
+              className="mt-1 bg-gray-800 border-gray-700"
+              data-testid="input-eval-content-id"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => evaluateMutation.mutate({ contentType: evalContentType, contentId: evalContentId })}
+            disabled={!evalContentId || evaluateMutation.isPending}
+            className="gap-1.5 bg-purple-600 hover:bg-purple-700"
+            data-testid="button-evaluate-content"
+          >
+            <Brain className="w-3.5 h-3.5" />
+            {evaluateMutation.isPending ? "..." : "Evaluate"}
+          </Button>
+        </div>
+      </Card>
+
+      {reviewQueue.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-yellow-400" /> Review Queue ({reviewQueue.length})
+          </h3>
+          <div className="space-y-2">
+            {reviewQueue.map((score: any) => (
+              <Card key={score.id} className="bg-yellow-900/10 border-yellow-800/30 p-3" data-testid={`review-item-${score.id}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium">{score.contentType}:{score.contentId}</span>
+                    <span className="ml-2 text-yellow-400 font-mono text-sm">{(score.totalScore || 0).toFixed(1)}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => overrideMutation.mutate({ id: score.id, decision: "auto_promote" })}
+                      disabled={overrideMutation.isPending}
+                      className="h-7 text-xs gap-1 bg-green-700 hover:bg-green-600"
+                      data-testid={`approve-${score.id}`}
+                    >
+                      <Check className="w-3 h-3" /> Promote
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => overrideMutation.mutate({ id: score.id, decision: "no_promotion" })}
+                      disabled={overrideMutation.isPending}
+                      className="h-7 text-xs gap-1 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                      data-testid={`reject-${score.id}`}
+                    >
+                      <X className="w-3 h-3" /> Reject
+                    </Button>
+                  </div>
+                </div>
+                {score.reasoning && (
+                  <p className="text-xs text-muted-foreground mt-1.5">{score.reasoning}</p>
+                )}
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <Activity className="w-4 h-4" /> All Scores
+          </h3>
+          <div className="flex gap-1">
+            {["", "approved", "promoted", "pending_review", "rejected"].map(status => (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+                  filterStatus === status
+                    ? "bg-purple-600/30 text-purple-300 border border-purple-500/30"
+                    : "bg-gray-800/50 text-gray-500"
+                }`}
+                data-testid={`filter-${status || "all"}`}
+              >
+                {status || "All"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {scores.length === 0 ? (
+            <Card className="bg-gray-900/60 border-gray-800/50 p-8 text-center">
+              <Zap className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">No promotion scores yet</p>
+              <p className="text-xs text-muted-foreground mt-1">Click "Evaluate All" to analyze recent content</p>
+            </Card>
+          ) : (
+            scores.map((score: any) => {
+              const badge = STATUS_BADGES[score.status] || STATUS_BADGES.pending;
+              const isExpanded = expandedId === score.id;
+              return (
+                <Card
+                  key={score.id}
+                  className="bg-gray-900/60 border-gray-800/50 p-3 cursor-pointer hover:border-gray-700/50 transition-colors"
+                  onClick={() => setExpandedId(isExpanded ? null : score.id)}
+                  data-testid={`promotion-score-${score.id}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`text-lg font-mono font-bold ${
+                        (score.totalScore || 0) > 75 ? "text-green-400" :
+                        (score.totalScore || 0) >= 60 ? "text-yellow-400" :
+                        "text-gray-400"
+                      }`}>
+                        {(score.totalScore || 0).toFixed(1)}
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium">{score.contentType}:{score.contentId}</span>
+                        <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${badge.bg} ${badge.text}`}>
+                          {score.status}
+                        </span>
+                        {score.overriddenBy && (
+                          <span className="ml-1 text-xs text-purple-400">(overridden)</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {score.selectedPlatforms?.length > 0 && (
+                        <div className="flex gap-1">
+                          {score.selectedPlatforms.map((p: string) => (
+                            <span key={p} className="text-xs bg-gray-800 px-1.5 py-0.5 rounded capitalize">{p}</span>
+                          ))}
+                        </div>
+                      )}
+                      {score.scheduledAt && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(score.scheduledAt).toLocaleString()}
+                        </span>
+                      )}
+                      {score.status === "pending_review" && (
+                        <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            onClick={() => overrideMutation.mutate({ id: score.id, decision: "auto_promote" })}
+                            className="h-6 text-xs px-2 bg-green-700 hover:bg-green-600"
+                          >
+                            <Check className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => overrideMutation.mutate({ id: score.id, decision: "no_promotion" })}
+                            className="h-6 text-xs px-2 text-red-400 hover:bg-red-900/20"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-gray-800/50 space-y-2">
+                      <ScoreBar label="Engagement" value={score.engagementVelocity || 0} color="bg-blue-500" />
+                      <ScoreBar label="Trust" value={score.trustScore || 0} color="bg-green-500" />
+                      <ScoreBar label="Comments" value={score.commentQuality || 0} color="bg-purple-500" />
+                      <ScoreBar label="Novelty" value={score.noveltyScore || 0} color="bg-yellow-500" />
+                      <ScoreBar label="Debate" value={score.debateActivity || 0} color="bg-pink-500" />
+                      <ScoreBar label="Trend" value={score.trendScore || 0} color="bg-cyan-500" />
+                      {score.reasoning && (
+                        <div className="mt-2 p-2 bg-gray-800/50 rounded text-xs text-muted-foreground">
+                          <span className="text-purple-400 font-medium">AI Reasoning: </span>
+                          {score.reasoning}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SystemsTab() {
   const [triggerResults, setTriggerResults] = useState<Record<string, string>>({});
 
@@ -1113,6 +1431,7 @@ export default function AdminDashboard() {
     agents: AgentsTab,
     flywheel: FlywheelTab,
     social: SocialTab,
+    promotion: PromotionTab,
     systems: SystemsTab,
   }[activeTab];
 

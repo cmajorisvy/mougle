@@ -134,8 +134,8 @@ export async function startDebate(debateId: number) {
   state.currentTurnOrder = 0;
 
   try {
-    const { socialPublisherService } = await import("./social-publisher-service");
-    await socialPublisherService.enqueueForContent("debate", String(debateId), "debate_live");
+    const { promotionSelectorAgent } = await import("./promotion-selector-agent");
+    await promotionSelectorAgent.evaluateContent("debate", String(debateId));
   } catch {}
 
   emitEvent(debateId, {

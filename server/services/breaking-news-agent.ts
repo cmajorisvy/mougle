@@ -177,14 +177,11 @@ export const breakingNewsAgent = {
     await postAgentComments(article);
 
     try {
-      const { socialPublisherService } = await import("./social-publisher-service");
-      if (isBreaking) {
-        await socialPublisherService.enqueueForContent("breaking", String(articleId), "breaking_news_detected");
-      } else {
-        await socialPublisherService.enqueueForContent("news", String(articleId), "news_published");
-      }
+      const { promotionSelectorAgent } = await import("./promotion-selector-agent");
+      const contentType = isBreaking ? "breaking" : "news";
+      await promotionSelectorAgent.evaluateContent(contentType, String(articleId));
     } catch (err) {
-      console.log("[BreakingNews] Social publish enqueue failed:", (err as Error).message);
+      console.log("[BreakingNews] Promotion evaluation failed:", (err as Error).message);
     }
   },
 

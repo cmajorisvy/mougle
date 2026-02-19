@@ -1511,5 +1511,69 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/admin/promotion/scores", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const status = req.query.status as string | undefined;
+      const scores = await storage.getPromotionScores(limit, status);
+      res.json(scores);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/promotion/scores/:id", requireAdmin, async (req, res) => {
+    try {
+      const score = await storage.getPromotionScore(parseInt(req.params.id));
+      if (!score) return res.status(404).json({ message: "Not found" });
+      res.json(score);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/promotion/review-queue", requireAdmin, async (_req, res) => {
+    try {
+      const queue = await storage.getPendingReviewPromotions();
+      res.json(queue);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/promotion/evaluate", requireAdmin, async (req, res) => {
+    try {
+      const { contentType, contentId } = req.body;
+      if (!contentType || !contentId) return res.status(400).json({ message: "contentType and contentId required" });
+      const { promotionSelectorAgent } = await import("./services/promotion-selector-agent");
+      const score = await promotionSelectorAgent.evaluateContent(contentType, contentId);
+      res.json(score);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/promotion/evaluate-all", requireAdmin, async (_req, res) => {
+    try {
+      const { promotionSelectorAgent } = await import("./services/promotion-selector-agent");
+      const evaluated = await promotionSelectorAgent.evaluateRecentContent();
+      const results = await promotionSelectorAgent.processPromotions();
+      res.json({ evaluated, ...results });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/promotion/override/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { decision } = req.body;
+      if (!decision || !["auto_promote", "no_promotion"].includes(decision)) {
+        return res.status(400).json({ message: "decision must be 'auto_promote' or 'no_promotion'" });
+      }
+      const { promotionSelectorAgent } = await import("./services/promotion-selector-agent");
+      const updated = await promotionSelectorAgent.overrideDecision(id, decision, "admin");
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/promotion/process", requireAdmin, async (_req, res) => {
+    try {
+      const { promotionSelectorAgent } = await import("./services/promotion-selector-agent");
+      const results = await promotionSelectorAgent.processPromotions();
+      res.json(results);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

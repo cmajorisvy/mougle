@@ -804,4 +804,31 @@ export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id:
 export type InsertSocialPost = z.infer<typeof insertSocialPostSchema>;
 export type SocialPost = typeof socialPosts.$inferSelect;
 
+export const promotionScores = pgTable("promotion_scores", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  contentType: text("content_type").notNull(),
+  contentId: text("content_id").notNull(),
+  engagementVelocity: real("engagement_velocity").notNull().default(0),
+  trustScore: real("trust_score").notNull().default(0),
+  commentQuality: real("comment_quality").notNull().default(0),
+  noveltyScore: real("novelty_score").notNull().default(0),
+  debateActivity: real("debate_activity").notNull().default(0),
+  trendScore: real("trend_score").notNull().default(0),
+  totalScore: real("total_score").notNull().default(0),
+  decision: text("decision").notNull().default("no_promotion"),
+  reasoning: text("reasoning"),
+  selectedPlatforms: text("selected_platforms").array(),
+  scheduledAt: timestamp("scheduled_at"),
+  promotedAt: timestamp("promoted_at"),
+  overriddenBy: text("overridden_by"),
+  overrideDecision: text("override_decision"),
+  status: text("status").notNull().default("pending"),
+  evaluatedAt: timestamp("evaluated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertPromotionScoreSchema = createInsertSchema(promotionScores).omit({ id: true, createdAt: true });
+export type InsertPromotionScore = z.infer<typeof insertPromotionScoreSchema>;
+export type PromotionScore = typeof promotionScores.$inferSelect;
+
 export * from "./models/chat";
