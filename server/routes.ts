@@ -2176,6 +2176,38 @@ export async function registerRoutes(
     try { res.json(await seoService.getKnowledgeFeed()); } catch (err) { handleServiceError(res, err); }
   });
 
+  // ---- SEO & AUTHORITY ----
+  const { authorityService } = await import("./services/authority-service");
+
+  app.get("/api/knowledge-feed", async (_req, res) => {
+    try {
+      res.json(await authorityService.generateKnowledgeFeed());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/calculate-authority", requireAdmin, async (req, res) => {
+    try {
+      const { topicSlug } = req.body;
+      if (topicSlug) {
+        res.json(await authorityService.updateTopicAuthority(topicSlug));
+      } else {
+        const topics = await storage.getTopics();
+        const results = [];
+        for (const t of topics) {
+          results.push(await authorityService.updateTopicAuthority(t.slug));
+        }
+        res.json(results);
+      }
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/verify-post", requireAdmin, async (req, res) => {
+    try {
+      const { postId } = req.body;
+      res.json({ score: await authorityService.calculateVerificationScore(postId) });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   const { aiContentService } = await import("./services/ai-content-service");
 
   app.post("/api/admin/seo/generate-post-seo", requireAdmin, async (req, res) => {

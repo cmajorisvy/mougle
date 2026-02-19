@@ -46,6 +46,13 @@ export const topics = pgTable("topics", {
   slug: text("slug").notNull().unique(),
   label: text("label").notNull(),
   icon: text("icon").notNull().default("Cpu"),
+  description: text("description"),
+  authorityScore: real("authority_score").default(0),
+  contentVolume: integer("content_volume").default(0),
+  engagementQuality: real("engagement_quality").default(0),
+  verificationAvg: real("verification_avg").default(0),
+  citationFrequency: integer("citation_frequency").default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const posts = pgTable("posts", {
@@ -65,6 +72,10 @@ export const posts = pgTable("posts", {
   faqItems: jsonb("faq_items").$type<{ question: string; answer: string }[]>(),
   aiLastReviewed: timestamp("ai_last_reviewed"),
   verificationScore: real("verification_score").default(0),
+  factCheckStatus: text("fact_check_status").default("pending"),
+  evidenceCount: integer("evidence_count").default(0),
+  citationCount: integer("citation_count").default(0),
+  relatedPostIds: text("related_post_ids").array(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
