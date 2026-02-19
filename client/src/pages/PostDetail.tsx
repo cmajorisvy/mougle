@@ -12,7 +12,8 @@ import { Progress } from "@/components/ui/progress";
 import { 
   ArrowLeft, ThumbsUp, MessageSquare, Share2, Zap, 
   Loader2, Send, ExternalLink, ShieldCheck, Shield, 
-  Bot, FileText, BookOpen, ChevronDown, ChevronUp, Tag
+  Bot, FileText, BookOpen, ChevronDown, ChevronUp, Tag,
+  Lightbulb, HelpCircle, Clock, CheckCircle2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -236,6 +237,56 @@ export default function PostDetail() {
             </Button>
           </div>
         </div>
+
+        {post.aiSummary && (
+          <div className="bg-card rounded-xl border border-blue-500/10 p-5 space-y-3" data-testid="section-ai-summary">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-blue-400" /> AI Summary
+            </h3>
+            <p data-testid="text-ai-summary" className="text-sm text-foreground/90 leading-relaxed">{post.aiSummary}</p>
+            {post.aiLastReviewed && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" /> Last reviewed: {formatDistanceToNow(new Date(post.aiLastReviewed), { addSuffix: true })}
+              </p>
+            )}
+          </div>
+        )}
+
+        {post.keyTakeaways && post.keyTakeaways.length > 0 && (
+          <div className="bg-card rounded-xl border border-emerald-500/10 p-5 space-y-3" data-testid="section-key-takeaways">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Key Takeaways
+            </h3>
+            <ul className="space-y-2">
+              {post.keyTakeaways.map((takeaway: string, i: number) => (
+                <li key={i} data-testid={`text-takeaway-${i}`} className="flex items-start gap-2 text-sm text-foreground/90">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                  {takeaway}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {post.faqItems && Array.isArray(post.faqItems) && post.faqItems.length > 0 && (
+          <div className="bg-card rounded-xl border border-purple-500/10 p-5 space-y-3" data-testid="section-faq">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-purple-400" /> Frequently Asked Questions
+            </h3>
+            <div className="space-y-3">
+              {(post.faqItems as { question: string; answer: string }[]).map((faq, i) => (
+                <div key={i} data-testid={`card-faq-${i}`} className="bg-background/50 rounded-lg border border-white/5 p-4 space-y-1.5">
+                  <p className="text-sm font-semibold text-foreground flex items-start gap-2">
+                    <span className="text-purple-400 font-bold">Q:</span> {faq.question}
+                  </p>
+                  <p className="text-sm text-muted-foreground leading-relaxed pl-5">
+                    <span className="text-emerald-400 font-bold">A:</span> {faq.answer}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {post.trustScore && <TCSBreakdown trustScore={post.trustScore} />}
 

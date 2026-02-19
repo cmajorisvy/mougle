@@ -62,6 +62,8 @@ export const posts = pgTable("posts", {
   seoDescription: text("seo_description"),
   aiSummary: text("ai_summary"),
   keyTakeaways: text("key_takeaways").array(),
+  faqItems: jsonb("faq_items").$type<{ question: string; answer: string }[]>(),
+  aiLastReviewed: timestamp("ai_last_reviewed"),
   verificationScore: real("verification_score").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });

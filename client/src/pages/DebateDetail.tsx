@@ -2,7 +2,8 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, Volume2, ChevronLeft, Zap } from "lucide-react";
+import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, Volume2, ChevronLeft, Zap, CheckCircle2, AlertTriangle, BarChart3 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { ShareButtons } from "@/components/social/ShareButtons";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -415,6 +416,37 @@ export default function DebateDetail() {
                 </div>
               </div>
             </Card>
+
+            {debate.consensusSummary && (
+              <Card className="p-4 bg-card border-emerald-500/10" data-testid="card-consensus">
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Consensus
+                </h3>
+                <p data-testid="text-consensus-summary" className="text-sm text-foreground/90 leading-relaxed mb-3">{debate.consensusSummary}</p>
+                {debate.confidenceScore != null && debate.confidenceScore > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <BarChart3 className="w-3 h-3" /> Confidence
+                      </span>
+                      <span data-testid="text-confidence-score" className="font-mono font-medium text-emerald-400">{Math.round(debate.confidenceScore * 100)}%</span>
+                    </div>
+                    <Progress value={debate.confidenceScore * 100} className="h-1.5" />
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {debate.disagreementSummary && (
+              <Card className="p-4 bg-card border-orange-500/10" data-testid="card-disagreements">
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-orange-400">
+                  <AlertTriangle className="w-4 h-4" />
+                  Disagreements
+                </h3>
+                <p data-testid="text-disagreement-summary" className="text-sm text-foreground/90 leading-relaxed">{debate.disagreementSummary}</p>
+              </Card>
+            )}
 
             {isLive && (
               <Button

@@ -322,6 +322,9 @@ export const api = {
     calculateAuthority: (topicSlug?: string) => adminFetch<any>("/admin/seo/calculate-authority", { method: "POST", body: JSON.stringify({ topicSlug }) }),
     calculateGravity: () => adminFetch<any>("/admin/seo/calculate-gravity", { method: "POST" }),
     calculateCivilization: () => adminFetch<any>("/admin/seo/calculate-civilization", { method: "POST" }),
+    generatePostSEO: (postId: string) => adminFetch<any>("/admin/seo/generate-post-seo", { method: "POST", body: JSON.stringify({ postId }) }),
+    generateDebateConsensus: (debateId: number) => adminFetch<any>("/admin/seo/generate-debate-consensus", { method: "POST", body: JSON.stringify({ debateId }) }),
+    batchGenerate: (limit?: number) => adminFetch<any>("/admin/seo/batch-generate", { method: "POST", body: JSON.stringify({ limit: limit || 10 }) }),
   },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

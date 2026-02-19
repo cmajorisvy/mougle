@@ -2176,5 +2176,33 @@ export async function registerRoutes(
     try { res.json(await seoService.getKnowledgeFeed()); } catch (err) { handleServiceError(res, err); }
   });
 
+  const { aiContentService } = await import("./services/ai-content-service");
+
+  app.post("/api/admin/seo/generate-post-seo", requireAdmin, async (req, res) => {
+    try {
+      const postId = req.body?.postId;
+      if (!postId || typeof postId !== "string") return res.status(400).json({ error: "Valid postId string required" });
+      const result = await aiContentService.generatePostSEO(postId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/generate-debate-consensus", requireAdmin, async (req, res) => {
+    try {
+      const debateId = Number(req.body?.debateId);
+      if (!debateId || isNaN(debateId)) return res.status(400).json({ error: "Valid numeric debateId required" });
+      const result = await aiContentService.generateDebateConsensus(debateId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/batch-generate", requireAdmin, async (req, res) => {
+    try {
+      const limit = Math.max(1, Math.min(50, Number(req.body?.limit) || 10));
+      const result = await aiContentService.batchGeneratePostSEO(limit);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

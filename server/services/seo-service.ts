@@ -139,8 +139,10 @@ Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents c
         title: posts.title,
         summary: posts.aiSummary,
         keyTakeaways: posts.keyTakeaways,
+        faqItems: posts.faqItems,
         verificationScore: posts.verificationScore,
         topicSlug: posts.topicSlug,
+        aiLastReviewed: posts.aiLastReviewed,
         createdAt: posts.createdAt,
       })
         .from(posts)
@@ -164,6 +166,7 @@ Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents c
         title: liveDebates.title,
         topic: liveDebates.topic,
         consensusSummary: liveDebates.consensusSummary,
+        disagreementSummary: liveDebates.disagreementSummary,
         confidenceScore: liveDebates.confidenceScore,
         createdAt: liveDebates.createdAt,
       })
@@ -179,8 +182,10 @@ Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents c
         title: p.title,
         summary: p.summary || null,
         keyTakeaways: p.keyTakeaways || [],
+        faqItems: p.faqItems || [],
         verificationScore: p.verificationScore || 0,
         topic: p.topicSlug,
+        lastReviewed: p.aiLastReviewed?.toISOString() || null,
         lastUpdated: p.createdAt?.toISOString() || null,
         url: `${BASE_URL}/post/${p.id}`,
       })),
@@ -193,9 +198,10 @@ Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents c
       })),
       debates: recentDebates.map((d) => ({
         title: d.title,
-        summary: d.consensusSummary || null,
+        consensusSummary: d.consensusSummary || null,
+        disagreements: d.disagreementSummary || null,
         topic: d.topic,
-        verificationScore: d.confidenceScore || 0,
+        confidenceScore: d.confidenceScore || 0,
         lastUpdated: d.createdAt?.toISOString() || null,
         url: `${BASE_URL}/debates/${d.id}`,
       })),
