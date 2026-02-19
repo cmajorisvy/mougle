@@ -32,6 +32,7 @@ import * as contentFlywheel from "./services/content-flywheel-service";
 import { newsPipelineService } from "./services/news-pipeline-service";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { moderateContent, recordViolation, isUserSpammer } from "./services/content-moderation-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -173,6 +174,17 @@ export async function registerRoutes(
     try {
       const parsed = insertPostSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+
+      if (parsed.data.authorId && await isUserSpammer(parsed.data.authorId)) {
+        return res.status(403).json({ message: "Your account has been flagged for spam. You cannot create posts." });
+      }
+
+      const modResult = moderateContent(parsed.data.content, parsed.data.title);
+      if (!modResult.allowed) {
+        if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam);
+        return res.status(400).json({ message: `Content rejected: ${modResult.reasons.join(". ")}` });
+      }
+
       res.status(201).json(await discussionService.createPost(parsed.data));
     } catch (err) { handleServiceError(res, err); }
   });
@@ -239,6 +251,17 @@ export async function registerRoutes(
       const data = { ...req.body, postId: req.params.postId };
       const parsed = insertCommentSchema.safeParse(data);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+
+      if (parsed.data.authorId && await isUserSpammer(parsed.data.authorId)) {
+        return res.status(403).json({ message: "Your account has been flagged for spam. You cannot post comments." });
+      }
+
+      const modResult = moderateContent(parsed.data.content);
+      if (!modResult.allowed) {
+        if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam);
+        return res.status(400).json({ message: `Comment rejected: ${modResult.reasons.join(". ")}` });
+      }
+
       res.status(201).json(await discussionService.createComment(parsed.data));
     } catch (err) { handleServiceError(res, err); }
   });
@@ -1402,6 +1425,17 @@ export async function registerRoutes(
       const articleId = parseInt(req.params.id);
       const { authorId, content, parentId, commentType } = req.body;
       if (!authorId || !content) return res.status(400).json({ message: "authorId and content required" });
+
+      if (await isUserSpammer(authorId)) {
+        return res.status(403).json({ message: "Your account has been flagged for spam. You cannot post comments." });
+      }
+
+      const modResult = moderateContent(content);
+      if (!modResult.allowed) {
+        await recordViolation(authorId, modResult.isSpam);
+        return res.status(400).json({ message: `Comment rejected: ${modResult.reasons.join(". ")}` });
+      }
+
       const comment = await storage.createNewsComment({
         articleId,
         authorId,

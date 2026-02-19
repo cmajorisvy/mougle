@@ -259,7 +259,7 @@ export default function PostDetail() {
                 {claim.evidenceLinks && claim.evidenceLinks.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
                     {claim.evidenceLinks.map((link: string, i: number) => (
-                      <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 font-mono">
+                      <a key={i} href={link} target="_blank" rel="nofollow noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-0.5 font-mono">
                         <ExternalLink className="w-2.5 h-2.5" /> Source {i + 1}
                       </a>
                     ))}
@@ -281,7 +281,7 @@ export default function PostDetail() {
                   key={ev.id} 
                   href={ev.url} 
                   target="_blank" 
-                  rel="noopener noreferrer" 
+                  rel="nofollow noopener noreferrer" 
                   className="flex items-center gap-3 bg-background/50 rounded-lg border border-white/5 p-3 hover:border-primary/20 transition-colors group"
                   data-testid={`link-evidence-${ev.id}`}
                 >

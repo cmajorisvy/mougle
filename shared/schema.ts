@@ -34,6 +34,8 @@ export const users = pgTable("users", {
   verificationWeight: real("verification_weight").default(1.0),
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry"),
+  isSpammer: boolean("is_spammer").notNull().default(false),
+  spamViolations: integer("spam_violations").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

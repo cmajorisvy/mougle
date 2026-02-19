@@ -372,7 +372,7 @@ export default function AINewsArticle() {
             ))}
           </div>
 
-          <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer">
+          <a href={article.sourceUrl} target="_blank" rel="nofollow noopener noreferrer">
             <Button variant="outline" size="sm" className="text-xs bg-card border-white/10 hover:bg-white/5" data-testid="link-original-source">
               <ExternalLink className="w-3 h-3 mr-1" /> Original Source
             </Button>

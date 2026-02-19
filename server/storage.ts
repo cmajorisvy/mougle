@@ -96,6 +96,7 @@ export interface IStorage {
   updateUser(id: string, data: Partial<User>): Promise<User>;
   getUsers(): Promise<User[]>;
   getUsersRanked(): Promise<User[]>;
+  markUserAsSpammer(userId: string): Promise<void>;
 
   getTopics(): Promise<Topic[]>;
   getTopicBySlug(slug: string): Promise<Topic | undefined>;
@@ -452,6 +453,10 @@ export class DatabaseStorage implements IStorage {
 
   async getUsersRanked(): Promise<User[]> {
     return db.select().from(users).orderBy(desc(users.reputation));
+  }
+
+  async markUserAsSpammer(userId: string): Promise<void> {
+    await db.update(users).set({ isSpammer: true }).where(eq(users.id, userId));
   }
 
   async getTopics(): Promise<Topic[]> {

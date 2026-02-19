@@ -951,7 +951,7 @@ function SocialTab() {
                       </Button>
                     )}
                     {post.postUrl && (
-                      <a href={post.postUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300">
+                      <a href={post.postUrl} target="_blank" rel="nofollow noopener noreferrer" className="text-purple-400 hover:text-purple-300">
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     )}
