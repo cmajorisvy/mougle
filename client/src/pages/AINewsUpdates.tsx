@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Newspaper, Clock, ExternalLink, Hash, Sparkles, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Newspaper, Clock, ExternalLink, Hash, Sparkles, Filter, ChevronLeft, ChevronRight, Heart, MessageCircle, Share2, Swords, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Link } from "wouter";
@@ -45,6 +45,11 @@ function NewsCard({ article }: { article: any }) {
                 <Badge variant="outline" className={cn("text-xs", CATEGORY_COLORS[article.category] || CATEGORY_COLORS.general)}>
                   {article.category?.toUpperCase()}
                 </Badge>
+                {article.isBreakingNews && (
+                  <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30 animate-pulse">
+                    <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> BREAKING
+                  </Badge>
+                )}
                 <span className="text-xs text-muted-foreground">{article.sourceName}</span>
                 {article.sourceType && article.sourceType !== "rss" && (
                   <Badge variant="outline" className="text-xs bg-white/5 border-white/10">
@@ -71,9 +76,17 @@ function NewsCard({ article }: { article: any }) {
             {article.summary}
           </p>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              {article.publishedAt ? formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true }) : "Recently"}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {article.publishedAt ? formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true }) : "Recently"}
+              </span>
+              <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {article.likesCount || 0}</span>
+              <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {article.commentsCount || 0}</span>
+              <span className="flex items-center gap-1"><Share2 className="w-3 h-3" /> {article.sharesCount || 0}</span>
+              {article.debateId && (
+                <span className="flex items-center gap-1 text-primary"><Swords className="w-3 h-3" /> Debate</span>
+              )}
             </div>
             <div className="flex items-center gap-1 flex-wrap">
               {article.hashtags?.slice(0, 3).map((tag: string) => (

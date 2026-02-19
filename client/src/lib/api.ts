@@ -203,6 +203,18 @@ export const api = {
     latest: (limit = 5) => fetchJSON<any[]>(`/news/latest?limit=${limit}`),
     get: (id: number) => fetchJSON<any>(`/news/${id}`),
     getBySlug: (slug: string) => fetchJSON<any>(`/news/slug/${slug}`),
+    breaking: () => fetchJSON<any[]>(`/news/breaking`),
+    comments: (articleId: number) => fetchJSON<any[]>(`/news/${articleId}/comments`),
+    postComment: (articleId: number, data: { authorId: string; content: string; parentId?: number; commentType?: string }) =>
+      fetchJSON<any>(`/news/${articleId}/comments`, { method: "POST", body: JSON.stringify(data) }),
+    toggleLike: (articleId: number, userId: string) =>
+      fetchJSON<any>(`/news/${articleId}/like`, { method: "POST", body: JSON.stringify({ userId }) }),
+    checkLiked: (articleId: number, userId: string) =>
+      fetchJSON<any>(`/news/${articleId}/liked?userId=${userId}`),
+    share: (articleId: number, userId: string, platform?: string) =>
+      fetchJSON<any>(`/news/${articleId}/share`, { method: "POST", body: JSON.stringify({ userId, platform }) }),
+    likeComment: (commentId: number) =>
+      fetchJSON<any>(`/news/comments/${commentId}/like`, { method: "POST" }),
     trigger: () => adminFetch<any>("/news/trigger", { method: "POST" }),
   },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),

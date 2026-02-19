@@ -2,13 +2,17 @@ import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Clock, ExternalLink, Hash, Newspaper, FileText, Video, BookOpen } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Loader2, ArrowLeft, Clock, ExternalLink, Hash, Newspaper, FileText, Video, BookOpen, Heart, MessageCircle, Share2, Swords, ThumbsUp, Send, Reply, Bot, AlertTriangle, CheckCircle, Lightbulb } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { useRoute, Link } from "wouter";
+import { useRoute, Link, useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getCurrentUserId } from "@/lib/mockData";
 
 const CATEGORY_COLORS: Record<string, string> = {
   ai: "bg-purple-500/10 text-purple-400 border-purple-500/30",
@@ -19,15 +23,158 @@ const CATEGORY_COLORS: Record<string, string> = {
   general: "bg-white/5 text-muted-foreground border-white/10",
 };
 
+const COMMENT_TYPE_ICONS: Record<string, any> = {
+  verification: { icon: CheckCircle, label: "Verification Analysis", color: "text-green-400" },
+  expert: { icon: Lightbulb, label: "Expert Analysis", color: "text-blue-400" },
+  critic: { icon: AlertTriangle, label: "Critical Analysis", color: "text-amber-400" },
+  general: { icon: MessageCircle, label: "Comment", color: "text-muted-foreground" },
+};
+
+function CommentItem({ comment, articleId, depth = 0 }: { comment: any; articleId: number; depth?: number }) {
+  const [showReply, setShowReply] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const queryClient = useQueryClient();
+  const currentUserId = getCurrentUserId();
+  const typeInfo = COMMENT_TYPE_ICONS[comment.commentType] || COMMENT_TYPE_ICONS.general;
+  const TypeIcon = typeInfo.icon;
+
+  const replyMutation = useMutation({
+    mutationFn: (data: { authorId: string; content: string; parentId: number }) =>
+      api.news.postComment(articleId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/news/${articleId}/comments`] });
+      setReplyContent("");
+      setShowReply(false);
+    },
+  });
+
+  const likeMutation = useMutation({
+    mutationFn: () => api.news.likeComment(comment.id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [`/api/news/${articleId}/comments`] }),
+  });
+
+  return (
+    <div className={cn("group", depth > 0 && "ml-6 border-l border-white/5 pl-4")} data-testid={`comment-${comment.id}`}>
+      <div className="flex items-start gap-3 py-3">
+        <Avatar className="w-8 h-8 flex-shrink-0">
+          <AvatarImage src={comment.author?.avatar} />
+          <AvatarFallback className="text-xs">{comment.author?.displayName?.[0] || "?"}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-medium">{comment.author?.displayName || "Unknown"}</span>
+            {comment.author?.role === "agent" && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-purple-500/10 text-purple-400 border-purple-500/30">
+                <Bot className="w-2.5 h-2.5 mr-0.5" /> AI
+              </Badge>
+            )}
+            {comment.commentType !== "general" && (
+              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", typeInfo.color)}>
+                <TypeIcon className="w-2.5 h-2.5 mr-0.5" /> {typeInfo.label}
+              </Badge>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+            </span>
+          </div>
+          <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+          <div className="flex items-center gap-3 mt-2">
+            <button
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => likeMutation.mutate()}
+              data-testid={`like-comment-${comment.id}`}
+            >
+              <ThumbsUp className="w-3 h-3" /> {comment.likes || 0}
+            </button>
+            {currentUserId && depth === 0 && (
+              <button
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setShowReply(!showReply)}
+                data-testid={`reply-comment-${comment.id}`}
+              >
+                <Reply className="w-3 h-3" /> Reply
+              </button>
+            )}
+          </div>
+          {showReply && currentUserId && (
+            <div className="flex gap-2 mt-2">
+              <Textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder="Write a reply..."
+                className="min-h-[60px] text-sm bg-background/50 border-white/10 resize-none"
+                data-testid={`reply-input-${comment.id}`}
+              />
+              <Button
+                size="sm"
+                className="self-end"
+                disabled={!replyContent.trim() || replyMutation.isPending}
+                onClick={() => replyMutation.mutate({ authorId: currentUserId, content: replyContent, parentId: comment.id })}
+                data-testid={`reply-submit-${comment.id}`}
+              >
+                <Send className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+      {comment.replies?.map((reply: any) => (
+        <CommentItem key={reply.id} comment={reply} articleId={articleId} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
+
 export default function AINewsArticle() {
   const [, params] = useRoute("/ai-news-updates/:idOrSlug");
   const idOrSlug = params?.idOrSlug || "";
   const isNumericId = /^\d+$/.test(idOrSlug);
+  const [commentContent, setCommentContent] = useState("");
+  const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
+  const currentUserId = getCurrentUserId();
 
   const { data: article, isLoading } = useQuery({
     queryKey: ["/api/news", idOrSlug],
     queryFn: () => isNumericId ? api.news.get(parseInt(idOrSlug)) : api.news.getBySlug(idOrSlug),
     enabled: !!idOrSlug,
+  });
+
+  const articleId = article?.id;
+
+  const { data: comments = [] } = useQuery({
+    queryKey: [`/api/news/${articleId}/comments`],
+    queryFn: () => api.news.comments(articleId!),
+    enabled: !!articleId,
+  });
+
+  const { data: likedData } = useQuery({
+    queryKey: [`/api/news/${articleId}/liked`, currentUserId],
+    queryFn: () => api.news.checkLiked(articleId!, currentUserId!),
+    enabled: !!articleId && !!currentUserId,
+  });
+
+  const likeMutation = useMutation({
+    mutationFn: () => api.news.toggleLike(articleId!, currentUserId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/news", idOrSlug] });
+      queryClient.invalidateQueries({ queryKey: [`/api/news/${articleId}/liked`, currentUserId] });
+    },
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: () => api.news.share(articleId!, currentUserId!, "internal"),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/news", idOrSlug] }),
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: (data: { authorId: string; content: string }) =>
+      api.news.postComment(articleId!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/news/${articleId}/comments`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/news", idOrSlug] });
+      setCommentContent("");
+    },
   });
 
   if (isLoading) {
@@ -56,6 +203,8 @@ export default function AINewsArticle() {
     );
   }
 
+  const isLiked = likedData?.liked || false;
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -70,11 +219,21 @@ export default function AINewsArticle() {
             <Badge variant="outline" className={cn("text-xs", CATEGORY_COLORS[article.category] || CATEGORY_COLORS.general)}>
               {article.category?.toUpperCase()}
             </Badge>
+            {article.isBreakingNews && (
+              <Badge className="text-xs bg-red-500/20 text-red-400 border-red-500/30 animate-pulse">
+                BREAKING
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground">{article.sourceName}</span>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {article.publishedAt ? formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true }) : "Recently"}
             </span>
+            {article.impactScore && (
+              <Badge variant="outline" className="text-[10px] bg-white/5 border-white/10">
+                Impact: {article.impactScore}/100
+              </Badge>
+            )}
           </div>
 
           <h1 className="text-2xl md:text-3xl font-display font-bold mb-4" data-testid="text-article-title">
@@ -98,6 +257,56 @@ export default function AINewsArticle() {
                 </p>
               </CardContent>
             </Card>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 py-3 border-y border-white/5" data-testid="social-actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn("gap-1.5 text-sm", isLiked ? "text-red-400 hover:text-red-300" : "text-muted-foreground hover:text-foreground")}
+            onClick={() => currentUserId && likeMutation.mutate()}
+            disabled={!currentUserId || likeMutation.isPending}
+            data-testid="button-like"
+          >
+            <Heart className={cn("w-4 h-4", isLiked && "fill-red-400")} />
+            {article.likesCount || 0}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              const el = document.getElementById("comments-section");
+              el?.scrollIntoView({ behavior: "smooth" });
+            }}
+            data-testid="button-comment-scroll"
+          >
+            <MessageCircle className="w-4 h-4" />
+            {article.commentsCount || 0}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            onClick={() => currentUserId && shareMutation.mutate()}
+            disabled={!currentUserId || shareMutation.isPending}
+            data-testid="button-share"
+          >
+            <Share2 className="w-4 h-4" />
+            {article.sharesCount || 0}
+          </Button>
+          {article.debateId && (
+            <Link href={`/debate/${article.debateId}`}>
+              <Button
+                size="sm"
+                className="gap-1.5 text-sm bg-primary/20 text-primary hover:bg-primary/30 ml-auto"
+                data-testid="button-join-debate"
+              >
+                <Swords className="w-4 h-4" />
+                Join Debate
+              </Button>
+            </Link>
           )}
         </div>
 
@@ -172,6 +381,46 @@ export default function AINewsArticle() {
               <ExternalLink className="w-3 h-3 mr-1" /> Original Source
             </Button>
           </a>
+        </div>
+
+        <div id="comments-section" className="space-y-4 pt-4 border-t border-white/5" data-testid="comments-section">
+          <h2 className="text-lg font-display font-semibold flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-primary" />
+            Discussion ({comments.length})
+          </h2>
+
+          {currentUserId && (
+            <div className="flex gap-3" data-testid="comment-form">
+              <Textarea
+                value={commentContent}
+                onChange={(e) => setCommentContent(e.target.value)}
+                placeholder="Share your thoughts on this article..."
+                className="min-h-[80px] bg-card/50 border-white/10 resize-none"
+                data-testid="input-comment"
+              />
+              <Button
+                className="self-end"
+                disabled={!commentContent.trim() || commentMutation.isPending}
+                onClick={() => commentMutation.mutate({ authorId: currentUserId, content: commentContent })}
+                data-testid="button-submit-comment"
+              >
+                {commentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </Button>
+            </div>
+          )}
+
+          {comments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No comments yet. Be the first to discuss!</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {comments.map((comment: any) => (
+                <CommentItem key={comment.id} comment={comment} articleId={articleId!} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </Layout>

@@ -237,14 +237,30 @@ export const newsPipelineService = {
 
     const unprocessed = await storage.getUnprocessedNews(10);
     let processed = 0;
+    const processedIds: number[] = [];
 
     for (const article of unprocessed) {
       const success = await processArticle(article.id);
-      if (success) processed++;
+      if (success) {
+        processed++;
+        processedIds.push(article.id);
+      }
       await new Promise(r => setTimeout(r, 500));
     }
 
     console.log(`[NewsPipeline] Processed ${processed}/${unprocessed.length} articles`);
+
+    if (processedIds.length > 0) {
+      try {
+        const { breakingNewsAgent } = await import("./breaking-news-agent");
+        for (const id of processedIds) {
+          await breakingNewsAgent.evaluateAndProcess(id);
+        }
+      } catch (err) {
+        console.log("[NewsPipeline] Breaking news evaluation error:", (err as Error).message);
+      }
+    }
+
     return { collected, processed };
   },
 

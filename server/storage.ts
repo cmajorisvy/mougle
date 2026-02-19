@@ -42,6 +42,9 @@ import {
   type FlywheelJob, type InsertFlywheelJob,
   type GeneratedClip, type InsertGeneratedClip,
   type NewsArticle, type InsertNewsArticle,
+  type NewsComment, type InsertNewsComment,
+  type NewsReaction, type InsertNewsReaction,
+  type NewsShare, type InsertNewsShare,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -54,7 +57,7 @@ import {
   globalMetrics, globalGoalField, globalInsights,
   liveDebates, debateParticipants, debateTurns,
   flywheelJobs, generatedClips,
-  newsArticles,
+  newsArticles, newsComments, newsReactions, newsShares,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -270,6 +273,19 @@ export interface IStorage {
   countNewsArticles(category?: string): Promise<number>;
   updateNewsArticle(id: number, data: Partial<NewsArticle>): Promise<NewsArticle>;
   getUnprocessedNews(limit: number): Promise<NewsArticle[]>;
+  getBreakingNews(): Promise<NewsArticle[]>;
+
+  createNewsComment(comment: InsertNewsComment): Promise<NewsComment>;
+  getNewsComments(articleId: number): Promise<NewsComment[]>;
+  getNewsCommentReplies(parentId: number): Promise<NewsComment[]>;
+  likeNewsComment(commentId: number): Promise<void>;
+
+  toggleNewsReaction(articleId: number, userId: string, reactionType: string): Promise<boolean>;
+  getNewsReaction(articleId: number, userId: string): Promise<NewsReaction | undefined>;
+  getNewsReactionCount(articleId: number): Promise<number>;
+
+  createNewsShare(share: InsertNewsShare): Promise<NewsShare>;
+  getNewsShareCount(articleId: number): Promise<number>;
 }
 
 function computeRank(reputation: number): string {
@@ -1196,6 +1212,81 @@ export class DatabaseStorage implements IStorage {
       .where(eq(newsArticles.status, "raw"))
       .orderBy(asc(newsArticles.createdAt))
       .limit(limit);
+  }
+
+  async getBreakingNews(): Promise<NewsArticle[]> {
+    return db.select().from(newsArticles)
+      .where(and(eq(newsArticles.isBreakingNews, true), eq(newsArticles.status, "processed")))
+      .orderBy(desc(newsArticles.publishedAt))
+      .limit(10);
+  }
+
+  async createNewsComment(comment: InsertNewsComment): Promise<NewsComment> {
+    const [created] = await db.insert(newsComments).values(comment).returning();
+    await db.update(newsArticles)
+      .set({ commentsCount: sql`comments_count + 1` })
+      .where(eq(newsArticles.id, comment.articleId));
+    return created;
+  }
+
+  async getNewsComments(articleId: number): Promise<NewsComment[]> {
+    return db.select().from(newsComments)
+      .where(and(eq(newsComments.articleId, articleId), sql`${newsComments.parentId} IS NULL`))
+      .orderBy(desc(newsComments.createdAt));
+  }
+
+  async getNewsCommentReplies(parentId: number): Promise<NewsComment[]> {
+    return db.select().from(newsComments)
+      .where(eq(newsComments.parentId, parentId))
+      .orderBy(asc(newsComments.createdAt));
+  }
+
+  async likeNewsComment(commentId: number): Promise<void> {
+    await db.update(newsComments)
+      .set({ likes: sql`likes + 1` })
+      .where(eq(newsComments.id, commentId));
+  }
+
+  async toggleNewsReaction(articleId: number, userId: string, reactionType: string): Promise<boolean> {
+    const existing = await this.getNewsReaction(articleId, userId);
+    if (existing) {
+      await db.delete(newsReactions).where(eq(newsReactions.id, existing.id));
+      await db.update(newsArticles)
+        .set({ likesCount: sql`GREATEST(likes_count - 1, 0)` })
+        .where(eq(newsArticles.id, articleId));
+      return false;
+    }
+    await db.insert(newsReactions).values({ articleId, userId, reactionType });
+    await db.update(newsArticles)
+      .set({ likesCount: sql`likes_count + 1` })
+      .where(eq(newsArticles.id, articleId));
+    return true;
+  }
+
+  async getNewsReaction(articleId: number, userId: string): Promise<NewsReaction | undefined> {
+    const [reaction] = await db.select().from(newsReactions)
+      .where(and(eq(newsReactions.articleId, articleId), eq(newsReactions.userId, userId)));
+    return reaction;
+  }
+
+  async getNewsReactionCount(articleId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(newsReactions)
+      .where(eq(newsReactions.articleId, articleId));
+    return Number(result[0]?.count || 0);
+  }
+
+  async createNewsShare(share: InsertNewsShare): Promise<NewsShare> {
+    const [created] = await db.insert(newsShares).values(share).returning();
+    await db.update(newsArticles)
+      .set({ sharesCount: sql`shares_count + 1` })
+      .where(eq(newsArticles.id, share.articleId));
+    return created;
+  }
+
+  async getNewsShareCount(articleId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(newsShares)
+      .where(eq(newsShares.articleId, articleId));
+    return Number(result[0]?.count || 0);
   }
 }
 

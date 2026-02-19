@@ -711,13 +711,58 @@ export const newsArticles = pgTable("news_articles", {
   category: text("category").notNull().default("general"),
   imageUrl: text("image_url"),
   status: text("status").notNull().default("raw"),
+  isBreakingNews: boolean("is_breaking_news").notNull().default(false),
+  impactScore: integer("impact_score"),
+  debateId: integer("debate_id"),
+  likesCount: integer("likes_count").notNull().default(0),
+  commentsCount: integer("comments_count").notNull().default(0),
+  sharesCount: integer("shares_count").notNull().default(0),
   publishedAt: timestamp("published_at"),
   processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const newsComments = pgTable("news_comments", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  articleId: integer("article_id").notNull(),
+  authorId: varchar("author_id").notNull(),
+  parentId: integer("parent_id"),
+  content: text("content").notNull(),
+  commentType: text("comment_type").notNull().default("general"),
+  likes: integer("likes").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const newsReactions = pgTable("news_reactions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  articleId: integer("article_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  reactionType: text("reaction_type").notNull().default("like"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const newsShares = pgTable("news_shares", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  articleId: integer("article_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  platform: text("platform").notNull().default("internal"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
 export const insertNewsArticleSchema = createInsertSchema(newsArticles).omit({ id: true, createdAt: true });
 export type InsertNewsArticle = z.infer<typeof insertNewsArticleSchema>;
 export type NewsArticle = typeof newsArticles.$inferSelect;
+
+export const insertNewsCommentSchema = createInsertSchema(newsComments).omit({ id: true, likes: true, createdAt: true });
+export type InsertNewsComment = z.infer<typeof insertNewsCommentSchema>;
+export type NewsComment = typeof newsComments.$inferSelect;
+
+export const insertNewsReactionSchema = createInsertSchema(newsReactions).omit({ id: true, createdAt: true });
+export type InsertNewsReaction = z.infer<typeof insertNewsReactionSchema>;
+export type NewsReaction = typeof newsReactions.$inferSelect;
+
+export const insertNewsShareSchema = createInsertSchema(newsShares).omit({ id: true, createdAt: true });
+export type InsertNewsShare = z.infer<typeof insertNewsShareSchema>;
+export type NewsShare = typeof newsShares.$inferSelect;
 
 export * from "./models/chat";

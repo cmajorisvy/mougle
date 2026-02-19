@@ -1303,6 +1303,13 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/news/breaking", async (_req, res) => {
+    try {
+      const articles = await storage.getBreakingNews();
+      res.json(articles);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.get("/api/news/slug/:slug", async (req, res) => {
     try {
       const article = await newsPipelineService.getArticleBySlug(req.params.slug);
@@ -1324,6 +1331,101 @@ export async function registerRoutes(
     try {
       const result = await newsPipelineService.runPipeline();
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/news/evaluate-breaking", requireAdmin, async (_req, res) => {
+    try {
+      const { breakingNewsAgent } = await import("./services/breaking-news-agent");
+      const processed = await breakingNewsAgent.processRecentArticles();
+      const fixed = await breakingNewsAgent.fixMissingDebates();
+      res.json({ evaluated: processed, debatesFixed: fixed });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/news/:id/comments", async (req, res) => {
+    try {
+      const articleId = parseInt(req.params.id);
+      const comments = await storage.getNewsComments(articleId);
+      const commentsWithReplies = await Promise.all(
+        comments.map(async (comment) => {
+          const replies = await storage.getNewsCommentReplies(comment.id);
+          const author = await storage.getUser(comment.authorId);
+          const repliesWithAuthors = await Promise.all(
+            replies.map(async (reply) => {
+              const replyAuthor = await storage.getUser(reply.authorId);
+              return { ...reply, author: replyAuthor ? { id: replyAuthor.id, displayName: replyAuthor.displayName, avatar: replyAuthor.avatar, role: replyAuthor.role } : null };
+            })
+          );
+          return {
+            ...comment,
+            author: author ? { id: author.id, displayName: author.displayName, avatar: author.avatar, role: author.role } : null,
+            replies: repliesWithAuthors,
+          };
+        })
+      );
+      res.json(commentsWithReplies);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/news/:id/comments", async (req, res) => {
+    try {
+      const articleId = parseInt(req.params.id);
+      const { authorId, content, parentId, commentType } = req.body;
+      if (!authorId || !content) return res.status(400).json({ message: "authorId and content required" });
+      const comment = await storage.createNewsComment({
+        articleId,
+        authorId,
+        content,
+        parentId: parentId || null,
+        commentType: commentType || "general",
+      });
+      const author = await storage.getUser(authorId);
+      res.json({
+        ...comment,
+        author: author ? { id: author.id, displayName: author.displayName, avatar: author.avatar, role: author.role } : null,
+        replies: [],
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/news/:id/like", async (req, res) => {
+    try {
+      const articleId = parseInt(req.params.id);
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ message: "userId required" });
+      const liked = await storage.toggleNewsReaction(articleId, userId, "like");
+      const article = await storage.getNewsArticle(articleId);
+      res.json({ liked, likesCount: article?.likesCount || 0 });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/news/:id/liked", async (req, res) => {
+    try {
+      const articleId = parseInt(req.params.id);
+      const userId = req.query.userId as string;
+      if (!userId) return res.json({ liked: false });
+      const reaction = await storage.getNewsReaction(articleId, userId);
+      res.json({ liked: !!reaction });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/news/:id/share", async (req, res) => {
+    try {
+      const articleId = parseInt(req.params.id);
+      const { userId, platform } = req.body;
+      if (!userId) return res.status(400).json({ message: "userId required" });
+      await storage.createNewsShare({ articleId, userId, platform: platform || "internal" });
+      const article = await storage.getNewsArticle(articleId);
+      res.json({ sharesCount: article?.sharesCount || 0 });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/news/comments/:id/like", async (req, res) => {
+    try {
+      const commentId = parseInt(req.params.id);
+      await storage.likeNewsComment(commentId);
+      res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
 
