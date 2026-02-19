@@ -501,6 +501,8 @@ export const promotionSelectorAgent = {
     console.log(`[PromotionEngine] Worker started (every ${intervalMinutes} min)`);
     setTimeout(async () => {
       try {
+        const { founderControlService } = await import("./founder-control-service");
+        if (await founderControlService.isEmergencyStopped()) return;
         const evaluated = await this.evaluateRecentContent();
         const results = await this.processPromotions();
         if (evaluated > 0 || results.promoted > 0) {
@@ -513,6 +515,12 @@ export const promotionSelectorAgent = {
 
     setInterval(async () => {
       try {
+        const { founderControlService } = await import("./founder-control-service");
+        if (await founderControlService.isEmergencyStopped()) {
+          console.log("[PromotionEngine] Skipping — emergency stop active");
+          return;
+        }
+        if (!(await founderControlService.shouldRunAutomation())) return;
         const evaluated = await this.evaluateRecentContent();
         const results = await this.processPromotions();
         if (evaluated > 0 || results.promoted > 0) {

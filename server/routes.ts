@@ -1632,5 +1632,64 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ---- FOUNDER CONTROL LAYER ----
+  app.get("/api/admin/founder-control/configs", requireAdmin, async (_req, res) => {
+    try {
+      const { founderControlService } = await import("./services/founder-control-service");
+      const configs = await founderControlService.getAllConfigs();
+      res.json(configs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/founder-control/status", requireAdmin, async (_req, res) => {
+    try {
+      const { founderControlService } = await import("./services/founder-control-service");
+      const config = await founderControlService.getConfig();
+      const stopped = await founderControlService.isEmergencyStopped();
+      res.json({ config, emergencyStopped: stopped });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/founder-control/config/:key", requireAdmin, async (req, res) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+      if (value === undefined || typeof value !== "number") {
+        return res.status(400).json({ message: "numeric value required" });
+      }
+      const { founderControlService } = await import("./services/founder-control-service");
+      const updated = await founderControlService.updateValue(key as string, value);
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/founder-control/bulk-update", requireAdmin, async (req, res) => {
+    try {
+      const { updates } = req.body;
+      if (!Array.isArray(updates)) {
+        return res.status(400).json({ message: "updates array required" });
+      }
+      const { founderControlService } = await import("./services/founder-control-service");
+      const results = await founderControlService.bulkUpdate(updates);
+      res.json(results);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/founder-control/emergency-stop", requireAdmin, async (_req, res) => {
+    try {
+      const { founderControlService } = await import("./services/founder-control-service");
+      await founderControlService.triggerEmergencyStop();
+      res.json({ message: "Emergency stop activated. All automated systems paused." });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/founder-control/emergency-release", requireAdmin, async (_req, res) => {
+    try {
+      const { founderControlService } = await import("./services/founder-control-service");
+      await founderControlService.releaseEmergencyStop();
+      res.json({ message: "Emergency stop released. Systems resuming normal operation." });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

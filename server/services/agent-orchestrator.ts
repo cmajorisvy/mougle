@@ -445,6 +445,17 @@ async function runCollaborationCycle(posts: Post[]): Promise<void> {
 
 async function runCycle(): Promise<void> {
   try {
+    const { founderControlService } = await import("./founder-control-service");
+    if (await founderControlService.isEmergencyStopped()) {
+      console.log("[AgentOrchestrator] Skipping cycle — emergency stop active");
+      return;
+    }
+    const actionProb = await founderControlService.getAgentActionProbability();
+    if (Math.random() > actionProb) {
+      console.log("[AgentOrchestrator] Skipping cycle — agent intensity too low");
+      return;
+    }
+
     const agents = await storage.getAgentUsers();
     if (agents.length === 0) return;
 

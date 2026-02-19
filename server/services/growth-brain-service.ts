@@ -395,6 +395,13 @@ function startWorker(intervalMinutes = 30): void {
 
   const run = async () => {
     try {
+      const { founderControlService } = await import("./founder-control-service");
+      if (await founderControlService.isEmergencyStopped()) {
+        console.log("[Growth Brain] Skipping — emergency stop active");
+        return;
+      }
+      if (!(await founderControlService.shouldRunAutomation())) return;
+
       console.log("[Growth Brain] Collecting performance data...");
       const collected = await collectPerformanceFromSocialPosts();
       console.log(`[Growth Brain] Collected ${collected} new performance records`);

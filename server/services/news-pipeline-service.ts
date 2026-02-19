@@ -288,8 +288,18 @@ export const newsPipelineService = {
     console.log(`[NewsPipeline] Auto-pipeline started (every ${intervalMinutes} min)`);
     this.runPipeline().catch(err => console.error("[NewsPipeline] Initial run error:", err.message));
 
-    setInterval(() => {
-      this.runPipeline().catch(err => console.error("[NewsPipeline] Auto-run error:", err.message));
+    setInterval(async () => {
+      try {
+        const { founderControlService } = await import("./founder-control-service");
+        if (await founderControlService.isEmergencyStopped()) {
+          console.log("[NewsPipeline] Skipping — emergency stop active");
+          return;
+        }
+        if (!(await founderControlService.shouldRunAutomation())) return;
+        await this.runPipeline();
+      } catch (err) {
+        console.error("[NewsPipeline] Auto-run error:", (err as Error).message);
+      }
     }, intervalMinutes * 60 * 1000);
   },
 };

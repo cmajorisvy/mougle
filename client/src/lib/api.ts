@@ -220,6 +220,16 @@ export const api = {
       optimize: (platform: string) =>
         adminFetch<any>("/admin/growth/optimize", { method: "POST", body: JSON.stringify({ platform }) }),
     },
+    founderControl: {
+      configs: () => adminFetch<any[]>("/admin/founder-control/configs"),
+      status: () => adminFetch<any>("/admin/founder-control/status"),
+      updateConfig: (key: string, value: number) =>
+        adminFetch<any>(`/admin/founder-control/config/${key}`, { method: "PATCH", body: JSON.stringify({ value }) }),
+      bulkUpdate: (updates: Array<{ key: string; value: number }>) =>
+        adminFetch<any>("/admin/founder-control/bulk-update", { method: "POST", body: JSON.stringify({ updates }) }),
+      emergencyStop: () => adminFetch<any>("/admin/founder-control/emergency-stop", { method: "POST" }),
+      emergencyRelease: () => adminFetch<any>("/admin/founder-control/emergency-release", { method: "POST" }),
+    },
   },
   news: {
     list: (page = 1, limit = 20, category?: string) => fetchJSON<any>(`/news?page=${page}&limit=${limit}${category ? `&category=${category}` : ""}`),

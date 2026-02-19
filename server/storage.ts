@@ -50,6 +50,7 @@ import {
   type PromotionScore, type InsertPromotionScore,
   type SocialPerformance, type InsertSocialPerformance,
   type GrowthPattern, type InsertGrowthPattern,
+  type SystemControlConfig, type InsertSystemControlConfig,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -65,6 +66,7 @@ import {
   newsArticles, newsComments, newsReactions, newsShares,
   socialAccounts, socialPosts, promotionScores,
   socialPerformance, growthPatterns,
+  systemControlConfig,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -326,6 +328,11 @@ export interface IStorage {
   getActiveGrowthPatterns(platform?: string): Promise<GrowthPattern[]>;
   getGrowthPattern(id: number): Promise<GrowthPattern | undefined>;
   updateGrowthPattern(id: number, data: Partial<GrowthPattern>): Promise<GrowthPattern>;
+
+  getSystemControlConfigs(): Promise<SystemControlConfig[]>;
+  getSystemControlConfig(key: string): Promise<SystemControlConfig | undefined>;
+  upsertSystemControlConfig(data: InsertSystemControlConfig): Promise<SystemControlConfig>;
+  updateSystemControlValue(key: string, value: number): Promise<SystemControlConfig>;
 }
 
 function computeRank(reputation: number): string {
@@ -1491,6 +1498,36 @@ export class DatabaseStorage implements IStorage {
 
   async updateGrowthPattern(id: number, data: Partial<GrowthPattern>): Promise<GrowthPattern> {
     const [updated] = await db.update(growthPatterns).set(data).where(eq(growthPatterns.id, id)).returning();
+    return updated;
+  }
+
+  async getSystemControlConfigs(): Promise<SystemControlConfig[]> {
+    return db.select().from(systemControlConfig).orderBy(asc(systemControlConfig.category), asc(systemControlConfig.key));
+  }
+
+  async getSystemControlConfig(key: string): Promise<SystemControlConfig | undefined> {
+    const [config] = await db.select().from(systemControlConfig).where(eq(systemControlConfig.key, key));
+    return config;
+  }
+
+  async upsertSystemControlConfig(data: InsertSystemControlConfig): Promise<SystemControlConfig> {
+    const existing = await this.getSystemControlConfig(data.key);
+    if (existing) {
+      const [updated] = await db.update(systemControlConfig)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(systemControlConfig.key, data.key))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(systemControlConfig).values(data).returning();
+    return created;
+  }
+
+  async updateSystemControlValue(key: string, value: number): Promise<SystemControlConfig> {
+    const [updated] = await db.update(systemControlConfig)
+      .set({ value, updatedAt: new Date() })
+      .where(eq(systemControlConfig.key, key))
+      .returning();
     return updated;
   }
 }

@@ -880,4 +880,22 @@ export const insertGrowthPatternSchema = createInsertSchema(growthPatterns).omit
 export type InsertGrowthPattern = z.infer<typeof insertGrowthPatternSchema>;
 export type GrowthPattern = typeof growthPatterns.$inferSelect;
 
+export const systemControlConfig = pgTable("system_control_config", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  key: text("key").notNull().unique(),
+  value: real("value").notNull().default(0.5),
+  label: text("label").notNull(),
+  description: text("description"),
+  minValue: real("min_value").notNull().default(0),
+  maxValue: real("max_value").notNull().default(1),
+  step: real("step").notNull().default(0.1),
+  category: text("category").notNull().default("general"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertSystemControlConfigSchema = createInsertSchema(systemControlConfig).omit({ id: true, createdAt: true });
+export type InsertSystemControlConfig = z.infer<typeof insertSystemControlConfigSchema>;
+export type SystemControlConfig = typeof systemControlConfig.$inferSelect;
+
 export * from "./models/chat";

@@ -112,6 +112,8 @@ app.use((req, res, next) => {
       promotionSelectorAgent.startWorker(10);
       const { growthBrainService } = await import("./services/growth-brain-service");
       growthBrainService.startWorker(30);
+      const { founderControlService } = await import("./services/founder-control-service");
+      await founderControlService.initialize();
     },
   );
 })();

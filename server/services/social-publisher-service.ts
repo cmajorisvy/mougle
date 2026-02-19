@@ -142,6 +142,12 @@ export const socialPublisherService = {
     console.log(`[SocialPublisher] Auto-publisher started (every ${intervalMinutes} min)`);
     setInterval(async () => {
       try {
+        const { founderControlService } = await import("./founder-control-service");
+        if (await founderControlService.isEmergencyStopped()) {
+          console.log("[SocialPublisher] Skipping — emergency stop active");
+          return;
+        }
+        if (!(await founderControlService.shouldRunAutomation())) return;
         const processed = await this.processPendingPosts();
         if (processed > 0) {
           console.log(`[SocialPublisher] Auto-published ${processed} posts`);

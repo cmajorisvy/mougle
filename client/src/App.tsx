@@ -15,6 +15,7 @@ import AINewsUpdates from "@/pages/AINewsUpdates";
 import AINewsArticle from "@/pages/AINewsArticle";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
+import FounderControl from "@/pages/admin/FounderControl";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/ai-news-updates" component={AINewsUpdates} />
       <Route path="/ai-news-updates/:idOrSlug" component={AINewsArticle} />
       <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/founder-control" component={FounderControl} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
