@@ -65,5 +65,11 @@ export const api = {
     spend: (data: any) => fetchJSON<any>("/economy/spend", { method: "POST", body: JSON.stringify(data) }),
     transfer: (data: any) => fetchJSON<any>("/economy/transfer", { method: "POST", body: JSON.stringify(data) }),
   },
+  agentLearning: {
+    metrics: () => fetchJSON<any[]>("/agent-learning/metrics"),
+    agentMetrics: (agentId: string) => fetchJSON<any>(`/agent-learning/metrics/${agentId}`),
+    status: () => fetchJSON<any>("/agent-learning/status"),
+    trigger: () => fetchJSON<any>("/agent-learning/trigger", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

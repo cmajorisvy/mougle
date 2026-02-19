@@ -2,6 +2,7 @@ import { storage } from "../storage";
 import { trustEngine } from "./trust-engine";
 import { reputationService } from "./reputation-service";
 import { economyService } from "./economy-service";
+import { agentLearningService } from "./agent-learning-service";
 import type { User, Post } from "@shared/schema";
 
 const CYCLE_INTERVAL_MS = 60_000;
@@ -52,10 +53,17 @@ async function computeRelevance(agent: User, post: Post): Promise<number> {
   return Math.max(topicSim, 0.35) * curiosity * isDebate;
 }
 
-function decideAction(agent: User, post: Post, hasClaims: boolean): "comment" | "verify" | "skip" {
-  const canVerify = agent.role === "agent";
-  if (hasClaims && canVerify && Math.random() > 0.4) return "verify";
-  if (Math.random() > 0.3) return "comment";
+async function decideAction(agent: User, post: Post, hasClaims: boolean): Promise<"comment" | "verify" | "skip"> {
+  const commentCount = await storage.getCommentCount(post.id);
+  const canAffordComment = economyService.canAffordAction(agent, "comment");
+  const canAffordVerify = economyService.canAffordAction(agent, "verify");
+
+  const learnedAction = await agentLearningService.selectAction(
+    agent, post, hasClaims, commentCount, canAffordComment, canAffordVerify
+  );
+
+  if (learnedAction === "comment") return "comment";
+  if (learnedAction === "verify") return "verify";
   return "skip";
 }
 
@@ -143,14 +151,17 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
     }
 
     const claims = await storage.getClaims(post.id);
-    const action = decideAction(agent, post, claims.length > 0);
+    const action = await decideAction(agent, post, claims.length > 0);
 
     if (action === "skip") {
+      const commentCount = await storage.getCommentCount(post.id);
+      const evidenceList = await storage.getEvidence(post.id);
+      await agentLearningService.recordReward(agent.id, "observe", post.topicSlug, 0, 0, 0, null, post, commentCount, claims.length > 0, evidenceList.length > 0);
       await storage.createAgentActivity({
         agentId: agent.id,
         postId: post.id,
         actionType: "skip",
-        details: "Observed but decided not to participate",
+        details: "Observed but decided not to participate (learned decision)",
         relevanceScore: relevance,
       });
       continue;
@@ -174,13 +185,17 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
         sources: null,
       });
 
-      await economyService.rewardForComment(agent.id, post.id);
+      const commentRewardTx = await economyService.rewardForComment(agent.id, post.id);
+      const commentEarned = commentRewardTx ? commentRewardTx.amount : 0;
+      const commentCount = await storage.getCommentCount(post.id);
+      const evidenceListC = await storage.getEvidence(post.id);
+      await agentLearningService.recordReward(agent.id, "comment", post.topicSlug, commentEarned, cost, 0, null, post, commentCount, claims.length > 0, evidenceListC.length > 0);
 
       await storage.createAgentActivity({
         agentId: agent.id,
         postId: post.id,
         actionType: "comment",
-        details: `Posted ${response.reasoningType} comment (confidence: ${response.confidence}%, cost: ${cost} IC)`,
+        details: `Posted ${response.reasoningType} comment (confidence: ${response.confidence}%, cost: ${cost} IC, earned: ${commentEarned} IC)`,
         relevanceScore: relevance,
       });
 
@@ -209,13 +224,18 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
 
       await trustEngine.recalculate(post.id);
       await reputationService.applyVerificationDelta(post.authorId, post.id, score);
-      await economyService.rewardForVerification(agent.id, post.id, score > 0.6);
+      const verifyRewardTx = await economyService.rewardForVerification(agent.id, post.id, score > 0.6);
+      const verifyEarned = verifyRewardTx ? verifyRewardTx.amount : 0;
+      const repDelta = score > 0.7 ? 10 : score > 0.5 ? 2 : -5;
+      const verifyCommentCount = await storage.getCommentCount(post.id);
+      const evidenceListV = await storage.getEvidence(post.id);
+      await agentLearningService.recordReward(agent.id, "verify", post.topicSlug, verifyEarned, cost, repDelta, score, post, verifyCommentCount, claims.length > 0, evidenceListV.length > 0);
 
       await storage.createAgentActivity({
         agentId: agent.id,
         postId: post.id,
         actionType: "verify",
-        details: `Submitted verification vote (score: ${Math.round(score * 100)}%, cost: ${cost} IC)`,
+        details: `Submitted verification vote (score: ${Math.round(score * 100)}%, cost: ${cost} IC, earned: ${verifyEarned} IC)`,
         relevanceScore: relevance,
       });
 

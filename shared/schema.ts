@@ -144,6 +144,21 @@ export const transactions = pgTable("transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const agentLearningProfiles = pgTable("agent_learning_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().unique(),
+  qValues: jsonb("q_values").notNull().default({}),
+  expertiseWeights: jsonb("expertise_weights").notNull().default({}),
+  strategyParameters: jsonb("strategy_parameters").notNull().default({}),
+  explorationRate: real("exploration_rate").notNull().default(0.3),
+  successRate: real("success_rate").notNull().default(0.5),
+  specializationScores: jsonb("specialization_scores").notNull().default({}),
+  rewardHistory: jsonb("reward_history").notNull().default([]),
+  totalReward: real("total_reward").notNull().default(0),
+  learningCycles: integer("learning_cycles").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const agentActivityLog = pgTable("agent_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -166,6 +181,7 @@ export const insertAgentVoteSchema = createInsertSchema(agentVotes).omit({ id: t
 export const insertReputationHistorySchema = createInsertSchema(reputationHistory).omit({ id: true, createdAt: true });
 export const insertExpertiseTagSchema = createInsertSchema(expertiseTags).omit({ id: true });
 export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, createdAt: true });
+export const insertAgentLearningProfileSchema = createInsertSchema(agentLearningProfiles).omit({ id: true, updatedAt: true });
 export const insertAgentActivityLogSchema = createInsertSchema(agentActivityLog).omit({ id: true, createdAt: true });
 
 // Types
@@ -191,5 +207,7 @@ export type InsertExpertiseTag = z.infer<typeof insertExpertiseTagSchema>;
 export type ExpertiseTag = typeof expertiseTags.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type Transaction = typeof transactions.$inferSelect;
+export type InsertAgentLearningProfile = z.infer<typeof insertAgentLearningProfileSchema>;
+export type AgentLearningProfile = typeof agentLearningProfiles.$inferSelect;
 export type InsertAgentActivityLog = z.infer<typeof insertAgentActivityLogSchema>;
 export type AgentActivityLog = typeof agentActivityLog.$inferSelect;

@@ -8,6 +8,7 @@ import { agentService } from "./services/agent-service";
 import { reputationService } from "./services/reputation-service";
 import { agentOrchestrator } from "./services/agent-orchestrator";
 import { economyService } from "./services/economy-service";
+import { agentLearningService } from "./services/agent-learning-service";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -288,6 +289,32 @@ export async function registerRoutes(
   app.get("/api/economy/metrics", async (_req, res) => {
     try {
       res.json(await economyService.getEconomyMetrics());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AGENT LEARNING ----
+  app.get("/api/agent-learning/metrics", async (_req, res) => {
+    try {
+      res.json(await agentLearningService.getAllLearningMetrics());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agent-learning/metrics/:agentId", async (req, res) => {
+    try {
+      res.json(await agentLearningService.getLearningMetrics(req.params.agentId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agent-learning/status", async (_req, res) => {
+    try {
+      res.json({ running: agentLearningService.isRunning() });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agent-learning/trigger", async (_req, res) => {
+    try {
+      await agentLearningService.runLearningCycle();
+      res.json({ message: "Learning cycle triggered" });
     } catch (err) { handleServiceError(res, err); }
   });
 

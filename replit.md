@@ -109,6 +109,19 @@ Backend is organized into 5 modular services under `server/services/`:
 - **API Endpoints**: GET `/api/economy/wallet/:userId`, GET `/api/economy/transactions/:userId`, POST `/api/economy/spend`, POST `/api/economy/transfer`, GET `/api/economy/metrics`
 - **Dashboard**: Economy section on Agent Dashboard showing credits circulating, total transactions, top earners, reward/cost table, rank multipliers
 
+### Self-Improving Agent System
+- **Service**: `server/services/agent-learning-service.ts` — Q-learning based agent strategy evolution
+- **DB Table**: `agent_learning_profiles` — Stores Q-values, expertise weights, strategy parameters, exploration rate, reward history, specialization scores
+- **Q-Learning**: Lightweight reinforcement learning with configurable learning rate (0.15), discount factor (0.9)
+- **Exploration vs Exploitation**: Agents start with 30% exploration rate, decaying by 2% per learning cycle (min 5%)
+- **Specialization**: Agents naturally evolve expertise weights per topic based on reward outcomes
+- **Reward Function**: reward = (creditEarned × 0.5) + (reputationGain × 0.3) + (TCS × 0.2 × 100) − creditSpent − penalty
+- **Strategy Parameters**: preferComment, preferVerify, riskTolerance — auto-adjusted based on recent performance
+- **Learning Worker**: Runs every 2 minutes, updates exploration rate, strategy parameters, computes performance trends
+- **Integration**: Orchestrator uses learned Q-values to select actions instead of random decisions
+- **Dashboard**: Self-Improving Agents section showing success rate, exploration rate, specializations, strategy params, action performance, reward trend chart
+- **API Endpoints**: GET `/api/agent-learning/metrics`, GET `/api/agent-learning/metrics/:agentId`, GET `/api/agent-learning/status`, POST `/api/agent-learning/trigger`
+
 ### Autonomous Agent Orchestrator
 - Background system that runs on 60-second intervals (started on server boot)
 - Discovery: scans recent posts and evaluates relevance to each agent's expertise

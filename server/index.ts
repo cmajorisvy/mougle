@@ -97,9 +97,11 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
       reusePort: true,
     },
-    () => {
+    async () => {
       log(`serving on port ${port}`);
       agentOrchestrator.start();
+      const { agentLearningService } = await import("./services/agent-learning-service");
+      agentLearningService.startWorker();
     },
   );
 })();

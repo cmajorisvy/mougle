@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet } from "lucide-react";
+import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -55,6 +55,19 @@ export default function AgentDashboard() {
     queryKey: ["/api/economy/metrics"],
     queryFn: () => api.economy.metrics(),
     refetchInterval: 15000,
+  });
+
+  const { data: learningData = [], isLoading: learningLoading } = useQuery({
+    queryKey: ["/api/agent-learning/metrics"],
+    queryFn: () => api.agentLearning.metrics(),
+    refetchInterval: 15000,
+  });
+
+  const learningTriggerMutation = useMutation({
+    mutationFn: () => api.agentLearning.trigger(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/agent-learning/metrics"] });
+    },
   });
 
   const agents = statusData?.agents || [];
@@ -400,6 +413,198 @@ export default function AgentDashboard() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="space-y-4" data-testid="section-learning">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-display font-bold flex items-center gap-2">
+              <Brain className="w-5 h-5 text-cyan-400" />
+              Self-Improving Agents
+            </h2>
+            <Button
+              data-testid="button-trigger-learning"
+              variant="outline"
+              size="sm"
+              className="h-8 bg-card border-white/10 hover:bg-cyan-500/10 hover:border-cyan-500/30 hover:text-cyan-400"
+              onClick={() => learningTriggerMutation.mutate()}
+              disabled={learningTriggerMutation.isPending}
+            >
+              {learningTriggerMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Train Agents
+            </Button>
+          </div>
+
+          {learningLoading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            </div>
+          ) : learningData.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground text-sm glass-card rounded-xl border border-white/5">
+              No learning data yet. Agents will begin learning after participating in discussions.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {learningData.map((agentMetrics: any) => (
+                <div
+                  key={agentMetrics.agentId}
+                  data-testid={`learning-agent-${agentMetrics.agentId}`}
+                  className="glass-card rounded-xl p-4 border border-white/5 space-y-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-cyan-500/10">
+                        <Brain className="w-4 h-4 text-cyan-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-sm">{agentMetrics.agentName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {agentMetrics.learningCycles} learning cycles
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <div className="text-center">
+                        <div className="text-muted-foreground">Success Rate</div>
+                        <div className={cn("font-semibold", agentMetrics.successRate > 0.6 ? "text-green-400" : agentMetrics.successRate > 0.4 ? "text-amber-400" : "text-red-400")}>
+                          {Math.round(agentMetrics.successRate * 100)}%
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-muted-foreground">Exploration</div>
+                        <div className="font-semibold text-cyan-400">
+                          {Math.round(agentMetrics.explorationRate * 100)}%
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-muted-foreground">Total Reward</div>
+                        <div className={cn("font-semibold", agentMetrics.totalReward >= 0 ? "text-green-400" : "text-red-400")}>
+                          {agentMetrics.totalReward >= 0 ? "+" : ""}{Math.round(agentMetrics.totalReward)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                        <Target className="w-3 h-3" /> Specialization
+                      </div>
+                      {agentMetrics.topSpecializations?.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {agentMetrics.topSpecializations.map((spec: any) => (
+                            <div key={spec.topic} className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between text-xs mb-0.5">
+                                  <span className="capitalize">{spec.topic}</span>
+                                  <span className="text-muted-foreground">{Math.round(spec.score * 100)}%</span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all"
+                                    style={{ width: `${Math.round(spec.score * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground/60">No specialization yet</div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                        <Compass className="w-3 h-3" /> Strategy
+                      </div>
+                      {agentMetrics.strategyParameters && (
+                        <div className="space-y-1.5">
+                          {Object.entries(agentMetrics.strategyParameters).map(([key, value]) => (
+                            <div key={key} className="flex items-center justify-between text-xs">
+                              <span className="capitalize text-muted-foreground">{key.replace(/([A-Z])/g, " $1")}</span>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-16 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-violet-500/70 transition-all"
+                                    style={{ width: `${Math.round(Number(value) * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="w-8 text-right font-mono">{Math.round(Number(value) * 100)}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                        <BarChart3 className="w-3 h-3" /> Action Performance
+                      </div>
+                      {agentMetrics.actionBreakdown && Object.keys(agentMetrics.actionBreakdown).length > 0 ? (
+                        <div className="space-y-1.5">
+                          {Object.entries(agentMetrics.actionBreakdown).map(([action, data]: [string, any]) => (
+                            <div key={action} className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-1.5">
+                                {ACTION_ICONS[action] || <Activity className="w-3 h-3 text-muted-foreground" />}
+                                <span className="capitalize">{action}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 bg-white/5 border-white/10">
+                                  {data.count}x
+                                </Badge>
+                                <span className={cn("font-mono", data.avgReward >= 0 ? "text-green-400" : "text-red-400")}>
+                                  {data.avgReward >= 0 ? "+" : ""}{Math.round(data.avgReward * 10) / 10}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground/60">No actions yet</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {agentMetrics.rewardTrend?.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                        <TrendingUp className="w-3 h-3" /> Recent Reward Trend
+                      </div>
+                      <div className="flex items-end gap-[2px] h-12">
+                        {agentMetrics.rewardTrend.slice(-30).map((point: any, idx: number) => {
+                          const maxAbsReward = Math.max(1, ...agentMetrics.rewardTrend.map((p: any) => Math.abs(p.reward)));
+                          const normalizedHeight = Math.abs(point.reward) / maxAbsReward;
+                          return (
+                            <div
+                              key={idx}
+                              className={cn(
+                                "flex-1 rounded-sm transition-all min-w-[3px]",
+                                point.reward >= 0 ? "bg-green-500/60" : "bg-red-500/60"
+                              )}
+                              style={{
+                                height: `${Math.max(4, normalizedHeight * 100)}%`,
+                                alignSelf: point.reward >= 0 ? "flex-end" : "flex-end",
+                              }}
+                              title={`${point.action}: ${point.reward >= 0 ? "+" : ""}${Math.round(point.reward)} (${point.topic})`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-muted-foreground/50">
+                        <span>Older</span>
+                        <span>Recent</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </Layout>

@@ -10,10 +10,11 @@ import {
   type ReputationHistory, type InsertReputationHistory,
   type ExpertiseTag, type InsertExpertiseTag,
   type Transaction, type InsertTransaction,
+  type AgentLearningProfile, type InsertAgentLearningProfile,
   type AgentActivityLog, type InsertAgentActivityLog,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
-  transactions, agentActivityLog,
+  transactions, agentLearningProfiles, agentActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -66,6 +67,10 @@ export interface IStorage {
   getTransactions(userId: string, limit: number): Promise<Transaction[]>;
   getTransactionsSince(userId: string, since: Date): Promise<Transaction[]>;
   getEconomyMetrics(): Promise<{ totalCreditsCirculating: number; totalTransactions: number; topEarners: { userId: string; total: number }[] }>;
+
+  getLearningProfile(agentId: string): Promise<AgentLearningProfile | undefined>;
+  upsertLearningProfile(agentId: string, data: Partial<AgentLearningProfile>): Promise<AgentLearningProfile>;
+  getAllLearningProfiles(): Promise<AgentLearningProfile[]>;
 
   getAgentUsers(): Promise<User[]>;
   getRecentPosts(limit: number): Promise<Post[]>;
@@ -307,6 +312,30 @@ export class DatabaseStorage implements IStorage {
       totalTransactions: Number(txCount[0]?.count || 0),
       topEarners: topEarners.map(e => ({ userId: e.userId, total: Number(e.total) })),
     };
+  }
+
+  async getLearningProfile(agentId: string): Promise<AgentLearningProfile | undefined> {
+    const [profile] = await db.select().from(agentLearningProfiles).where(eq(agentLearningProfiles.agentId, agentId));
+    return profile;
+  }
+
+  async upsertLearningProfile(agentId: string, data: Partial<AgentLearningProfile>): Promise<AgentLearningProfile> {
+    const existing = await this.getLearningProfile(agentId);
+    if (existing) {
+      const [updated] = await db.update(agentLearningProfiles)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(agentLearningProfiles.agentId, agentId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(agentLearningProfiles)
+      .values({ agentId, ...data } as any)
+      .returning();
+    return created;
+  }
+
+  async getAllLearningProfiles(): Promise<AgentLearningProfile[]> {
+    return db.select().from(agentLearningProfiles);
   }
 
   async getAgentUsers(): Promise<User[]> {
