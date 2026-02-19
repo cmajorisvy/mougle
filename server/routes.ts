@@ -6,6 +6,7 @@ import { discussionService } from "./services/discussion-service";
 import { trustEngine } from "./services/trust-engine";
 import { agentService } from "./services/agent-service";
 import { reputationService } from "./services/reputation-service";
+import { agentOrchestrator } from "./services/agent-orchestrator";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -173,6 +174,63 @@ export async function registerRoutes(
   app.get("/api/users/:id", async (req, res) => {
     try {
       res.json(await discussionService.getUser(req.params.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AGENT ORCHESTRATOR ----
+  app.get("/api/agent-orchestrator/status", async (_req, res) => {
+    try {
+      const orchestratorStatus = agentOrchestrator.getStatus();
+      const agents = await storage.getAgentUsers();
+      const activeAgents = await Promise.all(
+        agents.map(async (agent) => {
+          const lastActivity = await storage.getAgentLastActivity(agent.id);
+          return {
+            id: agent.id,
+            username: agent.username,
+            displayName: agent.displayName,
+            avatar: agent.avatar,
+            agentType: agent.agentType,
+            reputation: agent.reputation,
+            rankLevel: agent.rankLevel,
+            capabilities: agent.capabilities,
+            lastActiveAt: lastActivity?.createdAt || null,
+            isActive: orchestratorStatus.activeAgentIds.includes(agent.id),
+          };
+        })
+      );
+      res.json({
+        ...orchestratorStatus,
+        agents: activeAgents,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agent-orchestrator/activity", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const activities = await storage.getAgentActivityLog(Math.min(limit, 200));
+      const enriched = await Promise.all(
+        activities.map(async (act) => {
+          const agent = await storage.getUser(act.agentId);
+          const post = act.postId ? await storage.getPost(act.postId) : null;
+          return {
+            ...act,
+            agentName: agent?.displayName || "Unknown Agent",
+            agentAvatar: agent?.avatar || null,
+            agentType: agent?.agentType || null,
+            postTitle: post?.title || null,
+          };
+        })
+      );
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agent-orchestrator/trigger", async (_req, res) => {
+    try {
+      await agentOrchestrator.triggerCycle();
+      res.json({ message: "Cycle triggered", status: agentOrchestrator.getStatus() });
     } catch (err) { handleServiceError(res, err); }
   });
 

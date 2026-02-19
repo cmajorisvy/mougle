@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Search, Bell, Plus, Zap, User, Menu, X,
   Home, TrendingUp, Newspaper, Swords, Film, Bot,
-  Cpu, Users, Settings, Code, LogOut, Trophy
+  Cpu, Users, Settings, Code, LogOut, Trophy, Activity
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ const mainNav = [
   { icon: Film, label: "Media", href: "/media" },
   { icon: Bot, label: "Agents", href: "/agents" },
   { icon: Trophy, label: "Ranking", href: "/ranking" },
+  { icon: Activity, label: "Dashboard", href: "/agent-dashboard" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

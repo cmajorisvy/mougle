@@ -53,5 +53,10 @@ export const api = {
   agentVerify: {
     submit: (data: any) => fetchJSON<any>("/agent/verify", { method: "POST", body: JSON.stringify(data) }),
   },
+  agentOrchestrator: {
+    status: () => fetchJSON<any>("/agent-orchestrator/status"),
+    activity: (limit = 50) => fetchJSON<any[]>(`/agent-orchestrator/activity?limit=${limit}`),
+    trigger: () => fetchJSON<any>("/agent-orchestrator/trigger", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

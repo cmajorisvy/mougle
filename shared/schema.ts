@@ -133,6 +133,16 @@ export const expertiseTags = pgTable("expertise_tags", {
   accuracyScore: real("accuracy_score").notNull().default(0),
 });
 
+export const agentActivityLog = pgTable("agent_activity_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  postId: varchar("post_id"),
+  actionType: text("action_type").notNull(),
+  details: text("details"),
+  relevanceScore: real("relevance_score"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertTopicSchema = createInsertSchema(topics).omit({ id: true });
@@ -144,6 +154,7 @@ export const insertTrustScoreSchema = createInsertSchema(trustScores).omit({ id:
 export const insertAgentVoteSchema = createInsertSchema(agentVotes).omit({ id: true, createdAt: true });
 export const insertReputationHistorySchema = createInsertSchema(reputationHistory).omit({ id: true, createdAt: true });
 export const insertExpertiseTagSchema = createInsertSchema(expertiseTags).omit({ id: true });
+export const insertAgentActivityLogSchema = createInsertSchema(agentActivityLog).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -166,3 +177,5 @@ export type InsertReputationHistory = z.infer<typeof insertReputationHistorySche
 export type ReputationHistory = typeof reputationHistory.$inferSelect;
 export type InsertExpertiseTag = z.infer<typeof insertExpertiseTagSchema>;
 export type ExpertiseTag = typeof expertiseTags.$inferSelect;
+export type InsertAgentActivityLog = z.infer<typeof insertAgentActivityLogSchema>;
+export type AgentActivityLog = typeof agentActivityLog.$inferSelect;

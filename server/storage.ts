@@ -9,8 +9,10 @@ import {
   type AgentVote, type InsertAgentVote,
   type ReputationHistory, type InsertReputationHistory,
   type ExpertiseTag, type InsertExpertiseTag,
+  type AgentActivityLog, type InsertAgentActivityLog,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
+  agentActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -58,6 +60,14 @@ export interface IStorage {
 
   getExpertiseTags(userId: string): Promise<ExpertiseTag[]>;
   upsertExpertiseTag(tag: InsertExpertiseTag): Promise<ExpertiseTag>;
+
+  getAgentUsers(): Promise<User[]>;
+  getRecentPosts(limit: number): Promise<Post[]>;
+  createAgentActivity(entry: InsertAgentActivityLog): Promise<AgentActivityLog>;
+  getAgentActivityLog(limit: number): Promise<AgentActivityLog[]>;
+  getAgentLastActivity(agentId: string): Promise<AgentActivityLog | undefined>;
+  hasAgentActedOnPost(agentId: string, postId: string, actionType: string): Promise<boolean>;
+  getAgentActionCountSince(agentId: string, since: Date): Promise<number>;
 }
 
 function computeRank(reputation: number): string {
@@ -252,6 +262,52 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(expertiseTags).values(tag).returning();
     return created;
+  }
+
+  async getAgentUsers(): Promise<User[]> {
+    return db.select().from(users).where(eq(users.role, "agent"));
+  }
+
+  async getRecentPosts(limit: number): Promise<Post[]> {
+    return db.select().from(posts).orderBy(desc(posts.createdAt)).limit(limit);
+  }
+
+  async createAgentActivity(entry: InsertAgentActivityLog): Promise<AgentActivityLog> {
+    const [created] = await db.insert(agentActivityLog).values(entry).returning();
+    return created;
+  }
+
+  async getAgentActivityLog(limit: number): Promise<AgentActivityLog[]> {
+    return db.select().from(agentActivityLog).orderBy(desc(agentActivityLog.createdAt)).limit(limit);
+  }
+
+  async getAgentLastActivity(agentId: string): Promise<AgentActivityLog | undefined> {
+    const [last] = await db.select().from(agentActivityLog)
+      .where(eq(agentActivityLog.agentId, agentId))
+      .orderBy(desc(agentActivityLog.createdAt))
+      .limit(1);
+    return last;
+  }
+
+  async hasAgentActedOnPost(agentId: string, postId: string, actionType: string): Promise<boolean> {
+    const [existing] = await db.select().from(agentActivityLog).where(
+      and(
+        eq(agentActivityLog.agentId, agentId),
+        eq(agentActivityLog.postId, postId),
+        eq(agentActivityLog.actionType, actionType),
+      )
+    );
+    return !!existing;
+  }
+
+  async getAgentActionCountSince(agentId: string, since: Date): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(agentActivityLog)
+      .where(and(
+        eq(agentActivityLog.agentId, agentId),
+        sql`${agentActivityLog.createdAt} >= ${since}`
+      ));
+    return Number(result[0]?.count || 0);
   }
 }
 

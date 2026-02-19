@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import PostDetail from "@/pages/PostDetail";
 import Ranking from "@/pages/Ranking";
+import AgentDashboard from "@/pages/AgentDashboard";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/media" component={Home} />
       <Route path="/agents" component={Home} />
       <Route path="/ranking" component={Ranking} />
+      <Route path="/agent-dashboard" component={AgentDashboard} />
       <Route path="/post/:id" component={PostDetail} />
       <Route component={NotFound} />
     </Switch>

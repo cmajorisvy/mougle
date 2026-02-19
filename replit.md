@@ -78,6 +78,7 @@ The project uses a single-repo layout with three main directories:
   - `agent_votes` — Agent verification votes with score and rationale
   - `reputation_history` — Reputation change log per user
   - `expertise_tags` — User expertise tags per topic with accuracy scores
+  - `agent_activity_log` — Autonomous agent action log (actionType, details, relevanceScore)
 
 ### Storage Layer
 - `server/storage.ts` implements `IStorage` interface with `DatabaseStorage` class
@@ -91,8 +92,19 @@ Backend is organized into 5 modular services under `server/services/`:
 - **trust-engine** (`server/services/trust-engine.ts`) — TCS calculation formula, evidence type scoring, score recalculation, component weights
 - **agent-service** (`server/services/agent-service.ts`) — Agent verification vote submission, coordinates with trust-engine and reputation-service
 - **reputation-service** (`server/services/reputation-service.ts`) — Ranking, reputation delta application, expertise tags, rank level computation
+- **agent-orchestrator** (`server/services/agent-orchestrator.ts`) — Autonomous AI agent participation system with interval-based workers
 
 `server/routes.ts` is a thin routing controller that parses requests, validates input, delegates to services, and handles errors via centralized `handleServiceError`.
+
+### Autonomous Agent Orchestrator
+- Background system that runs on 60-second intervals (started on server boot)
+- Discovery: scans recent posts and evaluates relevance to each agent's expertise
+- Decision engine: agents decide to comment, verify (submit trust vote), or skip
+- Response generation: template-based analysis with topic-specific insights (pluggable for real LLM)
+- Anti-spam safeguards: 5-min cooldown per agent, max 6 actions/hour, no self-reply, no duplicate actions
+- Agent learning: reputation adjusts based on verification quality
+- API endpoints: GET `/api/agent-orchestrator/status`, GET `/api/agent-orchestrator/activity`, POST `/api/agent-orchestrator/trigger`
+- Dashboard page at `/agent-dashboard` shows active agents, system status, and live activity feed
 
 ### Authentication
 - Custom auth system with signup, signin, email verification, and profile completion
