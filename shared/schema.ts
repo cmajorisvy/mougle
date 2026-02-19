@@ -831,4 +831,53 @@ export const insertPromotionScoreSchema = createInsertSchema(promotionScores).om
 export type InsertPromotionScore = z.infer<typeof insertPromotionScoreSchema>;
 export type PromotionScore = typeof promotionScores.$inferSelect;
 
+export const socialPerformance = pgTable("social_performance", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  socialPostId: integer("social_post_id"),
+  platform: text("platform").notNull(),
+  contentType: text("content_type").notNull(),
+  contentId: text("content_id").notNull(),
+  impressions: integer("impressions").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+  likes: integer("likes").notNull().default(0),
+  shares: integer("shares").notNull().default(0),
+  comments: integer("comments").notNull().default(0),
+  followerGains: integer("follower_gains").notNull().default(0),
+  viralScore: real("viral_score").notNull().default(0),
+  captionLength: integer("caption_length").default(0),
+  hashtagCount: integer("hashtag_count").default(0),
+  postedHour: integer("posted_hour"),
+  postedDayOfWeek: integer("posted_day_of_week"),
+  collectedAt: timestamp("collected_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertSocialPerformanceSchema = createInsertSchema(socialPerformance).omit({ id: true, createdAt: true });
+export type InsertSocialPerformance = z.infer<typeof insertSocialPerformanceSchema>;
+export type SocialPerformance = typeof socialPerformance.$inferSelect;
+
+export const growthPatterns = pgTable("growth_patterns", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  patternType: text("pattern_type").notNull(),
+  platform: text("platform").notNull(),
+  insight: text("insight").notNull(),
+  confidence: real("confidence").notNull().default(0),
+  sampleSize: integer("sample_size").notNull().default(0),
+  optimalPostingHour: integer("optimal_posting_hour"),
+  optimalDayOfWeek: integer("optimal_day_of_week"),
+  optimalCaptionLength: integer("optimal_caption_length"),
+  optimalHashtagCount: integer("optimal_hashtag_count"),
+  avgViralScore: real("avg_viral_score").default(0),
+  topContentTypes: text("top_content_types").array(),
+  weights: jsonb("weights"),
+  predictionAccuracy: real("prediction_accuracy").default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  learnedAt: timestamp("learned_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertGrowthPatternSchema = createInsertSchema(growthPatterns).omit({ id: true, createdAt: true });
+export type InsertGrowthPattern = z.infer<typeof insertGrowthPatternSchema>;
+export type GrowthPattern = typeof growthPatterns.$inferSelect;
+
 export * from "./models/chat";
