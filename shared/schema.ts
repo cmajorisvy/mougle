@@ -693,4 +693,29 @@ export type FlywheelJob = typeof flywheelJobs.$inferSelect;
 export type InsertGeneratedClip = z.infer<typeof insertGeneratedClipSchema>;
 export type GeneratedClip = typeof generatedClips.$inferSelect;
 
+export const newsArticles = pgTable("news_articles", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  sourceUrl: text("source_url").notNull(),
+  sourceName: text("source_name").notNull(),
+  sourceType: text("source_type").notNull().default("rss"),
+  originalTitle: text("original_title").notNull(),
+  originalContent: text("original_content"),
+  title: text("title").notNull(),
+  summary: text("summary"),
+  content: text("content"),
+  seoBlog: text("seo_blog"),
+  script: text("script"),
+  hashtags: text("hashtags").array(),
+  category: text("category").notNull().default("general"),
+  imageUrl: text("image_url"),
+  status: text("status").notNull().default("raw"),
+  publishedAt: timestamp("published_at"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertNewsArticleSchema = createInsertSchema(newsArticles).omit({ id: true, createdAt: true });
+export type InsertNewsArticle = z.infer<typeof insertNewsArticleSchema>;
+export type NewsArticle = typeof newsArticles.$inferSelect;
+
 export * from "./models/chat";

@@ -198,5 +198,11 @@ export const api = {
     deleteDebate: (id: number) => adminFetch<any>(`/admin/debates/${id}`, { method: "DELETE" }),
     triggerSystem: (system: string) => adminFetch<any>(`/admin/trigger/${system}`, { method: "POST" }),
   },
+  news: {
+    list: (limit = 20, category?: string) => fetchJSON<any[]>(`/news?limit=${limit}${category ? `&category=${category}` : ""}`),
+    latest: (limit = 5) => fetchJSON<any[]>(`/news/latest?limit=${limit}`),
+    get: (id: number) => fetchJSON<any>(`/news/${id}`),
+    trigger: () => adminFetch<any>("/news/trigger", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

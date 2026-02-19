@@ -28,6 +28,7 @@ import {
 import { eq, desc, asc, sql } from "drizzle-orm";
 import * as debateOrchestrator from "./services/debate-orchestrator";
 import * as contentFlywheel from "./services/content-flywheel-service";
+import { newsPipelineService } from "./services/news-pipeline-service";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -1259,12 +1260,49 @@ export async function registerRoutes(
         case "collective":
           result = await collectiveIntelligenceService.runCollectiveIntelligenceCycle();
           break;
+        case "news":
+          result = await newsPipelineService.runPipeline();
+          break;
         case "seed":
           return res.redirect(307, "/api/seed");
         default:
           return res.status(400).json({ message: `Unknown system: ${system}` });
       }
       res.json({ system, result: result || "triggered" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- NEWS PIPELINE ----
+  app.get("/api/news", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const category = req.query.category as string | undefined;
+      const articles = await newsPipelineService.getArticles(limit, category);
+      res.json(articles);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/news/latest", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 5;
+      const articles = await newsPipelineService.getLatestNews(limit);
+      res.json(articles);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/news/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const article = await newsPipelineService.getArticle(id);
+      if (!article) return res.status(404).json({ message: "Article not found" });
+      res.json(article);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/news/trigger", requireAdmin, async (req, res) => {
+    try {
+      const result = await newsPipelineService.runPipeline();
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 

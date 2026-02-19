@@ -104,6 +104,8 @@ app.use((req, res, next) => {
       agentOrchestrator.start();
       const { agentLearningService } = await import("./services/agent-learning-service");
       agentLearningService.startWorker();
+      const { newsPipelineService } = await import("./services/news-pipeline-service");
+      newsPipelineService.startAutoPipeline(30);
     },
   );
 })();

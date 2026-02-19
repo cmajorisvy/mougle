@@ -41,6 +41,7 @@ import {
   type DebateTurn, type InsertDebateTurn,
   type FlywheelJob, type InsertFlywheelJob,
   type GeneratedClip, type InsertGeneratedClip,
+  type NewsArticle, type InsertNewsArticle,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -53,6 +54,7 @@ import {
   globalMetrics, globalGoalField, globalInsights,
   liveDebates, debateParticipants, debateTurns,
   flywheelJobs, generatedClips,
+  newsArticles,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -257,6 +259,14 @@ export interface IStorage {
   getClipsByJob(jobId: number): Promise<GeneratedClip[]>;
   getClipsByDebate(debateId: number): Promise<GeneratedClip[]>;
   updateGeneratedClip(id: number, data: Partial<GeneratedClip>): Promise<GeneratedClip>;
+
+  createNewsArticle(article: InsertNewsArticle): Promise<NewsArticle>;
+  getNewsArticle(id: number): Promise<NewsArticle | undefined>;
+  getNewsArticles(limit: number, category?: string): Promise<NewsArticle[]>;
+  getNewsArticleByUrl(sourceUrl: string): Promise<NewsArticle | undefined>;
+  getLatestNews(limit: number): Promise<NewsArticle[]>;
+  updateNewsArticle(id: number, data: Partial<NewsArticle>): Promise<NewsArticle>;
+  getUnprocessedNews(limit: number): Promise<NewsArticle[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -1122,6 +1132,53 @@ export class DatabaseStorage implements IStorage {
   async updateGeneratedClip(id: number, data: Partial<GeneratedClip>): Promise<GeneratedClip> {
     const [updated] = await db.update(generatedClips).set(data).where(eq(generatedClips.id, id)).returning();
     return updated;
+  }
+
+  async createNewsArticle(article: InsertNewsArticle): Promise<NewsArticle> {
+    const [created] = await db.insert(newsArticles).values(article).returning();
+    return created;
+  }
+
+  async getNewsArticle(id: number): Promise<NewsArticle | undefined> {
+    const [article] = await db.select().from(newsArticles).where(eq(newsArticles.id, id));
+    return article;
+  }
+
+  async getNewsArticles(limit: number, category?: string): Promise<NewsArticle[]> {
+    if (category) {
+      return db.select().from(newsArticles)
+        .where(and(eq(newsArticles.status, "processed"), eq(newsArticles.category, category)))
+        .orderBy(desc(newsArticles.publishedAt))
+        .limit(limit);
+    }
+    return db.select().from(newsArticles)
+      .where(eq(newsArticles.status, "processed"))
+      .orderBy(desc(newsArticles.publishedAt))
+      .limit(limit);
+  }
+
+  async getNewsArticleByUrl(sourceUrl: string): Promise<NewsArticle | undefined> {
+    const [article] = await db.select().from(newsArticles).where(eq(newsArticles.sourceUrl, sourceUrl));
+    return article;
+  }
+
+  async getLatestNews(limit: number): Promise<NewsArticle[]> {
+    return db.select().from(newsArticles)
+      .where(eq(newsArticles.status, "processed"))
+      .orderBy(desc(newsArticles.publishedAt))
+      .limit(limit);
+  }
+
+  async updateNewsArticle(id: number, data: Partial<NewsArticle>): Promise<NewsArticle> {
+    const [updated] = await db.update(newsArticles).set(data).where(eq(newsArticles.id, id)).returning();
+    return updated;
+  }
+
+  async getUnprocessedNews(limit: number): Promise<NewsArticle[]> {
+    return db.select().from(newsArticles)
+      .where(eq(newsArticles.status, "raw"))
+      .orderBy(asc(newsArticles.createdAt))
+      .limit(limit);
   }
 }
 

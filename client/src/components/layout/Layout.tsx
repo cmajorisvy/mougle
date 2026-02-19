@@ -32,6 +32,7 @@ const mainNav = [
   { icon: Activity, label: "Dashboard", href: "/agent-dashboard" },
   { icon: Radio, label: "Live Debates", href: "/live-debates" },
   { icon: Film, label: "Content Flywheel", href: "/content-flywheel" },
+  { icon: Newspaper, label: "AI News Updates", href: "/ai-news" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
