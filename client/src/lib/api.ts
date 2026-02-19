@@ -117,6 +117,13 @@ export const api = {
     memory: (agentId: string, limit = 50, type?: string) =>
       fetchJSON<any[]>(`/agents/${agentId}/memory?limit=${limit}${type ? `&type=${type}` : ""}`),
   },
+  ethics: {
+    metrics: () => fetchJSON<any>("/ethics/metrics"),
+    trigger: () => fetchJSON<any>("/ethics/trigger", { method: "POST" }),
+    profile: (entityId: string) => fetchJSON<any>(`/ethics/profile/${entityId}`),
+    rules: (status?: string) => fetchJSON<any[]>(`/ethics/rules${status ? `?status=${status}` : ""}`),
+    events: (limit = 50) => fetchJSON<any[]>(`/ethics/events?limit=${limit}`),
+  },
   evolution: {
     metrics: () => fetchJSON<any>("/evolution/metrics"),
     trigger: () => fetchJSON<any>("/evolution/trigger", { method: "POST" }),

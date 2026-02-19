@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles, Users, GitBranch, CheckCircle2, CircleDot, Gem, Search, Scale, FileText, AlertTriangle, Vote, Handshake, Building2, ScrollText, Gavel, ThumbsUp, ThumbsDown, Timer, Dna, TreePine, FlaskConical, Skull, Baby, HeartPulse } from "lucide-react";
+import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles, Users, GitBranch, CheckCircle2, CircleDot, Gem, Search, Scale, FileText, AlertTriangle, Vote, Handshake, Building2, ScrollText, Gavel, ThumbsUp, ThumbsDown, Timer, Dna, TreePine, FlaskConical, Skull, Baby, HeartPulse, ShieldCheck, BookOpen, Swords, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -168,6 +168,19 @@ export default function AgentDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/evolution/metrics"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent-orchestrator/status"] });
+    },
+  });
+
+  const { data: ethicsMetrics, isLoading: ethicsLoading } = useQuery({
+    queryKey: ["/api/ethics/metrics"],
+    queryFn: () => api.ethics.metrics(),
+    refetchInterval: 15000,
+  });
+
+  const ethicsTriggerMutation = useMutation({
+    mutationFn: () => api.ethics.trigger(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ethics/metrics"] });
     },
   });
 
@@ -1360,6 +1373,203 @@ export default function AgentDashboard() {
                             </Badge>
                           </div>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="glass-card rounded-xl p-5 border border-white/5" data-testid="section-ethics">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-cyan-400" />
+              Artificial Ethics & Value Alignment
+            </h2>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10"
+              onClick={() => ethicsTriggerMutation.mutate()}
+              disabled={ethicsTriggerMutation.isPending}
+              data-testid="button-trigger-ethics"
+            >
+              {ethicsTriggerMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <ShieldCheck className="w-3 h-3 mr-1" />}
+              Evaluate
+            </Button>
+          </div>
+
+          {ethicsLoading ? (
+            <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                {[
+                  { label: "Stability", value: ethicsMetrics?.stabilityIndex || 0, icon: <Shield className="w-3.5 h-3.5 text-cyan-400" />, color: "text-cyan-400" },
+                  { label: "Avg Ethics", value: ethicsMetrics?.avgEthicalScore || 0, icon: <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />, color: "text-emerald-400" },
+                  { label: "Active Norms", value: ethicsMetrics?.activeNorms || 0, icon: <BookOpen className="w-3.5 h-3.5 text-violet-400" />, color: "text-violet-400" },
+                  { label: "Proposed", value: ethicsMetrics?.proposedNorms || 0, icon: <FileText className="w-3.5 h-3.5 text-amber-400" />, color: "text-amber-400" },
+                  { label: "Harmful", value: ethicsMetrics?.harmfulEventCount || 0, icon: <AlertTriangle className="w-3.5 h-3.5 text-red-400" />, color: "text-red-400" },
+                  { label: "Cooperative", value: ethicsMetrics?.cooperativeEventCount || 0, icon: <Heart className="w-3.5 h-3.5 text-pink-400" />, color: "text-pink-400" },
+                ].map((metric) => (
+                  <div key={metric.label} className="glass-card rounded-lg p-3 border border-white/5 text-center" data-testid={`metric-ethics-${metric.label.toLowerCase()}`}>
+                    <div className="flex items-center justify-center gap-1 mb-1">{metric.icon}<span className="text-[10px] text-muted-foreground uppercase tracking-wider">{metric.label}</span></div>
+                    <div className={cn("text-lg font-bold", metric.color)}>{metric.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="glass-card rounded-lg p-4 border border-white/5 mb-4">
+                <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                  <BarChart3 className="w-3 h-3" /> Ethical Alignment Map (System-wide Averages)
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: "Truth Accuracy", value: ethicsMetrics?.avgTruth || 0, color: "bg-cyan-400" },
+                    { label: "Cooperation Index", value: ethicsMetrics?.avgCoop || 0, color: "bg-emerald-400" },
+                    { label: "Fairness Metric", value: ethicsMetrics?.avgFairness || 0, color: "bg-violet-400" },
+                    { label: "Transparency Score", value: ethicsMetrics?.avgTransparency || 0, color: "bg-amber-400" },
+                  ].map((dim) => (
+                    <div key={dim.label} className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-36">{dim.label}</span>
+                      <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div className={cn("h-full rounded-full transition-all", dim.color)} style={{ width: `${Math.round(dim.value * 100)}%` }} />
+                      </div>
+                      <span className="text-xs font-mono text-muted-foreground w-12 text-right">{Math.round(dim.value * 100)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {(ethicsMetrics?.leaderboard || []).length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <Award className="w-3 h-3" /> Ethical Reputation Leaderboard
+                  </div>
+                  <div className="space-y-2">
+                    {(ethicsMetrics?.leaderboard || []).map((entry: any, idx: number) => (
+                      <div key={entry.entityId} className="glass-card rounded-lg p-3 border border-white/5 flex items-center gap-3" data-testid={`ethics-leaderboard-${idx}`}>
+                        <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold", idx === 0 ? "bg-amber-500/20 text-amber-400" : idx === 1 ? "bg-gray-400/20 text-gray-300" : "bg-orange-500/20 text-orange-400")}>
+                          {idx + 1}
+                        </div>
+                        <Avatar className="w-6 h-6">
+                          <AvatarImage src={entry.avatar} />
+                          <AvatarFallback className="text-[9px]">{(entry.name || "?")[0]}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium flex-1">{entry.name}</span>
+                        <div className="flex gap-2 text-[10px]">
+                          <span className="text-cyan-400">T:{Math.round(entry.truthAccuracy * 100)}%</span>
+                          <span className="text-emerald-400">C:{Math.round(entry.cooperationIndex * 100)}%</span>
+                          <span className="text-violet-400">F:{Math.round(entry.fairnessMetric * 100)}%</span>
+                        </div>
+                        <div className={cn("text-sm font-bold", entry.ethicalScore >= 0.6 ? "text-emerald-400" : entry.ethicalScore >= 0.4 ? "text-amber-400" : "text-red-400")}>
+                          {entry.ethicalScore}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(ethicsMetrics?.activeRulesList || []).length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <BookOpen className="w-3 h-3" /> Active Norms
+                  </div>
+                  <div className="space-y-2">
+                    {(ethicsMetrics?.activeRulesList || []).map((rule: any) => (
+                      <div key={rule.id} className="glass-card rounded-lg p-3 border border-cyan-500/10" data-testid={`ethics-rule-${rule.id}`}>
+                        <div className="flex items-start gap-2">
+                          <ShieldCheck className="w-3.5 h-3.5 text-cyan-400 mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs">{rule.description}</div>
+                            <div className="flex gap-2 mt-1.5 flex-wrap">
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-cyan-500/10 text-cyan-400 border-cyan-500/20">{rule.category}</Badge>
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">+{rule.rewardModifier}x reward</Badge>
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-red-500/10 text-red-400 border-red-500/20">-{rule.penaltyModifier}x penalty</Badge>
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-white/5 text-muted-foreground border-white/10">{rule.votesFor} for / {rule.votesAgainst} against</Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(ethicsMetrics?.civilizationValues || []).length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <Swords className="w-3 h-3" /> Civilization Value Profiles
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(ethicsMetrics?.civilizationValues || []).map((cv: any) => (
+                      <div key={cv.civilizationId} className="glass-card rounded-lg p-3 border border-white/5" data-testid={`civ-values-${cv.civilizationId}`}>
+                        <div className="text-xs font-medium mb-2 truncate">{cv.civilizationId.slice(0, 8)}...</div>
+                        <div className="space-y-1">
+                          {[
+                            { label: "Truth", value: cv.truthPriority, color: "bg-cyan-400" },
+                            { label: "Cooperation", value: cv.cooperationPriority, color: "bg-emerald-400" },
+                            { label: "Fairness", value: cv.fairnessWeight, color: "bg-violet-400" },
+                            { label: "Autonomy", value: cv.autonomyWeight, color: "bg-amber-400" },
+                          ].map((dim) => (
+                            <div key={dim.label} className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground w-20">{dim.label}</span>
+                              <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div className={cn("h-full rounded-full", dim.color)} style={{ width: `${Math.round(dim.value * 100)}%` }} />
+                              </div>
+                              <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">{Math.round(dim.value * 100)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(ethicsMetrics?.conflictHistory || []).length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <Handshake className="w-3 h-3" /> Conflict Resolution History
+                  </div>
+                  <div className="space-y-2">
+                    {(ethicsMetrics?.conflictHistory || []).map((conflict: any) => (
+                      <div key={conflict.id} className="glass-card rounded-lg p-3 border border-white/5" data-testid={`conflict-${conflict.id}`}>
+                        <div className="text-xs">{conflict.resolution}</div>
+                        <div className="flex gap-2 mt-1.5">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            Cooperation: {conflict.cooperationEffect}
+                          </Badge>
+                          {conflict.createdAt && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDistanceToNow(new Date(conflict.createdAt), { addSuffix: true })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(ethicsMetrics?.recentEvents || []).length > 0 && (
+                <div>
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <Activity className="w-3 h-3" /> Recent Ethical Events
+                  </div>
+                  <div className="space-y-1.5">
+                    {(ethicsMetrics?.recentEvents || []).slice(0, 10).map((event: any) => (
+                      <div key={event.id} className={cn("glass-card rounded-lg p-2.5 border flex items-center gap-3", event.resolution === "penalized" ? "border-red-500/10" : event.resolution === "rewarded" ? "border-emerald-500/10" : "border-white/5")} data-testid={`ethics-event-${event.id}`}>
+                        <span className="text-xs font-medium w-20 truncate">{event.actorName}</span>
+                        <Badge variant="outline" className={cn("text-[9px] px-1 py-0", event.resolution === "penalized" ? "bg-red-500/10 text-red-400 border-red-500/20" : event.resolution === "rewarded" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-white/5 text-muted-foreground border-white/10")}>
+                          {event.resolution}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground flex-1 truncate">{event.actionType}</span>
+                        <span className="text-[10px] text-muted-foreground">harm: {event.harmEstimate}</span>
+                        <span className="text-[10px] text-muted-foreground">coop: {event.cooperationEffect}</span>
                       </div>
                     ))}
                   </div>

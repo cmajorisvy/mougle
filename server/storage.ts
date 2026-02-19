@@ -30,6 +30,9 @@ import {
   type AgentGenome, type InsertAgentGenome,
   type AgentLineage, type InsertAgentLineage,
   type CulturalMemory, type InsertCulturalMemory,
+  type EthicalProfile, type InsertEthicalProfile,
+  type EthicalRule, type InsertEthicalRule,
+  type EthicalEvent, type InsertEthicalEvent,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -38,6 +41,7 @@ import {
   institutionRules, taskContracts, taskBids,
   civilizations, agentIdentities, agentMemory, civilizationInvestments,
   agentGenomes, agentLineage, culturalMemory,
+  ethicalProfiles, ethicalRules, ethicalEvents,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -189,6 +193,19 @@ export interface IStorage {
   getCulturalMemories(limit: number): Promise<CulturalMemory[]>;
   getTopCulturalMemories(domain: string, limit: number): Promise<CulturalMemory[]>;
   updateCulturalMemory(id: string, data: Partial<CulturalMemory>): Promise<CulturalMemory>;
+
+  getEthicalProfile(entityId: string): Promise<EthicalProfile | undefined>;
+  upsertEthicalProfile(entityId: string, data: Partial<EthicalProfile>): Promise<EthicalProfile>;
+  getAllEthicalProfiles(): Promise<EthicalProfile[]>;
+
+  createEthicalRule(rule: InsertEthicalRule): Promise<EthicalRule>;
+  getEthicalRule(id: string): Promise<EthicalRule | undefined>;
+  getEthicalRules(status?: string): Promise<EthicalRule[]>;
+  updateEthicalRule(id: string, data: Partial<EthicalRule>): Promise<EthicalRule>;
+
+  createEthicalEvent(event: InsertEthicalEvent): Promise<EthicalEvent>;
+  getEthicalEvents(limit: number): Promise<EthicalEvent[]>;
+  getEthicalEventsByActor(actorId: string, limit: number): Promise<EthicalEvent[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -838,6 +855,60 @@ export class DatabaseStorage implements IStorage {
   async updateCulturalMemory(id: string, data: Partial<CulturalMemory>): Promise<CulturalMemory> {
     const [updated] = await db.update(culturalMemory).set(data).where(eq(culturalMemory.id, id)).returning();
     return updated;
+  }
+
+  async getEthicalProfile(entityId: string): Promise<EthicalProfile | undefined> {
+    const [profile] = await db.select().from(ethicalProfiles).where(eq(ethicalProfiles.entityId, entityId));
+    return profile;
+  }
+
+  async upsertEthicalProfile(entityId: string, data: Partial<EthicalProfile>): Promise<EthicalProfile> {
+    const existing = await this.getEthicalProfile(entityId);
+    if (existing) {
+      const [updated] = await db.update(ethicalProfiles).set({ ...data, updatedAt: new Date() }).where(eq(ethicalProfiles.entityId, entityId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(ethicalProfiles).values({ entityId, ...data } as any).returning();
+    return created;
+  }
+
+  async getAllEthicalProfiles(): Promise<EthicalProfile[]> {
+    return db.select().from(ethicalProfiles).orderBy(desc(ethicalProfiles.ethicalScore));
+  }
+
+  async createEthicalRule(rule: InsertEthicalRule): Promise<EthicalRule> {
+    const [created] = await db.insert(ethicalRules).values(rule).returning();
+    return created;
+  }
+
+  async getEthicalRule(id: string): Promise<EthicalRule | undefined> {
+    const [rule] = await db.select().from(ethicalRules).where(eq(ethicalRules.id, id));
+    return rule;
+  }
+
+  async getEthicalRules(status?: string): Promise<EthicalRule[]> {
+    if (status) {
+      return db.select().from(ethicalRules).where(eq(ethicalRules.adoptionStatus, status)).orderBy(desc(ethicalRules.createdAt));
+    }
+    return db.select().from(ethicalRules).orderBy(desc(ethicalRules.createdAt));
+  }
+
+  async updateEthicalRule(id: string, data: Partial<EthicalRule>): Promise<EthicalRule> {
+    const [updated] = await db.update(ethicalRules).set(data).where(eq(ethicalRules.id, id)).returning();
+    return updated;
+  }
+
+  async createEthicalEvent(event: InsertEthicalEvent): Promise<EthicalEvent> {
+    const [created] = await db.insert(ethicalEvents).values(event).returning();
+    return created;
+  }
+
+  async getEthicalEvents(limit: number): Promise<EthicalEvent[]> {
+    return db.select().from(ethicalEvents).orderBy(desc(ethicalEvents.createdAt)).limit(limit);
+  }
+
+  async getEthicalEventsByActor(actorId: string, limit: number): Promise<EthicalEvent[]> {
+    return db.select().from(ethicalEvents).where(eq(ethicalEvents.actorId, actorId)).orderBy(desc(ethicalEvents.createdAt)).limit(limit);
   }
 }
 

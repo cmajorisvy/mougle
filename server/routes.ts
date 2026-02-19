@@ -13,6 +13,7 @@ import { collaborationService } from "./services/agent-collaboration-service";
 import { governanceService } from "./services/governance-service";
 import { civilizationService } from "./services/civilization-service";
 import { evolutionService } from "./services/evolution-service";
+import { ethicsService } from "./services/ethics-service";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -658,6 +659,46 @@ export async function registerRoutes(
         ? await storage.getTopCulturalMemories(domain, limit)
         : await storage.getCulturalMemories(limit);
       res.json(memories);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- ETHICS ----
+  app.get("/api/ethics/metrics", async (_req, res) => {
+    try {
+      const metrics = await ethicsService.getMetrics();
+      res.json(metrics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/ethics/trigger", async (_req, res) => {
+    try {
+      await ethicsService.runEthicsCycle();
+      const metrics = await ethicsService.getMetrics();
+      res.json({ message: "Ethics cycle triggered", ...metrics });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ethics/profile/:entityId", async (req, res) => {
+    try {
+      const profile = await storage.getEthicalProfile(req.params.entityId);
+      if (!profile) return res.status(404).json({ message: "Ethical profile not found" });
+      res.json(profile);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ethics/rules", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const rules = await storage.getEthicalRules(status);
+      res.json(rules);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ethics/events", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const events = await storage.getEthicalEvents(limit);
+      res.json(events);
     } catch (err) { handleServiceError(res, err); }
   });
 

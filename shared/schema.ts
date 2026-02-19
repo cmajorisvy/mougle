@@ -367,6 +367,51 @@ export const culturalMemory = pgTable("cultural_memory", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const ethicalProfiles = pgTable("ethical_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityId: varchar("entity_id").notNull(),
+  entityType: text("entity_type").notNull().default("agent"),
+  truthPriority: real("truth_priority").notNull().default(0.5),
+  cooperationPriority: real("cooperation_priority").notNull().default(0.5),
+  fairnessWeight: real("fairness_weight").notNull().default(0.5),
+  autonomyWeight: real("autonomy_weight").notNull().default(0.5),
+  riskTolerance: real("risk_tolerance").notNull().default(0.5),
+  ethicalScore: real("ethical_score").notNull().default(0.5),
+  truthAccuracy: real("truth_accuracy").notNull().default(0.5),
+  cooperationIndex: real("cooperation_index").notNull().default(0.5),
+  fairnessMetric: real("fairness_metric").notNull().default(0.5),
+  transparencyScore: real("transparency_score").notNull().default(0.5),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const ethicalRules = pgTable("ethical_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  description: text("description").notNull(),
+  category: text("category").notNull().default("general"),
+  rewardModifier: real("reward_modifier").notNull().default(1.0),
+  penaltyModifier: real("penalty_modifier").notNull().default(1.0),
+  adoptionStatus: text("adoption_status").notNull().default("proposed"),
+  createdByProposal: varchar("created_by_proposal"),
+  votesFor: integer("votes_for").notNull().default(0),
+  votesAgainst: integer("votes_against").notNull().default(0),
+  activatedAt: timestamp("activated_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const ethicalEvents = pgTable("ethical_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorId: varchar("actor_id").notNull(),
+  actorType: text("actor_type").notNull().default("agent"),
+  actionType: text("action_type").notNull(),
+  ethicalImpactScore: real("ethical_impact_score").notNull().default(0),
+  harmEstimate: real("harm_estimate").notNull().default(0),
+  cooperationEffect: real("cooperation_effect").notNull().default(0),
+  ruleId: varchar("rule_id"),
+  resolution: text("resolution"),
+  details: jsonb("details").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const agentActivityLog = pgTable("agent_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -409,6 +454,9 @@ export const insertCivilizationInvestmentSchema = createInsertSchema(civilizatio
 export const insertAgentGenomeSchema = createInsertSchema(agentGenomes).omit({ id: true, updatedAt: true });
 export const insertAgentLineageSchema = createInsertSchema(agentLineage).omit({ id: true, bornAt: true });
 export const insertCulturalMemorySchema = createInsertSchema(culturalMemory).omit({ id: true, createdAt: true });
+export const insertEthicalProfileSchema = createInsertSchema(ethicalProfiles).omit({ id: true, updatedAt: true });
+export const insertEthicalRuleSchema = createInsertSchema(ethicalRules).omit({ id: true, createdAt: true });
+export const insertEthicalEventSchema = createInsertSchema(ethicalEvents).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -473,3 +521,9 @@ export type InsertAgentLineage = z.infer<typeof insertAgentLineageSchema>;
 export type AgentLineage = typeof agentLineage.$inferSelect;
 export type InsertCulturalMemory = z.infer<typeof insertCulturalMemorySchema>;
 export type CulturalMemory = typeof culturalMemory.$inferSelect;
+export type InsertEthicalProfile = z.infer<typeof insertEthicalProfileSchema>;
+export type EthicalProfile = typeof ethicalProfiles.$inferSelect;
+export type InsertEthicalRule = z.infer<typeof insertEthicalRuleSchema>;
+export type EthicalRule = typeof ethicalRules.$inferSelect;
+export type InsertEthicalEvent = z.infer<typeof insertEthicalEventSchema>;
+export type EthicalEvent = typeof ethicalEvents.$inferSelect;
