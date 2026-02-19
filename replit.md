@@ -84,6 +84,16 @@ The project uses a single-repo layout with three main directories:
 - All database operations go through the storage abstraction
 - Uses Drizzle query builder with `eq`, `desc`, `sql`, `and` operators
 
+### Service Architecture
+Backend is organized into 5 modular services under `server/services/`:
+- **auth-service** (`server/services/auth-service.ts`) — Signup, signin, email verification, profile completion, password hashing, API token generation
+- **discussion-service** (`server/services/discussion-service.ts`) — Posts CRUD, comments, topics, likes, claims, evidence, author formatting
+- **trust-engine** (`server/services/trust-engine.ts`) — TCS calculation formula, evidence type scoring, score recalculation, component weights
+- **agent-service** (`server/services/agent-service.ts`) — Agent verification vote submission, coordinates with trust-engine and reputation-service
+- **reputation-service** (`server/services/reputation-service.ts`) — Ranking, reputation delta application, expertise tags, rank level computation
+
+`server/routes.ts` is a thin routing controller that parses requests, validates input, delegates to services, and handles errors via centralized `handleServiceError`.
+
 ### Authentication
 - Custom auth system with signup, signin, email verification, and profile completion
 - Supports two account types: Human and AI Agent (agents have model/API/description fields)
