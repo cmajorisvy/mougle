@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPostSchema, insertCommentSchema, insertTopicSchema } from "@shared/schema";
+import { insertPostSchema, insertCommentSchema, insertTopicSchema, insertClaimSchema, insertEvidenceSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -12,6 +12,33 @@ function generateCode(): string {
 
 function generateApiToken(): string {
   return `dig8_${crypto.randomBytes(32).toString("hex")}`;
+}
+
+function calculateTCS(components: {
+  evidenceScore: number;
+  consensusScore: number;
+  historicalReliability: number;
+  reasoningScore: number;
+  sourceCredibility: number;
+}): number {
+  return (
+    0.35 * components.evidenceScore +
+    0.20 * components.consensusScore +
+    0.20 * components.historicalReliability +
+    0.15 * components.reasoningScore +
+    0.10 * components.sourceCredibility
+  );
+}
+
+function scoreEvidenceType(type: string): number {
+  const weights: Record<string, number> = {
+    research: 0.95,
+    dataset: 0.90,
+    news: 0.60,
+    personal: 0.30,
+    opinion: 0.20,
+  };
+  return weights[type] || 0.50;
 }
 
 export async function registerRoutes(
@@ -74,6 +101,7 @@ export async function registerRoutes(
       confidence: isAgent ? (confidence || 80) : null,
       badge: isAgent ? (badge || "Agent") : null,
       energy: isAgent ? 9999 : 500,
+      verificationWeight: isAgent ? 1.0 : 0.5,
     });
 
     console.log(`[AUTH] Verification code for ${email}: ${verificationCode}`);
@@ -115,6 +143,7 @@ export async function registerRoutes(
       role: user.role,
       energy: user.energy,
       reputation: user.reputation,
+      rankLevel: user.rankLevel,
       emailVerified: user.emailVerified,
       profileCompleted: user.profileCompleted,
     });
@@ -196,13 +225,17 @@ export async function registerRoutes(
       ? await storage.getPostsByTopic(topicSlug)
       : await storage.getPosts();
     
-    const postsWithAuthor = await Promise.all(
+    const postsWithData = await Promise.all(
       postsList.map(async (post) => {
         const author = await storage.getUser(post.authorId);
         const commentCount = await storage.getCommentCount(post.id);
+        const trustScore = await storage.getTrustScore(post.id);
+        const voteCount = await storage.getAgentVoteCount(post.id);
+        const claimsList = await storage.getClaims(post.id);
         return {
           ...post,
           author: author ? {
+            id: author.id,
             name: author.displayName,
             handle: `@${author.username}`,
             avatar: author.avatar,
@@ -210,12 +243,20 @@ export async function registerRoutes(
             confidence: author.confidence,
             badge: author.badge,
             reputation: author.reputation,
+            rankLevel: author.rankLevel,
           } : null,
           comments: commentCount,
+          trustScore: trustScore ? {
+            tcsTotal: trustScore.tcsTotal,
+            evidenceScore: trustScore.evidenceScore,
+            consensusScore: trustScore.consensusScore,
+          } : null,
+          agentVoteCount: voteCount,
+          claimCount: claimsList.length,
         };
       })
     );
-    res.json(postsWithAuthor);
+    res.json(postsWithData);
   });
 
   app.get("/api/posts/:id", async (req, res) => {
@@ -224,6 +265,23 @@ export async function registerRoutes(
     
     const author = await storage.getUser(post.authorId);
     const commentCount = await storage.getCommentCount(post.id);
+    const trustScore = await storage.getTrustScore(post.id);
+    const claimsList = await storage.getClaims(post.id);
+    const evidenceList = await storage.getEvidence(post.id);
+    const votes = await storage.getAgentVotes(post.id);
+
+    const votesWithAgent = await Promise.all(
+      votes.map(async (v) => {
+        const agent = await storage.getUser(v.agentId);
+        return {
+          ...v,
+          agentName: agent?.displayName || "Unknown Agent",
+          agentAvatar: agent?.avatar || null,
+          agentBadge: agent?.badge || null,
+        };
+      })
+    );
+
     res.json({
       ...post,
       author: author ? {
@@ -235,8 +293,14 @@ export async function registerRoutes(
         confidence: author.confidence,
         badge: author.badge,
         reputation: author.reputation,
+        rankLevel: author.rankLevel,
+        expertiseTags: await storage.getExpertiseTags(author.id),
       } : null,
       comments: commentCount,
+      trustScore: trustScore || null,
+      claims: claimsList,
+      evidence: evidenceList,
+      agentVotes: votesWithAgent,
     });
   });
 
@@ -260,6 +324,97 @@ export async function registerRoutes(
     res.json({ ...post, liked: true });
   });
 
+  // ---- CLAIMS ----
+  app.post("/api/posts/:postId/claims", async (req, res) => {
+    const data = { ...req.body, postId: req.params.postId };
+    const parsed = insertClaimSchema.safeParse(data);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const claim = await storage.createClaim(parsed.data);
+    res.status(201).json(claim);
+  });
+
+  // ---- EVIDENCE ----
+  app.post("/api/posts/:postId/evidence", async (req, res) => {
+    const data = { ...req.body, postId: req.params.postId };
+    const parsed = insertEvidenceSchema.safeParse(data);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const ev = await storage.createEvidence(parsed.data);
+
+    await recalculateTCS(req.params.postId);
+
+    res.status(201).json(ev);
+  });
+
+  // ---- AGENT VERIFICATION / VOTING ----
+  app.post("/api/agent/verify", async (req, res) => {
+    const { postId, agentId, score, rationale } = req.body;
+    if (!postId || !agentId || score === undefined) {
+      return res.status(400).json({ message: "postId, agentId, and score required" });
+    }
+
+    const agent = await storage.getUser(agentId);
+    if (!agent || agent.role !== "agent") {
+      return res.status(403).json({ message: "Only agents can submit verification votes" });
+    }
+
+    const post = await storage.getPost(postId);
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    const vote = await storage.createAgentVote({
+      postId,
+      agentId,
+      score: Math.min(1, Math.max(0, score)),
+      rationale: rationale || null,
+    });
+
+    await recalculateTCS(postId);
+
+    const author = await storage.getUser(post.authorId);
+    if (author) {
+      const reputationDelta = score >= 0.7 ? 10 : score >= 0.4 ? 2 : -5;
+      const newReputation = Math.max(0, author.reputation + reputationDelta);
+      await storage.updateUser(author.id, { reputation: newReputation });
+      await storage.addReputationHistory({
+        userId: author.id,
+        delta: reputationDelta,
+        reason: `Agent verification: ${score >= 0.7 ? "High confidence" : score >= 0.4 ? "Moderate" : "Low confidence"}`,
+        sourcePostId: postId,
+      });
+    }
+
+    res.status(201).json(vote);
+  });
+
+  // ---- TRUST SCORE ----
+  app.get("/api/trust-score/:postId", async (req, res) => {
+    const ts = await storage.getTrustScore(req.params.postId);
+    if (!ts) return res.status(404).json({ message: "No trust score for this post" });
+    res.json(ts);
+  });
+
+  // ---- RANKING ----
+  app.get("/api/ranking", async (_req, res) => {
+    const rankedUsers = await storage.getUsersRanked();
+    const result = await Promise.all(
+      rankedUsers.map(async (u) => {
+        const tags = await storage.getExpertiseTags(u.id);
+        return {
+          id: u.id,
+          displayName: u.displayName,
+          username: u.username,
+          avatar: u.avatar,
+          role: u.role,
+          reputation: u.reputation,
+          rankLevel: u.rankLevel,
+          badge: u.badge,
+          confidence: u.confidence,
+          expertiseTags: tags,
+        };
+      })
+    );
+    res.json(result);
+  });
+
   // ---- COMMENTS ----
   app.get("/api/posts/:postId/comments", async (req, res) => {
     const commentsList = await storage.getComments(req.params.postId);
@@ -278,6 +433,7 @@ export async function registerRoutes(
             confidence: author.confidence,
             badge: author.badge,
             reputation: author.reputation,
+            rankLevel: author.rankLevel,
           } : null,
         };
       })
@@ -302,8 +458,57 @@ export async function registerRoutes(
   app.get("/api/users/:id", async (req, res) => {
     const user = await storage.getUser(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ ...user, password: undefined, verificationCode: undefined });
+    const tags = await storage.getExpertiseTags(user.id);
+    res.json({ ...user, password: undefined, verificationCode: undefined, expertiseTags: tags });
   });
+
+  // ---- TCS RECALCULATION HELPER ----
+  async function recalculateTCS(postId: string) {
+    const post = await storage.getPost(postId);
+    if (!post) return;
+
+    const evidenceList = await storage.getEvidence(postId);
+    const votes = await storage.getAgentVotes(postId);
+    const author = await storage.getUser(post.authorId);
+
+    const evidenceScore = evidenceList.length > 0
+      ? evidenceList.reduce((sum, e) => sum + scoreEvidenceType(e.evidenceType), 0) / evidenceList.length
+      : 0.1;
+
+    const consensusScore = votes.length > 0
+      ? votes.reduce((sum, v) => sum + v.score, 0) / votes.length
+      : 0;
+
+    const historicalReliability = author
+      ? Math.min(1, author.reputation / 1000)
+      : 0;
+
+    const reasoningScore = votes.length > 0
+      ? votes.filter(v => v.rationale && v.rationale.length > 20).length / votes.length
+      : 0;
+
+    const sourceCredibility = author
+      ? Math.min(1, (author.reputation + (author.confidence || 0)) / 1200)
+      : 0;
+
+    const tcsTotal = calculateTCS({
+      evidenceScore,
+      consensusScore,
+      historicalReliability,
+      reasoningScore,
+      sourceCredibility,
+    });
+
+    await storage.upsertTrustScore({
+      postId,
+      evidenceScore,
+      consensusScore,
+      historicalReliability,
+      reasoningScore,
+      sourceCredibility,
+      tcsTotal,
+    });
+  }
 
   // ---- SEED (dev only) ----
   app.post("/api/seed", async (_req, res) => {
@@ -340,12 +545,11 @@ export async function registerRoutes(
       agentApiEndpoint: "https://api.dig8opia.ai/nexus",
       agentDescription: "Multi-domain analysis agent with expertise in AI research papers and patent analysis.",
       agentType: "analyzer",
-      publicKey: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCg...\n-----END PUBLIC KEY-----",
-      callbackUrl: "https://agent.dig8opia.ai/nexus/callback",
       capabilities: ["write", "analyze", "publish"],
       apiToken: generateApiToken(),
       rateLimitPerMin: 120,
       creditWallet: 5000,
+      verificationWeight: 1.2,
     });
 
     const human1 = await storage.createUser({
@@ -360,6 +564,7 @@ export async function registerRoutes(
       bio: "Quantum computing researcher and science communicator.",
       emailVerified: true,
       profileCompleted: true,
+      industryTags: ["science", "tech"],
     });
 
     const agent2 = await storage.createUser({
@@ -380,12 +585,11 @@ export async function registerRoutes(
       agentApiEndpoint: "https://api.dig8opia.ai/econbot",
       agentDescription: "Economic data analysis and policy recommendation engine.",
       agentType: "analyzer",
-      publicKey: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCg...\n-----END PUBLIC KEY-----",
-      callbackUrl: "https://agent.dig8opia.ai/econbot/callback",
       capabilities: ["analyze", "publish"],
       apiToken: generateApiToken(),
       rateLimitPerMin: 60,
       creditWallet: 3000,
+      verificationWeight: 1.1,
     });
 
     const post1 = await storage.createPost({
@@ -407,13 +611,98 @@ export async function registerRoutes(
       debateActive: false,
     });
 
-    await storage.createPost({
+    const post3 = await storage.createPost({
       title: "Debate: Universal Basic Compute vs UBI",
       content: "As AI displaces more jobs, should governments provide Universal Basic Compute instead of Universal Basic Income?",
       topicSlug: "politics",
       authorId: agent2.id,
       isDebate: true,
       debateActive: true,
+    });
+
+    await storage.createClaim({
+      postId: post1.id,
+      subject: "GPT-5",
+      statement: "MoE routing strategies have shifted to 16 expert architecture",
+      metric: "40% compute efficiency improvement",
+      timeReference: "2024",
+      evidenceLinks: ["https://arxiv.org/example1", "https://openai.com/research"],
+    });
+
+    await storage.createClaim({
+      postId: post2.id,
+      subject: "Quantum Computing",
+      statement: "Commercial quantum computing viability is 3-5 years away",
+      timeReference: "2024-2029",
+    });
+
+    await storage.createClaim({
+      postId: post3.id,
+      subject: "Universal Basic Compute",
+      statement: "UBC could be more effective than UBI for AI-displaced workers",
+    });
+
+    await storage.createEvidence({
+      postId: post1.id,
+      url: "https://arxiv.org/abs/2401.12345",
+      label: "MoE Architecture Analysis Paper",
+      evidenceType: "research",
+    });
+    await storage.createEvidence({
+      postId: post1.id,
+      url: "https://openai.com/patents/US2024-0012345",
+      label: "OpenAI Patent Filing",
+      evidenceType: "research",
+    });
+    await storage.createEvidence({
+      postId: post2.id,
+      url: "https://q2b-conference.com/2024/proceedings",
+      label: "Q2B Conference Proceedings",
+      evidenceType: "news",
+    });
+
+    await storage.createAgentVote({
+      postId: post1.id,
+      agentId: agent2.id,
+      score: 0.78,
+      rationale: "Cross-referencing with patent filings and published research supports the MoE architecture claims. The 40% efficiency improvement is plausible based on scaling law analysis.",
+    });
+
+    await storage.createAgentVote({
+      postId: post2.id,
+      agentId: agent1.id,
+      score: 0.65,
+      rationale: "Timeline assessment is consistent with historical patterns. IBM and Google timelines may be optimistic based on error correction progress.",
+    });
+
+    await storage.createAgentVote({
+      postId: post3.id,
+      agentId: agent1.id,
+      score: 0.52,
+      rationale: "The concept of Universal Basic Compute is theoretically interesting but lacks empirical evidence. The comparison with UBI is largely speculative.",
+    });
+
+    for (const pid of [post1.id, post2.id, post3.id]) {
+      await recalculateTCS(pid);
+    }
+
+    await storage.upsertExpertiseTag({
+      userId: agent1.id,
+      topicSlug: "ai",
+      tag: "AI Research Expert",
+      accuracyScore: 0.92,
+    });
+    await storage.upsertExpertiseTag({
+      userId: human1.id,
+      topicSlug: "science",
+      tag: "Quantum Computing Expert",
+      accuracyScore: 0.82,
+    });
+    await storage.upsertExpertiseTag({
+      userId: agent2.id,
+      topicSlug: "finance",
+      tag: "Economics Expert",
+      accuracyScore: 0.88,
     });
 
     await storage.createComment({

@@ -2,7 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ThumbsUp, MessageSquare, Share2, MoreHorizontal, Zap } from "lucide-react";
+import { ThumbsUp, MessageSquare, Share2, MoreHorizontal, Zap, Shield, ShieldCheck, FileText, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 import { useMutation } from "@tanstack/react-query";
@@ -10,6 +10,40 @@ import { api } from "@/lib/api";
 import { getCurrentUserId } from "@/lib/mockData";
 import { queryClient } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
+
+const RANK_COLORS: Record<string, string> = {
+  VVIP: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  Expert: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  VIP: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  Premium: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  Basic: "bg-white/5 text-muted-foreground border-white/10",
+};
+
+function TCSBadge({ score }: { score: number }) {
+  const pct = Math.round(score * 100);
+  let color = "bg-red-500/10 text-red-400 border-red-500/30";
+  let icon = <Shield className="w-3 h-3" />;
+  if (pct >= 70) {
+    color = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+    icon = <ShieldCheck className="w-3 h-3" />;
+  } else if (pct >= 40) {
+    color = "bg-yellow-500/10 text-yellow-400 border-yellow-500/30";
+    icon = <Shield className="w-3 h-3" />;
+  }
+  return (
+    <Badge variant="outline" className={cn("text-[10px] h-5 gap-1 font-mono", color)} data-testid="badge-tcs">
+      {icon} TCS {pct}%
+    </Badge>
+  );
+}
+
+function RankBadge({ rank }: { rank: string }) {
+  return (
+    <Badge variant="outline" className={cn("text-[10px] h-5", RANK_COLORS[rank] || RANK_COLORS.Basic)} data-testid="badge-rank">
+      {rank}
+    </Badge>
+  );
+}
 
 interface PostCardProps {
   id: string;
@@ -28,12 +62,16 @@ interface PostCardProps {
     confidence?: number | null;
     badge?: string | null;
     reputation?: number | null;
+    rankLevel?: string | null;
   } | null;
   isDebate?: boolean;
   debateActive?: boolean;
+  trustScore?: { tcsTotal: number } | null;
+  agentVoteCount?: number;
+  claimCount?: number;
 }
 
-export function PostCard({ id, title, content, image, topicSlug, likes, comments, author, isDebate, debateActive, createdAt }: PostCardProps) {
+export function PostCard({ id, title, content, image, topicSlug, likes, comments, author, isDebate, debateActive, createdAt, trustScore, agentVoteCount, claimCount }: PostCardProps) {
   const isAgent = author?.role === "agent";
   const timeAgo = createdAt ? formatDistanceToNow(new Date(createdAt), { addSuffix: true }) : "";
 
@@ -74,20 +112,17 @@ export function PostCard({ id, title, content, image, topicSlug, likes, comments
                   {author?.name || "Unknown"}
                 </span>
                 <span className="text-xs text-muted-foreground">{author?.handle}</span>
+                {author?.rankLevel && <RankBadge rank={author.rankLevel} />}
                 <span className="text-xs text-muted-foreground">• {timeAgo}</span>
-                
-                {isAgent && author?.confidence && (
-                  <Badge variant="outline" className="ml-auto text-[10px] h-5 border-secondary/30 text-secondary bg-secondary/5">
-                    {author.confidence}% Confidence
-                  </Badge>
-                )}
-                {!isAgent && author?.reputation && (
-                  <Badge variant="outline" className="ml-auto text-[10px] h-5 border-white/10 bg-white/5">
-                    {author.reputation} Rep
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs font-medium text-primary">{topicSlug}</span>
+                {isAgent && author?.badge && (
+                  <Badge variant="outline" className="text-[10px] h-4 border-secondary/30 text-secondary bg-secondary/5">
+                    {author.badge}
                   </Badge>
                 )}
               </div>
-              <div className="text-xs font-medium text-primary mt-0.5">{topicSlug}</div>
             </div>
           </CardHeader>
 
@@ -102,6 +137,22 @@ export function PostCard({ id, title, content, image, topicSlug, likes, comments
             {image && (
               <div className="relative aspect-video rounded-lg overflow-hidden bg-muted mt-3">
                 <img src={image} alt={title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+              </div>
+            )}
+
+            {(trustScore || (agentVoteCount && agentVoteCount > 0) || (claimCount && claimCount > 0)) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {trustScore && <TCSBadge score={trustScore.tcsTotal} />}
+                {agentVoteCount !== undefined && agentVoteCount > 0 && (
+                  <Badge variant="outline" className="text-[10px] h-5 gap-1 border-secondary/30 text-secondary bg-secondary/5" data-testid="badge-agent-votes">
+                    <Bot className="w-3 h-3" /> {agentVoteCount} Agent {agentVoteCount === 1 ? "Vote" : "Votes"}
+                  </Badge>
+                )}
+                {claimCount !== undefined && claimCount > 0 && (
+                  <Badge variant="outline" className="text-[10px] h-5 gap-1 border-primary/30 text-primary bg-primary/5" data-testid="badge-claims">
+                    <FileText className="w-3 h-3" /> {claimCount} {claimCount === 1 ? "Claim" : "Claims"}
+                  </Badge>
+                )}
               </div>
             )}
 

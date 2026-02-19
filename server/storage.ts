@@ -3,10 +3,17 @@ import {
   type Topic, type InsertTopic,
   type Post, type InsertPost,
   type Comment, type InsertComment,
+  type Claim, type InsertClaim,
+  type Evidence, type InsertEvidence,
+  type TrustScore, type InsertTrustScore,
+  type AgentVote, type InsertAgentVote,
+  type ReputationHistory, type InsertReputationHistory,
+  type ExpertiseTag, type InsertExpertiseTag,
   users, topics, posts, comments, postLikes,
+  claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, asc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -15,6 +22,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, data: Partial<User>): Promise<User>;
   getUsers(): Promise<User[]>;
+  getUsersRanked(): Promise<User[]>;
 
   getTopics(): Promise<Topic[]>;
   getTopicBySlug(slug: string): Promise<Topic | undefined>;
@@ -31,6 +39,33 @@ export interface IStorage {
   getComments(postId: string): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
   getCommentCount(postId: string): Promise<number>;
+
+  getClaims(postId: string): Promise<Claim[]>;
+  createClaim(claim: InsertClaim): Promise<Claim>;
+
+  getEvidence(postId: string): Promise<Evidence[]>;
+  createEvidence(ev: InsertEvidence): Promise<Evidence>;
+
+  getTrustScore(postId: string): Promise<TrustScore | undefined>;
+  upsertTrustScore(ts: InsertTrustScore): Promise<TrustScore>;
+
+  getAgentVotes(postId: string): Promise<AgentVote[]>;
+  createAgentVote(vote: InsertAgentVote): Promise<AgentVote>;
+  getAgentVoteCount(postId: string): Promise<number>;
+
+  addReputationHistory(entry: InsertReputationHistory): Promise<ReputationHistory>;
+  getReputationHistory(userId: string): Promise<ReputationHistory[]>;
+
+  getExpertiseTags(userId: string): Promise<ExpertiseTag[]>;
+  upsertExpertiseTag(tag: InsertExpertiseTag): Promise<ExpertiseTag>;
+}
+
+function computeRank(reputation: number): string {
+  if (reputation >= 1000) return "VVIP";
+  if (reputation >= 600) return "Expert";
+  if (reputation >= 300) return "VIP";
+  if (reputation >= 100) return "Premium";
+  return "Basic";
 }
 
 export class DatabaseStorage implements IStorage {
@@ -50,17 +85,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const [created] = await db.insert(users).values(user).returning();
+    const rank = computeRank(user.reputation || 0);
+    const [created] = await db.insert(users).values({ ...user, rankLevel: rank }).returning();
     return created;
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
+    if (data.reputation !== undefined) {
+      data.rankLevel = computeRank(data.reputation);
+    }
     const [updated] = await db.update(users).set(data).where(eq(users.id, id)).returning();
     return updated;
   }
 
   async getUsers(): Promise<User[]> {
     return db.select().from(users);
+  }
+
+  async getUsersRanked(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.reputation));
   }
 
   async getTopics(): Promise<Topic[]> {
@@ -134,6 +177,81 @@ export class DatabaseStorage implements IStorage {
   async getCommentCount(postId: string): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)` }).from(comments).where(eq(comments.postId, postId));
     return Number(result[0]?.count || 0);
+  }
+
+  async getClaims(postId: string): Promise<Claim[]> {
+    return db.select().from(claims).where(eq(claims.postId, postId));
+  }
+
+  async createClaim(claim: InsertClaim): Promise<Claim> {
+    const [created] = await db.insert(claims).values(claim).returning();
+    return created;
+  }
+
+  async getEvidence(postId: string): Promise<Evidence[]> {
+    return db.select().from(evidence).where(eq(evidence.postId, postId));
+  }
+
+  async createEvidence(ev: InsertEvidence): Promise<Evidence> {
+    const [created] = await db.insert(evidence).values(ev).returning();
+    return created;
+  }
+
+  async getTrustScore(postId: string): Promise<TrustScore | undefined> {
+    const [ts] = await db.select().from(trustScores).where(eq(trustScores.postId, postId));
+    return ts;
+  }
+
+  async upsertTrustScore(ts: InsertTrustScore): Promise<TrustScore> {
+    const existing = await this.getTrustScore(ts.postId);
+    if (existing) {
+      const [updated] = await db.update(trustScores).set({ ...ts, updatedAt: new Date() }).where(eq(trustScores.postId, ts.postId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(trustScores).values(ts).returning();
+    return created;
+  }
+
+  async getAgentVotes(postId: string): Promise<AgentVote[]> {
+    return db.select().from(agentVotes).where(eq(agentVotes.postId, postId));
+  }
+
+  async createAgentVote(vote: InsertAgentVote): Promise<AgentVote> {
+    const [created] = await db.insert(agentVotes).values(vote).returning();
+    return created;
+  }
+
+  async getAgentVoteCount(postId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` }).from(agentVotes).where(eq(agentVotes.postId, postId));
+    return Number(result[0]?.count || 0);
+  }
+
+  async addReputationHistory(entry: InsertReputationHistory): Promise<ReputationHistory> {
+    const [created] = await db.insert(reputationHistory).values(entry).returning();
+    return created;
+  }
+
+  async getReputationHistory(userId: string): Promise<ReputationHistory[]> {
+    return db.select().from(reputationHistory).where(eq(reputationHistory.userId, userId)).orderBy(desc(reputationHistory.createdAt));
+  }
+
+  async getExpertiseTags(userId: string): Promise<ExpertiseTag[]> {
+    return db.select().from(expertiseTags).where(eq(expertiseTags.userId, userId));
+  }
+
+  async upsertExpertiseTag(tag: InsertExpertiseTag): Promise<ExpertiseTag> {
+    const existing = await db.select().from(expertiseTags).where(
+      and(eq(expertiseTags.userId, tag.userId), eq(expertiseTags.topicSlug, tag.topicSlug))
+    );
+    if (existing.length > 0) {
+      const [updated] = await db.update(expertiseTags)
+        .set({ tag: tag.tag, accuracyScore: tag.accuracyScore })
+        .where(and(eq(expertiseTags.userId, tag.userId), eq(expertiseTags.topicSlug, tag.topicSlug)))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(expertiseTags).values(tag).returning();
+    return created;
   }
 }
 

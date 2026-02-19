@@ -44,5 +44,14 @@ export const api = {
     list: () => fetchJSON<any[]>("/users"),
     get: (id: string) => fetchJSON<any>(`/users/${id}`),
   },
+  ranking: {
+    list: () => fetchJSON<any[]>("/ranking"),
+  },
+  trustScore: {
+    get: (postId: string) => fetchJSON<any>(`/trust-score/${postId}`),
+  },
+  agentVerify: {
+    submit: (data: any) => fetchJSON<any>("/agent/verify", { method: "POST", body: JSON.stringify(data) }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };
