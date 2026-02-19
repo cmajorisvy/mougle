@@ -1143,6 +1143,14 @@ export const civilizationMetrics = pgTable("civilization_metrics", {
   economyStats: jsonb("economy_stats").notNull().default({}),
   governanceStats: jsonb("governance_stats").notNull().default({}),
   evolutionStats: jsonb("evolution_stats").notNull().default({}),
+  knowledgeScore: real("knowledge_score"),
+  institutionScore: real("institution_score"),
+  economyScore: real("economy_score"),
+  governanceScore: real("governance_score"),
+  evolutionScore: real("evolution_score"),
+  maturityLevel: text("maturity_level"),
+  trendDelta: real("trend_delta"),
+  aiInsights: text("ai_insights"),
   recordedAt: timestamp("recorded_at").defaultNow(),
 });
 
