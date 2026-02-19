@@ -40,7 +40,7 @@ export function AIInsightPanel() {
             <CardTitle className="text-sm font-medium text-primary uppercase tracking-wider flex items-center gap-2">
               <Newspaper className="w-4 h-4" /> AI News Updates
             </CardTitle>
-            <Link href="/ai-news">
+            <Link href="/ai-news-updates">
               <span className="text-xs text-primary hover:text-primary/80 cursor-pointer flex items-center gap-1" data-testid="link-view-all-news">
                 View All <ArrowRight className="w-3 h-3" />
               </span>
@@ -52,7 +52,7 @@ export function AIInsightPanel() {
             <p className="text-xs text-muted-foreground">No news articles yet. The pipeline will collect news shortly.</p>
           ) : (
             latestNews.map((article: any) => (
-              <Link key={article.id} href={`/ai-news/${article.id}`}>
+              <Link key={article.id} href={`/ai-news-updates/${article.slug || article.id}`}>
                 <div className="group cursor-pointer p-2 -mx-2 rounded-lg hover:bg-white/5 transition-colors" data-testid={`sidebar-news-${article.id}`}>
                   <h4 className="text-xs font-medium text-foreground/90 group-hover:text-primary transition-colors line-clamp-2 mb-1">
                     {article.title}

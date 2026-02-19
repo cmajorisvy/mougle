@@ -199,9 +199,10 @@ export const api = {
     triggerSystem: (system: string) => adminFetch<any>(`/admin/trigger/${system}`, { method: "POST" }),
   },
   news: {
-    list: (limit = 20, category?: string) => fetchJSON<any[]>(`/news?limit=${limit}${category ? `&category=${category}` : ""}`),
+    list: (page = 1, limit = 20, category?: string) => fetchJSON<any>(`/news?page=${page}&limit=${limit}${category ? `&category=${category}` : ""}`),
     latest: (limit = 5) => fetchJSON<any[]>(`/news/latest?limit=${limit}`),
     get: (id: number) => fetchJSON<any>(`/news/${id}`),
+    getBySlug: (slug: string) => fetchJSON<any>(`/news/slug/${slug}`),
     trigger: () => adminFetch<any>("/news/trigger", { method: "POST" }),
   },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),

@@ -1,5 +1,5 @@
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Clock, ExternalLink, Hash, Newspaper, FileText, Video, BookOpen } from "lucide-react";
@@ -7,7 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useRoute, Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -21,13 +20,14 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function AINewsArticle() {
-  const [, params] = useRoute("/ai-news/:id");
-  const articleId = params?.id ? parseInt(params.id) : 0;
+  const [, params] = useRoute("/ai-news-updates/:idOrSlug");
+  const idOrSlug = params?.idOrSlug || "";
+  const isNumericId = /^\d+$/.test(idOrSlug);
 
   const { data: article, isLoading } = useQuery({
-    queryKey: ["/api/news", articleId],
-    queryFn: () => api.news.get(articleId),
-    enabled: articleId > 0,
+    queryKey: ["/api/news", idOrSlug],
+    queryFn: () => isNumericId ? api.news.get(parseInt(idOrSlug)) : api.news.getBySlug(idOrSlug),
+    enabled: !!idOrSlug,
   });
 
   if (isLoading) {
@@ -46,7 +46,7 @@ export default function AINewsArticle() {
         <div className="text-center py-20 text-muted-foreground">
           <Newspaper className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p className="text-lg font-medium">Article not found</p>
-          <Link href="/ai-news">
+          <Link href="/ai-news-updates">
             <Button variant="outline" className="mt-4">
               <ArrowLeft className="w-4 h-4 mr-2" /> Back to News
             </Button>
@@ -59,7 +59,7 @@ export default function AINewsArticle() {
   return (
     <Layout>
       <div className="space-y-6">
-        <Link href="/ai-news">
+        <Link href="/ai-news-updates">
           <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" data-testid="button-back-news">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to AI News
           </Button>
@@ -82,8 +82,8 @@ export default function AINewsArticle() {
           </h1>
 
           {article.imageUrl && (
-            <img 
-              src={article.imageUrl} 
+            <img
+              src={article.imageUrl}
               alt={article.title}
               className="w-full h-48 md:h-64 object-cover rounded-xl mb-4 bg-white/5"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -147,7 +147,7 @@ export default function AINewsArticle() {
                 <div className="bg-background/50 rounded-lg p-4 border border-white/5">
                   <div className="flex items-center gap-2 mb-3">
                     <Video className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium text-primary">Video Script</span>
+                    <span className="text-sm font-medium text-primary">60-Second Video Script</span>
                   </div>
                   <p className="text-foreground/90 leading-relaxed italic" data-testid="text-video-script">
                     {article.script || "No script generated yet."}

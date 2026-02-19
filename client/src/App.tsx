@@ -41,8 +41,8 @@ function Router() {
       <Route path="/debate/:id" component={DebateDetail} />
       <Route path="/content-flywheel" component={ContentFlywheel} />
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
-      <Route path="/ai-news" component={AINewsUpdates} />
-      <Route path="/ai-news/:id" component={AINewsArticle} />
+      <Route path="/ai-news-updates" component={AINewsUpdates} />
+      <Route path="/ai-news-updates/:idOrSlug" component={AINewsArticle} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />

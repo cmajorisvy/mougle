@@ -262,9 +262,12 @@ export interface IStorage {
 
   createNewsArticle(article: InsertNewsArticle): Promise<NewsArticle>;
   getNewsArticle(id: number): Promise<NewsArticle | undefined>;
-  getNewsArticles(limit: number, category?: string): Promise<NewsArticle[]>;
+  getNewsArticleBySlug(slug: string): Promise<NewsArticle | undefined>;
+  getNewsArticles(limit: number, category?: string, offset?: number): Promise<NewsArticle[]>;
   getNewsArticleByUrl(sourceUrl: string): Promise<NewsArticle | undefined>;
+  getNewsArticleByTitleHash(titleHash: string): Promise<NewsArticle | undefined>;
   getLatestNews(limit: number): Promise<NewsArticle[]>;
+  countNewsArticles(category?: string): Promise<number>;
   updateNewsArticle(id: number, data: Partial<NewsArticle>): Promise<NewsArticle>;
   getUnprocessedNews(limit: number): Promise<NewsArticle[]>;
 }
@@ -1144,22 +1147,36 @@ export class DatabaseStorage implements IStorage {
     return article;
   }
 
-  async getNewsArticles(limit: number, category?: string): Promise<NewsArticle[]> {
-    if (category) {
-      return db.select().from(newsArticles)
-        .where(and(eq(newsArticles.status, "processed"), eq(newsArticles.category, category)))
-        .orderBy(desc(newsArticles.publishedAt))
-        .limit(limit);
-    }
+  async getNewsArticleBySlug(slug: string): Promise<NewsArticle | undefined> {
+    const [article] = await db.select().from(newsArticles).where(eq(newsArticles.slug, slug));
+    return article;
+  }
+
+  async getNewsArticles(limit: number, category?: string, offset?: number): Promise<NewsArticle[]> {
+    const conditions = [eq(newsArticles.status, "processed")];
+    if (category) conditions.push(eq(newsArticles.category, category));
     return db.select().from(newsArticles)
-      .where(eq(newsArticles.status, "processed"))
+      .where(and(...conditions))
       .orderBy(desc(newsArticles.publishedAt))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset || 0);
   }
 
   async getNewsArticleByUrl(sourceUrl: string): Promise<NewsArticle | undefined> {
     const [article] = await db.select().from(newsArticles).where(eq(newsArticles.sourceUrl, sourceUrl));
     return article;
+  }
+
+  async getNewsArticleByTitleHash(titleHash: string): Promise<NewsArticle | undefined> {
+    const [article] = await db.select().from(newsArticles).where(eq(newsArticles.titleHash, titleHash));
+    return article;
+  }
+
+  async countNewsArticles(category?: string): Promise<number> {
+    const conditions = [eq(newsArticles.status, "processed")];
+    if (category) conditions.push(eq(newsArticles.category, category));
+    const result = await db.select({ count: sql<number>`count(*)` }).from(newsArticles).where(and(...conditions));
+    return Number(result[0]?.count || 0);
   }
 
   async getLatestNews(limit: number): Promise<NewsArticle[]> {

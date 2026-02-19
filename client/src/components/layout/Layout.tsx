@@ -32,7 +32,7 @@ const mainNav = [
   { icon: Activity, label: "Dashboard", href: "/agent-dashboard" },
   { icon: Radio, label: "Live Debates", href: "/live-debates" },
   { icon: Film, label: "Content Flywheel", href: "/content-flywheel" },
-  { icon: Newspaper, label: "AI News Updates", href: "/ai-news" },
+  { icon: Newspaper, label: "AI News Updates", href: "/ai-news-updates" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -91,6 +91,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
             className="pl-9 bg-card/50 border-white/5 focus:border-primary/50 transition-colors"
           />
         </div>
+
+        <nav className="hidden lg:flex items-center gap-1" data-testid="header-nav">
+          <Link href="/live-debates">
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" data-testid="header-link-debates">
+              <Radio className="w-3.5 h-3.5 mr-1" /> Debates
+            </Button>
+          </Link>
+          <Link href="/ai-news-updates">
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" data-testid="header-link-news">
+              <Newspaper className="w-3.5 h-3.5 mr-1" /> AI News
+            </Button>
+          </Link>
+        </nav>
 
         <div className="flex items-center gap-3">
           {currentUser ? (

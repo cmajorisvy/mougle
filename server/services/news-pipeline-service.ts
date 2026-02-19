@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import OpenAI from "openai";
+import crypto from "crypto";
 
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -11,8 +12,24 @@ function getOpenAIClient(): OpenAI | null {
   return new OpenAI({ apiKey, baseURL });
 }
 
+function generateTitleHash(title: string): string {
+  const normalized = title.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  return crypto.createHash("sha256").update(normalized).digest("hex").substring(0, 16);
+}
+
+function generateSlug(title: string, id?: number): string {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .substring(0, 80)
+    .replace(/^-|-$/g, "");
+  return id ? `${base}-${id}` : base;
+}
+
 const RSS_FEEDS = [
-  { url: "https://feeds.arstechnica.com/arstechnica/technology-lab", name: "Ars Technica", category: "ai" },
+  { url: "https://feeds.arstechnica.com/arstechnica/technology-lab", name: "Ars Technica", category: "tech" },
   { url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", name: "The Verge AI", category: "ai" },
   { url: "https://techcrunch.com/category/artificial-intelligence/feed/", name: "TechCrunch AI", category: "ai" },
   { url: "https://feeds.feedburner.com/venturebeat/SZYF", name: "VentureBeat", category: "ai" },
@@ -20,6 +37,13 @@ const RSS_FEEDS = [
   { url: "https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en", name: "Google News AI", category: "ai" },
   { url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml", name: "NYT Tech", category: "tech" },
   { url: "https://news.google.com/rss/search?q=machine+learning+deep+learning&hl=en-US&gl=US&ceid=US:en", name: "Google News ML", category: "ai" },
+  { url: "https://trends.google.com/trending/rss?geo=US", name: "Google Trends", category: "tech" },
+  { url: "https://www.reddit.com/r/artificial/.rss", name: "Reddit r/artificial", category: "ai" },
+  { url: "https://www.reddit.com/r/MachineLearning/.rss", name: "Reddit r/MachineLearning", category: "ai" },
+  { url: "https://www.reddit.com/r/technology/.rss", name: "Reddit r/technology", category: "tech" },
+  { url: "https://news.google.com/rss/search?q=AI+startup+funding&hl=en-US&gl=US&ceid=US:en", name: "Google News AI Business", category: "business" },
+  { url: "https://news.google.com/rss/search?q=AI+regulation+policy&hl=en-US&gl=US&ceid=US:en", name: "Google News AI Policy", category: "policy" },
+  { url: "https://news.google.com/rss/search?q=AI+science+research+breakthrough&hl=en-US&gl=US&ceid=US:en", name: "Google News AI Science", category: "science" },
 ];
 
 interface RSSItem {
@@ -41,16 +65,20 @@ function stripHtml(html: string): string {
 
 function parseRSSXml(xml: string): RSSItem[] {
   const items: RSSItem[] = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+  const itemRegex = /<item>([\s\S]*?)<\/item>|<entry>([\s\S]*?)<\/entry>/gi;
   let match;
 
   while ((match = itemRegex.exec(xml)) !== null) {
-    const itemXml = match[1];
+    const itemXml = match[1] || match[2];
 
     const titleMatch = itemXml.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/);
-    const linkMatch = itemXml.match(/<link>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/);
-    const descMatch = itemXml.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/);
-    const dateMatch = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
+    const linkMatch = itemXml.match(/<link>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/link>/) ||
+                      itemXml.match(/<link[^>]+href=["']([^"']+)["']/);
+    const descMatch = itemXml.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/) ||
+                      itemXml.match(/<content[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/content[^>]*>/);
+    const dateMatch = itemXml.match(/<pubDate>([\s\S]*?)<\/pubDate>/) ||
+                      itemXml.match(/<updated>([\s\S]*?)<\/updated>/) ||
+                      itemXml.match(/<published>([\s\S]*?)<\/published>/);
     const mediaMatch = itemXml.match(/<media:content[^>]+url=["']([^"']+)["']/);
     const enclosureMatch = itemXml.match(/<enclosure[^>]+url=["']([^"']+)["']/);
 
@@ -90,7 +118,18 @@ async function fetchRSSFeed(feedUrl: string): Promise<RSSItem[]> {
   }
 }
 
-async function collectFromRSS(): Promise<number> {
+async function isDuplicate(title: string, sourceUrl: string): Promise<boolean> {
+  const existingByUrl = await storage.getNewsArticleByUrl(sourceUrl);
+  if (existingByUrl) return true;
+
+  const titleHash = generateTitleHash(title);
+  const existingByHash = await storage.getNewsArticleByTitleHash(titleHash);
+  if (existingByHash) return true;
+
+  return false;
+}
+
+async function collectFromAllSources(): Promise<number> {
   let collected = 0;
 
   for (const feed of RSS_FEEDS) {
@@ -98,16 +137,20 @@ async function collectFromRSS(): Promise<number> {
       const items = await fetchRSSFeed(feed.url);
 
       for (const item of items.slice(0, 5)) {
-        const existing = await storage.getNewsArticleByUrl(item.link);
-        if (existing) continue;
+        if (await isDuplicate(item.title, item.link)) continue;
+
+        const titleHash = generateTitleHash(item.title);
+        const slug = generateSlug(item.title);
 
         await storage.createNewsArticle({
           sourceUrl: item.link,
           sourceName: feed.name,
-          sourceType: "rss",
+          sourceType: feed.name.startsWith("Reddit") ? "reddit" : feed.name.startsWith("Google Trends") ? "trends" : "rss",
           originalTitle: item.title,
           originalContent: item.description,
           title: item.title,
+          slug,
+          titleHash,
           category: feed.category,
           imageUrl: item.imageUrl || null,
           status: "raw",
@@ -136,14 +179,16 @@ async function processArticle(articleId: number): Promise<boolean> {
       messages: [
         {
           role: "system",
-          content: `You are a professional AI news editor. Given a news article title and description, produce a JSON object with these fields:
+          content: `You are a professional AI news editor and SEO specialist. Given a news article title and description, produce a JSON object with these fields:
 - "title": A clear, engaging headline (max 80 chars)
 - "summary": A concise 2-3 sentence summary of the key points
 - "content": A well-formatted article (3-5 paragraphs) expanding on the news with context and analysis
-- "seoBlog": An SEO-optimized blog version (4-6 paragraphs) with subheadings marked by **bold**
-- "script": A short video script narration (30-60 seconds read time) summarizing the news engagingly
+- "seoBlog": An SEO-optimized blog version (4-6 paragraphs) with subheadings marked by **bold**, naturally incorporating relevant keywords for search ranking
+- "script": A 60-second video narration script that summarizes the news engagingly, written in a conversational broadcast style
 - "hashtags": An array of 5-8 relevant hashtags (without # prefix)
 - "category": One of: "ai", "tech", "science", "business", "policy"
+- "seoTitle": SEO-optimized page title (max 60 chars)
+- "seoDescription": SEO meta description (max 155 chars)
 
 Return ONLY valid JSON, no markdown fencing.`
         },
@@ -161,8 +206,12 @@ Return ONLY valid JSON, no markdown fencing.`
     const cleanJson = responseText.replace(/^```json?\s*/, "").replace(/\s*```$/, "");
     const parsed = JSON.parse(cleanJson);
 
+    const processedTitle = parsed.title || article.title;
+    const slug = generateSlug(processedTitle, article.id);
+
     await storage.updateNewsArticle(articleId, {
-      title: parsed.title || article.title,
+      title: processedTitle,
+      slug,
       summary: parsed.summary || null,
       content: parsed.content || null,
       seoBlog: parsed.seoBlog || null,
@@ -182,8 +231,8 @@ Return ONLY valid JSON, no markdown fencing.`
 
 export const newsPipelineService = {
   async runPipeline(): Promise<{ collected: number; processed: number }> {
-    console.log("[NewsPipeline] Starting news collection...");
-    const collected = await collectFromRSS();
+    console.log("[NewsPipeline] Starting news collection from all sources...");
+    const collected = await collectFromAllSources();
     console.log(`[NewsPipeline] Collected ${collected} new articles`);
 
     const unprocessed = await storage.getUnprocessedNews(10);
@@ -199,19 +248,27 @@ export const newsPipelineService = {
     return { collected, processed };
   },
 
-  async getArticles(limit = 20, category?: string) {
-    return storage.getNewsArticles(limit, category);
+  async getArticles(limit = 20, category?: string, offset?: number) {
+    return storage.getNewsArticles(limit, category, offset);
   },
 
   async getArticle(id: number) {
     return storage.getNewsArticle(id);
   },
 
+  async getArticleBySlug(slug: string) {
+    return storage.getNewsArticleBySlug(slug);
+  },
+
   async getLatestNews(limit = 5) {
     return storage.getLatestNews(limit);
   },
 
-  startAutoPipeline(intervalMinutes = 30) {
+  async countArticles(category?: string) {
+    return storage.countNewsArticles(category);
+  },
+
+  startAutoPipeline(intervalMinutes = 60) {
     console.log(`[NewsPipeline] Auto-pipeline started (every ${intervalMinutes} min)`);
     this.runPipeline().catch(err => console.error("[NewsPipeline] Initial run error:", err.message));
 

@@ -701,6 +701,8 @@ export const newsArticles = pgTable("news_articles", {
   originalTitle: text("original_title").notNull(),
   originalContent: text("original_content"),
   title: text("title").notNull(),
+  slug: text("slug"),
+  titleHash: text("title_hash"),
   summary: text("summary"),
   content: text("content"),
   seoBlog: text("seo_blog"),

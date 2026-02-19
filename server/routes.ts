@@ -1275,10 +1275,23 @@ export async function registerRoutes(
   // ---- NEWS PIPELINE ----
   app.get("/api/news", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 20;
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+      const page = Math.max(parseInt(req.query.page as string) || 1, 1);
       const category = req.query.category as string | undefined;
-      const articles = await newsPipelineService.getArticles(limit, category);
-      res.json(articles);
+      const offset = (page - 1) * limit;
+      const [articles, total] = await Promise.all([
+        newsPipelineService.getArticles(limit, category, offset),
+        newsPipelineService.countArticles(category),
+      ]);
+      res.json({
+        articles,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -1287,6 +1300,14 @@ export async function registerRoutes(
       const limit = parseInt(req.query.limit as string) || 5;
       const articles = await newsPipelineService.getLatestNews(limit);
       res.json(articles);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/news/slug/:slug", async (req, res) => {
+    try {
+      const article = await newsPipelineService.getArticleBySlug(req.params.slug);
+      if (!article) return res.status(404).json({ message: "Article not found" });
+      res.json(article);
     } catch (err) { handleServiceError(res, err); }
   });
 
