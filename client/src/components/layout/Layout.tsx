@@ -2,9 +2,9 @@ import { Link, useLocation } from "wouter";
 import { 
   Search, Bell, Plus, Zap, User, Menu, X,
   Home, MessageSquare, Newspaper, Swords, Bot,
-  Trophy, Wallet, CreditCard, Settings, LogOut, Radio,
-  ChevronLeft, ChevronRight, PanelLeftClose, PanelLeft,
-  Sparkles, Activity
+  Trophy, Wallet, CreditCard, Settings, LogOut,
+  PanelLeftClose, PanelLeft,
+  Sparkles, Activity, Crown
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -100,8 +100,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const sidebarWidth = sidebarCollapsed ? "w-[68px]" : "w-[240px]";
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="h-14 border-b border-white/[0.06] bg-background/90 backdrop-blur-xl sticky top-0 z-50 flex items-center px-4 justify-between gap-3">
+    <div className="min-h-screen bg-background text-foreground flex flex-col ambient-bg">
+      <header className="h-14 glass-header sticky top-0 z-50 flex items-center px-4 justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 text-muted-foreground" onClick={() => setSidebarOpen(true)} data-testid="button-mobile-menu">
             <Menu className="w-4 h-4" />
@@ -130,7 +130,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Button 
                 data-testid="button-create"
                 size="sm"
-                className="hidden md:flex h-8 bg-primary hover:bg-primary/90 text-white text-xs font-medium shadow-md shadow-primary/20 rounded-lg gap-1.5"
+                className="hidden md:flex h-8 bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white text-xs font-medium shadow-lg shadow-primary/20 rounded-lg gap-1.5 animate-glow-pulse"
                 onClick={() => setCreateModalOpen(true)}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -140,25 +140,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/notifications">
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground relative" data-testid="button-notifications">
                   <Bell className="w-4 h-4" />
-                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
+                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                 </Button>
               </Link>
 
               <Link href="/credits">
-                <div className="hidden md:flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.06] transition-colors cursor-pointer" data-testid="text-energy">
-                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <div className="hidden md:flex items-center gap-1.5 h-8 px-2.5 rounded-lg glass-card hover:bg-white/[0.06] transition-colors cursor-pointer" data-testid="text-energy">
+                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-float" />
                   <span className="font-mono font-semibold text-xs text-amber-400">{currentUser.energy}</span>
                 </div>
               </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="w-7 h-7 cursor-pointer ring-1 ring-white/10 hover:ring-primary/50 transition-all" data-testid="button-profile">
+                  <Avatar className="w-7 h-7 cursor-pointer ring-1 ring-white/10 hover:ring-primary/50 transition-all hover-scale" data-testid="button-profile">
                     <AvatarImage src={currentUser?.avatar} />
                     <AvatarFallback className="text-[10px] bg-primary/20 text-primary">{currentUser?.displayName?.[0] || "?"}</AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52 bg-card/95 backdrop-blur-xl border-white/[0.08] rounded-xl shadow-2xl">
+                <DropdownMenuContent align="end" className="w-52 glass-panel rounded-xl shadow-2xl">
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col gap-0.5">
                       <span className="text-sm font-semibold">{currentUser?.displayName || "Guest"}</span>
@@ -196,7 +196,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Button>
               </Link>
               <Link href="/auth/signup">
-                <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white font-medium rounded-lg" data-testid="button-header-signup">
+                <Button size="sm" className="h-8 text-xs bg-gradient-to-r from-primary to-secondary hover:opacity-90 text-white font-medium rounded-lg" data-testid="button-header-signup">
                   Sign Up
                 </Button>
               </Link>
@@ -205,9 +205,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative z-10">
         <aside className={cn(
-          "hidden md:flex flex-col border-r border-white/[0.06] bg-background transition-all duration-300 ease-in-out flex-shrink-0",
+          "hidden md:flex flex-col glass-sidebar transition-all duration-300 ease-in-out flex-shrink-0",
           sidebarWidth
         )}>
           <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
@@ -217,13 +217,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 const navItem = (
                   <Link key={item.href} href={item.href}>
                     <div className={cn(
-                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer group/item",
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer group/item relative",
                       active 
-                        ? "bg-primary/10 text-primary" 
+                        ? "bg-primary/10 text-primary active-indicator" 
                         : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
                       sidebarCollapsed && "justify-center px-0"
                     )} data-testid={`link-nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}>
-                      <item.icon className={cn("w-4 h-4 flex-shrink-0", active && "text-primary")} />
+                      <item.icon className={cn(
+                        "w-4 h-4 flex-shrink-0 transition-transform",
+                        active && "text-primary",
+                        !active && "group-hover/item:scale-110"
+                      )} />
                       {!sidebarCollapsed && <span>{item.label}</span>}
                     </div>
                   </Link>
@@ -232,7 +236,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   return (
                     <Tooltip key={item.href} delayDuration={0}>
                       <TooltipTrigger asChild>{navItem}</TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">{item.label}</TooltipContent>
+                      <TooltipContent side="right" className="text-xs glass-panel">{item.label}</TooltipContent>
                     </Tooltip>
                   );
                 }
@@ -251,16 +255,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 const navItem = (
                   <Link key={item.href} href={item.href}>
                     <div className={cn(
-                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer",
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer relative",
                       active 
-                        ? "bg-primary/10 text-primary" 
+                        ? "bg-primary/10 text-primary active-indicator" 
                         : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
                       sidebarCollapsed && "justify-center px-0"
                     )} data-testid={`link-nav-${item.label.toLowerCase()}`}>
                       <item.icon className={cn("w-4 h-4 flex-shrink-0", active && "text-primary")} />
                       {!sidebarCollapsed && <span>{item.label}</span>}
                       {item.label === "Notifications" && !sidebarCollapsed && (
-                        <Badge className="ml-auto h-4 px-1.5 text-[9px] bg-red-500/20 text-red-400 border-0">3</Badge>
+                        <Badge className="ml-auto h-4 px-1.5 text-[9px] bg-red-500/20 text-red-400 border-0 animate-pulse">3</Badge>
                       )}
                     </div>
                   </Link>
@@ -269,7 +273,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   return (
                     <Tooltip key={item.href} delayDuration={0}>
                       <TooltipTrigger asChild>{navItem}</TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">{item.label}</TooltipContent>
+                      <TooltipContent side="right" className="text-xs glass-panel">{item.label}</TooltipContent>
                     </Tooltip>
                   );
                 }
@@ -296,6 +300,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </>
             )}
+
+            {!sidebarCollapsed && (
+              <>
+                <div className="h-px bg-white/[0.06] my-3" />
+                <div className="mx-1 p-3 rounded-xl bg-gradient-to-br from-primary/10 via-secondary/5 to-transparent border border-primary/10 relative overflow-hidden">
+                  <div className="absolute top-1 right-1">
+                    <Sparkles className="w-3 h-3 text-primary/40 animate-float" />
+                  </div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Crown className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-[11px] font-semibold text-primary">Upgrade to Pro</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed mb-2">
+                    Unlock unlimited debates, AI responses & priority support.
+                  </p>
+                  <Link href="/billing">
+                    <Button size="sm" className="w-full h-6 text-[10px] bg-gradient-to-r from-primary to-secondary hover:opacity-90 rounded-md font-medium" data-testid="button-view-plans">
+                      View Plans
+                    </Button>
+                  </Link>
+                </div>
+              </>
+            )}
           </nav>
 
           <div className="p-2 border-t border-white/[0.06]">
@@ -318,13 +345,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
               onClick={() => setSidebarOpen(false)}
             />
-            <aside className="fixed inset-y-0 left-0 z-50 w-[260px] bg-background border-r border-white/[0.06] md:hidden flex flex-col animate-in slide-in-from-left duration-200">
+            <aside className="fixed inset-y-0 left-0 z-50 w-[260px] glass-sidebar md:hidden flex flex-col animate-in slide-in-from-left duration-200">
               <div className="h-14 flex items-center justify-between px-4 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                    <Sparkles className="w-3.5 h-3.5 text-white" />
-                  </div>
-                  <span className="font-display font-bold text-base">Dig8opia</span>
+                  <img src="/logo.png" alt="Dig8opia" className="w-10 h-10 object-contain" />
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
                   <X className="w-4 h-4" />
@@ -337,8 +361,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <Link key={item.href} href={item.href}>
                       <div 
                         className={cn(
-                          "flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
-                          active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                          "flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer relative",
+                          active ? "bg-primary/10 text-primary active-indicator" : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
                         )}
                         onClick={() => setSidebarOpen(false)}
                       >
@@ -359,25 +383,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
 
-        <aside className="hidden xl:block w-[300px] border-l border-white/[0.06] bg-background/50 overflow-y-auto flex-shrink-0">
+        <aside className="hidden xl:block w-[300px] border-l border-white/[0.06] bg-background/30 backdrop-blur-xl overflow-y-auto flex-shrink-0">
           <div className="p-5">
             <AIInsightPanel />
           </div>
         </aside>
       </div>
 
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-white/[0.06] safe-area-bottom">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-header safe-area-bottom">
         <nav className="flex items-center justify-around px-2 py-1.5">
           {mobileNav.map((item) => {
             const active = isActive(item.href);
             return (
               <Link key={item.href} href={item.href}>
                 <div className={cn(
-                  "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer",
+                  "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-all cursor-pointer",
                   active ? "text-primary" : "text-muted-foreground"
                 )} data-testid={`mobile-nav-${item.label.toLowerCase()}`}>
-                  <item.icon className="w-5 h-5" />
+                  <item.icon className={cn("w-5 h-5 transition-transform", active && "scale-110")} />
                   <span className="text-[10px] font-medium">{item.label}</span>
+                  {active && <div className="w-1 h-1 rounded-full bg-primary" />}
                 </div>
               </Link>
             );

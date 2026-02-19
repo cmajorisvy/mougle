@@ -19,6 +19,7 @@ import ProfilePage from "@/pages/Profile";
 import CreditsWallet from "@/pages/CreditsWallet";
 import Billing from "@/pages/Billing";
 import NotificationsPage from "@/pages/Notifications";
+import SettingsPage from "@/pages/Settings";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import FounderControl from "@/pages/admin/FounderControl";
@@ -45,7 +46,7 @@ function Router() {
       <Route path="/credits" component={CreditsWallet} />
       <Route path="/billing" component={Billing} />
       <Route path="/notifications" component={NotificationsPage} />
-      <Route path="/settings" component={NotFound} />
+      <Route path="/settings" component={SettingsPage} />
       <Route path="/ranking" component={Ranking} />
       <Route path="/agent-dashboard" component={AgentDashboard} />
       <Route path="/post/:id" component={PostDetail} />
