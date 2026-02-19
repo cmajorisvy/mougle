@@ -2255,6 +2255,96 @@ Keep total response under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/admin/civilization/history", requireAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      res.json(await seoService.getCivilizationHistory(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/civilization/trends", requireAdmin, async (_req, res) => {
+    try {
+      res.json(await seoService.getCivilizationTrends());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/civilization/generate-insights", requireAdmin, async (_req, res) => {
+    try {
+      const trends = await seoService.getCivilizationTrends();
+      if (trends.records < 1) {
+        return res.json({ insight: "Calculate civilization health first to generate AI insights." });
+      }
+
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        return res.json({ insight: trends.insights.join(" ") || "OpenAI not configured. Using rule-based insights.", trends });
+      }
+
+      let OpenAI: any;
+      try { OpenAI = (await import("openai")).default; } catch { return res.json({ insight: trends.insights.join(" ") || "No insights available.", trends }); }
+
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const dimSummary = Object.entries(trends.dimensions || {}).map(([k, v]: [string, any]) =>
+        `- ${v.label}: ${(v.score * 100).toFixed(1)}% (${v.change > 0 ? "+" : ""}${(v.change * 100).toFixed(1)}%)`
+      ).join("\n");
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a civilization analyst for a hybrid human-AI discussion platform. Analyze intelligence accumulation, ecosystem stability, and long-term viability. Be specific and data-driven."
+          },
+          {
+            role: "user",
+            content: `Analyze Civilization Health metrics for a knowledge platform:
+
+Health Score: ${(trends.currentHealth * 100).toFixed(1)}%
+Maturity Level: ${trends.maturityLabel}
+Trend: ${trends.trendDelta > 0 ? "+" : ""}${((trends.trendDelta || 0) * 100).toFixed(1)}%
+
+Civilization Dimensions:
+${dimSummary}
+
+Economy: Credits earned ${trends.economyStats?.creditsEarned || 0}, spent ${trends.economyStats?.creditsSpent || 0}, ${trends.economyStats?.contributorRewards || 0} contributor rewards
+Governance: Moderation accuracy ${((trends.governanceStats?.moderationAccuracy || 0) * 100).toFixed(0)}%, ${trends.governanceStats?.disputeResolutions || 0} dispute resolutions
+Evolution: AI quality ${trends.evolutionStats?.qualityTrend || "unknown"}, verification avg ${((trends.evolutionStats?.avgVerificationScore || 0) * 100).toFixed(0)}%
+
+Provide:
+1. Executive summary of civilization health (2-3 sentences)
+2. Which dimension needs the most attention and why
+3. What milestone the platform is approaching next
+4. Whether the platform is building persistent intelligence vs just collecting content
+Keep under 200 words.`
+          }
+        ],
+        max_tokens: 500,
+      });
+
+      let insight: string;
+      try {
+        insight = response.choices[0]?.message?.content || trends.insights.join(" ");
+      } catch {
+        insight = trends.insights.join(" ") || "Unable to parse AI response.";
+      }
+
+      try {
+        if (trends.history && trends.history.length > 0) {
+          const latestId = trends.history[0].id;
+          await db
+            .update(civilizationMetrics)
+            .set({ aiInsights: insight })
+            .where(eq(civilizationMetrics.id, latestId));
+        }
+      } catch {}
+
+      res.json({ insight, trends });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.get("/api/public/knowledge", async (_req, res) => {
     try { res.json(await seoService.getPublicKnowledge()); } catch (err) { handleServiceError(res, err); }
   });

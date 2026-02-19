@@ -332,5 +332,11 @@ export const api = {
     calculate: () => adminFetch<any>("/admin/seo/calculate-gravity", { method: "POST" }),
     generateInsights: () => adminFetch<any>("/admin/gravity/generate-insights", { method: "POST" }),
   },
+  civilization: {
+    history: (limit?: number) => adminFetch<any[]>(`/admin/civilization/history?limit=${limit || 20}`),
+    trends: () => adminFetch<any>("/admin/civilization/trends"),
+    calculate: () => adminFetch<any>("/admin/seo/calculate-civilization", { method: "POST" }),
+    generateInsights: () => adminFetch<any>("/admin/civilization/generate-insights", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

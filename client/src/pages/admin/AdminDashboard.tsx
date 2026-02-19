@@ -1913,20 +1913,65 @@ function NetworkGravityTab() {
 }
 
 function CivilizationMetricsTab() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["seo-stats"],
-    queryFn: () => api.seo.stats(),
+  const { data: trends, isLoading: trendsLoading } = useQuery({
+    queryKey: ["civilization-trends"],
+    queryFn: () => api.civilization.trends(),
+  });
+
+  const { data: history = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["civilization-history"],
+    queryFn: () => api.civilization.history(30),
   });
 
   const calcCiv = useMutation({
-    mutationFn: () => api.seo.calculateCivilization(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seo-stats"] }),
+    mutationFn: () => api.civilization.calculate(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["civilization-trends"] });
+      queryClient.invalidateQueries({ queryKey: ["civilization-history"] });
+    },
   });
 
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const generateInsights = useMutation({
+    mutationFn: () => api.civilization.generateInsights(),
+    onSuccess: (data) => {
+      setAiInsight(data.insight);
+      queryClient.invalidateQueries({ queryKey: ["civilization-trends"] });
+    },
+  });
+
+  const isLoading = trendsLoading || historyLoading;
   if (isLoading) return <LoadingSpinner />;
 
-  const metrics = stats?.recentCivilizationMetrics || [];
-  const latest = metrics[0];
+  const latest = history[0];
+  const dimensions = trends?.dimensions || {};
+
+  const maturityLabels: Record<string, string> = {
+    thriving_ecosystem: "Thriving Ecosystem",
+    maturing_civilization: "Maturing Civilization",
+    developing_society: "Developing Society",
+    emerging_community: "Emerging Community",
+    nascent_colony: "Nascent Colony",
+  };
+  const maturityColors: Record<string, string> = {
+    thriving_ecosystem: "text-emerald-400 bg-emerald-500/10",
+    maturing_civilization: "text-green-400 bg-green-500/10",
+    developing_society: "text-blue-400 bg-blue-500/10",
+    emerging_community: "text-yellow-400 bg-yellow-500/10",
+    nascent_colony: "text-orange-400 bg-orange-500/10",
+  };
+
+  const healthScore = latest?.healthScore || trends?.currentHealth || 0;
+  const maturity = latest?.maturityLevel || trends?.maturity || "nascent_colony";
+  const delta = latest?.trendDelta || trends?.trendDelta || 0;
+
+  const dimensionIcons: Record<string, { icon: any; color: string }> = {
+    knowledge: { icon: FileText, color: "text-blue-400" },
+    institution: { icon: Crown, color: "text-yellow-400" },
+    economy: { icon: Zap, color: "text-green-400" },
+    governance: { icon: Shield, color: "text-purple-400" },
+    evolution: { icon: TrendingUp, color: "text-cyan-400" },
+  };
 
   return (
     <div className="space-y-6">
@@ -1934,54 +1979,270 @@ function CivilizationMetricsTab() {
         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
           <Database className="w-5 h-5 text-emerald-400" /> Civilization Metrics
         </h2>
-        <Button data-testid="button-calc-civilization" size="sm" onClick={() => calcCiv.mutate()} disabled={calcCiv.isPending}>
-          <RefreshCw className={`w-4 h-4 mr-1 ${calcCiv.isPending ? "animate-spin" : ""}`} /> Calculate
-        </Button>
+        <div className="flex gap-2">
+          <Button data-testid="button-generate-civ-insights" size="sm" variant="outline" onClick={() => generateInsights.mutate()} disabled={generateInsights.isPending} className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+            {generateInsights.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />} AI Insights
+          </Button>
+          <Button data-testid="button-calc-civilization" size="sm" onClick={() => calcCiv.mutate()} disabled={calcCiv.isPending}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${calcCiv.isPending ? "animate-spin" : ""}`} /> Calculate
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={Heart} label="Health Score" value={latest ? `${(latest.healthScore * 100).toFixed(1)}%` : "N/A"} color="bg-emerald-500/10 text-emerald-400" />
-        <StatCard icon={Check} label="Verified Entries" value={latest?.verifiedEntries || 0} color="bg-green-500/10 text-green-400" />
-        <StatCard icon={Crown} label="Expert Users" value={latest?.expertUserCount || 0} color="bg-yellow-500/10 text-yellow-400" />
-        <StatCard icon={Bot} label="AI Agents" value={latest?.specializedAgentCount || 0} color="bg-purple-500/10 text-purple-400" />
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <Heart className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <p data-testid="text-health-score" className="text-lg font-bold text-white">{(healthScore * 100).toFixed(1)}%</p>
+              <p className="text-xs text-gray-500">Health Score</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${maturityColors[maturity] || "bg-gray-500/10 text-gray-400"}`}>
+              <Crown className="w-5 h-5" />
+            </div>
+            <div>
+              <p data-testid="text-maturity-level" className="text-sm font-bold text-white">{maturityLabels[maturity] || maturity}</p>
+              <p className="text-xs text-gray-500">Maturity Level</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${delta > 0 ? "bg-green-500/10 text-green-400" : delta < 0 ? "bg-red-500/10 text-red-400" : "bg-gray-500/10 text-gray-400"}`}>
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <div>
+              <p data-testid="text-civ-trend" className="text-lg font-bold text-white">{delta > 0 ? "+" : ""}{(delta * 100).toFixed(2)}%</p>
+              <p className="text-xs text-gray-500">Trend Delta</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+              <BarChart3 className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <p data-testid="text-civ-records" className="text-lg font-bold text-white">{trends?.records || history.length || 0}</p>
+              <p className="text-xs text-gray-500">Measurements</p>
+            </div>
+          </div>
+        </Card>
       </div>
 
-      <Card data-testid="card-civilization-breakdown" className="bg-gray-900/60 border-gray-800/50 p-4">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">Civilization Health Breakdown</h3>
-        {!latest ? (
+      {(aiInsight || latest?.aiInsights) && (
+        <Card data-testid="card-civ-ai-insights" className="bg-gradient-to-br from-purple-900/30 to-emerald-900/30 border-purple-500/20 p-4">
+          <h3 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+            <Sparkles className="w-4 h-4" /> AI Civilization Analysis
+          </h3>
+          <p data-testid="text-civ-ai-insight" className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
+            {aiInsight || latest?.aiInsights}
+          </p>
+        </Card>
+      )}
+
+      <Card data-testid="card-dimension-radar" className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-semibold text-gray-300 mb-4">Five Dimensions of Civilization</h3>
+        {Object.keys(dimensions).length === 0 ? (
           <p data-testid="text-civilization-empty" className="text-gray-500 text-sm">No civilization data yet. Click "Calculate" to generate health metrics.</p>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {[
-              { label: "Knowledge", id: "knowledge", items: [{ k: "Verified", v: latest.verifiedEntries }, { k: "Consensus", v: latest.consensusUpdates }, { k: "Revisions", v: latest.summaryRevisions }] },
-              { label: "Institutions", id: "institutions", items: [{ k: "Experts", v: latest.expertUserCount }, { k: "Agents", v: latest.specializedAgentCount }] },
-              { label: "Economy", id: "economy", items: [{ k: "Volume", v: latest.economyStats?.totalVolume || 0 }, { k: "Transactions", v: latest.economyStats?.transactionCount || 0 }] },
-            ].map(section => (
-              <div key={section.label} data-testid={`card-civ-${section.id}`} className="bg-gray-800/30 rounded-xl p-3">
-                <p className="text-xs text-gray-500 font-semibold mb-2">{section.label}</p>
-                {section.items.map(item => (
-                  <div key={item.k} className="flex justify-between text-xs py-0.5">
-                    <span className="text-gray-400">{item.k}</span>
-                    <span data-testid={`text-civ-${section.id}-${item.k.toLowerCase()}`} className="text-white font-mono">{item.v}</span>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {Object.entries(dimensions).map(([key, dim]: [string, any]) => {
+              const iconInfo = dimensionIcons[key] || { icon: Activity, color: "text-gray-400" };
+              const IconComponent = iconInfo.icon;
+              return (
+                <div key={key} data-testid={`card-dimension-${key}`} className="bg-gray-800/30 rounded-xl p-3 text-center">
+                  <IconComponent className={`w-6 h-6 mx-auto mb-2 ${iconInfo.color}`} />
+                  <p className="text-xs text-gray-400 mb-1">{dim.label}</p>
+                  <p data-testid={`text-dim-score-${key}`} className="text-xl font-bold text-white">{(dim.score * 100).toFixed(0)}%</p>
+                  {dim.change !== 0 && (
+                    <p className={`text-[10px] mt-1 ${dim.change > 0 ? "text-green-400" : "text-red-400"}`}>
+                      {dim.change > 0 ? "+" : ""}{(dim.change * 100).toFixed(1)}%
+                    </p>
+                  )}
+                  <div className="mt-2 bg-gray-700/30 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        dim.score > 0.6 ? "bg-emerald-500" : dim.score > 0.3 ? "bg-yellow-500" : "bg-red-500"
+                      }`}
+                      style={{ width: `${Math.min(dim.score * 100, 100)}%` }}
+                    />
                   </div>
-                ))}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>
 
-      {metrics.length > 1 && (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card data-testid="card-civ-knowledge" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-blue-300 mb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4" /> Knowledge Base
+          </h3>
+          {latest ? (
+            <div className="space-y-2">
+              {[
+                { label: "Verified Entries", value: latest.verifiedEntries, id: "verified" },
+                { label: "Consensus Updates", value: latest.consensusUpdates, id: "consensus" },
+                { label: "Summary Revisions", value: latest.summaryRevisions, id: "revisions" },
+              ].map(item => (
+                <div key={item.id} className="flex justify-between text-xs py-1 border-b border-gray-800/30 last:border-0">
+                  <span className="text-gray-400">{item.label}</span>
+                  <span data-testid={`text-civ-knowledge-${item.id}`} className="text-white font-mono">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-gray-500 text-xs">No data</p>}
+        </Card>
+
+        <Card data-testid="card-civ-institutions" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-yellow-300 mb-3 flex items-center gap-2">
+            <Crown className="w-4 h-4" /> Institutions
+          </h3>
+          {latest ? (
+            <div className="space-y-2">
+              {[
+                { label: "Expert Users", value: latest.expertUserCount, id: "experts" },
+                { label: "Specialized Agents", value: latest.specializedAgentCount, id: "agents" },
+              ].map(item => (
+                <div key={item.id} className="flex justify-between text-xs py-1 border-b border-gray-800/30 last:border-0">
+                  <span className="text-gray-400">{item.label}</span>
+                  <span data-testid={`text-civ-inst-${item.id}`} className="text-white font-mono">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-gray-500 text-xs">No data</p>}
+        </Card>
+
+        <Card data-testid="card-civ-economy" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-green-300 mb-3 flex items-center gap-2">
+            <Zap className="w-4 h-4" /> Economy
+          </h3>
+          {latest ? (
+            <div className="space-y-2">
+              {[
+                { label: "Credits Earned", value: (latest.economyStats as any)?.creditsEarned || 0, id: "earned" },
+                { label: "Credits Spent", value: (latest.economyStats as any)?.creditsSpent || 0, id: "spent" },
+                { label: "Contributor Rewards", value: (latest.economyStats as any)?.contributorRewards || 0, id: "rewards" },
+                { label: "Transactions", value: (latest.economyStats as any)?.transactionCount || 0, id: "txcount" },
+                { label: "Circulation", value: `${(((latest.economyStats as any)?.circulationRate || 0) * 100).toFixed(0)}%`, id: "circulation" },
+              ].map(item => (
+                <div key={item.id} className="flex justify-between text-xs py-1 border-b border-gray-800/30 last:border-0">
+                  <span className="text-gray-400">{item.label}</span>
+                  <span data-testid={`text-civ-econ-${item.id}`} className="text-white font-mono">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-gray-500 text-xs">No data</p>}
+        </Card>
+
+        <Card data-testid="card-civ-governance" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
+            <Shield className="w-4 h-4" /> Governance
+          </h3>
+          {latest ? (
+            <div className="space-y-2">
+              {[
+                { label: "Moderation Accuracy", value: `${(((latest.governanceStats as any)?.moderationAccuracy || 0) * 100).toFixed(0)}%`, id: "moderation" },
+                { label: "Dispute Resolutions", value: (latest.governanceStats as any)?.disputeResolutions || 0, id: "disputes" },
+                { label: "Moderated Content", value: (latest.governanceStats as any)?.totalModeratedContent || 0, id: "moderated" },
+                { label: "Community Participation", value: `${(((latest.governanceStats as any)?.communityParticipation || 0) * 100).toFixed(0)}%`, id: "participation" },
+              ].map(item => (
+                <div key={item.id} className="flex justify-between text-xs py-1 border-b border-gray-800/30 last:border-0">
+                  <span className="text-gray-400">{item.label}</span>
+                  <span data-testid={`text-civ-gov-${item.id}`} className="text-white font-mono">{item.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-gray-500 text-xs">No data</p>}
+        </Card>
+
+        <Card data-testid="card-civ-evolution" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-cyan-300 mb-3 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" /> Evolution
+          </h3>
+          {latest ? (
+            <div className="space-y-2">
+              {[
+                { label: "Avg Verification Score", value: `${(((latest.evolutionStats as any)?.avgVerificationScore || 0) * 100).toFixed(0)}%`, id: "avg-verification" },
+                { label: "AI Summary Quality", value: `${(((latest.evolutionStats as any)?.aiSummaryQuality || 0) * 100).toFixed(0)}%`, id: "ai-quality" },
+                { label: "Knowledge Coverage", value: `${(((latest.evolutionStats as any)?.knowledgeCoverage || 0) * 100).toFixed(0)}%`, id: "coverage" },
+                { label: "FAQ Coverage", value: `${(((latest.evolutionStats as any)?.faqCoverage || 0) * 100).toFixed(0)}%`, id: "faq" },
+                { label: "Quality Trend", value: (latest.evolutionStats as any)?.qualityTrend || "unknown", id: "trend" },
+              ].map(item => (
+                <div key={item.id} className="flex justify-between text-xs py-1 border-b border-gray-800/30 last:border-0">
+                  <span className="text-gray-400">{item.label}</span>
+                  <span data-testid={`text-civ-evo-${item.id}`} className={`font-mono ${item.id === "trend" ? (item.value === "improving" ? "text-green-400" : item.value === "stable" ? "text-blue-400" : "text-orange-400") : "text-white"}`}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-gray-500 text-xs">No data</p>}
+        </Card>
+
+        <Card data-testid="card-civ-health-meter" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Civilization Health</h3>
+          <div className="flex flex-col items-center py-2">
+            <div className="relative w-28 h-28">
+              <svg viewBox="0 0 36 36" className="w-28 h-28 transform -rotate-90">
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#374151" strokeWidth="3" />
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke={healthScore > 0.6 ? "#10B981" : healthScore > 0.3 ? "#F59E0B" : "#EF4444"}
+                  strokeWidth="3"
+                  strokeDasharray={`${healthScore * 100}, 100`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span data-testid="text-civ-health-gauge" className="text-xl font-bold text-white">{(healthScore * 100).toFixed(0)}%</span>
+                <span className="text-[9px] text-gray-500">Health</span>
+              </div>
+            </div>
+            <p className={`text-xs mt-2 px-2 py-0.5 rounded-full ${maturityColors[maturity] || "bg-gray-500/10 text-gray-400"}`}>
+              {maturityLabels[maturity] || maturity}
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      {trends?.insights && trends.insights.length > 0 && (
+        <Card data-testid="card-civ-system-insights" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+            <Eye className="w-4 h-4 text-yellow-400" /> System Insights
+          </h3>
+          <div className="space-y-2">
+            {trends.insights.map((insight: string, i: number) => (
+              <div key={i} data-testid={`text-civ-system-insight-${i}`} className="flex items-start gap-2 text-sm text-gray-400">
+                <ChevronRight className="w-4 h-4 mt-0.5 text-emerald-400 flex-shrink-0" />
+                <span>{insight}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {history.length > 1 && (
         <Card data-testid="card-civilization-history" className="bg-gray-900/60 border-gray-800/50 p-4">
           <h3 className="text-sm font-semibold text-gray-300 mb-3">Health History</h3>
           <div className="space-y-2">
-            {metrics.map((m: any) => (
+            {history.map((m: any) => (
               <div key={m.id} data-testid={`row-civ-${m.id}`} className="flex items-center gap-3 bg-gray-800/30 rounded-lg px-3 py-2">
-                <span className="text-xs text-gray-500">{new Date(m.recordedAt).toLocaleDateString()}</span>
+                <span className="text-xs text-gray-500 w-20">{new Date(m.recordedAt).toLocaleDateString()}</span>
                 <div className="flex-1 bg-gray-700/30 rounded-full h-2">
-                  <div className="bg-gradient-to-r from-emerald-500 to-green-500 h-2 rounded-full" style={{ width: `${Math.min(m.healthScore * 100, 100)}%` }} />
+                  <div className="bg-gradient-to-r from-emerald-500 to-green-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(m.healthScore * 100, 100)}%` }} />
                 </div>
-                <span data-testid={`text-civ-score-${m.id}`} className="text-xs text-emerald-400 font-mono">{(m.healthScore * 100).toFixed(1)}%</span>
+                <span data-testid={`text-civ-score-${m.id}`} className="text-xs text-emerald-400 font-mono w-12 text-right">{(m.healthScore * 100).toFixed(1)}%</span>
+                {m.maturityLevel && (
+                  <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full ${maturityColors[m.maturityLevel] || "bg-gray-500/10 text-gray-400"}`}>
+                    {maturityLabels[m.maturityLevel] || m.maturityLevel}
+                  </span>
+                )}
               </div>
             ))}
           </div>
