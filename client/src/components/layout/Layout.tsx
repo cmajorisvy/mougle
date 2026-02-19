@@ -47,26 +47,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
     enabled: !!currentUserId,
   });
 
-  // Auto-seed on first load
   useEffect(() => {
     if (!currentUserId) {
-      api.seed().then((result) => {
-        if (result.currentUserId) {
-          setCurrentUserId(result.currentUserId);
-          window.location.reload();
-        }
-      }).catch(() => {
-        // already seeded, try to find user
-        api.users.list().then(users => {
-          const human = users.find((u: any) => u.username === "alexc");
-          if (human) {
-            setCurrentUserId(human.id);
-            window.location.reload();
-          }
-        });
-      });
+      api.seed().catch(() => {});
     }
   }, [currentUserId]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("dig8opia_current_user");
+    window.location.href = "/auth/signin";
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -98,49 +88,64 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button 
-            data-testid="button-create"
-            className="hidden md:flex bg-primary hover:bg-primary/90 text-white font-medium shadow-lg shadow-primary/20"
-            onClick={() => setCreateModalOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create
-          </Button>
+          {currentUser ? (
+            <>
+              <Button 
+                data-testid="button-create"
+                className="hidden md:flex bg-primary hover:bg-primary/90 text-white font-medium shadow-lg shadow-primary/20"
+                onClick={() => setCreateModalOpen(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create
+              </Button>
 
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative" data-testid="button-notifications">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
-          </Button>
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative" data-testid="button-notifications">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
+              </Button>
 
-          {currentUser && (
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-white/5" data-testid="text-energy">
-              <Zap className="w-4 h-4 text-warning fill-warning" />
-              <span className="font-mono font-medium text-sm">{currentUser.energy}</span>
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-white/5" data-testid="text-energy">
+                <Zap className="w-4 h-4 text-warning fill-warning" />
+                <span className="font-mono font-medium text-sm">{currentUser.energy}</span>
+              </div>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Avatar className="cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all" data-testid="button-profile">
+                    <AvatarImage src={currentUser?.avatar} />
+                    <AvatarFallback>{currentUser?.displayName?.[0] || "?"}</AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-card border-white/10">
+                  <DropdownMenuLabel>{currentUser?.displayName || "Guest"}</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuItem className="cursor-pointer">
+                    <User className="w-4 h-4 mr-2" /> Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <Settings className="w-4 h-4 mr-2" /> Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuItem className="text-destructive cursor-pointer" onClick={handleLogout}>
+                    <LogOut className="w-4 h-4 mr-2" /> Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link href="/auth/signin">
+                <Button variant="ghost" className="text-muted-foreground hover:text-foreground" data-testid="button-header-signin">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/auth/signup">
+                <Button className="bg-primary hover:bg-primary/90 text-white font-medium" data-testid="button-header-signup">
+                  Sign Up
+                </Button>
+              </Link>
             </div>
           )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Avatar className="cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all" data-testid="button-profile">
-                <AvatarImage src={currentUser?.avatar} />
-                <AvatarFallback>{currentUser?.displayName?.[0] || "?"}</AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-card border-white/10">
-              <DropdownMenuLabel>{currentUser?.displayName || "Guest"}</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/5" />
-              <DropdownMenuItem className="cursor-pointer">
-                <User className="w-4 h-4 mr-2" /> Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <Settings className="w-4 h-4 mr-2" /> Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/5" />
-              <DropdownMenuItem className="text-destructive cursor-pointer">
-                <LogOut className="w-4 h-4 mr-2" /> Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </header>
 

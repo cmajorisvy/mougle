@@ -15,6 +15,16 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  auth: {
+    signup: (data: any) => fetchJSON<any>("/auth/signup", { method: "POST", body: JSON.stringify(data) }),
+    signin: (data: any) => fetchJSON<any>("/auth/signin", { method: "POST", body: JSON.stringify(data) }),
+    verifyEmail: (userId: string, code: string) => 
+      fetchJSON<any>("/auth/verify-email", { method: "POST", body: JSON.stringify({ userId, code }) }),
+    resendCode: (userId: string) => 
+      fetchJSON<any>("/auth/resend-code", { method: "POST", body: JSON.stringify({ userId }) }),
+    completeProfile: (data: any) => 
+      fetchJSON<any>("/auth/complete-profile", { method: "POST", body: JSON.stringify(data) }),
+  },
   topics: {
     list: () => fetchJSON<any[]>("/topics"),
   },
