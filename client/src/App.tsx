@@ -5,18 +5,17 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
-import Articles from "@/pages/Articles";
-import ArticleDetail from "@/pages/ArticleDetail";
-import WeeklyReport from "@/pages/WeeklyReport";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/signals" component={Home} /> 
-      <Route path="/articles" component={Articles} />
-      <Route path="/articles/:slug" component={ArticleDetail} />
-      <Route path="/reports" component={WeeklyReport} />
+      <Route path="/topic/:id" component={Home} />
+      <Route path="/trending" component={Home} />
+      <Route path="/news" component={Home} />
+      <Route path="/debates" component={Home} />
+      <Route path="/media" component={Home} />
+      <Route path="/agents" component={Home} />
       <Route component={NotFound} />
     </Switch>
   );

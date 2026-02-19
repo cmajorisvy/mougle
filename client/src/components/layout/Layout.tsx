@@ -1,122 +1,182 @@
 import { Link, useLocation } from "wouter";
 import { 
-  LayoutDashboard, 
-  FileText, 
-  BarChart3, 
-  Settings, 
-  Activity, 
-  Menu,
-  X
+  Search, Bell, Plus, Zap, User, Menu, X,
+  Home, TrendingUp, Newspaper, Swords, Film, Bot,
+  Cpu, Settings, Code, LogOut
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { 
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { currentUser, topics } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
+import { CreateModal } from "@/components/create/CreateModal";
+import { AIInsightPanel } from "@/components/layout/AIInsightPanel";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-    { icon: Activity, label: "Signals", href: "/signals" },
-    { icon: FileText, label: "Intelligence", href: "/articles" },
-    { icon: BarChart3, label: "Reports", href: "/reports" },
+  const mainNav = [
+    { icon: Home, label: "Home", href: "/" },
+    { icon: TrendingUp, label: "Trending", href: "/trending" },
+    { icon: Newspaper, label: "News", href: "/news" },
+    { icon: Swords, label: "Debates", href: "/debates" },
+    { icon: Film, label: "Media", href: "/media" },
+    { icon: Bot, label: "Agents", href: "/agents" },
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex overflow-hidden">
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside 
-        className={cn(
-          "fixed md:static inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border transform transition-transform duration-300 md:transform-none flex flex-col glass-card",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold font-mono">
-              D8
-            </div>
-            <span className="font-sans font-bold text-xl tracking-tighter">
-              Dig8opia
-            </span>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive = location === item.href;
-            return (
-            <Link key={item.href} href={item.href}>
-              <div className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-200 group cursor-pointer",
-                isActive 
-                  ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              )}>
-                <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
-                <span className="font-medium">{item.label}</span>
-                {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_currentColor]" />
-                )}
-              </div>
-            </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-sidebar-border">
-          <div className="bg-card/50 rounded-lg p-4 border border-border/50">
-            <div className="text-xs font-mono text-muted-foreground mb-2">SYSTEM STATUS</div>
-            <div className="flex items-center gap-2 text-sm text-green-500 mb-1">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span>Scrapers Online</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-primary mb-1">
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              <span>AI Core Active</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
-        {/* Mobile Header */}
-        <header className="md:hidden h-16 border-b border-border flex items-center justify-between px-4 bg-background/80 backdrop-blur-md sticky top-0 z-30">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold font-mono text-xs">
-              D8
-            </div>
-            <span className="font-bold">Dig8opia</span>
-          </div>
-          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      {/* Top Navbar */}
+      <header className="h-16 border-b border-white/5 bg-background/80 backdrop-blur-md sticky top-0 z-50 flex items-center px-4 md:px-6 justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-        </header>
+          <Link href="/">
+            <div className="flex items-center gap-2 cursor-pointer">
+              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Bot className="w-5 h-5 text-primary" />
+              </div>
+              <span className="font-display font-bold text-lg hidden md:block tracking-tight">
+                Dig8opia
+              </span>
+            </div>
+          </Link>
+        </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
-          <div className="max-w-7xl mx-auto w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Global Search */}
+        <div className="flex-1 max-w-xl relative hidden md:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search posts, topics, agents..." 
+            className="pl-9 bg-card/50 border-white/5 focus:border-primary/50 transition-colors"
+          />
+        </div>
+
+        {/* Right Actions */}
+        <div className="flex items-center gap-3">
+          <Button 
+            className="hidden md:flex bg-primary hover:bg-primary/90 text-white font-medium shadow-lg shadow-primary/20"
+            onClick={() => setCreateModalOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create
+          </Button>
+
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
+          </Button>
+
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-white/5">
+            <Zap className="w-4 h-4 text-warning fill-warning" />
+            <span className="font-mono font-medium text-sm">{currentUser.energy}</span>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Avatar className="cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all">
+                <AvatarImage src={currentUser.avatar} />
+                <AvatarFallback>AC</AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 bg-card border-white/10">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-white/5" />
+              <DropdownMenuItem className="cursor-pointer">
+                <User className="w-4 h-4 mr-2" /> Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer">
+                <Settings className="w-4 h-4 mr-2" /> Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-white/5" />
+              <DropdownMenuItem className="text-destructive cursor-pointer">
+                <LogOut className="w-4 h-4 mr-2" /> Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar */}
+        <aside className={cn(
+          "fixed inset-y-0 left-0 z-40 w-[260px] bg-background border-r border-white/5 transform transition-transform duration-300 md:relative md:transform-none flex flex-col pt-16 md:pt-0",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        )}>
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="space-y-1">
+              {mainNav.map((item) => {
+                const isActive = location === item.href;
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <div className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                      isActive 
+                        ? "bg-primary/10 text-primary" 
+                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                    )}>
+                      <item.icon className="w-4 h-4" />
+                      {item.label}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                Topics
+              </h3>
+              {topics.map((topic) => (
+                <Link key={topic.id} href={`/topic/${topic.id}`}>
+                  <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground cursor-pointer transition-colors">
+                    <topic.icon className="w-4 h-4" />
+                    {topic.label}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-white/5">
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+              <Code className="w-4 h-4" />
+              Developer API
+            </div>
+          </div>
+        </aside>
+
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto relative">
+          <div className="max-w-[820px] mx-auto p-4 md:p-6 pb-20">
             {children}
           </div>
-        </div>
-      </main>
+        </main>
+
+        {/* Right Panel - AI Insights */}
+        <aside className="hidden xl:block w-[320px] border-l border-white/5 bg-background p-6 overflow-y-auto">
+          <AIInsightPanel />
+        </aside>
+      </div>
+
+      <CreateModal open={createModalOpen} onOpenChange={setCreateModalOpen} />
     </div>
   );
 }
