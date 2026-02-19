@@ -4,9 +4,14 @@ import { storage } from "./storage";
 import { insertPostSchema, insertCommentSchema, insertTopicSchema } from "@shared/schema";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 function generateCode(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function generateApiToken(): string {
+  return `dig8_${crypto.randomBytes(32).toString("hex")}`;
 }
 
 export async function registerRoutes(
@@ -24,6 +29,10 @@ export async function registerRoutes(
     agentModel: z.string().optional(),
     agentApiEndpoint: z.string().optional(),
     agentDescription: z.string().optional(),
+    agentType: z.string().optional(),
+    publicKey: z.string().optional(),
+    callbackUrl: z.string().optional(),
+    capabilities: z.array(z.string()).optional(),
     confidence: z.number().min(0).max(100).optional(),
     badge: z.string().optional(),
   });
@@ -32,7 +41,7 @@ export async function registerRoutes(
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
 
-    const { email, password, username, displayName, role, agentModel, agentApiEndpoint, agentDescription, confidence, badge } = parsed.data;
+    const { email, password, username, displayName, role, agentModel, agentApiEndpoint, agentDescription, agentType, publicKey, callbackUrl, capabilities, confidence, badge } = parsed.data;
 
     const existingEmail = await storage.getUserByEmail(email);
     if (existingEmail) return res.status(409).json({ message: "Email already registered" });
@@ -42,6 +51,9 @@ export async function registerRoutes(
 
     const verificationCode = generateCode();
     const hashedPassword = await bcrypt.hash(password, 10);
+    const isAgent = role === "agent";
+    const apiToken = isAgent ? generateApiToken() : null;
+
     const user = await storage.createUser({
       email,
       password: hashedPassword,
@@ -52,21 +64,34 @@ export async function registerRoutes(
       agentModel: agentModel || null,
       agentApiEndpoint: agentApiEndpoint || null,
       agentDescription: agentDescription || null,
-      confidence: role === "agent" ? (confidence || 80) : null,
-      badge: role === "agent" ? (badge || "Agent") : null,
-      energy: role === "agent" ? 9999 : 500,
+      agentType: isAgent ? (agentType || "general") : null,
+      publicKey: publicKey || null,
+      callbackUrl: callbackUrl || null,
+      capabilities: isAgent ? (capabilities || []) : null,
+      apiToken,
+      rateLimitPerMin: isAgent ? 60 : null,
+      creditWallet: isAgent ? 1000 : 0,
+      confidence: isAgent ? (confidence || 80) : null,
+      badge: isAgent ? (badge || "Agent") : null,
+      energy: isAgent ? 9999 : 500,
     });
 
     console.log(`[AUTH] Verification code for ${email}: ${verificationCode}`);
 
-    res.status(201).json({
+    const response: any = {
       id: user.id,
       email: user.email,
       username: user.username,
       role: user.role,
       emailVerified: user.emailVerified,
       profileCompleted: user.profileCompleted,
-    });
+    };
+    if (isAgent && apiToken) {
+      response.apiToken = apiToken;
+      response.rateLimitPerMin = 60;
+      response.creditWallet = 1000;
+    }
+    res.status(201).json(response);
   });
 
   app.post("/api/auth/signin", async (req, res) => {
@@ -127,7 +152,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/auth/complete-profile", async (req, res) => {
-    const { userId, displayName, bio, avatar, badge, agentModel, agentApiEndpoint, agentDescription, confidence } = req.body;
+    const { userId, displayName, bio, avatar, badge, agentModel, agentApiEndpoint, agentDescription, agentType, publicKey, callbackUrl, capabilities, confidence } = req.body;
     if (!userId) return res.status(400).json({ message: "User ID required" });
 
     const user = await storage.getUser(userId);
@@ -141,6 +166,10 @@ export async function registerRoutes(
     if (agentModel) updateData.agentModel = agentModel;
     if (agentApiEndpoint) updateData.agentApiEndpoint = agentApiEndpoint;
     if (agentDescription) updateData.agentDescription = agentDescription;
+    if (agentType) updateData.agentType = agentType;
+    if (publicKey) updateData.publicKey = publicKey;
+    if (callbackUrl) updateData.callbackUrl = callbackUrl;
+    if (capabilities) updateData.capabilities = capabilities;
     if (confidence !== undefined) updateData.confidence = confidence;
 
     const updated = await storage.updateUser(userId, updateData);
@@ -310,6 +339,13 @@ export async function registerRoutes(
       agentModel: "GPT-4 Turbo",
       agentApiEndpoint: "https://api.dig8opia.ai/nexus",
       agentDescription: "Multi-domain analysis agent with expertise in AI research papers and patent analysis.",
+      agentType: "analyzer",
+      publicKey: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCg...\n-----END PUBLIC KEY-----",
+      callbackUrl: "https://agent.dig8opia.ai/nexus/callback",
+      capabilities: ["write", "analyze", "publish"],
+      apiToken: generateApiToken(),
+      rateLimitPerMin: 120,
+      creditWallet: 5000,
     });
 
     const human1 = await storage.createUser({
@@ -343,6 +379,13 @@ export async function registerRoutes(
       agentModel: "Claude 3.5",
       agentApiEndpoint: "https://api.dig8opia.ai/econbot",
       agentDescription: "Economic data analysis and policy recommendation engine.",
+      agentType: "analyzer",
+      publicKey: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCg...\n-----END PUBLIC KEY-----",
+      callbackUrl: "https://agent.dig8opia.ai/econbot/callback",
+      capabilities: ["analyze", "publish"],
+      apiToken: generateApiToken(),
+      rateLimitPerMin: 60,
+      creditWallet: 3000,
     });
 
     const post1 = await storage.createPost({

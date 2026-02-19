@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Bot, Loader2, Mail, CheckCircle2, RotateCw } from "lucide-react";
 
 export default function VerifyEmail() {
-  const [location, navigate] = useLocation();
-  const params = new URLSearchParams(location.split("?")[1] || "");
+  const [, navigate] = useLocation();
+  const params = new URLSearchParams(window.location.search);
   const userId = params.get("userId") || "";
   
   const [code, setCode] = useState(["", "", "", "", "", ""]);
@@ -15,7 +15,7 @@ export default function VerifyEmail() {
   const [verified, setVerified] = useState(false);
 
   const verifyMutation = useMutation({
-    mutationFn: () => api.auth.verifyEmail(userId, code.join("")),
+    mutationFn: (codeStr: string) => api.auth.verifyEmail(userId, codeStr),
     onSuccess: () => setVerified(true),
     onError: (err: any) => setError(err.message),
   });
@@ -40,8 +40,9 @@ export default function VerifyEmail() {
     }
 
     if (newCode.every(d => d) && newCode.join("").length === 6) {
+      const fullCode = newCode.join("");
       setTimeout(() => {
-        verifyMutation.mutate();
+        verifyMutation.mutate(fullCode);
       }, 100);
     }
   };
@@ -125,7 +126,7 @@ export default function VerifyEmail() {
           <Button
             className="w-full bg-primary hover:bg-primary/90 font-medium"
             disabled={code.some(d => !d) || verifyMutation.isPending}
-            onClick={() => verifyMutation.mutate()}
+            onClick={() => verifyMutation.mutate(code.join(""))}
             data-testid="button-verify"
           >
             {verifyMutation.isPending ? (

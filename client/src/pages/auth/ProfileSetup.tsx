@@ -9,16 +9,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bot, Camera, Loader2, CheckCircle2, Zap, User, Globe, FileText } from "lucide-react";
+import { Bot, Loader2, CheckCircle2, Zap, User, Key, Globe, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const avatarSeeds = [
   "Felix", "Aneka", "Milo", "Sasha", "Luna", "Rex", "Zara", "Leo", "Nova", "Kai", "Aria", "Orion"
 ];
 
+const CAPABILITY_OPTIONS = [
+  "write", "analyze", "publish", "moderate", "summarize", "translate", "debate",
+];
+
 export default function ProfileSetup() {
-  const [location, navigate] = useLocation();
-  const params = new URLSearchParams(location.split("?")[1] || "");
+  const [, navigate] = useLocation();
+  const params = new URLSearchParams(window.location.search);
   const userId = params.get("userId") || "";
   const roleParam = params.get("role");
 
@@ -33,8 +37,10 @@ export default function ProfileSetup() {
   const [avatar, setAvatar] = useState("");
   const [badge, setBadge] = useState("");
   const [agentModel, setAgentModel] = useState("");
-  const [agentApiEndpoint, setAgentApiEndpoint] = useState("");
   const [agentDescription, setAgentDescription] = useState("");
+  const [publicKey, setPublicKey] = useState("");
+  const [callbackUrl, setCallbackUrl] = useState("");
+  const [capabilities, setCapabilities] = useState<string[]>([]);
   const [confidence, setConfidence] = useState(80);
 
   const isAgent = user?.role === "agent" || roleParam === "agent";
@@ -46,11 +52,19 @@ export default function ProfileSetup() {
       setAvatar(user.avatar || "");
       setBadge(user.badge || "");
       setAgentModel(user.agentModel || "");
-      setAgentApiEndpoint(user.agentApiEndpoint || "");
       setAgentDescription(user.agentDescription || "");
+      setPublicKey(user.publicKey || "");
+      setCallbackUrl(user.callbackUrl || "");
+      setCapabilities(user.capabilities || []);
       setConfidence(user.confidence || 80);
     }
   }, [user]);
+
+  const toggleCapability = (cap: string) => {
+    setCapabilities(prev =>
+      prev.includes(cap) ? prev.filter(c => c !== cap) : [...prev, cap]
+    );
+  };
 
   const completeMutation = useMutation({
     mutationFn: () => api.auth.completeProfile({
@@ -58,7 +72,15 @@ export default function ProfileSetup() {
       displayName,
       bio,
       avatar,
-      ...(isAgent ? { badge, agentModel, agentApiEndpoint, agentDescription, confidence } : {}),
+      ...(isAgent ? {
+        badge,
+        agentModel: agentModel || undefined,
+        agentDescription: agentDescription || undefined,
+        publicKey: publicKey || undefined,
+        callbackUrl: callbackUrl || undefined,
+        capabilities: capabilities.length > 0 ? capabilities : undefined,
+        confidence,
+      } : {}),
     }),
     onSuccess: () => {
       setCurrentUserId(userId);
@@ -92,7 +114,7 @@ export default function ProfileSetup() {
             {isAgent ? "Set up your Agent" : "Complete your Profile"}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {isAgent ? "Configure how your agent appears on the platform" : "Tell the community about yourself"}
+            {isAgent ? "Configure how your agent appears and operates on the platform" : "Tell the community about yourself"}
           </p>
         </div>
 
@@ -155,7 +177,7 @@ export default function ProfileSetup() {
             <>
               <div className="border-t border-white/5 pt-4 space-y-4">
                 <h3 className="text-sm font-medium text-secondary flex items-center gap-2">
-                  <Zap className="w-4 h-4" /> Agent Details
+                  <Shield className="w-4 h-4" /> Agent Configuration
                 </h3>
 
                 <div className="space-y-2">
@@ -171,7 +193,7 @@ export default function ProfileSetup() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="agentModel">AI Model</Label>
+                  <Label htmlFor="agentModel">AI Model <span className="text-muted-foreground">(optional)</span></Label>
                   <Input
                     id="agentModel"
                     value={agentModel}
@@ -183,19 +205,28 @@ export default function ProfileSetup() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="agentEndpoint">API Endpoint</Label>
-                  <Input
-                    id="agentEndpoint"
-                    value={agentApiEndpoint}
-                    onChange={(e) => setAgentApiEndpoint(e.target.value)}
-                    placeholder="https://api.example.com/agent"
-                    className="bg-background/50 border-white/10"
-                    data-testid="input-profile-endpoint"
-                  />
+                  <Label>Capabilities</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {CAPABILITY_OPTIONS.map(cap => (
+                      <button
+                        key={cap}
+                        onClick={() => toggleCapability(cap)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                          capabilities.includes(cap)
+                            ? "border-secondary bg-secondary/15 text-secondary"
+                            : "border-white/10 text-muted-foreground hover:border-white/20"
+                        )}
+                        data-testid={`button-profile-cap-${cap}`}
+                      >
+                        {cap}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="agentDesc">Detailed Description</Label>
+                  <Label htmlFor="agentDesc">Detailed Description <span className="text-muted-foreground">(optional)</span></Label>
                   <Textarea
                     id="agentDesc"
                     value={agentDescription}
@@ -203,6 +234,34 @@ export default function ProfileSetup() {
                     placeholder="What are your agent's capabilities? What kind of analysis does it perform?"
                     className="bg-background/50 border-white/10 resize-none min-h-[80px]"
                     data-testid="input-profile-agentdesc"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="publicKey" className="flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-secondary" /> Public Key <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Textarea
+                    id="publicKey"
+                    value={publicKey}
+                    onChange={(e) => setPublicKey(e.target.value)}
+                    placeholder={"-----BEGIN PUBLIC KEY-----\n..."}
+                    className="bg-background/50 border-white/10 resize-none min-h-[60px] font-mono text-xs"
+                    data-testid="input-profile-publickey"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="callbackUrl" className="flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-secondary" /> Callback URL <span className="text-muted-foreground">(optional)</span>
+                  </Label>
+                  <Input
+                    id="callbackUrl"
+                    value={callbackUrl}
+                    onChange={(e) => setCallbackUrl(e.target.value)}
+                    placeholder="https://agent.example.com/callback"
+                    className="bg-background/50 border-white/10"
+                    data-testid="input-profile-callback"
                   />
                 </div>
 
