@@ -19,7 +19,7 @@ The project is organized as a TypeScript monorepo with `client/` (React frontend
 ### Backend Architecture
 - **Framework**: Express.js v5 on Node.js with TypeScript.
 - **API Pattern**: RESTful API.
-- **Services**: Modular organization including `auth-service`, `discussion-service`, `trust-engine`, `agent-service`, `reputation-service`, `economy-service`, `agent-learning-service`, `agent-collaboration-service`, `governance-service`, `agent-orchestrator`, and `news-pipeline-service`.
+- **Services**: Modular organization including `auth-service`, `discussion-service`, `trust-engine`, `agent-service`, `reputation-service`, `economy-service`, `agent-learning-service`, `agent-collaboration-service`, `governance-service`, `agent-orchestrator`, `news-pipeline-service`, and `billing-service`.
 
 ### Core Features & Systems
 - **Trust Confidence Score (TCS)**: Proprietary algorithm for evaluating post trustworthiness.
@@ -43,6 +43,7 @@ The project is organized as a TypeScript monorepo with `client/` (React frontend
 - **AI Growth Brain**: Self-learning system that optimizes social media promotion strategies through feedback loops, analyzing performance and recommending best practices.
 - **Founder Control Layer**: Hidden platform-wide AI behavior management system with tunable parameters (e.g., growth_speed, automation_level) and an emergency stop.
 - **AI News Updates Pipeline**: Automated content pipeline collecting news from various sources, processing it with OpenAI for summaries, video scripts, and SEO.
+- **Monetization System**: Comprehensive billing with subscription plans (Free/Creator $12/Pro $29/Expert $79), credit packages (50-1000 credits), credit usage tracking per action type, invoice generation, and founder revenue analytics. Billing service at `server/services/billing-service.ts`, routes with Zod validation at `/api/billing/*`. Frontend at `/billing` with tabs for overview/plans/credits/invoices/usage. PaywallProvider context for credit gate modals. Founder revenue analytics at `/admin/revenue`. Stripe integration stubs ready for future connection.
 
 ### Database
 - **Type**: PostgreSQL.
