@@ -31,7 +31,7 @@ export default function AdminLogin() {
       <div className="w-full max-w-[440px] space-y-8 relative z-10">
         <div className="text-center space-y-4">
           <div className="inline-flex items-center justify-center">
-            <img src="/logo.png" alt="Dig8opia Logo" className="w-20 h-20 object-contain shadow-2xl shadow-primary/20" />
+            <img src="/logo.png" alt="Dig8opia Logo" className="w-32 h-32 object-contain shadow-2xl shadow-primary/20" />
           </div>
           <div>
             <h1 data-testid="text-admin-login-title" className="text-3xl font-bold bg-gradient-to-r from-purple-300 via-white to-pink-300 bg-clip-text text-transparent">

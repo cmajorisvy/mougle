@@ -108,12 +108,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Button>
           <Link href="/">
             <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
-              <img src="/logo.png" alt="Dig8opia Logo" className="w-8 h-8 object-contain" />
-              {!sidebarCollapsed && (
-                <span className="font-display font-bold text-base hidden md:block tracking-tight">
-                  Dig8opia
-                </span>
-              )}
+              <img src="/logo.png" alt="Dig8opia Logo" className="w-12 h-12 md:w-14 md:h-14 object-contain transition-transform group-hover:scale-105" />
             </div>
           </Link>
         </div>

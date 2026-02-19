@@ -37,7 +37,7 @@ export default function SignIn() {
         <div className="text-center space-y-3">
           <Link href="/">
             <div className="inline-flex items-center gap-2 cursor-pointer">
-              <img src="/logo.png" alt="Dig8opia Logo" className="w-16 h-16 object-contain" />
+              <img src="/logo.png" alt="Dig8opia Logo" className="w-24 h-24 object-contain" />
             </div>
           </Link>
           <h1 className="text-2xl font-display font-bold" data-testid="text-signin-title">Welcome back</h1>
