@@ -2,35 +2,71 @@ import { Link, useLocation } from "wouter";
 import { 
   Search, Bell, Plus, Zap, User, Menu, X,
   Home, TrendingUp, Newspaper, Swords, Film, Bot,
-  Cpu, Settings, Code, LogOut
+  Cpu, Users, Settings, Code, LogOut
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { currentUser, topics } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 import { CreateModal } from "@/components/create/CreateModal";
 import { AIInsightPanel } from "@/components/layout/AIInsightPanel";
+import { api } from "@/lib/api";
+import { getCurrentUserId, setCurrentUserId } from "@/lib/mockData";
+
+const iconMap: Record<string, any> = { Cpu, TrendingUp, Zap, Users, Bot };
+
+const mainNav = [
+  { icon: Home, label: "Home", href: "/" },
+  { icon: TrendingUp, label: "Trending", href: "/trending" },
+  { icon: Newspaper, label: "News", href: "/news" },
+  { icon: Swords, label: "Debates", href: "/debates" },
+  { icon: Film, label: "Media", href: "/media" },
+  { icon: Bot, label: "Agents", href: "/agents" },
+];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  const mainNav = [
-    { icon: Home, label: "Home", href: "/" },
-    { icon: TrendingUp, label: "Trending", href: "/trending" },
-    { icon: Newspaper, label: "News", href: "/news" },
-    { icon: Swords, label: "Debates", href: "/debates" },
-    { icon: Film, label: "Media", href: "/media" },
-    { icon: Bot, label: "Agents", href: "/agents" },
-  ];
+  const { data: topicsList = [] } = useQuery({
+    queryKey: ["/api/topics"],
+    queryFn: () => api.topics.list(),
+  });
+
+  const currentUserId = getCurrentUserId();
+  const { data: currentUser } = useQuery({
+    queryKey: ["/api/users", currentUserId],
+    queryFn: () => api.users.get(currentUserId!),
+    enabled: !!currentUserId,
+  });
+
+  // Auto-seed on first load
+  useEffect(() => {
+    if (!currentUserId) {
+      api.seed().then((result) => {
+        if (result.currentUserId) {
+          setCurrentUserId(result.currentUserId);
+          window.location.reload();
+        }
+      }).catch(() => {
+        // already seeded, try to find user
+        api.users.list().then(users => {
+          const human = users.find((u: any) => u.username === "alexc");
+          if (human) {
+            setCurrentUserId(human.id);
+            window.location.reload();
+          }
+        });
+      });
+    }
+  }, [currentUserId]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -52,18 +88,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
 
-        {/* Global Search */}
         <div className="flex-1 max-w-xl relative hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
+            data-testid="input-search"
             placeholder="Search posts, topics, agents..." 
             className="pl-9 bg-card/50 border-white/5 focus:border-primary/50 transition-colors"
           />
         </div>
 
-        {/* Right Actions */}
         <div className="flex items-center gap-3">
           <Button 
+            data-testid="button-create"
             className="hidden md:flex bg-primary hover:bg-primary/90 text-white font-medium shadow-lg shadow-primary/20"
             onClick={() => setCreateModalOpen(true)}
           >
@@ -71,25 +107,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
             Create
           </Button>
 
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative" data-testid="button-notifications">
             <Bell className="w-5 h-5" />
             <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
           </Button>
 
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-white/5">
-            <Zap className="w-4 h-4 text-warning fill-warning" />
-            <span className="font-mono font-medium text-sm">{currentUser.energy}</span>
-          </div>
+          {currentUser && (
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-white/5" data-testid="text-energy">
+              <Zap className="w-4 h-4 text-warning fill-warning" />
+              <span className="font-mono font-medium text-sm">{currentUser.energy}</span>
+            </div>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Avatar className="cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all">
-                <AvatarImage src={currentUser.avatar} />
-                <AvatarFallback>AC</AvatarFallback>
+              <Avatar className="cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all" data-testid="button-profile">
+                <AvatarImage src={currentUser?.avatar} />
+                <AvatarFallback>{currentUser?.displayName?.[0] || "?"}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 bg-card border-white/10">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>{currentUser?.displayName || "Guest"}</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/5" />
               <DropdownMenuItem className="cursor-pointer">
                 <User className="w-4 h-4 mr-2" /> Profile
@@ -123,7 +161,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       isActive 
                         ? "bg-primary/10 text-primary" 
                         : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-                    )}>
+                    )} data-testid={`link-nav-${item.label.toLowerCase()}`}>
                       <item.icon className="w-4 h-4" />
                       {item.label}
                     </div>
@@ -136,14 +174,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Topics
               </h3>
-              {topics.map((topic) => (
-                <Link key={topic.id} href={`/topic/${topic.id}`}>
-                  <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground cursor-pointer transition-colors">
-                    <topic.icon className="w-4 h-4" />
-                    {topic.label}
-                  </div>
-                </Link>
-              ))}
+              {topicsList.map((topic: any) => {
+                const Icon = iconMap[topic.icon] || Cpu;
+                return (
+                  <Link key={topic.id} href={`/topic/${topic.slug}`}>
+                    <div className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                      location === `/topic/${topic.slug}`
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                    )} data-testid={`link-topic-${topic.slug}`}>
+                      <Icon className="w-4 h-4" />
+                      {topic.label}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
@@ -155,7 +201,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm"
@@ -163,14 +208,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto relative">
           <div className="max-w-[820px] mx-auto p-4 md:p-6 pb-20">
             {children}
           </div>
         </main>
 
-        {/* Right Panel - AI Insights */}
         <aside className="hidden xl:block w-[320px] border-l border-white/5 bg-background p-6 overflow-y-auto">
           <AIInsightPanel />
         </aside>
