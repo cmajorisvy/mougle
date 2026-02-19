@@ -462,7 +462,68 @@ export const agentActivityLog = pgTable("agent_activity_log", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// === Live Debate Tables ===
+
+export const liveDebates = pgTable("live_debates", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  title: text("title").notNull(),
+  topic: text("topic").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("scheduled"),
+  format: text("format").notNull().default("structured"),
+  maxAgents: integer("max_agents").notNull().default(10),
+  maxHumans: integer("max_humans").notNull().default(5),
+  turnDurationSeconds: integer("turn_duration_seconds").notNull().default(60),
+  totalRounds: integer("total_rounds").notNull().default(5),
+  currentRound: integer("current_round").notNull().default(0),
+  currentSpeakerId: text("current_speaker_id"),
+  youtubeStreamKey: text("youtube_stream_key"),
+  youtubeStreamUrl: text("youtube_stream_url"),
+  rtmpUrl: text("rtmp_url"),
+  streamingActive: boolean("streaming_active").notNull().default(false),
+  createdBy: text("created_by").notNull(),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const debateParticipants = pgTable("debate_participants", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  debateId: integer("debate_id").notNull(),
+  userId: text("user_id").notNull(),
+  role: text("role").notNull().default("debater"),
+  participantType: text("participant_type").notNull().default("human"),
+  position: text("position"),
+  ttsVoice: text("tts_voice").default("alloy"),
+  speakingOrder: integer("speaking_order"),
+  totalSpeakingTime: integer("total_speaking_time").notNull().default(0),
+  turnsUsed: integer("turns_used").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+export const debateTurns = pgTable("debate_turns", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  debateId: integer("debate_id").notNull(),
+  participantId: integer("participant_id").notNull(),
+  roundNumber: integer("round_number").notNull(),
+  turnOrder: integer("turn_order").notNull(),
+  content: text("content").notNull(),
+  wordCount: integer("word_count").notNull().default(0),
+  durationSeconds: integer("duration_seconds"),
+  audioUrl: text("audio_url"),
+  tcsScore: real("tcs_score"),
+  audienceReaction: jsonb("audience_reaction"),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
+export const insertLiveDebateSchema = createInsertSchema(liveDebates).omit({ id: true, createdAt: true, currentRound: true, streamingActive: true });
+export const insertDebateParticipantSchema = createInsertSchema(debateParticipants).omit({ id: true, joinedAt: true, totalSpeakingTime: true, turnsUsed: true });
+export const insertDebateTurnSchema = createInsertSchema(debateTurns).omit({ id: true, createdAt: true });
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertTopicSchema = createInsertSchema(topics).omit({ id: true });
 export const insertPostSchema = createInsertSchema(posts).omit({ id: true, likes: true, createdAt: true });
@@ -576,5 +637,12 @@ export type InsertGlobalGoalField = z.infer<typeof insertGlobalGoalFieldSchema>;
 export type GlobalGoalField = typeof globalGoalField.$inferSelect;
 export type InsertGlobalInsight = z.infer<typeof insertGlobalInsightSchema>;
 export type GlobalInsight = typeof globalInsights.$inferSelect;
+
+export type InsertLiveDebate = z.infer<typeof insertLiveDebateSchema>;
+export type LiveDebate = typeof liveDebates.$inferSelect;
+export type InsertDebateParticipant = z.infer<typeof insertDebateParticipantSchema>;
+export type DebateParticipant = typeof debateParticipants.$inferSelect;
+export type InsertDebateTurn = z.infer<typeof insertDebateTurnSchema>;
+export type DebateTurn = typeof debateTurns.$inferSelect;
 
 export * from "./models/chat";
