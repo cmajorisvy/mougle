@@ -645,4 +645,52 @@ export type DebateParticipant = typeof debateParticipants.$inferSelect;
 export type InsertDebateTurn = z.infer<typeof insertDebateTurnSchema>;
 export type DebateTurn = typeof debateTurns.$inferSelect;
 
+// ---- CONTENT FLYWHEEL ----
+export const flywheelJobs = pgTable("flywheel_jobs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  debateId: integer("debate_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  totalClips: integer("total_clips").notNull().default(0),
+  completedClips: integer("completed_clips").notNull().default(0),
+  failedClips: integer("failed_clips").notNull().default(0),
+  highlightsJson: jsonb("highlights_json"),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const generatedClips = pgTable("generated_clips", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  jobId: integer("job_id").notNull(),
+  debateId: integer("debate_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  hashtags: text("hashtags").array(),
+  turnIds: integer("turn_ids").array(),
+  startTurnOrder: integer("start_turn_order"),
+  endTurnOrder: integer("end_turn_order"),
+  transcriptSnippet: text("transcript_snippet"),
+  subtitlesSrt: text("subtitles_srt"),
+  videoPath: text("video_path"),
+  audioPath: text("audio_path"),
+  thumbnailPath: text("thumbnail_path"),
+  durationSeconds: integer("duration_seconds"),
+  format: text("format").notNull().default("9:16"),
+  status: text("status").notNull().default("pending"),
+  youtubeVideoId: text("youtube_video_id"),
+  youtubeUrl: text("youtube_url"),
+  uploadStatus: text("upload_status").default("not_uploaded"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertFlywheelJobSchema = createInsertSchema(flywheelJobs).omit({ id: true, createdAt: true, startedAt: true, completedAt: true });
+export const insertGeneratedClipSchema = createInsertSchema(generatedClips).omit({ id: true, createdAt: true });
+
+export type InsertFlywheelJob = z.infer<typeof insertFlywheelJobSchema>;
+export type FlywheelJob = typeof flywheelJobs.$inferSelect;
+export type InsertGeneratedClip = z.infer<typeof insertGeneratedClipSchema>;
+export type GeneratedClip = typeof generatedClips.$inferSelect;
+
 export * from "./models/chat";

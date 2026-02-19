@@ -39,6 +39,8 @@ import {
   type LiveDebate, type InsertLiveDebate,
   type DebateParticipant, type InsertDebateParticipant,
   type DebateTurn, type InsertDebateTurn,
+  type FlywheelJob, type InsertFlywheelJob,
+  type GeneratedClip, type InsertGeneratedClip,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -50,6 +52,7 @@ import {
   ethicalProfiles, ethicalRules, ethicalEvents,
   globalMetrics, globalGoalField, globalInsights,
   liveDebates, debateParticipants, debateTurns,
+  flywheelJobs, generatedClips,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -242,6 +245,18 @@ export interface IStorage {
   getDebateTurns(debateId: number): Promise<DebateTurn[]>;
   getDebateTurn(id: number): Promise<DebateTurn | undefined>;
   updateDebateTurn(id: number, data: Partial<DebateTurn>): Promise<DebateTurn>;
+
+  createFlywheelJob(job: InsertFlywheelJob): Promise<FlywheelJob>;
+  getFlywheelJob(id: number): Promise<FlywheelJob | undefined>;
+  getFlywheelJobs(): Promise<FlywheelJob[]>;
+  getFlywheelJobByDebate(debateId: number): Promise<FlywheelJob | undefined>;
+  updateFlywheelJob(id: number, data: Partial<FlywheelJob>): Promise<FlywheelJob>;
+
+  createGeneratedClip(clip: InsertGeneratedClip): Promise<GeneratedClip>;
+  getGeneratedClip(id: number): Promise<GeneratedClip | undefined>;
+  getClipsByJob(jobId: number): Promise<GeneratedClip[]>;
+  getClipsByDebate(debateId: number): Promise<GeneratedClip[]>;
+  updateGeneratedClip(id: number, data: Partial<GeneratedClip>): Promise<GeneratedClip>;
 }
 
 function computeRank(reputation: number): string {
@@ -1059,6 +1074,53 @@ export class DatabaseStorage implements IStorage {
 
   async updateDebateTurn(id: number, data: Partial<DebateTurn>): Promise<DebateTurn> {
     const [updated] = await db.update(debateTurns).set(data).where(eq(debateTurns.id, id)).returning();
+    return updated;
+  }
+
+  async createFlywheelJob(job: InsertFlywheelJob): Promise<FlywheelJob> {
+    const [created] = await db.insert(flywheelJobs).values(job).returning();
+    return created;
+  }
+
+  async getFlywheelJob(id: number): Promise<FlywheelJob | undefined> {
+    const [job] = await db.select().from(flywheelJobs).where(eq(flywheelJobs.id, id));
+    return job;
+  }
+
+  async getFlywheelJobs(): Promise<FlywheelJob[]> {
+    return db.select().from(flywheelJobs).orderBy(desc(flywheelJobs.createdAt));
+  }
+
+  async getFlywheelJobByDebate(debateId: number): Promise<FlywheelJob | undefined> {
+    const [job] = await db.select().from(flywheelJobs).where(eq(flywheelJobs.debateId, debateId));
+    return job;
+  }
+
+  async updateFlywheelJob(id: number, data: Partial<FlywheelJob>): Promise<FlywheelJob> {
+    const [updated] = await db.update(flywheelJobs).set(data).where(eq(flywheelJobs.id, id)).returning();
+    return updated;
+  }
+
+  async createGeneratedClip(clip: InsertGeneratedClip): Promise<GeneratedClip> {
+    const [created] = await db.insert(generatedClips).values(clip).returning();
+    return created;
+  }
+
+  async getGeneratedClip(id: number): Promise<GeneratedClip | undefined> {
+    const [clip] = await db.select().from(generatedClips).where(eq(generatedClips.id, id));
+    return clip;
+  }
+
+  async getClipsByJob(jobId: number): Promise<GeneratedClip[]> {
+    return db.select().from(generatedClips).where(eq(generatedClips.jobId, jobId)).orderBy(asc(generatedClips.id));
+  }
+
+  async getClipsByDebate(debateId: number): Promise<GeneratedClip[]> {
+    return db.select().from(generatedClips).where(eq(generatedClips.debateId, debateId)).orderBy(asc(generatedClips.id));
+  }
+
+  async updateGeneratedClip(id: number, data: Partial<GeneratedClip>): Promise<GeneratedClip> {
+    const [updated] = await db.update(generatedClips).set(data).where(eq(generatedClips.id, id)).returning();
     return updated;
   }
 }

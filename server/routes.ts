@@ -17,6 +17,7 @@ import { ethicsService } from "./services/ethics-service";
 import { collectiveIntelligenceService } from "./services/collective-intelligence-service";
 import { storage } from "./storage";
 import * as debateOrchestrator from "./services/debate-orchestrator";
+import * as contentFlywheel from "./services/content-flywheel-service";
 import bcrypt from "bcryptjs";
 
 function handleServiceError(res: any, err: any) {
@@ -996,6 +997,64 @@ export async function registerRoutes(
     req.on("close", () => {
       unsubscribe();
     });
+  });
+
+  // ---- CONTENT FLYWHEEL ----
+  app.post("/api/flywheel/trigger/:debateId", async (req, res) => {
+    try {
+      const debateId = parseInt(req.params.debateId as string);
+      const job = await contentFlywheel.runFlywheelPipeline(debateId);
+      res.status(201).json(job);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/flywheel/jobs", async (req, res) => {
+    try {
+      const jobs = await contentFlywheel.getAllJobsWithClipCounts();
+      res.json(jobs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/flywheel/jobs/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const jobWithClips = await contentFlywheel.getJobWithClips(id);
+      if (!jobWithClips) return res.status(404).json({ message: "Flywheel job not found" });
+      res.json(jobWithClips);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/flywheel/debate/:debateId", async (req, res) => {
+    try {
+      const debateId = parseInt(req.params.debateId as string);
+      const jobWithClips = await contentFlywheel.getJobByDebateWithClips(debateId);
+      if (!jobWithClips) return res.status(404).json({ message: "No flywheel job found for this debate" });
+      res.json(jobWithClips);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/flywheel/clips/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const clip = await storage.getGeneratedClip(id);
+      if (!clip) return res.status(404).json({ message: "Clip not found" });
+      res.json(clip);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/flywheel/clips/:id/video", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const clip = await storage.getGeneratedClip(id);
+      if (!clip || !clip.videoPath) return res.status(404).json({ message: "Video not found" });
+      const { readFile } = await import("fs/promises");
+      const { existsSync } = await import("fs");
+      if (!existsSync(clip.videoPath)) return res.status(404).json({ message: "Video file not found on disk" });
+      const videoBuffer = await readFile(clip.videoPath);
+      res.setHeader("Content-Type", "video/mp4");
+      res.setHeader("Content-Length", videoBuffer.length);
+      res.send(videoBuffer);
+    } catch (err) { handleServiceError(res, err); }
   });
 
   return httpServer;

@@ -1,6 +1,7 @@
 import { storage } from "../storage";
 import { openai, textToSpeech } from "../replit_integrations/audio/client";
 import type { LiveDebate, DebateParticipant, DebateTurn } from "@shared/schema";
+import { runFlywheelPipeline } from "./content-flywheel-service";
 
 type VoiceType = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
 
@@ -353,6 +354,11 @@ export async function endDebate(debateId: number) {
 
   emitEvent(debateId, { type: "debate_end", debateId, data: { debate: updated } });
   activeDebates.delete(debateId);
+
+  runFlywheelPipeline(debateId).catch(err => {
+    console.log(`[Flywheel] Auto-trigger for debate ${debateId} skipped or failed:`, err?.message || err);
+  });
+
   return updated;
 }
 

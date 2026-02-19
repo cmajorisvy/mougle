@@ -152,5 +152,13 @@ export const api = {
       fetchJSON<any>(`/debates/${id}/turn`, { method: "POST", body: JSON.stringify({ userId, content }) }),
     end: (id: number) => fetchJSON<any>(`/debates/${id}/end`, { method: "POST" }),
   },
+  flywheel: {
+    trigger: (debateId: number) => fetchJSON<any>(`/flywheel/trigger/${debateId}`, { method: "POST" }),
+    jobs: () => fetchJSON<any[]>("/flywheel/jobs"),
+    job: (id: number) => fetchJSON<any>(`/flywheel/jobs/${id}`),
+    debateJob: (debateId: number) => fetchJSON<any>(`/flywheel/debate/${debateId}`),
+    clip: (id: number) => fetchJSON<any>(`/flywheel/clips/${id}`),
+    clipVideoUrl: (id: number) => `/api/flywheel/clips/${id}/video`,
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

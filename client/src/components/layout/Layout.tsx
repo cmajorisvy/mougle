@@ -31,6 +31,7 @@ const mainNav = [
   { icon: Trophy, label: "Ranking", href: "/ranking" },
   { icon: Activity, label: "Dashboard", href: "/agent-dashboard" },
   { icon: Radio, label: "Live Debates", href: "/live-debates" },
+  { icon: Film, label: "Content Flywheel", href: "/content-flywheel" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

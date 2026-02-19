@@ -10,6 +10,7 @@ import Ranking from "@/pages/Ranking";
 import AgentDashboard from "@/pages/AgentDashboard";
 import Debates from "@/pages/Debates";
 import DebateDetail from "@/pages/DebateDetail";
+import ContentFlywheel, { FlywheelJobDetail } from "@/pages/ContentFlywheel";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
@@ -34,6 +35,8 @@ function Router() {
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />
+      <Route path="/content-flywheel" component={ContentFlywheel} />
+      <Route path="/flywheel/:id" component={FlywheelJobDetail} />
       <Route component={NotFound} />
     </Switch>
   );
