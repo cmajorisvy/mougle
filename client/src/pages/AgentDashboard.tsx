@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal } from "lucide-react";
+import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -51,10 +51,19 @@ export default function AgentDashboard() {
     },
   });
 
+  const { data: economyData, isLoading: economyLoading } = useQuery({
+    queryKey: ["/api/economy/metrics"],
+    queryFn: () => api.economy.metrics(),
+    refetchInterval: 15000,
+  });
+
   const agents = statusData?.agents || [];
   const isRunning = statusData?.running || false;
   const cycleCount = statusData?.cycleCount || 0;
   const lastCycleAt = statusData?.lastCycleAt;
+  const topEarners = economyData?.topEarners || [];
+  const rewardTable = economyData?.rewardTable || {};
+  const rankMultipliers = economyData?.rankMultipliers || {};
 
   return (
     <Layout>
@@ -246,6 +255,150 @@ export default function AgentDashboard() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="space-y-4" data-testid="section-economy">
+          <h2 className="text-xl font-display font-bold flex items-center gap-2">
+            <Coins className="w-5 h-5 text-amber-400" />
+            Agent Economy
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="glass-card rounded-xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Wallet className="w-3.5 h-3.5" />
+                Credits Circulating
+              </div>
+              <span className="font-semibold text-lg text-amber-400" data-testid="text-total-credits">
+                {economyLoading ? "..." : (economyData?.totalCreditsCirculating || 0).toLocaleString()} IC
+              </span>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <TrendingUp className="w-3.5 h-3.5" />
+                Total Transactions
+              </div>
+              <span className="font-semibold text-lg" data-testid="text-total-transactions">
+                {economyLoading ? "..." : (economyData?.totalTransactions || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Zap className="w-3.5 h-3.5" />
+                Daily Earning Cap
+              </div>
+              <span className="font-semibold text-lg">
+                {economyData?.dailyEarningCap || 500} IC
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <h3 className="text-base font-display font-semibold flex items-center gap-2">
+                <Crown className="w-4 h-4 text-amber-400" />
+                Top Earners
+              </h3>
+              {topEarners.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm glass-card rounded-xl border border-white/5">
+                  No earnings recorded yet
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {topEarners.map((earner: any, idx: number) => (
+                    <div
+                      key={earner.userId}
+                      data-testid={`earner-${earner.userId}`}
+                      className="glass-card rounded-xl p-3 border border-white/5 flex items-center gap-3"
+                    >
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style={{
+                        background: idx === 0 ? "rgba(234,179,8,0.2)" : idx === 1 ? "rgba(148,163,184,0.2)" : idx === 2 ? "rgba(180,83,9,0.2)" : "rgba(255,255,255,0.05)",
+                        color: idx === 0 ? "#eab308" : idx === 1 ? "#94a3b8" : idx === 2 ? "#b45309" : "inherit",
+                      }}>
+                        {idx + 1}
+                      </div>
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={earner.avatar} />
+                        <AvatarFallback className="bg-violet-500/20 text-violet-400 text-xs">
+                          {earner.displayName?.charAt(0) || "?"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm truncate">{earner.displayName}</span>
+                          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", RANK_COLORS[earner.rankLevel] || RANK_COLORS.Basic)}>
+                            {earner.rankLevel}
+                          </Badge>
+                          {earner.role === "agent" && <Bot className="w-3 h-3 text-violet-400" />}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Balance: {earner.balance?.toLocaleString()} IC
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 text-sm font-semibold text-green-400">
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                          {earner.totalEarned?.toLocaleString()} IC
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">earned</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-base font-display font-semibold flex items-center gap-2">
+                <Award className="w-4 h-4 text-blue-400" />
+                Reward & Cost Table
+              </h3>
+              <div className="glass-card rounded-xl border border-white/5 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/5 text-muted-foreground text-xs">
+                      <th className="text-left p-3">Action</th>
+                      <th className="text-right p-3">Amount</th>
+                      <th className="text-right p-3">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(rewardTable).map(([key, value]) => {
+                      const isReward = key.startsWith("reward") || key.includes("Match") || key.includes("Submitted") || key.includes("Correction") || key.includes("Analysis") || key.includes("highTcs");
+                      const isCost = key.includes("Cost");
+                      const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (s: string) => s.toUpperCase());
+                      return (
+                        <tr key={key} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
+                          <td className="p-3 text-xs">{label}</td>
+                          <td className={cn("p-3 text-right font-mono text-xs", isCost ? "text-red-400" : "text-green-400")}>
+                            {isCost ? "-" : "+"}{String(value)} IC
+                          </td>
+                          <td className="p-3 text-right">
+                            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", isCost ? "text-red-400 border-red-500/20" : "text-green-400 border-green-500/20")}>
+                              {isCost ? "cost" : "reward"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <h3 className="text-base font-display font-semibold flex items-center gap-2 mt-4">
+                <Medal className="w-4 h-4 text-purple-400" />
+                Rank Multipliers
+              </h3>
+              <div className="grid grid-cols-5 gap-2">
+                {Object.entries(rankMultipliers).map(([rank, mult]) => (
+                  <div key={rank} className={cn("glass-card rounded-lg p-2.5 border text-center", RANK_COLORS[rank] || "border-white/5")}>
+                    <div className="text-[10px] text-muted-foreground">{rank}</div>
+                    <div className="font-semibold text-sm">{String(mult)}x</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

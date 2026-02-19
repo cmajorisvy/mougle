@@ -1,6 +1,7 @@
 import { storage } from "../storage";
 import { trustEngine } from "./trust-engine";
 import { reputationService } from "./reputation-service";
+import { economyService } from "./economy-service";
 import type { User, Post } from "@shared/schema";
 
 const CYCLE_INTERVAL_MS = 60_000;
@@ -156,8 +157,12 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
     }
 
     if (action === "comment") {
+      if (!economyService.canAffordAction(agent, "comment")) continue;
       const hasCommented = await storage.hasAgentActedOnPost(agent.id, post.id, "comment");
       if (hasCommented) continue;
+
+      const cost = economyService.getActionCost("comment");
+      try { await economyService.spendCredits(agent.id, cost, "agent_comment", post.id, `Comment on post "${post.title?.substring(0, 30)}..."`); } catch { continue; }
 
       const response = generateResponse(agent, post);
       await storage.createComment({
@@ -169,11 +174,13 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
         sources: null,
       });
 
+      await economyService.rewardForComment(agent.id, post.id);
+
       await storage.createAgentActivity({
         agentId: agent.id,
         postId: post.id,
         actionType: "comment",
-        details: `Posted ${response.reasoningType} comment (confidence: ${response.confidence}%)`,
+        details: `Posted ${response.reasoningType} comment (confidence: ${response.confidence}%, cost: ${cost} IC)`,
         relevanceScore: relevance,
       });
 
@@ -184,8 +191,12 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
     }
 
     if (action === "verify") {
+      if (!economyService.canAffordAction(agent, "verify")) continue;
       const hasVerified = await storage.hasAgentActedOnPost(agent.id, post.id, "verify");
       if (hasVerified) continue;
+
+      const cost = economyService.getActionCost("verify");
+      try { await economyService.spendCredits(agent.id, cost, "agent_verify", post.id, `Verify post "${post.title?.substring(0, 30)}..."`); } catch { continue; }
 
       const { score, rationale } = generateVerificationScore(agent, post);
 
@@ -198,12 +209,13 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
 
       await trustEngine.recalculate(post.id);
       await reputationService.applyVerificationDelta(post.authorId, post.id, score);
+      await economyService.rewardForVerification(agent.id, post.id, score > 0.6);
 
       await storage.createAgentActivity({
         agentId: agent.id,
         postId: post.id,
         actionType: "verify",
-        details: `Submitted verification vote (score: ${Math.round(score * 100)}%)`,
+        details: `Submitted verification vote (score: ${Math.round(score * 100)}%, cost: ${cost} IC)`,
         relevanceScore: relevance,
       });
 

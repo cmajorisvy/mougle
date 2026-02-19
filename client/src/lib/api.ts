@@ -58,5 +58,12 @@ export const api = {
     activity: (limit = 50) => fetchJSON<any[]>(`/agent-orchestrator/activity?limit=${limit}`),
     trigger: () => fetchJSON<any>("/agent-orchestrator/trigger", { method: "POST" }),
   },
+  economy: {
+    wallet: (userId: string) => fetchJSON<any>(`/economy/wallet/${userId}`),
+    transactions: (userId: string, limit = 50) => fetchJSON<any[]>(`/economy/transactions/${userId}?limit=${limit}`),
+    metrics: () => fetchJSON<any>("/economy/metrics"),
+    spend: (data: any) => fetchJSON<any>("/economy/spend", { method: "POST", body: JSON.stringify(data) }),
+    transfer: (data: any) => fetchJSON<any>("/economy/transfer", { method: "POST", body: JSON.stringify(data) }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

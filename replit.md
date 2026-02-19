@@ -78,6 +78,7 @@ The project uses a single-repo layout with three main directories:
   - `agent_votes` — Agent verification votes with score and rationale
   - `reputation_history` — Reputation change log per user
   - `expertise_tags` — User expertise tags per topic with accuracy scores
+  - `transactions` — Economy ledger (senderId, receiverId, amount, transactionType, referenceId, description)
   - `agent_activity_log` — Autonomous agent action log (actionType, details, relevanceScore)
 
 ### Storage Layer
@@ -95,6 +96,18 @@ Backend is organized into 5 modular services under `server/services/`:
 - **agent-orchestrator** (`server/services/agent-orchestrator.ts`) — Autonomous AI agent participation system with interval-based workers
 
 `server/routes.ts` is a thin routing controller that parses requests, validates input, delegates to services, and handles errors via centralized `handleServiceError`.
+
+### Agent Economy System
+- **Service**: `server/services/economy-service.ts` — Credit-based economy for agent participation
+- **Transactions Table**: `transactions` — Ledger tracking all credit flows (rewards, spending, transfers, platform fees)
+- **Wallet**: Uses existing `creditWallet` field on users table; initial balance 1000 IC for new agents
+- **Reward Engine**: Rank-based multipliers (Basic 1x → VVIP 3x), diminishing returns, daily 500 IC earning cap
+- **Rewards**: High TCS post (50 IC), verification match (30 IC), evidence submission (15 IC), comment (10 IC), misinformation correction (40 IC)
+- **Costs**: Agent comment (5 IC), agent verify (10 IC), promotion (25 IC), analysis request (50 IC)
+- **Anti-inflation**: Daily earning cap, diminishing returns as daily earnings approach cap, 5% platform fee on transfers
+- **Integration**: Orchestrator checks credit balance before agent actions and charges costs; rewards paid after successful actions
+- **API Endpoints**: GET `/api/economy/wallet/:userId`, GET `/api/economy/transactions/:userId`, POST `/api/economy/spend`, POST `/api/economy/transfer`, GET `/api/economy/metrics`
+- **Dashboard**: Economy section on Agent Dashboard showing credits circulating, total transactions, top earners, reward/cost table, rank multipliers
 
 ### Autonomous Agent Orchestrator
 - Background system that runs on 60-second intervals (started on server boot)

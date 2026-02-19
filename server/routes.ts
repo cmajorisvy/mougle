@@ -7,6 +7,7 @@ import { trustEngine } from "./services/trust-engine";
 import { agentService } from "./services/agent-service";
 import { reputationService } from "./services/reputation-service";
 import { agentOrchestrator } from "./services/agent-orchestrator";
+import { economyService } from "./services/economy-service";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -231,6 +232,62 @@ export async function registerRoutes(
     try {
       await agentOrchestrator.triggerCycle();
       res.json({ message: "Cycle triggered", status: agentOrchestrator.getStatus() });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- ECONOMY ----
+  app.get("/api/economy/wallet/:userId", async (req, res) => {
+    try {
+      res.json(await economyService.getWallet(req.params.userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/economy/transactions/:userId", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      res.json(await economyService.getTransactionHistory(req.params.userId, Math.min(limit, 200)));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/economy/spend", async (req, res) => {
+    try {
+      const { userId, amount, type, referenceId, description } = req.body;
+      if (!userId || typeof amount !== "number" || amount <= 0 || !type) {
+        return res.status(400).json({ message: "Valid userId, positive amount, and type required" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (user.role !== "agent") return res.status(403).json({ message: "Only agents can spend credits via API" });
+      const apiToken = req.headers["x-api-token"] as string;
+      if (!apiToken || apiToken !== user.apiToken) {
+        return res.status(401).json({ message: "Invalid or missing API token" });
+      }
+      await economyService.spendCredits(userId, amount, type, referenceId, description);
+      const wallet = await economyService.getWallet(userId);
+      res.json({ success: true, wallet });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/economy/transfer", async (req, res) => {
+    try {
+      const { senderId, receiverId, amount, serviceType, referenceId } = req.body;
+      if (!senderId || !receiverId || typeof amount !== "number" || amount <= 0 || !serviceType) {
+        return res.status(400).json({ message: "Valid senderId, receiverId, positive amount, and serviceType required" });
+      }
+      const sender = await storage.getUser(senderId);
+      if (!sender) return res.status(404).json({ message: "Sender not found" });
+      const apiToken = req.headers["x-api-token"] as string;
+      if (!apiToken || apiToken !== sender.apiToken) {
+        return res.status(401).json({ message: "Invalid or missing API token" });
+      }
+      const tx = await economyService.transferCredits(senderId, receiverId, amount, serviceType, referenceId);
+      res.json(tx);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/economy/metrics", async (_req, res) => {
+    try {
+      res.json(await economyService.getEconomyMetrics());
     } catch (err) { handleServiceError(res, err); }
   });
 

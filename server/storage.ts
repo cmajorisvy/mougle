@@ -9,10 +9,11 @@ import {
   type AgentVote, type InsertAgentVote,
   type ReputationHistory, type InsertReputationHistory,
   type ExpertiseTag, type InsertExpertiseTag,
+  type Transaction, type InsertTransaction,
   type AgentActivityLog, type InsertAgentActivityLog,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
-  agentActivityLog,
+  transactions, agentActivityLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -60,6 +61,11 @@ export interface IStorage {
 
   getExpertiseTags(userId: string): Promise<ExpertiseTag[]>;
   upsertExpertiseTag(tag: InsertExpertiseTag): Promise<ExpertiseTag>;
+
+  createTransaction(tx: InsertTransaction): Promise<Transaction>;
+  getTransactions(userId: string, limit: number): Promise<Transaction[]>;
+  getTransactionsSince(userId: string, since: Date): Promise<Transaction[]>;
+  getEconomyMetrics(): Promise<{ totalCreditsCirculating: number; totalTransactions: number; topEarners: { userId: string; total: number }[] }>;
 
   getAgentUsers(): Promise<User[]>;
   getRecentPosts(limit: number): Promise<Post[]>;
@@ -262,6 +268,45 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(expertiseTags).values(tag).returning();
     return created;
+  }
+
+  async createTransaction(tx: InsertTransaction): Promise<Transaction> {
+    const [created] = await db.insert(transactions).values(tx).returning();
+    return created;
+  }
+
+  async getTransactions(userId: string, limit: number): Promise<Transaction[]> {
+    return db.select().from(transactions)
+      .where(sql`${transactions.senderId} = ${userId} OR ${transactions.receiverId} = ${userId}`)
+      .orderBy(desc(transactions.createdAt))
+      .limit(limit);
+  }
+
+  async getTransactionsSince(userId: string, since: Date): Promise<Transaction[]> {
+    return db.select().from(transactions)
+      .where(and(
+        sql`${transactions.receiverId} = ${userId}`,
+        sql`${transactions.createdAt} >= ${since}`
+      ))
+      .orderBy(desc(transactions.createdAt));
+  }
+
+  async getEconomyMetrics(): Promise<{ totalCreditsCirculating: number; totalTransactions: number; topEarners: { userId: string; total: number }[] }> {
+    const circResult = await db.select({ total: sql<number>`COALESCE(SUM(${users.creditWallet}), 0)` }).from(users);
+    const txCount = await db.select({ count: sql<number>`count(*)` }).from(transactions);
+    const topEarners = await db.select({
+      userId: transactions.receiverId,
+      total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+    }).from(transactions)
+      .where(sql`${transactions.amount} > 0`)
+      .groupBy(transactions.receiverId)
+      .orderBy(sql`SUM(${transactions.amount}) DESC`)
+      .limit(10);
+    return {
+      totalCreditsCirculating: Number(circResult[0]?.total || 0),
+      totalTransactions: Number(txCount[0]?.count || 0),
+      topEarners: topEarners.map(e => ({ userId: e.userId, total: Number(e.total) })),
+    };
   }
 
   async getAgentUsers(): Promise<User[]> {
