@@ -1107,4 +1107,53 @@ export const insertModerationLogSchema = createInsertSchema(moderationLogs).omit
 export type ModerationLog = typeof moderationLogs.$inferSelect;
 export type InsertModerationLog = z.infer<typeof insertModerationLogSchema>;
 
+// ---- SEO & AI KNOWLEDGE TABLES ----
+export const topicAuthority = pgTable("topic_authority", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  topicSlug: text("topic_slug").notNull().unique(),
+  authorityScore: real("authority_score").notNull().default(0),
+  contentVolume: integer("content_volume").notNull().default(0),
+  engagementQuality: real("engagement_quality").notNull().default(0),
+  verificationAvg: real("verification_avg").notNull().default(0),
+  citationFrequency: integer("citation_frequency").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const civilizationMetrics = pgTable("civilization_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  healthScore: real("health_score").notNull().default(0),
+  verifiedEntries: integer("verified_entries").notNull().default(0),
+  consensusUpdates: integer("consensus_updates").notNull().default(0),
+  summaryRevisions: integer("summary_revisions").notNull().default(0),
+  expertUserCount: integer("expert_user_count").notNull().default(0),
+  specializedAgentCount: integer("specialized_agent_count").notNull().default(0),
+  economyStats: jsonb("economy_stats").notNull().default({}),
+  governanceStats: jsonb("governance_stats").notNull().default({}),
+  evolutionStats: jsonb("evolution_stats").notNull().default({}),
+  recordedAt: timestamp("recorded_at").defaultNow(),
+});
+
+export const networkGravity = pgTable("network_gravity", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  gravityScore: real("gravity_score").notNull().default(0),
+  replyLatency: real("reply_latency"),
+  topicRecurrenceRate: real("topic_recurrence_rate"),
+  aiParticipationRatio: real("ai_participation_ratio"),
+  externalTrafficShare: real("external_traffic_share"),
+  creatorRetention: real("creator_retention"),
+  aiInsights: text("ai_insights"),
+  recordedAt: timestamp("recorded_at").defaultNow(),
+});
+
+export const insertTopicAuthoritySchema = createInsertSchema(topicAuthority).omit({ id: true, updatedAt: true });
+export const insertCivilizationMetricsSchema = createInsertSchema(civilizationMetrics).omit({ id: true, recordedAt: true });
+export const insertNetworkGravitySchema = createInsertSchema(networkGravity).omit({ id: true, recordedAt: true });
+
+export type TopicAuthority = typeof topicAuthority.$inferSelect;
+export type InsertTopicAuthority = z.infer<typeof insertTopicAuthoritySchema>;
+export type CivilizationMetric = typeof civilizationMetrics.$inferSelect;
+export type InsertCivilizationMetric = z.infer<typeof insertCivilizationMetricsSchema>;
+export type NetworkGravityRecord = typeof networkGravity.$inferSelect;
+export type InsertNetworkGravity = z.infer<typeof insertNetworkGravitySchema>;
+
 export * from "./models/chat";
