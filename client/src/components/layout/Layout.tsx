@@ -1,14 +1,18 @@
 import { Link, useLocation } from "wouter";
 import { 
   Search, Bell, Plus, Zap, User, Menu, X,
-  Home, TrendingUp, Newspaper, Swords, Film, Bot,
-  Cpu, Users, Settings, Code, LogOut, Trophy, Activity, Radio
+  Home, MessageSquare, Newspaper, Swords, Bot,
+  Trophy, Wallet, Settings, LogOut, Radio,
+  ChevronLeft, ChevronRight, PanelLeftClose, PanelLeft,
+  Sparkles, Activity
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
@@ -19,31 +23,55 @@ import { AIInsightPanel } from "@/components/layout/AIInsightPanel";
 import { api } from "@/lib/api";
 import { getCurrentUserId, setCurrentUserId } from "@/lib/mockData";
 
-const iconMap: Record<string, any> = { Cpu, TrendingUp, Zap, Users, Bot };
-
 const mainNav = [
   { icon: Home, label: "Home", href: "/" },
-  { icon: TrendingUp, label: "Trending", href: "/trending" },
-  { icon: Newspaper, label: "News", href: "/news" },
-  { icon: Swords, label: "Debates", href: "/debates" },
-  { icon: Film, label: "Media", href: "/media" },
-  { icon: Bot, label: "Agents", href: "/agents" },
-  { icon: Trophy, label: "Ranking", href: "/ranking" },
-  { icon: Activity, label: "Dashboard", href: "/agent-dashboard" },
-  { icon: Radio, label: "Live Debates", href: "/live-debates" },
-  { icon: Film, label: "Content Flywheel", href: "/content-flywheel" },
-  { icon: Newspaper, label: "AI News Updates", href: "/ai-news-updates" },
+  { icon: MessageSquare, label: "Discussions", href: "/discussions" },
+  { icon: Swords, label: "Live Debates", href: "/live-debates" },
+  { icon: Newspaper, label: "AI News", href: "/ai-news-updates" },
+  { icon: Bot, label: "Agents", href: "/agent-dashboard" },
+  { icon: Trophy, label: "Rankings", href: "/ranking" },
 ];
+
+const bottomNav = [
+  { icon: Wallet, label: "Credits", href: "/credits" },
+  { icon: Bell, label: "Notifications", href: "/notifications" },
+  { icon: User, label: "Profile", href: "/profile" },
+  { icon: Settings, label: "Settings", href: "/settings" },
+];
+
+const mobileNav = [
+  { icon: Home, label: "Home", href: "/" },
+  { icon: MessageSquare, label: "Discuss", href: "/discussions" },
+  { icon: Newspaper, label: "News", href: "/ai-news-updates" },
+  { icon: Swords, label: "Debates", href: "/live-debates" },
+  { icon: User, label: "Profile", href: "/profile" },
+];
+
+function LiveIndicator() {
+  const { data: debates = [] } = useQuery({
+    queryKey: ["/api/debates", "live"],
+    queryFn: () => api.debates.list("live"),
+    refetchInterval: 15000,
+  });
+  if (debates.length === 0) return null;
+  return (
+    <Link href="/live-debates">
+      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 cursor-pointer hover:bg-red-500/15 transition-colors" data-testid="live-indicator">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+        </span>
+        <span className="text-xs font-semibold text-red-400">{debates.length} LIVE</span>
+      </div>
+    </Link>
+  );
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-
-  const { data: topicsList = [] } = useQuery({
-    queryKey: ["/api/topics"],
-    queryFn: () => api.topics.list(),
-  });
 
   const currentUserId = getCurrentUserId();
   const { data: currentUser } = useQuery({
@@ -63,89 +91,105 @@ export function Layout({ children }: { children: React.ReactNode }) {
     window.location.href = "/auth/signin";
   };
 
+  const isActive = (href: string) => {
+    if (href === "/") return location === "/";
+    return location.startsWith(href);
+  };
+
+  const sidebarWidth = sidebarCollapsed ? "w-[68px]" : "w-[240px]";
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Top Navbar */}
-      <header className="h-16 border-b border-white/5 bg-background/80 backdrop-blur-md sticky top-0 z-50 flex items-center px-4 md:px-6 justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSidebarOpen(true)}>
-            <Menu className="w-5 h-5" />
+      <header className="h-14 border-b border-white/[0.06] bg-background/90 backdrop-blur-xl sticky top-0 z-50 flex items-center px-4 justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 text-muted-foreground" onClick={() => setSidebarOpen(true)} data-testid="button-mobile-menu">
+            <Menu className="w-4 h-4" />
           </Button>
           <Link href="/">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Bot className="w-5 h-5 text-primary" />
+            <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/30 transition-shadow">
+                <Sparkles className="w-3.5 h-3.5 text-white" />
               </div>
-              <span className="font-display font-bold text-lg hidden md:block tracking-tight">
-                Dig8opia
-              </span>
+              {!sidebarCollapsed && (
+                <span className="font-display font-bold text-base hidden md:block tracking-tight">
+                  Dig8opia
+                </span>
+              )}
             </div>
           </Link>
         </div>
 
-        <div className="flex-1 max-w-xl relative hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="flex-1 max-w-md relative hidden md:block">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
           <Input 
             data-testid="input-search"
-            placeholder="Search posts, topics, agents..." 
-            className="pl-9 bg-card/50 border-white/5 focus:border-primary/50 transition-colors"
+            placeholder="Search discussions, news, agents..." 
+            className="pl-9 h-8 text-sm bg-white/[0.04] border-white/[0.06] rounded-lg focus:border-primary/40 focus:bg-white/[0.06] transition-all placeholder:text-muted-foreground/40"
           />
         </div>
 
-        <nav className="hidden lg:flex items-center gap-1" data-testid="header-nav">
-          <Link href="/live-debates">
-            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" data-testid="header-link-debates">
-              <Radio className="w-3.5 h-3.5 mr-1" /> Debates
-            </Button>
-          </Link>
-          <Link href="/ai-news-updates">
-            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground" data-testid="header-link-news">
-              <Newspaper className="w-3.5 h-3.5 mr-1" /> AI News
-            </Button>
-          </Link>
-        </nav>
+        <div className="flex items-center gap-2">
+          <LiveIndicator />
 
-        <div className="flex items-center gap-3">
           {currentUser ? (
             <>
               <Button 
                 data-testid="button-create"
-                className="hidden md:flex bg-primary hover:bg-primary/90 text-white font-medium shadow-lg shadow-primary/20"
+                size="sm"
+                className="hidden md:flex h-8 bg-primary hover:bg-primary/90 text-white text-xs font-medium shadow-md shadow-primary/20 rounded-lg gap-1.5"
                 onClick={() => setCreateModalOpen(true)}
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-3.5 h-3.5" />
                 Create
               </Button>
 
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative" data-testid="button-notifications">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
-              </Button>
+              <Link href="/notifications">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground relative" data-testid="button-notifications">
+                  <Bell className="w-4 h-4" />
+                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
+                </Button>
+              </Link>
 
-              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-white/5" data-testid="text-energy">
-                <Zap className="w-4 h-4 text-warning fill-warning" />
-                <span className="font-mono font-medium text-sm">{currentUser.energy}</span>
-              </div>
+              <Link href="/credits">
+                <div className="hidden md:flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.06] transition-colors cursor-pointer" data-testid="text-energy">
+                  <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span className="font-mono font-semibold text-xs text-amber-400">{currentUser.energy}</span>
+                </div>
+              </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="cursor-pointer ring-2 ring-transparent hover:ring-primary/50 transition-all" data-testid="button-profile">
+                  <Avatar className="w-7 h-7 cursor-pointer ring-1 ring-white/10 hover:ring-primary/50 transition-all" data-testid="button-profile">
                     <AvatarImage src={currentUser?.avatar} />
-                    <AvatarFallback>{currentUser?.displayName?.[0] || "?"}</AvatarFallback>
+                    <AvatarFallback className="text-[10px] bg-primary/20 text-primary">{currentUser?.displayName?.[0] || "?"}</AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-card border-white/10">
-                  <DropdownMenuLabel>{currentUser?.displayName || "Guest"}</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/5" />
-                  <DropdownMenuItem className="cursor-pointer">
-                    <User className="w-4 h-4 mr-2" /> Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">
-                    <Settings className="w-4 h-4 mr-2" /> Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/5" />
-                  <DropdownMenuItem className="text-destructive cursor-pointer" onClick={handleLogout}>
-                    <LogOut className="w-4 h-4 mr-2" /> Log out
+                <DropdownMenuContent align="end" className="w-52 bg-card/95 backdrop-blur-xl border-white/[0.08] rounded-xl shadow-2xl">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-semibold">{currentUser?.displayName || "Guest"}</span>
+                      <span className="text-xs text-muted-foreground">@{currentUser?.username}</span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/[0.06]" />
+                  <Link href="/profile">
+                    <DropdownMenuItem className="cursor-pointer text-xs gap-2 rounded-md">
+                      <User className="w-3.5 h-3.5" /> Profile
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/credits">
+                    <DropdownMenuItem className="cursor-pointer text-xs gap-2 rounded-md">
+                      <Wallet className="w-3.5 h-3.5" /> Credits Wallet
+                    </DropdownMenuItem>
+                  </Link>
+                  <Link href="/settings">
+                    <DropdownMenuItem className="cursor-pointer text-xs gap-2 rounded-md">
+                      <Settings className="w-3.5 h-3.5" /> Settings
+                    </DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuSeparator className="bg-white/[0.06]" />
+                  <DropdownMenuItem className="text-destructive cursor-pointer text-xs gap-2 rounded-md" onClick={handleLogout}>
+                    <LogOut className="w-3.5 h-3.5" /> Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -153,12 +197,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           ) : (
             <div className="flex items-center gap-2">
               <Link href="/auth/signin">
-                <Button variant="ghost" className="text-muted-foreground hover:text-foreground" data-testid="button-header-signin">
+                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground" data-testid="button-header-signin">
                   Sign In
                 </Button>
               </Link>
               <Link href="/auth/signup">
-                <Button className="bg-primary hover:bg-primary/90 text-white font-medium" data-testid="button-header-signup">
+                <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-white font-medium rounded-lg" data-testid="button-header-signup">
                   Sign Up
                 </Button>
               </Link>
@@ -168,78 +212,183 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
         <aside className={cn(
-          "fixed inset-y-0 left-0 z-40 w-[260px] bg-background border-r border-white/5 transform transition-transform duration-300 md:relative md:transform-none flex flex-col pt-16 md:pt-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "hidden md:flex flex-col border-r border-white/[0.06] bg-background transition-all duration-300 ease-in-out flex-shrink-0",
+          sidebarWidth
         )}>
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            <div className="space-y-1">
+          <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+            <div className="space-y-0.5">
               {mainNav.map((item) => {
-                const isActive = location === item.href;
-                return (
+                const active = isActive(item.href);
+                const navItem = (
                   <Link key={item.href} href={item.href}>
                     <div className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-                      isActive 
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer group/item",
+                      active 
                         ? "bg-primary/10 text-primary" 
-                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-                    )} data-testid={`link-nav-${item.label.toLowerCase()}`}>
-                      <item.icon className="w-4 h-4" />
-                      {item.label}
+                        : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
+                      sidebarCollapsed && "justify-center px-0"
+                    )} data-testid={`link-nav-${item.label.toLowerCase().replace(/\s/g, '-')}`}>
+                      <item.icon className={cn("w-4 h-4 flex-shrink-0", active && "text-primary")} />
+                      {!sidebarCollapsed && <span>{item.label}</span>}
                     </div>
                   </Link>
                 );
+                if (sidebarCollapsed) {
+                  return (
+                    <Tooltip key={item.href} delayDuration={0}>
+                      <TooltipTrigger asChild>{navItem}</TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs">{item.label}</TooltipContent>
+                    </Tooltip>
+                  );
+                }
+                return navItem;
               })}
             </div>
 
-            <div className="space-y-1">
-              <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Topics
-              </h3>
-              {topicsList.map((topic: any) => {
-                const Icon = iconMap[topic.icon] || Cpu;
-                return (
-                  <Link key={topic.id} href={`/topic/${topic.slug}`}>
+            <div className="h-px bg-white/[0.06] my-3" />
+
+            <div className="space-y-0.5">
+              {!sidebarCollapsed && (
+                <span className="px-2.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Account</span>
+              )}
+              {bottomNav.map((item) => {
+                const active = isActive(item.href);
+                const navItem = (
+                  <Link key={item.href} href={item.href}>
                     <div className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-                      location === `/topic/${topic.slug}`
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-                    )} data-testid={`link-topic-${topic.slug}`}>
-                      <Icon className="w-4 h-4" />
-                      {topic.label}
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer",
+                      active 
+                        ? "bg-primary/10 text-primary" 
+                        : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
+                      sidebarCollapsed && "justify-center px-0"
+                    )} data-testid={`link-nav-${item.label.toLowerCase()}`}>
+                      <item.icon className={cn("w-4 h-4 flex-shrink-0", active && "text-primary")} />
+                      {!sidebarCollapsed && <span>{item.label}</span>}
+                      {item.label === "Notifications" && !sidebarCollapsed && (
+                        <Badge className="ml-auto h-4 px-1.5 text-[9px] bg-red-500/20 text-red-400 border-0">3</Badge>
+                      )}
                     </div>
                   </Link>
                 );
+                if (sidebarCollapsed) {
+                  return (
+                    <Tooltip key={item.href} delayDuration={0}>
+                      <TooltipTrigger asChild>{navItem}</TooltipTrigger>
+                      <TooltipContent side="right" className="text-xs">{item.label}</TooltipContent>
+                    </Tooltip>
+                  );
+                }
+                return navItem;
               })}
             </div>
-          </div>
 
-          <div className="p-4 border-t border-white/5">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
-              <Code className="w-4 h-4" />
-              Developer API
-            </div>
+            {currentUser?.role === "admin" && (
+              <>
+                <div className="h-px bg-white/[0.06] my-3" />
+                <div className="space-y-0.5">
+                  {!sidebarCollapsed && (
+                    <span className="px-2.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Admin</span>
+                  )}
+                  <Link href="/admin">
+                    <div className={cn(
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:bg-white/[0.04] hover:text-foreground transition-all cursor-pointer",
+                      sidebarCollapsed && "justify-center px-0"
+                    )} data-testid="link-nav-admin">
+                      <Activity className="w-4 h-4 flex-shrink-0" />
+                      {!sidebarCollapsed && <span>Admin Panel</span>}
+                    </div>
+                  </Link>
+                </div>
+              </>
+            )}
+          </nav>
+
+          <div className="p-2 border-t border-white/[0.06]">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="w-full h-7 text-muted-foreground/50 hover:text-muted-foreground text-xs gap-1.5"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              data-testid="button-collapse-sidebar"
+            >
+              {sidebarCollapsed ? <PanelLeft className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+              {!sidebarCollapsed && <span>Collapse</span>}
+            </Button>
           </div>
         </aside>
 
         {sidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm"
-            onClick={() => setSidebarOpen(false)}
-          />
+          <>
+            <div 
+              className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <aside className="fixed inset-y-0 left-0 z-50 w-[260px] bg-background border-r border-white/[0.06] md:hidden flex flex-col animate-in slide-in-from-left duration-200">
+              <div className="h-14 flex items-center justify-between px-4 border-b border-white/[0.06]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <span className="font-display font-bold text-base">Dig8opia</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
+                {[...mainNav, ...bottomNav].map((item) => {
+                  const active = isActive(item.href);
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <div 
+                        className={cn(
+                          "flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer",
+                          active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                        )}
+                        onClick={() => setSidebarOpen(false)}
+                      >
+                        <item.icon className="w-4 h-4" />
+                        {item.label}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </aside>
+          </>
         )}
 
         <main className="flex-1 overflow-y-auto relative">
-          <div className="max-w-[820px] mx-auto p-4 md:p-6 pb-20">
+          <div className="max-w-[860px] mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
             {children}
           </div>
         </main>
 
-        <aside className="hidden xl:block w-[320px] border-l border-white/5 bg-background p-6 overflow-y-auto">
-          <AIInsightPanel />
+        <aside className="hidden xl:block w-[300px] border-l border-white/[0.06] bg-background/50 overflow-y-auto flex-shrink-0">
+          <div className="p-5">
+            <AIInsightPanel />
+          </div>
         </aside>
+      </div>
+
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-t border-white/[0.06] safe-area-bottom">
+        <nav className="flex items-center justify-around px-2 py-1.5">
+          {mobileNav.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link key={item.href} href={item.href}>
+                <div className={cn(
+                  "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors cursor-pointer",
+                  active ? "text-primary" : "text-muted-foreground"
+                )} data-testid={`mobile-nav-${item.label.toLowerCase()}`}>
+                  <item.icon className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </div>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
 
       <CreateModal open={createModalOpen} onOpenChange={setCreateModalOpen} />
