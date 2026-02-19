@@ -1,91 +1,189 @@
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { PaywallProvider } from "@/components/billing/PaywallModal";
-import NotFound from "@/pages/not-found";
-import Home from "@/pages/Home";
-import Discussions from "@/pages/Discussions";
-import PostDetail from "@/pages/PostDetail";
-import Ranking from "@/pages/Ranking";
-import AgentDashboard from "@/pages/AgentDashboard";
-import Debates from "@/pages/Debates";
-import DebateDetail from "@/pages/DebateDetail";
-import ContentFlywheel, { FlywheelJobDetail } from "@/pages/ContentFlywheel";
-import AINewsUpdates from "@/pages/AINewsUpdates";
-import AINewsArticle from "@/pages/AINewsArticle";
-import ProfilePage from "@/pages/Profile";
-import CreditsWallet from "@/pages/CreditsWallet";
-import Billing from "@/pages/Billing";
-import NotificationsPage from "@/pages/Notifications";
-import SettingsPage from "@/pages/Settings";
-import AdminLogin from "@/pages/admin/AdminLogin";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
-import FounderControl from "@/pages/admin/FounderControl";
-import CommandCenter from "@/pages/admin/CommandCenter";
-import RevenueAnalytics from "@/pages/admin/RevenueAnalytics";
-import RevenueFlywheel from "@/pages/admin/RevenueFlywheel";
-import PhaseTransition from "@/pages/admin/PhaseTransition";
-import SignIn from "@/pages/auth/SignIn";
-import SignUp from "@/pages/auth/SignUp";
-import VerifyEmail from "@/pages/auth/VerifyEmail";
-import ProfileSetup from "@/pages/auth/ProfileSetup";
-import ForgotPassword from "@/pages/auth/ForgotPassword";
-import ResetPassword from "@/pages/auth/ResetPassword";
-import AgentPortal from "@/pages/AgentPortal";
-import LiveStudio from "@/pages/LiveStudio";
+import { useEffect, useRef, useState } from 'react';
+import { renderer } from './core/Renderer';
+import { sceneManager } from './core/SceneManager';
+import { interactionManager } from './core/InteractionManager';
+import { eventBus } from './core/EventBus';
+import { useAppStore } from './state/store';
+import { HomeScene } from './scenes/HomeScene';
+import { DebatesScene } from './scenes/DebatesScene';
+import { LiveStudioScene } from './scenes/LiveStudioScene';
+import {
+  createDiscussionsScene,
+  createRankingsScene,
+  createAINewsScene,
+  createAgentsScene,
+  createProfileScene,
+  createBillingScene,
+  createCreditsScene,
+  createSettingsScene,
+  createAuthScene,
+} from './scenes/GenericScene';
+import { Fallback2D } from './Fallback2D';
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/auth/signin" component={SignIn} />
-      <Route path="/auth/signup" component={SignUp} />
-      <Route path="/auth/verify" component={VerifyEmail} />
-      <Route path="/auth/profile" component={ProfileSetup} />
-      <Route path="/auth/forgot-password" component={ForgotPassword} />
-      <Route path="/auth/reset-password" component={ResetPassword} />
-      <Route path="/" component={Home} />
-      <Route path="/discussions" component={Discussions} />
-      <Route path="/topic/:slug" component={Discussions} />
-      <Route path="/profile" component={ProfilePage} />
-      <Route path="/credits" component={CreditsWallet} />
-      <Route path="/billing" component={Billing} />
-      <Route path="/notifications" component={NotificationsPage} />
-      <Route path="/settings" component={SettingsPage} />
-      <Route path="/ranking" component={Ranking} />
-      <Route path="/agent-dashboard" component={AgentDashboard} />
-      <Route path="/agent-portal" component={AgentPortal} />
-      <Route path="/post/:id" component={PostDetail} />
-      <Route path="/live-debates" component={Debates} />
-      <Route path="/debate/:id" component={DebateDetail} />
-      <Route path="/live-studio/:id" component={LiveStudio} />
-      <Route path="/content-flywheel" component={ContentFlywheel} />
-      <Route path="/flywheel/:id" component={FlywheelJobDetail} />
-      <Route path="/ai-news-updates" component={AINewsUpdates} />
-      <Route path="/ai-news-updates/:idOrSlug" component={AINewsArticle} />
-      <Route path="/admin/login" component={AdminLogin} />
-      <Route path="/admin/founder-control" component={FounderControl} />
-      <Route path="/admin/command-center" component={CommandCenter} />
-      <Route path="/admin/revenue" component={RevenueAnalytics} />
-      <Route path="/admin/flywheel" component={RevenueFlywheel} />
-      <Route path="/admin/phase-transition" component={PhaseTransition} />
-      <Route path="/admin" component={AdminDashboard} />
-      <Route component={NotFound} />
-    </Switch>
-  );
+const ROUTE_TO_SCENE: Record<string, string> = {
+  '/': 'home',
+  '/discussions': 'discussions',
+  '/live-debates': 'debates',
+  '/ai-news-updates': 'aiNews',
+  '/agent-dashboard': 'agents',
+  '/agent-portal': 'agents',
+  '/ranking': 'rankings',
+  '/profile': 'profile',
+  '/billing': 'billing',
+  '/credits': 'credits',
+  '/settings': 'settings',
+  '/auth/signin': 'auth',
+  '/auth/signup': 'auth',
+  '/notifications': 'profile',
+  '/content-flywheel': 'debates',
+  '/admin': 'settings',
+  '/admin/login': 'auth',
+  '/admin/founder-control': 'settings',
+  '/admin/command-center': 'settings',
+  '/admin/revenue': 'billing',
+  '/admin/flywheel': 'debates',
+  '/admin/phase-transition': 'settings',
+};
+
+function navigateTo(path: string) {
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 function App() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [location, setLocationState] = useState(window.location.pathname);
+  const [webglFailed, setWebglFailed] = useState(false);
+  const setRoute = useAppStore((s) => s.setRoute);
+  const scenesRegistered = useRef(false);
+  const studioScene = useRef<LiveStudioScene | null>(null);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setLocationState(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current || webglFailed) return;
+
+    const failUnsub = eventBus.on('webglFailed', () => {
+      setWebglFailed(true);
+    });
+
+    try {
+      renderer.mount(containerRef.current);
+    } catch (e) {
+      console.warn('WebGL mount failed:', e);
+      setWebglFailed(true);
+      return;
+    }
+
+    if (!renderer.webglAvailable || !renderer.renderer) {
+      setWebglFailed(true);
+      return;
+    }
+
+    interactionManager.attach(renderer.renderer.domElement);
+
+    renderer.onRender((dt, elapsed) => {
+      sceneManager.update(dt, elapsed);
+    });
+
+    renderer.start();
+
+    if (!scenesRegistered.current) {
+      scenesRegistered.current = true;
+
+      sceneManager.register(new HomeScene());
+      sceneManager.register(new DebatesScene());
+
+      const ls = new LiveStudioScene();
+      studioScene.current = ls;
+      sceneManager.register(ls);
+
+      sceneManager.register(createDiscussionsScene());
+      sceneManager.register(createRankingsScene());
+      sceneManager.register(createAINewsScene());
+      sceneManager.register(createAgentsScene());
+      sceneManager.register(createProfileScene());
+      sceneManager.register(createBillingScene());
+      sceneManager.register(createCreditsScene());
+      sceneManager.register(createSettingsScene());
+      sceneManager.register(createAuthScene());
+    }
+
+    const navUnsub = eventBus.on('navigate', (route: string) => {
+      navigateTo(route);
+    });
+
+    return () => {
+      navUnsub();
+      failUnsub();
+      if (renderer.renderer) {
+        interactionManager.detach(renderer.renderer.domElement);
+      }
+      renderer.stop();
+    };
+  }, [webglFailed]);
+
+  useEffect(() => {
+    setRoute(location);
+
+    if (webglFailed) return;
+
+    const studioMatch = location.match(/^\/live-studio\/(\d+)/);
+    if (studioMatch) {
+      const debateId = parseInt(studioMatch[1]);
+      sceneManager.transition('liveStudio').then(() => {
+        studioScene.current?.setDebateId(debateId);
+      });
+      return;
+    }
+
+    const detailMatch = location.match(/^\/debate\/(\d+)/);
+    if (detailMatch) {
+      const debateId = parseInt(detailMatch[1]);
+      sceneManager.transition('liveStudio').then(() => {
+        studioScene.current?.setDebateId(debateId);
+      });
+      return;
+    }
+
+    if (location.match(/^\/post\//)) {
+      sceneManager.transition('discussions');
+      return;
+    }
+
+    if (location.match(/^\/topic\//)) {
+      sceneManager.transition('discussions');
+      return;
+    }
+
+    const sceneName = ROUTE_TO_SCENE[location] || 'home';
+    sceneManager.transition(sceneName);
+  }, [location, setRoute, webglFailed]);
+
+  if (webglFailed) {
+    return <Fallback2D location={location} onNavigate={navigateTo} />;
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <PaywallProvider>
-          <Toaster />
-          <Router />
-        </PaywallProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <div
+      ref={containerRef}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        overflow: 'hidden',
+        background: '#050510',
+      }}
+      data-testid="webgl-canvas-container"
+    />
   );
 }
 

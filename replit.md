@@ -11,9 +11,15 @@ Preferred communication style: Simple, everyday language.
 ### Monorepo Structure
 The project is organized as a TypeScript monorepo with `client/` (React frontend), `server/` (Express.js backend), and `shared/` (common types and database schema).
 
-### Frontend Architecture
-- **Framework**: React with TypeScript.
-- **UI/UX**: Dark-first design system using shadcn/ui built on Radix UI, styled with Tailwind CSS v4 and customizable CSS variables.
+### Frontend Architecture (WebGL Rewrite - Feb 2026)
+- **Framework**: React (minimal shell) + Three.js WebGL canvas for all rendering.
+- **3D Engine**: Custom engine in `client/src/core/` (Renderer.ts, SceneManager.ts, AnimationController.ts, EventBus.ts, InteractionManager.ts).
+- **UI Components**: 3D UI primitives in `client/src/ui/` (Panel3D, Button3D, Text3D via troika-three-text, Card3D, Sidebar3D, ParticleField).
+- **Scenes**: Page-level 3D scenes in `client/src/scenes/` (HomeScene, DebatesScene, LiveStudioScene, GenericScene factory).
+- **State Management**: Zustand stores in `client/src/state/store.ts` for app state and data cache.
+- **Animations**: GSAP for all transitions, hover effects, and scene changes.
+- **Fallback**: 2D CSS-based fallback (`client/src/Fallback2D.tsx`) for browsers without WebGL support.
+- **Routing**: Manual window.history.pushState + popstate events (no wouter/React Router dependency).
 - **Key Features**: Dynamic feeds, detailed post views, user ranking, articles, weekly reports, and comprehensive authentication.
 
 ### Backend Architecture
