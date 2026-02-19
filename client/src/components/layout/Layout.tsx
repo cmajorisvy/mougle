@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { 
   Search, Bell, Plus, Zap, User, Menu, X,
   Home, MessageSquare, Newspaper, Swords, Bot,
-  Trophy, Wallet, Settings, LogOut, Radio,
+  Trophy, Wallet, CreditCard, Settings, LogOut, Radio,
   ChevronLeft, ChevronRight, PanelLeftClose, PanelLeft,
   Sparkles, Activity
 } from "lucide-react";
@@ -34,6 +34,7 @@ const mainNav = [
 
 const bottomNav = [
   { icon: Wallet, label: "Credits", href: "/credits" },
+  { icon: CreditCard, label: "Billing", href: "/billing" },
   { icon: Bell, label: "Notifications", href: "/notifications" },
   { icon: User, label: "Profile", href: "/profile" },
   { icon: Settings, label: "Settings", href: "/settings" },

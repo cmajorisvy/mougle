@@ -55,6 +55,12 @@ import {
   type AnomalyEvent, type InsertAnomalyEvent,
   type AutomationDecision, type InsertAutomationDecision,
   type AutomationPolicy, type InsertAutomationPolicy,
+  type SubscriptionPlan, type InsertSubscriptionPlan,
+  type UserSubscription, type InsertUserSubscription,
+  type CreditPackage, type InsertCreditPackage,
+  type CreditPurchase, type InsertCreditPurchase,
+  type Invoice, type InsertInvoice,
+  type CreditUsageLog, type InsertCreditUsageLog,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -72,6 +78,7 @@ import {
   socialPerformance, growthPatterns,
   systemControlConfig,
   activityMetrics, anomalyEvents, automationDecisions, automationPolicy,
+  subscriptionPlans, userSubscriptions, creditPackages, creditPurchases, invoices, creditUsageLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -355,6 +362,31 @@ export interface IStorage {
 
   getAutomationPolicy(): Promise<AutomationPolicy | undefined>;
   upsertAutomationPolicy(data: Partial<InsertAutomationPolicy>): Promise<AutomationPolicy>;
+
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlan(id: string): Promise<SubscriptionPlan | undefined>;
+  getSubscriptionPlanByName(name: string): Promise<SubscriptionPlan | undefined>;
+  createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan>;
+
+  getUserSubscription(userId: string): Promise<UserSubscription | undefined>;
+  createUserSubscription(sub: InsertUserSubscription): Promise<UserSubscription>;
+  updateUserSubscription(id: string, data: Partial<UserSubscription>): Promise<UserSubscription>;
+
+  getCreditPackages(): Promise<CreditPackage[]>;
+  createCreditPackage(pkg: InsertCreditPackage): Promise<CreditPackage>;
+
+  createCreditPurchase(purchase: InsertCreditPurchase): Promise<CreditPurchase>;
+  getCreditPurchases(userId: string): Promise<CreditPurchase[]>;
+
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  getInvoices(userId: string): Promise<Invoice[]>;
+  getInvoice(id: string): Promise<Invoice | undefined>;
+  getAllInvoices(): Promise<Invoice[]>;
+
+  createCreditUsage(entry: InsertCreditUsageLog): Promise<CreditUsageLog>;
+  getCreditUsage(userId: string, limit?: number): Promise<CreditUsageLog[]>;
+  getCreditUsageSince(userId: string, since: Date): Promise<CreditUsageLog[]>;
+  getAllCreditUsage(limit?: number): Promise<CreditUsageLog[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -1648,6 +1680,97 @@ export class DatabaseStorage implements IStorage {
       killSwitch: data.killSwitch || false,
     }).returning();
     return created;
+  }
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return db.select().from(subscriptionPlans).orderBy(asc(subscriptionPlans.sortOrder));
+  }
+
+  async getSubscriptionPlan(id: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id));
+    return plan;
+  }
+
+  async getSubscriptionPlanByName(name: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.name, name));
+    return plan;
+  }
+
+  async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    const [created] = await db.insert(subscriptionPlans).values(plan).returning();
+    return created;
+  }
+
+  async getUserSubscription(userId: string): Promise<UserSubscription | undefined> {
+    const [sub] = await db.select().from(userSubscriptions)
+      .where(and(eq(userSubscriptions.userId, userId), eq(userSubscriptions.status, "active")))
+      .orderBy(desc(userSubscriptions.createdAt))
+      .limit(1);
+    return sub;
+  }
+
+  async createUserSubscription(sub: InsertUserSubscription): Promise<UserSubscription> {
+    const [created] = await db.insert(userSubscriptions).values(sub).returning();
+    return created;
+  }
+
+  async updateUserSubscription(id: string, data: Partial<UserSubscription>): Promise<UserSubscription> {
+    const [updated] = await db.update(userSubscriptions).set({ ...data, updatedAt: new Date() }).where(eq(userSubscriptions.id, id)).returning();
+    return updated;
+  }
+
+  async getCreditPackages(): Promise<CreditPackage[]> {
+    return db.select().from(creditPackages).where(eq(creditPackages.isActive, true));
+  }
+
+  async createCreditPackage(pkg: InsertCreditPackage): Promise<CreditPackage> {
+    const [created] = await db.insert(creditPackages).values(pkg).returning();
+    return created;
+  }
+
+  async createCreditPurchase(purchase: InsertCreditPurchase): Promise<CreditPurchase> {
+    const [created] = await db.insert(creditPurchases).values(purchase).returning();
+    return created;
+  }
+
+  async getCreditPurchases(userId: string): Promise<CreditPurchase[]> {
+    return db.select().from(creditPurchases).where(eq(creditPurchases.userId, userId)).orderBy(desc(creditPurchases.createdAt));
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const [created] = await db.insert(invoices).values(invoice).returning();
+    return created;
+  }
+
+  async getInvoices(userId: string): Promise<Invoice[]> {
+    return db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    const [inv] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return inv;
+  }
+
+  async getAllInvoices(): Promise<Invoice[]> {
+    return db.select().from(invoices).orderBy(desc(invoices.createdAt));
+  }
+
+  async createCreditUsage(entry: InsertCreditUsageLog): Promise<CreditUsageLog> {
+    const [created] = await db.insert(creditUsageLog).values(entry).returning();
+    return created;
+  }
+
+  async getCreditUsage(userId: string, limit = 50): Promise<CreditUsageLog[]> {
+    return db.select().from(creditUsageLog).where(eq(creditUsageLog.userId, userId)).orderBy(desc(creditUsageLog.createdAt)).limit(limit);
+  }
+
+  async getCreditUsageSince(userId: string, since: Date): Promise<CreditUsageLog[]> {
+    return db.select().from(creditUsageLog).where(
+      and(eq(creditUsageLog.userId, userId), gte(creditUsageLog.createdAt, since))
+    ).orderBy(desc(creditUsageLog.createdAt));
+  }
+
+  async getAllCreditUsage(limit = 100): Promise<CreditUsageLog[]> {
+    return db.select().from(creditUsageLog).orderBy(desc(creditUsageLog.createdAt)).limit(limit);
   }
 }
 

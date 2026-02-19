@@ -955,4 +955,109 @@ export const insertAutomationPolicySchema = createInsertSchema(automationPolicy)
 export type InsertAutomationPolicy = z.infer<typeof insertAutomationPolicySchema>;
 export type AutomationPolicy = typeof automationPolicy.$inferSelect;
 
+// ---- MONETIZATION SYSTEM ----
+
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  priceMonthly: integer("price_monthly").notNull().default(0),
+  priceYearly: integer("price_yearly").notNull().default(0),
+  creditsPerMonth: integer("credits_per_month").notNull().default(0),
+  features: jsonb("features").notNull().default([]),
+  debateDiscount: integer("debate_discount").notNull().default(0),
+  maxDebatesPerMonth: integer("max_debates_per_month").notNull().default(1),
+  aiResponsesPerDay: integer("ai_responses_per_day").notNull().default(5),
+  prioritySupport: boolean("priority_support").notNull().default(false),
+  badgeLabel: text("badge_label"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  stripePriceIdMonthly: text("stripe_price_id_monthly"),
+  stripePriceIdYearly: text("stripe_price_id_yearly"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userSubscriptions = pgTable("user_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  planId: varchar("plan_id").notNull(),
+  status: text("status").notNull().default("active"),
+  billingCycle: text("billing_cycle").notNull().default("monthly"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripeCustomerId: text("stripe_customer_id"),
+  currentPeriodStart: timestamp("current_period_start"),
+  currentPeriodEnd: timestamp("current_period_end"),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const creditPackages = pgTable("credit_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  credits: integer("credits").notNull(),
+  priceUsd: integer("price_usd").notNull(),
+  bonusCredits: integer("bonus_credits").notNull().default(0),
+  popular: boolean("popular").notNull().default(false),
+  stripePriceId: text("stripe_price_id"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const creditPurchases = pgTable("credit_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  packageId: varchar("package_id"),
+  creditsBought: integer("credits_bought").notNull(),
+  amountPaid: integer("amount_paid").notNull(),
+  paymentMethod: text("payment_method").notNull().default("stripe"),
+  stripePaymentId: text("stripe_payment_id"),
+  status: text("status").notNull().default("completed"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  invoiceNumber: text("invoice_number").notNull(),
+  type: text("type").notNull().default("credit_purchase"),
+  amount: integer("amount").notNull(),
+  currency: text("currency").notNull().default("usd"),
+  status: text("status").notNull().default("paid"),
+  items: jsonb("items").notNull().default([]),
+  stripeInvoiceId: text("stripe_invoice_id"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const creditUsageLog = pgTable("credit_usage_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  creditsUsed: integer("credits_used").notNull(),
+  actionType: text("action_type").notNull(),
+  actionLabel: text("action_label"),
+  referenceId: varchar("reference_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({ id: true, createdAt: true });
+export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCreditPackageSchema = createInsertSchema(creditPackages).omit({ id: true, createdAt: true });
+export const insertCreditPurchaseSchema = createInsertSchema(creditPurchases).omit({ id: true, createdAt: true });
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true });
+export const insertCreditUsageLogSchema = createInsertSchema(creditUsageLog).omit({ id: true, createdAt: true });
+
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type UserSubscription = typeof userSubscriptions.$inferSelect;
+export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
+export type CreditPackage = typeof creditPackages.$inferSelect;
+export type InsertCreditPackage = z.infer<typeof insertCreditPackageSchema>;
+export type CreditPurchase = typeof creditPurchases.$inferSelect;
+export type InsertCreditPurchase = z.infer<typeof insertCreditPurchaseSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type CreditUsageLog = typeof creditUsageLog.$inferSelect;
+export type InsertCreditUsageLog = z.infer<typeof insertCreditUsageLogSchema>;
+
 export * from "./models/chat";

@@ -280,5 +280,25 @@ export const api = {
       adminFetch<any>("/social/generate-caption", { method: "POST", body: JSON.stringify(data) }),
     triggerPublish: () => adminFetch<any>("/social/trigger-publish", { method: "POST" }),
   },
+  billing: {
+    plans: () => fetchJSON<any[]>("/billing/plans"),
+    creditPackages: () => fetchJSON<any[]>("/billing/credit-packages"),
+    creditCosts: () => fetchJSON<any>("/billing/credit-costs"),
+    purchaseCredits: (userId: string, packageId: string) =>
+      fetchJSON<any>("/billing/purchase-credits", { method: "POST", body: JSON.stringify({ userId, packageId }) }),
+    useCredits: (userId: string, actionType: string, actionLabel?: string, referenceId?: string) =>
+      fetchJSON<any>("/billing/use-credits", { method: "POST", body: JSON.stringify({ userId, actionType, actionLabel, referenceId }) }),
+    canAfford: (userId: string, actionType: string) =>
+      fetchJSON<any>(`/billing/can-afford/${userId}/${actionType}`),
+    summary: (userId: string) => fetchJSON<any>(`/billing/summary/${userId}`),
+    subscription: (userId: string) => fetchJSON<any>(`/billing/subscription/${userId}`),
+    subscribe: (userId: string, planName: string, billingCycle?: string) =>
+      fetchJSON<any>("/billing/subscribe", { method: "POST", body: JSON.stringify({ userId, planName, billingCycle: billingCycle || "monthly" }) }),
+    cancelSubscription: (userId: string) =>
+      fetchJSON<any>("/billing/cancel-subscription", { method: "POST", body: JSON.stringify({ userId }) }),
+    invoices: (userId: string) => fetchJSON<any[]>(`/billing/invoices/${userId}`),
+    usage: (userId: string) => fetchJSON<any>(`/billing/usage/${userId}`),
+    founderAnalytics: () => adminFetch<any>("/admin/billing/analytics"),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

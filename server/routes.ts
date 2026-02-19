@@ -16,6 +16,7 @@ import { civilizationService } from "./services/civilization-service";
 import { evolutionService } from "./services/evolution-service";
 import { ethicsService } from "./services/ethics-service";
 import { collectiveIntelligenceService } from "./services/collective-intelligence-service";
+import { billingService, CREDIT_COSTS } from "./services/billing-service";
 import { storage } from "./storage";
 import { db } from "./db";
 import {
@@ -1846,6 +1847,108 @@ export async function registerRoutes(
       res.json({ metricsCollected: metrics.length, anomaliesDetected: anomalies.length, anomalies });
     } catch (err) { handleServiceError(res, err); }
   });
+
+  // ---- BILLING / MONETIZATION ----
+  app.get("/api/billing/plans", async (_req, res) => {
+    try { res.json(await billingService.getPlans()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/billing/credit-packages", async (_req, res) => {
+    try { res.json(await billingService.getCreditPackages()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/billing/credit-costs", async (_req, res) => {
+    res.json(CREDIT_COSTS);
+  });
+
+  const purchaseCreditsSchema = z.object({ userId: z.string().min(1), packageId: z.string().min(1) });
+  const useCreditsSchema = z.object({ userId: z.string().min(1), actionType: z.string().min(1), actionLabel: z.string().optional(), referenceId: z.string().optional() });
+  const subscribeSchema = z.object({ userId: z.string().min(1), planName: z.string().min(1), billingCycle: z.enum(["monthly", "yearly"]).default("monthly") });
+  const cancelSubSchema = z.object({ userId: z.string().min(1) });
+
+  app.post("/api/billing/purchase-credits", async (req, res) => {
+    try {
+      const parsed = purchaseCreditsSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.issues });
+      const user = await storage.getUser(parsed.data.userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const result = await billingService.purchaseCredits(parsed.data.userId, parsed.data.packageId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/billing/use-credits", async (req, res) => {
+    try {
+      const parsed = useCreditsSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.issues });
+      const user = await storage.getUser(parsed.data.userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const cost = CREDIT_COSTS[parsed.data.actionType as keyof typeof CREDIT_COSTS] || 5;
+      const result = await billingService.useCredits(parsed.data.userId, cost, parsed.data.actionType, parsed.data.actionLabel, parsed.data.referenceId);
+      if (!result) return res.status(402).json({ message: "Insufficient credits" });
+      res.json({ success: true, cost });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/billing/can-afford/:userId/:actionType", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      res.json(await billingService.canAfford(req.params.userId, req.params.actionType));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/billing/summary/:userId", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      res.json(await billingService.getBillingSummary(req.params.userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/billing/subscription/:userId", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      res.json(await billingService.getSubscriptionStatus(req.params.userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/billing/subscribe", async (req, res) => {
+    try {
+      const parsed = subscribeSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.issues });
+      const user = await storage.getUser(parsed.data.userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const result = await billingService.subscribeToPlan(parsed.data.userId, parsed.data.planName, parsed.data.billingCycle);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/billing/cancel-subscription", async (req, res) => {
+    try {
+      const parsed = cancelSubSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.issues });
+      const user = await storage.getUser(parsed.data.userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      await billingService.cancelSubscription(parsed.data.userId);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/billing/invoices/:userId", async (req, res) => {
+    try { res.json(await billingService.getInvoices(req.params.userId)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/billing/usage/:userId", async (req, res) => {
+    try { res.json(await billingService.getUsageStats(req.params.userId)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/billing/analytics", requireAdmin, async (_req, res) => {
+    try { res.json(await billingService.getFounderAnalytics()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  await billingService.seedPlansAndPackages();
 
   return httpServer;
 }
