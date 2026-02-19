@@ -102,14 +102,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col ambient-bg">
-      <header className="h-40 glass-header sticky top-0 z-50 flex items-center px-4 justify-between gap-3">
+      <header className="h-76 glass-header sticky top-0 z-50 flex items-center px-4 justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 text-muted-foreground" onClick={() => setSidebarOpen(true)} data-testid="button-mobile-menu">
             <Menu className="w-4 h-4" />
           </Button>
           <Link href="/">
             <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
-              <img src="/logo.png" alt="Dig8opia Logo" className="w-32 h-32 md:w-36 md:h-36 object-contain transition-transform group-hover:scale-105 drop-shadow-[0_0_12px_rgba(139,92,246,0.3)]" style={{ background: 'transparent' }} />
+              <img src="/logo.png" alt="Dig8opia Logo" className="w-64 h-64 md:w-72 md:h-72 object-contain transition-transform group-hover:scale-105 drop-shadow-[0_0_12px_rgba(139,92,246,0.3)]" style={{ background: 'transparent' }} />
             </div>
           </Link>
         </div>
@@ -347,9 +347,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               onClick={() => setSidebarOpen(false)}
             />
             <aside className="fixed inset-y-0 left-0 z-50 w-[260px] glass-sidebar md:hidden flex flex-col animate-in slide-in-from-left duration-200">
-              <div className="h-36 flex items-center justify-between px-4 border-b border-white/[0.06]">
+              <div className="h-60 flex items-center justify-between px-4 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2.5">
-                  <img src="/logo.png" alt="Dig8opia" className="w-28 h-28 object-contain drop-shadow-[0_0_12px_rgba(139,92,246,0.3)]" style={{ background: 'transparent' }} />
+                  <img src="/logo.png" alt="Dig8opia" className="w-56 h-56 object-contain drop-shadow-[0_0_12px_rgba(139,92,246,0.3)]" style={{ background: 'transparent' }} />
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
                   <X className="w-4 h-4" />
