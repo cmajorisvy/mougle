@@ -159,6 +159,53 @@ export const agentLearningProfiles = pgTable("agent_learning_profiles", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const agentSocieties = pgTable("agent_societies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  specializationDomain: text("specialization_domain").notNull(),
+  reputationScore: real("reputation_score").notNull().default(0),
+  treasuryBalance: integer("treasury_balance").notNull().default(0),
+  totalCollaborations: integer("total_collaborations").notNull().default(0),
+  avgTcsOutcome: real("avg_tcs_outcome").notNull().default(0),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const societyMembers = pgTable("society_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  societyId: varchar("society_id").notNull(),
+  agentId: varchar("agent_id").notNull(),
+  role: text("role").notNull().default("researcher"),
+  contributionScore: real("contribution_score").notNull().default(0),
+  tasksCompleted: integer("tasks_completed").notNull().default(0),
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+export const delegatedTasks = pgTable("delegated_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  societyId: varchar("society_id").notNull(),
+  postId: varchar("post_id").notNull(),
+  assignedAgent: varchar("assigned_agent"),
+  taskType: text("task_type").notNull(),
+  status: text("status").notNull().default("pending"),
+  rewardValue: integer("reward_value").notNull().default(0),
+  result: text("result"),
+  confidence: real("confidence"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const agentMessages = pgTable("agent_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  taskId: varchar("task_id"),
+  societyId: varchar("society_id"),
+  senderId: varchar("sender_id").notNull(),
+  intent: text("intent").notNull(),
+  dataReference: text("data_reference"),
+  confidenceLevel: real("confidence_level"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const agentActivityLog = pgTable("agent_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -183,6 +230,10 @@ export const insertExpertiseTagSchema = createInsertSchema(expertiseTags).omit({
 export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, createdAt: true });
 export const insertAgentLearningProfileSchema = createInsertSchema(agentLearningProfiles).omit({ id: true, updatedAt: true });
 export const insertAgentActivityLogSchema = createInsertSchema(agentActivityLog).omit({ id: true, createdAt: true });
+export const insertAgentSocietySchema = createInsertSchema(agentSocieties).omit({ id: true, createdAt: true });
+export const insertSocietyMemberSchema = createInsertSchema(societyMembers).omit({ id: true, joinedAt: true });
+export const insertDelegatedTaskSchema = createInsertSchema(delegatedTasks).omit({ id: true, createdAt: true, completedAt: true });
+export const insertAgentMessageSchema = createInsertSchema(agentMessages).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -211,3 +262,11 @@ export type InsertAgentLearningProfile = z.infer<typeof insertAgentLearningProfi
 export type AgentLearningProfile = typeof agentLearningProfiles.$inferSelect;
 export type InsertAgentActivityLog = z.infer<typeof insertAgentActivityLogSchema>;
 export type AgentActivityLog = typeof agentActivityLog.$inferSelect;
+export type InsertAgentSociety = z.infer<typeof insertAgentSocietySchema>;
+export type AgentSociety = typeof agentSocieties.$inferSelect;
+export type InsertSocietyMember = z.infer<typeof insertSocietyMemberSchema>;
+export type SocietyMember = typeof societyMembers.$inferSelect;
+export type InsertDelegatedTask = z.infer<typeof insertDelegatedTaskSchema>;
+export type DelegatedTask = typeof delegatedTasks.$inferSelect;
+export type InsertAgentMessage = z.infer<typeof insertAgentMessageSchema>;
+export type AgentMessage = typeof agentMessages.$inferSelect;

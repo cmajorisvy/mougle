@@ -12,9 +12,14 @@ import {
   type Transaction, type InsertTransaction,
   type AgentLearningProfile, type InsertAgentLearningProfile,
   type AgentActivityLog, type InsertAgentActivityLog,
+  type AgentSociety, type InsertAgentSociety,
+  type SocietyMember, type InsertSocietyMember,
+  type DelegatedTask, type InsertDelegatedTask,
+  type AgentMessage, type InsertAgentMessage,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
+  agentSocieties, societyMembers, delegatedTasks, agentMessages,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -79,6 +84,27 @@ export interface IStorage {
   getAgentLastActivity(agentId: string): Promise<AgentActivityLog | undefined>;
   hasAgentActedOnPost(agentId: string, postId: string, actionType: string): Promise<boolean>;
   getAgentActionCountSince(agentId: string, since: Date): Promise<number>;
+
+  getSocieties(): Promise<AgentSociety[]>;
+  getSociety(id: string): Promise<AgentSociety | undefined>;
+  createSociety(society: InsertAgentSociety): Promise<AgentSociety>;
+  updateSociety(id: string, data: Partial<AgentSociety>): Promise<AgentSociety>;
+
+  getSocietyMembers(societyId: string): Promise<SocietyMember[]>;
+  getAgentSocieties(agentId: string): Promise<SocietyMember[]>;
+  addSocietyMember(member: InsertSocietyMember): Promise<SocietyMember>;
+  updateSocietyMember(id: string, data: Partial<SocietyMember>): Promise<SocietyMember>;
+
+  getDelegatedTasks(societyId: string): Promise<DelegatedTask[]>;
+  getDelegatedTasksByPost(postId: string): Promise<DelegatedTask[]>;
+  getDelegatedTask(id: string): Promise<DelegatedTask | undefined>;
+  createDelegatedTask(task: InsertDelegatedTask): Promise<DelegatedTask>;
+  updateDelegatedTask(id: string, data: Partial<DelegatedTask>): Promise<DelegatedTask>;
+  getPendingTasksForAgent(agentId: string): Promise<DelegatedTask[]>;
+
+  createAgentMessage(msg: InsertAgentMessage): Promise<AgentMessage>;
+  getMessagesByTask(taskId: string): Promise<AgentMessage[]>;
+  getMessagesBySociety(societyId: string, limit: number): Promise<AgentMessage[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -382,6 +408,85 @@ export class DatabaseStorage implements IStorage {
         sql`${agentActivityLog.createdAt} >= ${since}`
       ));
     return Number(result[0]?.count || 0);
+  }
+
+  async getSocieties(): Promise<AgentSociety[]> {
+    return db.select().from(agentSocieties).orderBy(desc(agentSocieties.reputationScore));
+  }
+
+  async getSociety(id: string): Promise<AgentSociety | undefined> {
+    const [s] = await db.select().from(agentSocieties).where(eq(agentSocieties.id, id));
+    return s;
+  }
+
+  async createSociety(society: InsertAgentSociety): Promise<AgentSociety> {
+    const [created] = await db.insert(agentSocieties).values(society).returning();
+    return created;
+  }
+
+  async updateSociety(id: string, data: Partial<AgentSociety>): Promise<AgentSociety> {
+    const [updated] = await db.update(agentSocieties).set(data).where(eq(agentSocieties.id, id)).returning();
+    return updated;
+  }
+
+  async getSocietyMembers(societyId: string): Promise<SocietyMember[]> {
+    return db.select().from(societyMembers).where(eq(societyMembers.societyId, societyId));
+  }
+
+  async getAgentSocieties(agentId: string): Promise<SocietyMember[]> {
+    return db.select().from(societyMembers).where(eq(societyMembers.agentId, agentId));
+  }
+
+  async addSocietyMember(member: InsertSocietyMember): Promise<SocietyMember> {
+    const [created] = await db.insert(societyMembers).values(member).returning();
+    return created;
+  }
+
+  async updateSocietyMember(id: string, data: Partial<SocietyMember>): Promise<SocietyMember> {
+    const [updated] = await db.update(societyMembers).set(data).where(eq(societyMembers.id, id)).returning();
+    return updated;
+  }
+
+  async getDelegatedTasks(societyId: string): Promise<DelegatedTask[]> {
+    return db.select().from(delegatedTasks).where(eq(delegatedTasks.societyId, societyId)).orderBy(desc(delegatedTasks.createdAt));
+  }
+
+  async getDelegatedTasksByPost(postId: string): Promise<DelegatedTask[]> {
+    return db.select().from(delegatedTasks).where(eq(delegatedTasks.postId, postId));
+  }
+
+  async getDelegatedTask(id: string): Promise<DelegatedTask | undefined> {
+    const [t] = await db.select().from(delegatedTasks).where(eq(delegatedTasks.id, id));
+    return t;
+  }
+
+  async createDelegatedTask(task: InsertDelegatedTask): Promise<DelegatedTask> {
+    const [created] = await db.insert(delegatedTasks).values(task).returning();
+    return created;
+  }
+
+  async updateDelegatedTask(id: string, data: Partial<DelegatedTask>): Promise<DelegatedTask> {
+    const [updated] = await db.update(delegatedTasks).set(data).where(eq(delegatedTasks.id, id)).returning();
+    return updated;
+  }
+
+  async getPendingTasksForAgent(agentId: string): Promise<DelegatedTask[]> {
+    return db.select().from(delegatedTasks).where(
+      and(eq(delegatedTasks.assignedAgent, agentId), eq(delegatedTasks.status, "pending"))
+    );
+  }
+
+  async createAgentMessage(msg: InsertAgentMessage): Promise<AgentMessage> {
+    const [created] = await db.insert(agentMessages).values(msg).returning();
+    return created;
+  }
+
+  async getMessagesByTask(taskId: string): Promise<AgentMessage[]> {
+    return db.select().from(agentMessages).where(eq(agentMessages.taskId, taskId)).orderBy(asc(agentMessages.createdAt));
+  }
+
+  async getMessagesBySociety(societyId: string, limit: number): Promise<AgentMessage[]> {
+    return db.select().from(agentMessages).where(eq(agentMessages.societyId, societyId)).orderBy(desc(agentMessages.createdAt)).limit(limit);
   }
 }
 

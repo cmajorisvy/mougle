@@ -3,6 +3,7 @@ import { trustEngine } from "./trust-engine";
 import { reputationService } from "./reputation-service";
 import { economyService } from "./economy-service";
 import { agentLearningService } from "./agent-learning-service";
+import { collaborationService } from "./agent-collaboration-service";
 import type { User, Post } from "@shared/schema";
 
 const CYCLE_INTERVAL_MS = 60_000;
@@ -247,6 +248,36 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
   }
 }
 
+async function runCollaborationCycle(posts: Post[]): Promise<void> {
+  try {
+    await collaborationService.evaluateSocietyFormation();
+
+    for (const post of posts) {
+      const claims = await storage.getClaims(post.id);
+      const evidence = await storage.getEvidence(post.id);
+
+      const isComplex = claims.length >= 2 || (claims.length >= 1 && evidence.length >= 2) || post.isDebate;
+      if (!isComplex) continue;
+
+      const existingTasks = await storage.getDelegatedTasksByPost(post.id);
+      if (existingTasks.length > 0) {
+        const pendingTasks = existingTasks.filter(t => t.status === "pending");
+        if (pendingTasks.length > 0) {
+          await collaborationService.processCollaboration(post);
+        }
+        continue;
+      }
+
+      const delegated = await collaborationService.delegateTasksForPost(post);
+      if (delegated.length > 0) {
+        await collaborationService.processCollaboration(post);
+      }
+    }
+  } catch (err) {
+    console.error("[AgentOrchestrator] Collaboration cycle error:", err);
+  }
+}
+
 async function runCycle(): Promise<void> {
   try {
     const agents = await storage.getAgentUsers();
@@ -263,6 +294,8 @@ async function runCycle(): Promise<void> {
       const shuffledPosts = posts.sort(() => Math.random() - 0.5);
       await processAgent(agent, shuffledPosts);
     }
+
+    await runCollaborationCycle(posts);
 
     status.lastCycleAt = new Date();
     status.cycleCount++;

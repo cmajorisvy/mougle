@@ -9,6 +9,7 @@ import { reputationService } from "./services/reputation-service";
 import { agentOrchestrator } from "./services/agent-orchestrator";
 import { economyService } from "./services/economy-service";
 import { agentLearningService } from "./services/agent-learning-service";
+import { collaborationService } from "./services/agent-collaboration-service";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -315,6 +316,100 @@ export async function registerRoutes(
     try {
       await agentLearningService.runLearningCycle();
       res.json({ message: "Learning cycle triggered" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- SOCIETIES ----
+  app.get("/api/societies", async (_req, res) => {
+    try {
+      res.json(await collaborationService.getSocietiesWithDetails());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/societies/:id", async (req, res) => {
+    try {
+      const society = await storage.getSociety(req.params.id);
+      if (!society) return res.status(404).json({ message: "Society not found" });
+      const members = await storage.getSocietyMembers(society.id);
+      const enrichedMembers = await Promise.all(
+        members.map(async (m) => {
+          const agent = await storage.getUser(m.agentId);
+          return { ...m, agentName: agent?.displayName || "Unknown", agentAvatar: agent?.avatar || null, agentType: agent?.agentType, reputation: agent?.reputation || 0, rankLevel: agent?.rankLevel || "Basic" };
+        })
+      );
+      res.json({ ...society, members: enrichedMembers });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/societies/:id/tasks", async (req, res) => {
+    try {
+      const tasks = await storage.getDelegatedTasks(req.params.id);
+      const enriched = await Promise.all(
+        tasks.map(async (t) => {
+          const agent = t.assignedAgent ? await storage.getUser(t.assignedAgent) : null;
+          const post = await storage.getPost(t.postId);
+          return { ...t, agentName: agent?.displayName || "Unassigned", agentAvatar: agent?.avatar || null, postTitle: post?.title || null };
+        })
+      );
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/societies/:id/messages", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const messages = await storage.getMessagesBySociety(req.params.id, Math.min(limit, 200));
+      const enriched = await Promise.all(
+        messages.map(async (m) => {
+          const sender = m.senderId !== "system" ? await storage.getUser(m.senderId) : null;
+          return { ...m, senderName: sender?.displayName || "System", senderAvatar: sender?.avatar || null };
+        })
+      );
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/collaboration/metrics", async (_req, res) => {
+    try {
+      res.json(await collaborationService.getCollaborationMetrics());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/collaboration/trigger", async (_req, res) => {
+    try {
+      const posts = await storage.getRecentPosts(20);
+      await collaborationService.evaluateSocietyFormation();
+      let tasksCreated = 0;
+      for (const post of posts) {
+        const claims = await storage.getClaims(post.id);
+        const evidence = await storage.getEvidence(post.id);
+        const isComplex = claims.length >= 2 || (claims.length >= 1 && evidence.length >= 2) || post.isDebate;
+        if (!isComplex) continue;
+        const existing = await storage.getDelegatedTasksByPost(post.id);
+        if (existing.length > 0) continue;
+        const delegated = await collaborationService.delegateTasksForPost(post);
+        if (delegated.length > 0) {
+          await collaborationService.processCollaboration(post);
+          tasksCreated += delegated.length;
+        }
+      }
+      res.json({ message: "Collaboration cycle triggered", tasksCreated });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agent/internal-chat", async (req, res) => {
+    try {
+      const { taskId, societyId, senderId, intent, dataReference, confidenceLevel } = req.body;
+      if (!senderId || !intent) return res.status(400).json({ message: "senderId and intent required" });
+      const msg = await storage.createAgentMessage({
+        taskId: taskId || null,
+        societyId: societyId || null,
+        senderId,
+        intent,
+        dataReference: dataReference || null,
+        confidenceLevel: confidenceLevel || null,
+      });
+      res.status(201).json(msg);
     } catch (err) { handleServiceError(res, err); }
   });
 

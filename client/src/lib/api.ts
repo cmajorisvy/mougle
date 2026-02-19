@@ -71,5 +71,18 @@ export const api = {
     status: () => fetchJSON<any>("/agent-learning/status"),
     trigger: () => fetchJSON<any>("/agent-learning/trigger", { method: "POST" }),
   },
+  societies: {
+    list: () => fetchJSON<any[]>("/societies"),
+    get: (id: string) => fetchJSON<any>(`/societies/${id}`),
+    tasks: (id: string) => fetchJSON<any[]>(`/societies/${id}/tasks`),
+    messages: (id: string, limit = 50) => fetchJSON<any[]>(`/societies/${id}/messages?limit=${limit}`),
+  },
+  collaboration: {
+    metrics: () => fetchJSON<any>("/collaboration/metrics"),
+    trigger: () => fetchJSON<any>("/collaboration/trigger", { method: "POST" }),
+  },
+  agentChat: {
+    send: (data: any) => fetchJSON<any>("/agent/internal-chat", { method: "POST", body: JSON.stringify(data) }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles } from "lucide-react";
+import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles, Users, GitBranch, CheckCircle2, CircleDot, Gem, Search, Scale, FileText, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -67,6 +67,26 @@ export default function AgentDashboard() {
     mutationFn: () => api.agentLearning.trigger(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/agent-learning/metrics"] });
+    },
+  });
+
+  const { data: societiesData = [], isLoading: societiesLoading } = useQuery({
+    queryKey: ["/api/societies"],
+    queryFn: () => api.societies.list(),
+    refetchInterval: 15000,
+  });
+
+  const { data: collabMetrics, isLoading: collabMetricsLoading } = useQuery({
+    queryKey: ["/api/collaboration/metrics"],
+    queryFn: () => api.collaboration.metrics(),
+    refetchInterval: 15000,
+  });
+
+  const collabTriggerMutation = useMutation({
+    mutationFn: () => api.collaboration.trigger(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/societies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/collaboration/metrics"] });
     },
   });
 
@@ -601,6 +621,237 @@ export default function AgentDashboard() {
                       </div>
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4" data-testid="section-societies">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-display font-bold flex items-center gap-2">
+              <Users className="w-5 h-5 text-emerald-400" />
+              Agent Societies
+            </h2>
+            <Button
+              data-testid="button-trigger-collab"
+              variant="outline"
+              size="sm"
+              className="h-8 bg-card border-white/10 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-400"
+              onClick={() => collabTriggerMutation.mutate()}
+              disabled={collabTriggerMutation.isPending}
+            >
+              {collabTriggerMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <GitBranch className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Trigger Collaboration
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="glass-card rounded-xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Users className="w-3.5 h-3.5" />
+                Active Societies
+              </div>
+              <span className="font-semibold text-lg text-emerald-400" data-testid="text-active-societies">
+                {collabMetricsLoading ? "..." : collabMetrics?.activeSocieties || 0}
+              </span>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Bot className="w-3.5 h-3.5" />
+                Total Members
+              </div>
+              <span className="font-semibold text-lg" data-testid="text-total-members">
+                {collabMetricsLoading ? "..." : collabMetrics?.totalMembers || 0}
+              </span>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Gem className="w-3.5 h-3.5" />
+                Total Treasury
+              </div>
+              <span className="font-semibold text-lg text-amber-400" data-testid="text-total-treasury">
+                {collabMetricsLoading ? "..." : (collabMetrics?.totalTreasury || 0).toLocaleString()} IC
+              </span>
+            </div>
+            <div className="glass-card rounded-xl p-4 border border-white/5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Collaborations
+              </div>
+              <span className="font-semibold text-lg" data-testid="text-total-collabs">
+                {collabMetricsLoading ? "..." : collabMetrics?.totalCollaborations || 0}
+              </span>
+            </div>
+          </div>
+
+          {societiesLoading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            </div>
+          ) : societiesData.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground text-sm glass-card rounded-xl border border-white/5">
+              No societies formed yet. Agents will form societies when collaboration patterns emerge.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {societiesData.map((society: any) => (
+                <div
+                  key={society.id}
+                  data-testid={`society-${society.id}`}
+                  className="glass-card rounded-xl p-4 border border-white/5 space-y-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                        <Users className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-base" data-testid={`society-name-${society.id}`}>{society.name}</div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                            {society.specializationDomain}
+                          </Badge>
+                          <span>{society.memberCount} members</span>
+                          <span>·</span>
+                          <span>{society.totalTasks} tasks</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs">
+                      <div className="text-center">
+                        <div className="text-muted-foreground">Reputation</div>
+                        <div className="font-semibold text-emerald-400">{Math.round(society.reputationScore)}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-muted-foreground">Treasury</div>
+                        <div className="font-semibold text-amber-400">{(society.treasuryBalance || 0).toLocaleString()} IC</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-muted-foreground">Avg TCS</div>
+                        <div className={cn("font-semibold", (society.avgTcsOutcome || 0) >= 0.7 ? "text-green-400" : (society.avgTcsOutcome || 0) >= 0.4 ? "text-amber-400" : "text-red-400")}>
+                          {Math.round((society.avgTcsOutcome || 0) * 100)}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                        <Bot className="w-3 h-3" /> Members & Roles
+                      </div>
+                      <div className="space-y-2">
+                        {society.members?.map((member: any) => (
+                          <div key={member.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-white/[0.02] border border-white/5">
+                            <Avatar className="w-7 h-7">
+                              <AvatarImage src={member.agentAvatar} />
+                              <AvatarFallback className="bg-violet-500/20 text-violet-400 text-[10px]">
+                                {member.agentName?.charAt(0) || "A"}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium truncate">{member.agentName}</span>
+                                <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", RANK_COLORS[member.rankLevel] || RANK_COLORS.Basic)}>
+                                  {member.rankLevel}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  {member.role === "researcher" && <Search className="w-2.5 h-2.5 text-blue-400" />}
+                                  {member.role === "validator" && <Scale className="w-2.5 h-2.5 text-green-400" />}
+                                  {member.role === "summarizer" && <FileText className="w-2.5 h-2.5 text-purple-400" />}
+                                  {member.role === "critic" && <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />}
+                                  <span className="capitalize">{member.role}</span>
+                                </span>
+                                <span>·</span>
+                                <span>{member.tasksCompleted || 0} tasks</span>
+                                <span>·</span>
+                                <span>score: {Math.round((member.contributionScore || 0) * 10) / 10}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                          <BarChart3 className="w-3 h-3" /> Role Distribution
+                        </div>
+                        <div className="flex gap-1.5">
+                          {Object.entries(society.roleDistribution || {}).map(([role, count]) => {
+                            const roleColors: Record<string, string> = {
+                              researcher: "bg-blue-500/60",
+                              validator: "bg-green-500/60",
+                              summarizer: "bg-purple-500/60",
+                              critic: "bg-amber-500/60",
+                            };
+                            const totalMembers = Object.values(society.roleDistribution || {}).reduce((a: number, b: any) => a + Number(b), 0) as number;
+                            const pct = totalMembers > 0 ? (Number(count) / totalMembers) * 100 : 0;
+                            return (
+                              <div key={role} className="flex-1 space-y-1">
+                                <div className="h-8 rounded-md overflow-hidden bg-white/5 relative">
+                                  <div
+                                    className={cn("absolute bottom-0 w-full rounded-md transition-all", roleColors[role] || "bg-gray-500/60")}
+                                    style={{ height: `${pct}%` }}
+                                  />
+                                </div>
+                                <div className="text-[10px] text-center capitalize text-muted-foreground">{role}</div>
+                                <div className="text-[10px] text-center font-mono">{String(count)}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                          <Activity className="w-3 h-3" /> Collaboration Stats
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5 text-center">
+                            <div className="text-[10px] text-muted-foreground">Completed</div>
+                            <div className="text-sm font-semibold text-green-400">{society.completedTasks || 0}</div>
+                          </div>
+                          <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5 text-center">
+                            <div className="text-[10px] text-muted-foreground">Pending</div>
+                            <div className="text-sm font-semibold text-amber-400">{society.pendingTasks || 0}</div>
+                          </div>
+                          <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5 text-center">
+                            <div className="text-[10px] text-muted-foreground">Total</div>
+                            <div className="text-sm font-semibold">{society.totalTasks || 0}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {collabMetrics?.rewardShares && (
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                            <Coins className="w-3 h-3" /> Reward Distribution
+                          </div>
+                          <div className="flex gap-1 h-3 rounded-full overflow-hidden">
+                            <div className="bg-blue-500/70 rounded-l-full" style={{ width: `${(collabMetrics.rewardShares.researcher || 0) * 100}%` }} title={`Researcher: ${(collabMetrics.rewardShares.researcher || 0) * 100}%`} />
+                            <div className="bg-green-500/70" style={{ width: `${(collabMetrics.rewardShares.validator || 0) * 100}%` }} title={`Validator: ${(collabMetrics.rewardShares.validator || 0) * 100}%`} />
+                            <div className="bg-purple-500/70" style={{ width: `${(collabMetrics.rewardShares.summarizer || 0) * 100}%` }} title={`Summarizer: ${(collabMetrics.rewardShares.summarizer || 0) * 100}%`} />
+                            <div className="bg-amber-500/70 rounded-r-full" style={{ width: `${(collabMetrics.rewardShares.treasury || 0) * 100}%` }} title={`Treasury: ${(collabMetrics.rewardShares.treasury || 0) * 100}%`} />
+                          </div>
+                          <div className="flex justify-between text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" />Researcher 40%</span>
+                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500" />Validator 30%</span>
+                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-purple-500" />Summarizer 20%</span>
+                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Treasury 10%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
