@@ -108,9 +108,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="w-4 h-4" />
           </Button>
           <Link href="/">
-            <div className="flex items-center gap-4 cursor-pointer group" data-testid="link-home-logo">
+            <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
               <img src="/logo.png" alt="Dig8opia Logo" className="w-32 h-32 md:w-36 md:h-36 object-contain transition-transform group-hover:scale-105 drop-shadow-[0_0_12px_rgba(139,92,246,0.3)]" style={{ background: 'transparent' }} />
-              <span className="text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-purple-400 via-violet-300 to-indigo-400 bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(139,92,246,0.4)]">DIG8OPIA</span>
             </div>
           </Link>
         </div>
@@ -349,9 +348,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             />
             <aside className="fixed inset-y-0 left-0 z-50 w-[260px] glass-sidebar md:hidden flex flex-col animate-in slide-in-from-left duration-200">
               <div className="h-36 flex items-center justify-between px-4 border-b border-white/[0.06]">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <img src="/logo.png" alt="Dig8opia" className="w-28 h-28 object-contain drop-shadow-[0_0_12px_rgba(139,92,246,0.3)]" style={{ background: 'transparent' }} />
-                  <span className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-purple-400 via-violet-300 to-indigo-400 bg-clip-text text-transparent">DIG8OPIA</span>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
                   <X className="w-4 h-4" />
