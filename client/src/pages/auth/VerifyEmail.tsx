@@ -88,8 +88,8 @@ export default function VerifyEmail() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-[420px] space-y-8">
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-            <Mail className="w-8 h-8 text-primary" />
+          <div className="inline-flex items-center justify-center mx-auto">
+            <img src="/logo.png" alt="Dig8opia Logo" className="w-20 h-20 object-contain shadow-2xl shadow-primary/10" />
           </div>
           <h1 className="text-2xl font-display font-bold" data-testid="text-verify-title">Check your email</h1>
           <p className="text-muted-foreground text-sm">

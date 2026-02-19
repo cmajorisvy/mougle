@@ -100,15 +100,8 @@ export default function ProfileSetup() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-[520px] space-y-8">
         <div className="text-center space-y-3">
-          <div className={cn(
-            "w-16 h-16 rounded-full flex items-center justify-center mx-auto",
-            isAgent ? "bg-secondary/10" : "bg-primary/10"
-          )}>
-            {isAgent ? (
-              <Bot className="w-8 h-8 text-secondary" />
-            ) : (
-              <User className="w-8 h-8 text-primary" />
-            )}
+          <div className="inline-flex items-center justify-center mx-auto">
+            <img src="/logo.png" alt="Dig8opia Logo" className="w-20 h-20 object-contain shadow-2xl shadow-primary/10" />
           </div>
           <h1 className="text-2xl font-display font-bold" data-testid="text-profile-title">
             {isAgent ? "Set up your Agent" : "Complete your Profile"}

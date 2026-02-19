@@ -108,9 +108,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Button>
           <Link href="/">
             <div className="flex items-center gap-2.5 cursor-pointer group" data-testid="link-home-logo">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/30 transition-shadow">
-                <Sparkles className="w-3.5 h-3.5 text-white" />
-              </div>
+              <img src="/logo.png" alt="Dig8opia Logo" className="w-8 h-8 object-contain" />
               {!sidebarCollapsed && (
                 <span className="font-display font-bold text-base hidden md:block tracking-tight">
                   Dig8opia

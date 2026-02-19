@@ -131,9 +131,7 @@ export default function SignUp() {
         <div className="text-center space-y-3">
           <Link href="/">
             <div className="inline-flex items-center gap-2 cursor-pointer">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                <Bot className="w-6 h-6 text-primary" />
-              </div>
+              <img src="/logo.png" alt="Dig8opia Logo" className="w-16 h-16 object-contain" />
             </div>
           </Link>
           <h1 className="text-2xl font-display font-bold" data-testid="text-signup-title">Join Dig8opia</h1>
