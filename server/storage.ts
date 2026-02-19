@@ -27,6 +27,9 @@ import {
   type AgentIdentity, type InsertAgentIdentity,
   type AgentMemory, type InsertAgentMemory,
   type CivilizationInvestment, type InsertCivilizationInvestment,
+  type AgentGenome, type InsertAgentGenome,
+  type AgentLineage, type InsertAgentLineage,
+  type CulturalMemory, type InsertCulturalMemory,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -34,6 +37,7 @@ import {
   governanceProposals, governanceVotes, alliances, allianceMembers,
   institutionRules, taskContracts, taskBids,
   civilizations, agentIdentities, agentMemory, civilizationInvestments,
+  agentGenomes, agentLineage, culturalMemory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -170,6 +174,21 @@ export interface IStorage {
   getInvestments(civilizationId: string): Promise<CivilizationInvestment[]>;
   getActiveInvestments(): Promise<CivilizationInvestment[]>;
   updateInvestment(id: string, data: Partial<CivilizationInvestment>): Promise<CivilizationInvestment>;
+
+  getAgentGenome(agentId: string): Promise<AgentGenome | undefined>;
+  upsertAgentGenome(agentId: string, data: Partial<AgentGenome>): Promise<AgentGenome>;
+  getAllGenomes(): Promise<AgentGenome[]>;
+
+  getAgentLineage(agentId: string): Promise<AgentLineage | undefined>;
+  createAgentLineage(entry: InsertAgentLineage): Promise<AgentLineage>;
+  updateAgentLineage(agentId: string, data: Partial<AgentLineage>): Promise<AgentLineage>;
+  getLineageByParent(parentId: string): Promise<AgentLineage[]>;
+  getAllLineages(): Promise<AgentLineage[]>;
+
+  createCulturalMemoryEntry(entry: InsertCulturalMemory): Promise<CulturalMemory>;
+  getCulturalMemories(limit: number): Promise<CulturalMemory[]>;
+  getTopCulturalMemories(domain: string, limit: number): Promise<CulturalMemory[]>;
+  updateCulturalMemory(id: string, data: Partial<CulturalMemory>): Promise<CulturalMemory>;
 }
 
 function computeRank(reputation: number): string {
@@ -758,6 +777,66 @@ export class DatabaseStorage implements IStorage {
 
   async updateInvestment(id: string, data: Partial<CivilizationInvestment>): Promise<CivilizationInvestment> {
     const [updated] = await db.update(civilizationInvestments).set(data).where(eq(civilizationInvestments.id, id)).returning();
+    return updated;
+  }
+
+  async getAgentGenome(agentId: string): Promise<AgentGenome | undefined> {
+    const [genome] = await db.select().from(agentGenomes).where(eq(agentGenomes.agentId, agentId));
+    return genome;
+  }
+
+  async upsertAgentGenome(agentId: string, data: Partial<AgentGenome>): Promise<AgentGenome> {
+    const existing = await this.getAgentGenome(agentId);
+    if (existing) {
+      const [updated] = await db.update(agentGenomes).set({ ...data, updatedAt: new Date() }).where(eq(agentGenomes.agentId, agentId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(agentGenomes).values({ agentId, ...data } as any).returning();
+    return created;
+  }
+
+  async getAllGenomes(): Promise<AgentGenome[]> {
+    return db.select().from(agentGenomes).orderBy(desc(agentGenomes.fitnessScore));
+  }
+
+  async getAgentLineage(agentId: string): Promise<AgentLineage | undefined> {
+    const [entry] = await db.select().from(agentLineage).where(eq(agentLineage.agentId, agentId));
+    return entry;
+  }
+
+  async createAgentLineage(entry: InsertAgentLineage): Promise<AgentLineage> {
+    const [created] = await db.insert(agentLineage).values(entry).returning();
+    return created;
+  }
+
+  async updateAgentLineage(agentId: string, data: Partial<AgentLineage>): Promise<AgentLineage> {
+    const [updated] = await db.update(agentLineage).set(data).where(eq(agentLineage.agentId, agentId)).returning();
+    return updated;
+  }
+
+  async getLineageByParent(parentId: string): Promise<AgentLineage[]> {
+    return db.select().from(agentLineage).where(eq(agentLineage.parentAgentId, parentId)).orderBy(desc(agentLineage.bornAt));
+  }
+
+  async getAllLineages(): Promise<AgentLineage[]> {
+    return db.select().from(agentLineage).orderBy(asc(agentLineage.generationNumber));
+  }
+
+  async createCulturalMemoryEntry(entry: InsertCulturalMemory): Promise<CulturalMemory> {
+    const [created] = await db.insert(culturalMemory).values(entry).returning();
+    return created;
+  }
+
+  async getCulturalMemories(limit: number): Promise<CulturalMemory[]> {
+    return db.select().from(culturalMemory).orderBy(desc(culturalMemory.successScore)).limit(limit);
+  }
+
+  async getTopCulturalMemories(domain: string, limit: number): Promise<CulturalMemory[]> {
+    return db.select().from(culturalMemory).where(eq(culturalMemory.domain, domain)).orderBy(desc(culturalMemory.successScore)).limit(limit);
+  }
+
+  async updateCulturalMemory(id: string, data: Partial<CulturalMemory>): Promise<CulturalMemory> {
+    const [updated] = await db.update(culturalMemory).set(data).where(eq(culturalMemory.id, id)).returning();
     return updated;
   }
 }

@@ -117,5 +117,13 @@ export const api = {
     memory: (agentId: string, limit = 50, type?: string) =>
       fetchJSON<any[]>(`/agents/${agentId}/memory?limit=${limit}${type ? `&type=${type}` : ""}`),
   },
+  evolution: {
+    metrics: () => fetchJSON<any>("/evolution/metrics"),
+    trigger: () => fetchJSON<any>("/evolution/trigger", { method: "POST" }),
+    genome: (agentId: string) => fetchJSON<any>(`/evolution/genome/${agentId}`),
+    lineage: (agentId: string) => fetchJSON<any>(`/evolution/lineage/${agentId}`),
+    culturalMemory: (limit = 20, domain?: string) =>
+      fetchJSON<any[]>(`/evolution/cultural-memory?limit=${limit}${domain ? `&domain=${domain}` : ""}`),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

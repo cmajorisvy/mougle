@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles, Users, GitBranch, CheckCircle2, CircleDot, Gem, Search, Scale, FileText, AlertTriangle, Vote, Handshake, Building2, ScrollText, Gavel, ThumbsUp, ThumbsDown, Timer } from "lucide-react";
+import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles, Users, GitBranch, CheckCircle2, CircleDot, Gem, Search, Scale, FileText, AlertTriangle, Vote, Handshake, Building2, ScrollText, Gavel, ThumbsUp, ThumbsDown, Timer, Dna, TreePine, FlaskConical, Skull, Baby, HeartPulse } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -27,6 +27,26 @@ const ACTION_COLORS: Record<string, string> = {
   verify: "border-l-green-500",
   skip: "border-l-white/10",
 };
+
+function FamilyTreeNode({ node, depth }: { node: any; depth: number }) {
+  return (
+    <div style={{ marginLeft: depth * 20 }}>
+      <div className="flex items-center gap-2 py-1">
+        {depth > 0 && <GitBranch className="w-3 h-3 text-emerald-500/50" />}
+        <span className="text-xs font-medium">{node.name}</span>
+        <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+          Gen {node.generation}
+        </Badge>
+        <span className={cn("text-[10px] font-mono", node.fitness >= 0.5 ? "text-emerald-400" : node.fitness >= 0.2 ? "text-amber-400" : "text-red-400")}>
+          fit: {node.fitness}
+        </span>
+      </div>
+      {node.children?.map((child: any) => (
+        <FamilyTreeNode key={child.agentId} node={child} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
 
 export default function AgentDashboard() {
   const queryClient = useQueryClient();
@@ -134,6 +154,20 @@ export default function AgentDashboard() {
     mutationFn: () => api.civilizations.trigger(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/civilizations/metrics"] });
+    },
+  });
+
+  const { data: evoMetrics, isLoading: evoMetricsLoading } = useQuery({
+    queryKey: ["/api/evolution/metrics"],
+    queryFn: () => api.evolution.metrics(),
+    refetchInterval: 15000,
+  });
+
+  const evoTriggerMutation = useMutation({
+    mutationFn: () => api.evolution.trigger(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/evolution/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent-orchestrator/status"] });
     },
   });
 
@@ -1133,6 +1167,205 @@ export default function AgentDashboard() {
                 })}
               </div>
             </div>
+          )}
+        </div>
+
+        <div className="glass-card rounded-xl p-5 border border-white/5" data-testid="section-evolution">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Dna className="w-5 h-5 text-emerald-400" />
+              Agent Evolution & Cultural Transmission
+            </h2>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+              onClick={() => evoTriggerMutation.mutate()}
+              disabled={evoTriggerMutation.isPending}
+              data-testid="button-trigger-evolution"
+            >
+              {evoTriggerMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <FlaskConical className="w-3 h-3 mr-1" />}
+              Evolve
+            </Button>
+          </div>
+
+          {evoMetricsLoading ? (
+            <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+                {[
+                  { label: "Population", value: `${evoMetrics?.totalPopulation || 0}/${evoMetrics?.populationCap || 20}`, icon: <Users className="w-3.5 h-3.5 text-blue-400" />, color: "text-blue-400" },
+                  { label: "Max Gen", value: evoMetrics?.maxGeneration || 0, icon: <TreePine className="w-3.5 h-3.5 text-emerald-400" />, color: "text-emerald-400" },
+                  { label: "Genomes", value: evoMetrics?.totalGenomes || 0, icon: <Dna className="w-3.5 h-3.5 text-violet-400" />, color: "text-violet-400" },
+                  { label: "Retired", value: evoMetrics?.retiredCount || 0, icon: <Skull className="w-3.5 h-3.5 text-red-400" />, color: "text-red-400" },
+                  { label: "Repro Cost", value: `${evoMetrics?.reproductionCost || 1000} IC`, icon: <Baby className="w-3.5 h-3.5 text-pink-400" />, color: "text-pink-400" },
+                  { label: "Maint/Cycle", value: `${evoMetrics?.maintenanceCost || 5} IC`, icon: <HeartPulse className="w-3.5 h-3.5 text-amber-400" />, color: "text-amber-400" },
+                ].map((metric) => (
+                  <div key={metric.label} className="glass-card rounded-lg p-3 border border-white/5 text-center" data-testid={`metric-evo-${metric.label.toLowerCase().replace(/\s/g, "-")}`}>
+                    <div className="flex items-center justify-center gap-1 mb-1">{metric.icon}<span className="text-[10px] text-muted-foreground uppercase tracking-wider">{metric.label}</span></div>
+                    <div className={cn("text-lg font-bold", metric.color)}>{metric.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {evoMetrics?.traitAverages && Object.keys(evoMetrics.traitAverages).length > 0 && (
+                <div className="glass-card rounded-lg p-4 border border-white/5 mb-4">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <BarChart3 className="w-3 h-3" /> Dominant Trait Averages (Population-wide)
+                  </div>
+                  <div className="space-y-2">
+                    {Object.entries(evoMetrics.traitAverages as Record<string, number>).map(([trait, value]) => {
+                      const traitColors: Record<string, string> = {
+                        curiosity: "bg-blue-400",
+                        riskTolerance: "bg-red-400",
+                        collaborationBias: "bg-emerald-400",
+                        verificationStrictness: "bg-amber-400",
+                        longTermFocus: "bg-violet-400",
+                      };
+                      return (
+                        <div key={trait} className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground w-40 truncate capitalize">{trait.replace(/([A-Z])/g, " $1")}</span>
+                          <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                            <div
+                              className={cn("h-full rounded-full transition-all", traitColors[trait] || "bg-white/30")}
+                              style={{ width: `${Math.round(value * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono text-muted-foreground w-12 text-right">{Math.round(value * 100)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {evoMetrics?.strategyDistribution && Object.keys(evoMetrics.strategyDistribution).length > 0 && (
+                    <div className="mt-3 flex gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground mr-1">Strategies:</span>
+                      {Object.entries(evoMetrics.strategyDistribution as Record<string, number>).map(([strategy, count]) => (
+                        <Badge key={strategy} variant="outline" className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                          {strategy}: {count}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(evoMetrics?.familyTrees || []).length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <TreePine className="w-3 h-3" /> Family Trees
+                  </div>
+                  <div className="space-y-2">
+                    {(evoMetrics?.familyTrees || []).map((tree: any) => (
+                      <div key={tree.agentId} className="glass-card rounded-lg p-3 border border-emerald-500/10" data-testid={`tree-${tree.agentId}`}>
+                        <FamilyTreeNode node={tree} depth={0} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(evoMetrics?.agentProfiles || []).length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <Dna className="w-3 h-3" /> Agent Genomes & Fitness
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(evoMetrics?.agentProfiles || []).map((profile: any) => (
+                      <div key={profile.agentId} className={cn("glass-card rounded-lg p-3 border", profile.retired ? "border-red-500/10 opacity-60" : "border-white/5")} data-testid={`genome-card-${profile.agentId}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Avatar className="w-6 h-6">
+                            <AvatarImage src={profile.avatar} />
+                            <AvatarFallback className="text-[9px]">{(profile.name || "?")[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium text-sm truncate">{profile.name}</span>
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                Gen {profile.generation}
+                              </Badge>
+                              {profile.retired && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-red-500/10 text-red-400 border-red-500/20">
+                                  Retired
+                                </Badge>
+                              )}
+                            </div>
+                            {profile.parentName && (
+                              <div className="text-[10px] text-muted-foreground">
+                                Parent: {profile.parentName} · {profile.descendantCount} descendants
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className={cn("text-sm font-bold", profile.fitness >= 0.5 ? "text-emerald-400" : profile.fitness >= 0.2 ? "text-amber-400" : "text-red-400")}>
+                              {profile.fitness}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">fitness</div>
+                          </div>
+                        </div>
+
+                        {profile.genome && (
+                          <div className="space-y-1">
+                            {Object.entries(profile.genome as Record<string, any>).filter(([k]) => k !== "economicStrategy" && k !== "mutations").map(([trait, value]) => (
+                              <div key={trait} className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground w-28 truncate capitalize">{trait.replace(/([A-Z])/g, " $1")}</span>
+                                <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full rounded-full bg-emerald-400/60"
+                                    style={{ width: `${Math.round((value as number) * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground w-8 text-right">{Math.round((value as number) * 100)}%</span>
+                              </div>
+                            ))}
+                            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-blue-500/10 text-blue-400 border-blue-500/20">
+                                {profile.genome.economicStrategy}
+                              </Badge>
+                              {profile.genome.mutations > 0 && (
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-pink-500/10 text-pink-400 border-pink-500/20">
+                                  {profile.genome.mutations} mutations
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(evoMetrics?.topCulturalMemories || []).length > 0 && (
+                <div>
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                    <ScrollText className="w-3 h-3" /> Cultural Memory (Top Strategies)
+                  </div>
+                  <div className="space-y-2">
+                    {(evoMetrics?.topCulturalMemories || []).map((cm: any, idx: number) => (
+                      <div key={cm.id} className="glass-card rounded-lg p-3 border border-white/5 flex items-center gap-3" data-testid={`cultural-memory-${cm.id}`}>
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-emerald-500/10 text-emerald-400">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium">Score: {cm.successScore}</span>
+                            {cm.domain && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/5 text-muted-foreground border-white/10">
+                                {cm.domain}
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 bg-violet-500/10 text-violet-400 border-violet-500/20">
+                              inherited {cm.inheritedByCount}x
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 

@@ -5,6 +5,7 @@ import { economyService } from "./economy-service";
 import { agentLearningService } from "./agent-learning-service";
 import { collaborationService } from "./agent-collaboration-service";
 import { civilizationService } from "./civilization-service";
+import { evolutionService } from "./evolution-service";
 import type { User, Post } from "@shared/schema";
 
 const CYCLE_INTERVAL_MS = 60_000;
@@ -310,6 +311,12 @@ async function runCycle(): Promise<void> {
       await civilizationService.runCivilizationCycle();
     } catch (err) {
       console.error("[AgentOrchestrator] Civilization cycle error:", err);
+    }
+
+    try {
+      await evolutionService.runEvolutionCycle();
+    } catch (err) {
+      console.error("[AgentOrchestrator] Evolution cycle error:", err);
     }
 
     status.lastCycleAt = new Date();

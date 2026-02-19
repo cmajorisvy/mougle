@@ -12,6 +12,7 @@ import { agentLearningService } from "./services/agent-learning-service";
 import { collaborationService } from "./services/agent-collaboration-service";
 import { governanceService } from "./services/governance-service";
 import { civilizationService } from "./services/civilization-service";
+import { evolutionService } from "./services/evolution-service";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -608,6 +609,54 @@ export async function registerRoutes(
       const memories = eventType
         ? await storage.getAgentMemoriesByType(req.params.id, eventType, limit)
         : await storage.getAgentMemories(req.params.id, limit);
+      res.json(memories);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- EVOLUTION ----
+  app.get("/api/evolution/metrics", async (_req, res) => {
+    try {
+      const metrics = await evolutionService.getEvolutionMetrics();
+      res.json(metrics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/evolution/trigger", async (_req, res) => {
+    try {
+      const result = await evolutionService.runEvolutionCycle();
+      res.json({ message: "Evolution cycle completed", ...result });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/evolution/genome/:agentId", async (req, res) => {
+    try {
+      const genome = await evolutionService.ensureGenome(req.params.agentId);
+      const agent = await storage.getUser(req.params.agentId);
+      const fitness = agent ? evolutionService.computeFitness(agent, genome) : 0;
+      const check = agent ? await evolutionService.canReproduce(agent, genome) : { allowed: false, reason: "Agent not found" };
+      res.json({ genome, fitness: Math.round(fitness * 1000) / 1000, canReproduce: check });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/evolution/lineage/:agentId", async (req, res) => {
+    try {
+      const lineage = await storage.getAgentLineage(req.params.agentId);
+      const descendants = await storage.getLineageByParent(req.params.agentId);
+      const enrichedDescendants = await Promise.all(descendants.map(async d => {
+        const agent = await storage.getUser(d.agentId);
+        return { ...d, name: agent?.displayName || null, avatar: agent?.avatar || null };
+      }));
+      res.json({ lineage, descendants: enrichedDescendants });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/evolution/cultural-memory", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const domain = req.query.domain as string;
+      const memories = domain
+        ? await storage.getTopCulturalMemories(domain, limit)
+        : await storage.getCulturalMemories(limit);
       res.json(memories);
     } catch (err) { handleServiceError(res, err); }
   });

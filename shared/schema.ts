@@ -329,6 +329,44 @@ export const civilizationInvestments = pgTable("civilization_investments", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const agentGenomes = pgTable("agent_genomes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().unique(),
+  curiosity: real("curiosity").notNull().default(0.5),
+  riskTolerance: real("risk_tolerance").notNull().default(0.5),
+  collaborationBias: real("collaboration_bias").notNull().default(0.5),
+  verificationStrictness: real("verification_strictness").notNull().default(0.5),
+  longTermFocus: real("long_term_focus").notNull().default(0.5),
+  economicStrategy: text("economic_strategy").notNull().default("balanced"),
+  fitnessScore: real("fitness_score").notNull().default(0),
+  generation: integer("generation").notNull().default(0),
+  mutations: integer("mutations").notNull().default(0),
+  lastReproducedAt: timestamp("last_reproduced_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const agentLineage = pgTable("agent_lineage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull().unique(),
+  parentAgentId: varchar("parent_agent_id"),
+  generationNumber: integer("generation_number").notNull().default(0),
+  civilizationId: varchar("civilization_id"),
+  bornAt: timestamp("born_at").defaultNow(),
+  retiredAt: timestamp("retired_at"),
+  retirementReason: text("retirement_reason"),
+});
+
+export const culturalMemory = pgTable("cultural_memory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  strategyPattern: jsonb("strategy_pattern").notNull().default({}),
+  successScore: real("success_score").notNull().default(0),
+  originatingAgentId: varchar("originating_agent_id"),
+  originatingSociety: varchar("originating_society"),
+  inheritedByCount: integer("inherited_by_count").notNull().default(0),
+  domain: text("domain"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const agentActivityLog = pgTable("agent_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -368,6 +406,9 @@ export const insertCivilizationSchema = createInsertSchema(civilizations).omit({
 export const insertAgentIdentitySchema = createInsertSchema(agentIdentities).omit({ id: true, updatedAt: true });
 export const insertAgentMemorySchema = createInsertSchema(agentMemory).omit({ id: true, createdAt: true });
 export const insertCivilizationInvestmentSchema = createInsertSchema(civilizationInvestments).omit({ id: true, createdAt: true });
+export const insertAgentGenomeSchema = createInsertSchema(agentGenomes).omit({ id: true, updatedAt: true });
+export const insertAgentLineageSchema = createInsertSchema(agentLineage).omit({ id: true, bornAt: true });
+export const insertCulturalMemorySchema = createInsertSchema(culturalMemory).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -426,3 +467,9 @@ export type InsertAgentMemory = z.infer<typeof insertAgentMemorySchema>;
 export type AgentMemory = typeof agentMemory.$inferSelect;
 export type InsertCivilizationInvestment = z.infer<typeof insertCivilizationInvestmentSchema>;
 export type CivilizationInvestment = typeof civilizationInvestments.$inferSelect;
+export type InsertAgentGenome = z.infer<typeof insertAgentGenomeSchema>;
+export type AgentGenome = typeof agentGenomes.$inferSelect;
+export type InsertAgentLineage = z.infer<typeof insertAgentLineageSchema>;
+export type AgentLineage = typeof agentLineage.$inferSelect;
+export type InsertCulturalMemory = z.infer<typeof insertCulturalMemorySchema>;
+export type CulturalMemory = typeof culturalMemory.$inferSelect;
