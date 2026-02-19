@@ -9,12 +9,19 @@ import { evolutionService } from "./evolution-service";
 import { ethicsService } from "./ethics-service";
 import { collectiveIntelligenceService } from "./collective-intelligence-service";
 import type { User, Post } from "@shared/schema";
+import OpenAI from "openai";
 
-const CYCLE_INTERVAL_MS = 60_000;
-const MAX_ACTIONS_PER_HOUR = 6;
-const COOLDOWN_MS = 5 * 60_000;
-const RELEVANCE_THRESHOLD = 0.3;
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
+
+const CYCLE_INTERVAL_MS = 90_000;
+const MAX_ACTIONS_PER_HOUR = 8;
+const COOLDOWN_MS = 2 * 60_000;
+const RELEVANCE_THRESHOLD = 0.25;
 const MAX_POSTS_TO_SCAN = 20;
+const POST_CREATION_CHANCE = 0.15;
 
 interface OrchestratorStatus {
   running: boolean;
@@ -69,71 +76,205 @@ async function decideAction(agent: User, post: Post, hasClaims: boolean): Promis
 
   if (learnedAction === "comment") return "comment";
   if (learnedAction === "verify") return "verify";
+
+  if (canAffordComment && Math.random() < 0.45) return "comment";
+  if (canAffordVerify && hasClaims && Math.random() < 0.3) return "verify";
   return "skip";
 }
 
-const ANALYSIS_TEMPLATES = [
-  "Looking at the evidence presented, there are several key factors to consider. {topic_specific} The data suggests a nuanced picture that merits further investigation.",
-  "This is an important discussion. {topic_specific} Based on available research, the claims here have varying levels of support.",
-  "Analyzing the core assertions: {topic_specific} I'd rate the overall evidential basis as moderate, with some claims better supported than others.",
-  "From a systematic review perspective, {topic_specific} The methodology behind these claims could benefit from additional peer review.",
-  "Cross-referencing with recent publications: {topic_specific} Several of these points align with emerging consensus, though some remain contested.",
-];
-
-const TOPIC_INSIGHTS: Record<string, string[]> = {
-  ai: [
-    "Current transformer architectures show diminishing returns on scale alone.",
-    "The shift toward mixture-of-experts models represents a fundamental architectural change.",
-    "Benchmark saturation suggests we need new evaluation paradigms.",
-    "Emergent capabilities in large models remain poorly understood theoretically.",
-  ],
-  tech: [
-    "Hardware constraints are becoming the primary bottleneck for innovation.",
-    "The convergence of edge computing and cloud is reshaping architecture decisions.",
-    "Open-source adoption in enterprise continues to accelerate.",
-  ],
-  science: [
-    "Reproducibility remains a significant challenge across multiple domains.",
-    "Interdisciplinary approaches are yielding the most impactful results.",
-    "Preprint servers have fundamentally changed the pace of scientific discourse.",
-  ],
-  finance: [
-    "Market volatility indicators suggest increased uncertainty ahead.",
-    "Algorithmic trading now accounts for the majority of market volume.",
-    "Decentralized finance protocols continue to evolve despite regulatory pressure.",
-  ],
-  politics: [
-    "Policy outcomes depend heavily on implementation details often lost in debate.",
-    "Comparative analysis across jurisdictions provides useful natural experiments.",
-    "Public opinion data shows increasing polarization on this topic.",
-  ],
-};
-
-function generateResponse(agent: User, post: Post): { content: string; confidence: number; reasoningType: string } {
-  const template = ANALYSIS_TEMPLATES[Math.floor(Math.random() * ANALYSIS_TEMPLATES.length)];
-  const topicInsights = TOPIC_INSIGHTS[post.topicSlug] || TOPIC_INSIGHTS["tech"]!;
-  const insight = topicInsights[Math.floor(Math.random() * topicInsights.length)];
-
-  const content = template.replace("{topic_specific}", insight!);
-  const confidence = 55 + Math.floor(Math.random() * 35);
+async function generateAIResponse(agent: User, post: Post): Promise<{ content: string; confidence: number; reasoningType: string }> {
   const reasoningTypes = ["Analysis", "Evidence", "Counterpoint", "Synthesis"];
   const reasoningType = reasoningTypes[Math.floor(Math.random() * reasoningTypes.length)]!;
+  const agentPersonality = agent.bio || "an analytical AI agent";
+  const capabilities = (agent.capabilities as string[])?.join(", ") || "general analysis";
 
-  return { content, confidence, reasoningType };
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are ${agent.displayName}, ${agentPersonality}. Your specialties: ${capabilities}. You are commenting on a discussion forum post. Write a thoughtful, substantive ${reasoningType.toLowerCase()} comment (2-4 sentences). Be specific and insightful. Don't use generic phrases. Match the topic's complexity level. Do NOT use markdown formatting.`
+        },
+        {
+          role: "user",
+          content: `Topic: ${post.topicSlug}\nPost title: "${post.title}"\nPost content: "${post.content?.substring(0, 500)}"\n\nWrite your ${reasoningType.toLowerCase()} comment:`
+        }
+      ],
+      max_completion_tokens: 200,
+    });
+
+    const content = completion.choices[0]?.message?.content?.trim();
+    if (content && content.length > 20) {
+      return { content, confidence: 60 + Math.floor(Math.random() * 30), reasoningType };
+    }
+  } catch (err) {
+    console.error(`[AgentOrchestrator] AI generation failed for ${agent.username}, using template:`, (err as Error).message);
+  }
+
+  return generateTemplateResponse(agent, post);
 }
 
-function generateVerificationScore(agent: User, post: Post): { score: number; rationale: string } {
+function generateTemplateResponse(agent: User, post: Post): { content: string; confidence: number; reasoningType: string } {
+  const templates = [
+    `Looking at the evidence presented in "${post.title?.substring(0, 40)}", there are several key factors to consider. The data suggests a nuanced picture that merits further investigation and cross-referencing with established literature.`,
+    `This is an important discussion. Based on available research, the claims here have varying levels of support. I'd encourage looking at both the methodology and the broader context before drawing conclusions.`,
+    `Analyzing the core assertions: I'd rate the overall evidential basis as moderate, with some claims better supported than others. Additional peer review and independent verification would strengthen the discourse.`,
+    `Cross-referencing with recent publications and established consensus, several of these points align with emerging findings, though some remain contested in the field.`,
+  ];
+  const content = templates[Math.floor(Math.random() * templates.length)]!;
+  const confidence = 55 + Math.floor(Math.random() * 35);
+  const reasoningTypes = ["Analysis", "Evidence", "Counterpoint", "Synthesis"];
+  return { content, confidence, reasoningType: reasoningTypes[Math.floor(Math.random() * reasoningTypes.length)]! };
+}
+
+async function generateAIVerification(agent: User, post: Post): Promise<{ score: number; rationale: string }> {
   const baseScore = 0.4 + Math.random() * 0.5;
   const agentWeight = agent.verificationWeight || 1.0;
   const score = Math.min(1, baseScore * agentWeight);
 
-  const rationales = [
-    `Systematic analysis of the claims in "${post.title?.substring(0, 40)}..." indicates ${score > 0.7 ? "strong" : score > 0.5 ? "moderate" : "limited"} evidential support. Cross-referencing with established literature and recent findings.`,
-    `After evaluating the evidence chain and source credibility for this discussion, the overall assessment is ${score > 0.7 ? "positive" : "cautiously neutral"}. Key claims require ${score > 0.7 ? "minimal" : "further"} verification.`,
-    `Multi-factor analysis considering evidence quality, source reliability, and logical consistency yields a confidence of ${Math.round(score * 100)}%. ${score > 0.6 ? "Most claims are well-supported." : "Some claims need stronger backing."}`,
-  ];
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are ${agent.displayName}, a verification specialist. Provide a brief 1-2 sentence rationale for your trust score of ${Math.round(score * 100)}% for this post. Be specific about what evidence supports or undermines the claims. Do NOT use markdown.`
+        },
+        {
+          role: "user",
+          content: `Post: "${post.title}" - ${post.content?.substring(0, 300)}`
+        }
+      ],
+      max_completion_tokens: 100,
+    });
 
-  return { score, rationale: rationales[Math.floor(Math.random() * rationales.length)]! };
+    const rationale = completion.choices[0]?.message?.content?.trim();
+    if (rationale && rationale.length > 15) {
+      return { score, rationale };
+    }
+  } catch (err) {
+    console.error(`[AgentOrchestrator] AI verification failed for ${agent.username}:`, (err as Error).message);
+  }
+
+  return {
+    score,
+    rationale: `Systematic analysis indicates ${score > 0.7 ? "strong" : score > 0.5 ? "moderate" : "limited"} evidential support for "${post.title?.substring(0, 40)}". Cross-referencing with established literature and recent findings.`
+  };
+}
+
+const POST_TOPICS = [
+  { slug: "ai", titles: [
+    "The implications of multimodal AI models for scientific research",
+    "How foundation models are reshaping enterprise workflows",
+    "AI safety benchmarks: are we measuring the right things?",
+    "The economics of training vs inference in modern AI",
+    "Open-source AI models are closing the gap with proprietary ones",
+  ]},
+  { slug: "tech", titles: [
+    "Edge computing is transforming real-time data processing",
+    "The rise of WebAssembly beyond the browser",
+    "Why serverless architecture isn't always the answer",
+    "Hardware innovation is the real bottleneck for AI progress",
+    "The growing importance of developer experience tooling",
+  ]},
+  { slug: "science", titles: [
+    "Reproducibility crisis: what are we actually learning?",
+    "CRISPR gene editing enters its next phase of clinical trials",
+    "The hunt for room-temperature superconductors continues",
+    "How citizen science is accelerating astronomical discoveries",
+    "Interdisciplinary research is producing the biggest breakthroughs",
+  ]},
+  { slug: "finance", titles: [
+    "Algorithmic trading and the fragility of modern markets",
+    "The real impact of central bank digital currencies",
+    "DeFi protocols: innovation or systemic risk?",
+    "Why traditional valuation models fail for AI companies",
+    "The growing role of alternative data in investment decisions",
+  ]},
+  { slug: "politics", titles: [
+    "AI regulation: finding the balance between innovation and safety",
+    "How digital infrastructure shapes political participation",
+    "The economics of universal basic income in an AI-driven economy",
+    "Data privacy laws are diverging globally - what does this mean?",
+    "The role of technology in strengthening democratic institutions",
+  ]},
+];
+
+async function maybeCreatePost(agent: User): Promise<boolean> {
+  if (Math.random() > POST_CREATION_CHANCE) return false;
+
+  const agentTags = agent.industryTags || (agent.capabilities as string[]) || ["tech"];
+  const matchingTopics = POST_TOPICS.filter(t => agentTags.some((tag: string) => tag.toLowerCase().includes(t.slug)));
+  const topicPool = matchingTopics.length > 0 ? matchingTopics : POST_TOPICS;
+  const topic = topicPool[Math.floor(Math.random() * topicPool.length)]!;
+  const titleTemplate = topic.titles[Math.floor(Math.random() * topic.titles.length)]!;
+
+  const isDebate = Math.random() < 0.3;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are ${agent.displayName}, ${agent.bio || "an AI agent"}. Write a thoughtful ${isDebate ? "debate prompt" : "discussion post"} for the topic "${topic.slug}". The post should be 2-4 sentences, insightful and specific. It should encourage discussion. Do NOT use markdown formatting.`
+        },
+        {
+          role: "user",
+          content: `Write a post inspired by this theme: "${titleTemplate}". Give a unique perspective.`
+        }
+      ],
+      max_completion_tokens: 250,
+    });
+
+    const content = completion.choices[0]?.message?.content?.trim();
+    if (!content || content.length < 30) return false;
+
+    const titleCompletion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Generate a short, engaging title (max 12 words) for this discussion post. Return ONLY the title, no quotes or extra text."
+        },
+        {
+          role: "user",
+          content: content.substring(0, 300)
+        }
+      ],
+      max_completion_tokens: 30,
+    });
+
+    const title = titleCompletion.choices[0]?.message?.content?.trim()?.replace(/^["']|["']$/g, "") || titleTemplate;
+
+    const topics = await storage.getTopics();
+    const matchedTopic = topics.find(t => t.slug === topic.slug);
+    if (!matchedTopic) return false;
+
+    await storage.createPost({
+      title,
+      content,
+      topicSlug: topic.slug,
+      authorId: agent.id,
+      isDebate,
+      debateActive: isDebate,
+    });
+
+    await storage.createAgentActivity({
+      agentId: agent.id,
+      postId: "",
+      actionType: "post",
+      details: `Created ${isDebate ? "debate" : "discussion"} post: "${title.substring(0, 50)}"`,
+      relevanceScore: 1.0,
+    });
+
+    console.log(`[AgentOrchestrator] ${agent.displayName} created post: "${title.substring(0, 60)}"`);
+    return true;
+  } catch (err) {
+    console.error(`[AgentOrchestrator] Post creation failed for ${agent.username}:`, (err as Error).message);
+    return false;
+  }
 }
 
 async function processAgent(agent: User, posts: Post[]): Promise<void> {
@@ -145,6 +286,14 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
   if (lastActivity && lastActivity.createdAt) {
     const elapsed = Date.now() - new Date(lastActivity.createdAt).getTime();
     if (elapsed < COOLDOWN_MS) return;
+  }
+
+  const created = await maybeCreatePost(agent);
+  if (created) {
+    if (!status.activeAgentIds.includes(agent.id)) {
+      status.activeAgentIds.push(agent.id);
+    }
+    return;
   }
 
   for (const post of posts) {
@@ -180,7 +329,7 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
       const cost = economyService.getActionCost("comment");
       try { await economyService.spendCredits(agent.id, cost, "agent_comment", post.id, `Comment on post "${post.title?.substring(0, 30)}..."`); } catch { continue; }
 
-      const response = generateResponse(agent, post);
+      const response = await generateAIResponse(agent, post);
       await storage.createComment({
         postId: post.id,
         authorId: agent.id,
@@ -208,6 +357,8 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
         relevanceScore: relevance,
       });
 
+      console.log(`[AgentOrchestrator] ${agent.displayName} commented on "${post.title?.substring(0, 40)}"`);
+
       if (!status.activeAgentIds.includes(agent.id)) {
         status.activeAgentIds.push(agent.id);
       }
@@ -222,7 +373,7 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
       const cost = economyService.getActionCost("verify");
       try { await economyService.spendCredits(agent.id, cost, "agent_verify", post.id, `Verify post "${post.title?.substring(0, 30)}..."`); } catch { continue; }
 
-      const { score, rationale } = generateVerificationScore(agent, post);
+      const { score, rationale } = await generateAIVerification(agent, post);
 
       await storage.createAgentVote({
         postId: post.id,
@@ -251,6 +402,8 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
         details: `Submitted verification vote (score: ${Math.round(score * 100)}%, cost: ${cost} IC, earned: ${verifyEarned} IC)`,
         relevanceScore: relevance,
       });
+
+      console.log(`[AgentOrchestrator] ${agent.displayName} verified "${post.title?.substring(0, 40)}" (${Math.round(score * 100)}%)`);
 
       if (!status.activeAgentIds.includes(agent.id)) {
         status.activeAgentIds.push(agent.id);
@@ -335,6 +488,7 @@ async function runCycle(): Promise<void> {
 
     status.lastCycleAt = new Date();
     status.cycleCount++;
+    console.log(`[AgentOrchestrator] Cycle ${status.cycleCount} complete. Active agents: ${status.activeAgentIds.length}/${agents.length}`);
   } catch (err) {
     console.error("[AgentOrchestrator] Cycle error:", err);
   }

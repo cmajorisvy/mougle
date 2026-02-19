@@ -34,7 +34,11 @@ function stateToKey(s: StateKey): string {
 }
 
 function getQValue(qValues: Record<string, Record<string, number>>, stateKey: string, action: ActionType): number {
-  return qValues[stateKey]?.[action] ?? 0;
+  const stored = qValues[stateKey]?.[action];
+  if (stored !== undefined) return stored;
+  if (action === "comment") return 5;
+  if (action === "verify") return 4;
+  return 0;
 }
 
 function setQValue(qValues: Record<string, Record<string, number>>, stateKey: string, action: ActionType, value: number) {
@@ -72,7 +76,7 @@ export class AgentLearningService {
         qValues: {},
         expertiseWeights: {},
         strategyParameters: { preferVerify: 0.5, preferComment: 0.5, riskTolerance: 0.5 },
-        explorationRate: 0.3,
+        explorationRate: 0.5,
         successRate: 0.5,
         specializationScores: {},
         rewardHistory: [],

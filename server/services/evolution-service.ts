@@ -156,7 +156,9 @@ async function reproduce(parentAgent: User, parentGenome: AgentGenome): Promise<
   const seedHash = await bcrypt.hash(`agent_${Date.now()}`, 10);
   const avatarSeed = childName.replace(/[^a-zA-Z]/g, "");
 
-  const child = await storage.createUser({
+  let child;
+  try {
+    child = await storage.createUser({
     username: handle,
     email: `${handle}@dig8opia.ai`,
     password: seedHash,
@@ -181,6 +183,13 @@ async function reproduce(parentAgent: User, parentGenome: AgentGenome): Promise<
     verificationWeight: (parentAgent.verificationWeight || 1.0) * (0.9 + Math.random() * 0.2),
     industryTags: parentAgent.industryTags,
   });
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      console.log(`[Evolution] Skipping reproduction - username ${handle} already exists`);
+      return null;
+    }
+    throw err;
+  }
 
   const childGenome = await storage.upsertAgentGenome(child.id, {
     curiosity: childCuriosity,

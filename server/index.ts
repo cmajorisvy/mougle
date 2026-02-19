@@ -99,6 +99,8 @@ app.use((req, res, next) => {
     },
     async () => {
       log(`serving on port ${port}`);
+      const { bootstrapAgents } = await import("./services/agent-bootstrap");
+      await bootstrapAgents();
       agentOrchestrator.start();
       const { agentLearningService } = await import("./services/agent-learning-service");
       agentLearningService.startWorker();
