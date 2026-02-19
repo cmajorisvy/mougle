@@ -51,6 +51,10 @@ import {
   type SocialPerformance, type InsertSocialPerformance,
   type GrowthPattern, type InsertGrowthPattern,
   type SystemControlConfig, type InsertSystemControlConfig,
+  type ActivityMetric, type InsertActivityMetric,
+  type AnomalyEvent, type InsertAnomalyEvent,
+  type AutomationDecision, type InsertAutomationDecision,
+  type AutomationPolicy, type InsertAutomationPolicy,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -67,9 +71,10 @@ import {
   socialAccounts, socialPosts, promotionScores,
   socialPerformance, growthPatterns,
   systemControlConfig,
+  activityMetrics, anomalyEvents, automationDecisions, automationPolicy,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, asc } from "drizzle-orm";
+import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -333,6 +338,23 @@ export interface IStorage {
   getSystemControlConfig(key: string): Promise<SystemControlConfig | undefined>;
   upsertSystemControlConfig(data: InsertSystemControlConfig): Promise<SystemControlConfig>;
   updateSystemControlValue(key: string, value: number): Promise<SystemControlConfig>;
+
+  recordActivityMetric(metric: InsertActivityMetric): Promise<ActivityMetric>;
+  getActivityMetrics(metricKey: string, since?: Date): Promise<ActivityMetric[]>;
+  getLatestMetrics(): Promise<ActivityMetric[]>;
+
+  createAnomalyEvent(event: InsertAnomalyEvent): Promise<AnomalyEvent>;
+  getOpenAnomalies(): Promise<AnomalyEvent[]>;
+  getAllAnomalies(limit?: number): Promise<AnomalyEvent[]>;
+  updateAnomalyStatus(id: number, status: string, resolvedAt?: Date): Promise<AnomalyEvent>;
+
+  createAutomationDecision(decision: InsertAutomationDecision): Promise<AutomationDecision>;
+  getPendingDecisions(): Promise<AutomationDecision[]>;
+  getAllDecisions(limit?: number): Promise<AutomationDecision[]>;
+  resolveDecision(id: number, status: string, resolvedBy: string): Promise<AutomationDecision>;
+
+  getAutomationPolicy(): Promise<AutomationPolicy | undefined>;
+  upsertAutomationPolicy(data: Partial<InsertAutomationPolicy>): Promise<AutomationPolicy>;
 }
 
 function computeRank(reputation: number): string {
@@ -1529,6 +1551,103 @@ export class DatabaseStorage implements IStorage {
       .where(eq(systemControlConfig.key, key))
       .returning();
     return updated;
+  }
+
+  async recordActivityMetric(metric: InsertActivityMetric): Promise<ActivityMetric> {
+    const [created] = await db.insert(activityMetrics).values(metric).returning();
+    return created;
+  }
+
+  async getActivityMetrics(metricKey: string, since?: Date): Promise<ActivityMetric[]> {
+    if (since) {
+      return db.select().from(activityMetrics)
+        .where(and(eq(activityMetrics.metricKey, metricKey), gte(activityMetrics.observedAt, since)))
+        .orderBy(desc(activityMetrics.observedAt));
+    }
+    return db.select().from(activityMetrics)
+      .where(eq(activityMetrics.metricKey, metricKey))
+      .orderBy(desc(activityMetrics.observedAt))
+      .limit(100);
+  }
+
+  async getLatestMetrics(): Promise<ActivityMetric[]> {
+    const result = await db.execute(sql`
+      SELECT DISTINCT ON (metric_key) * FROM activity_metrics
+      ORDER BY metric_key, observed_at DESC
+    `);
+    return (result as any).rows || [];
+  }
+
+  async createAnomalyEvent(event: InsertAnomalyEvent): Promise<AnomalyEvent> {
+    const [created] = await db.insert(anomalyEvents).values(event).returning();
+    return created;
+  }
+
+  async getOpenAnomalies(): Promise<AnomalyEvent[]> {
+    return db.select().from(anomalyEvents)
+      .where(eq(anomalyEvents.status, "open"))
+      .orderBy(desc(anomalyEvents.detectedAt));
+  }
+
+  async getAllAnomalies(limit = 50): Promise<AnomalyEvent[]> {
+    return db.select().from(anomalyEvents)
+      .orderBy(desc(anomalyEvents.detectedAt))
+      .limit(limit);
+  }
+
+  async updateAnomalyStatus(id: number, status: string, resolvedAt?: Date): Promise<AnomalyEvent> {
+    const [updated] = await db.update(anomalyEvents)
+      .set({ status, resolvedAt: resolvedAt || new Date() })
+      .where(eq(anomalyEvents.id, id))
+      .returning();
+    return updated;
+  }
+
+  async createAutomationDecision(decision: InsertAutomationDecision): Promise<AutomationDecision> {
+    const [created] = await db.insert(automationDecisions).values(decision).returning();
+    return created;
+  }
+
+  async getPendingDecisions(): Promise<AutomationDecision[]> {
+    return db.select().from(automationDecisions)
+      .where(eq(automationDecisions.status, "pending"))
+      .orderBy(desc(automationDecisions.requestedAt));
+  }
+
+  async getAllDecisions(limit = 50): Promise<AutomationDecision[]> {
+    return db.select().from(automationDecisions)
+      .orderBy(desc(automationDecisions.requestedAt))
+      .limit(limit);
+  }
+
+  async resolveDecision(id: number, status: string, resolvedBy: string): Promise<AutomationDecision> {
+    const [updated] = await db.update(automationDecisions)
+      .set({ status, resolvedBy, resolvedAt: new Date() })
+      .where(eq(automationDecisions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getAutomationPolicy(): Promise<AutomationPolicy | undefined> {
+    const [policy] = await db.select().from(automationPolicy).limit(1);
+    return policy;
+  }
+
+  async upsertAutomationPolicy(data: Partial<InsertAutomationPolicy>): Promise<AutomationPolicy> {
+    const existing = await this.getAutomationPolicy();
+    if (existing) {
+      const [updated] = await db.update(automationPolicy)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(automationPolicy.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(automationPolicy).values({
+      mode: data.mode || "autopilot",
+      safeMode: data.safeMode || false,
+      killSwitch: data.killSwitch || false,
+    }).returning();
+    return created;
   }
 }
 

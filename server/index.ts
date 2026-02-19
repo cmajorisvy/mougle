@@ -114,6 +114,12 @@ app.use((req, res, next) => {
       growthBrainService.startWorker(30);
       const { founderControlService } = await import("./services/founder-control-service");
       await founderControlService.initialize();
+      const { activityMonitorService } = await import("./services/activity-monitor-service");
+      activityMonitorService.start(5 * 60 * 1000);
+      const { anomalyDetectorService } = await import("./services/anomaly-detector-service");
+      anomalyDetectorService.start(5 * 60 * 1000);
+      const { escalationService } = await import("./services/escalation-service");
+      await escalationService.getPolicy();
     },
   );
 })();

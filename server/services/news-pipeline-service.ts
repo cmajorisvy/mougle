@@ -296,6 +296,11 @@ export const newsPipelineService = {
           return;
         }
         if (!(await founderControlService.shouldRunAutomation())) return;
+        const { escalationService } = await import("./escalation-service");
+        if (!(await escalationService.shouldAllowAutomation())) {
+          console.log("[NewsPipeline] Skipping — kill switch or safe mode active");
+          return;
+        }
         await this.runPipeline();
       } catch (err) {
         console.error("[NewsPipeline] Auto-run error:", (err as Error).message);

@@ -521,6 +521,11 @@ export const promotionSelectorAgent = {
           return;
         }
         if (!(await founderControlService.shouldRunAutomation())) return;
+        const { escalationService } = await import("./escalation-service");
+        if (!(await escalationService.shouldAllowAutomation())) {
+          console.log("[PromotionEngine] Skipping — kill switch or safe mode active");
+          return;
+        }
         const evaluated = await this.evaluateRecentContent();
         const results = await this.processPromotions();
         if (evaluated > 0 || results.promoted > 0) {

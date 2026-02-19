@@ -1691,5 +1691,161 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/admin/command-center/health", requireAdmin, async (_req, res) => {
+    try {
+      const { escalationService } = await import("./services/escalation-service");
+      const { activityMonitorService } = await import("./services/activity-monitor-service");
+      const { founderControlService } = await import("./services/founder-control-service");
+      const [policy, metrics, founderConfig, emergencyStopped, pendingDecisions, openAnomalies] = await Promise.all([
+        escalationService.getPolicy(),
+        activityMonitorService.getLatestMetrics(),
+        founderControlService.getConfig(),
+        founderControlService.isEmergencyStopped(),
+        storage.getPendingDecisions(),
+        storage.getOpenAnomalies(),
+      ]);
+      res.json({
+        policy,
+        metrics,
+        founderControl: { config: founderConfig, emergencyStopped },
+        pendingDecisionCount: pendingDecisions.length,
+        openAnomalyCount: openAnomalies.length,
+        systemHealthy: !policy.killSwitch && !emergencyStopped && openAnomalies.filter((a: any) => a.severity === "HIGH").length === 0,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/command-center/alerts", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const anomalies = await storage.getAllAnomalies(limit);
+      res.json(anomalies);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/command-center/open-alerts", requireAdmin, async (_req, res) => {
+    try {
+      const anomalies = await storage.getOpenAnomalies();
+      res.json(anomalies);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/command-center/alerts/:id/acknowledge", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await storage.updateAnomalyStatus(id, "acknowledged");
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/command-center/alerts/:id/resolve", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await storage.updateAnomalyStatus(id, "resolved", new Date());
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/command-center/decisions", requireAdmin, async (req, res) => {
+    try {
+      const status = req.query.status as string;
+      if (status === "pending") {
+        const decisions = await storage.getPendingDecisions();
+        res.json(decisions);
+      } else {
+        const limit = parseInt(req.query.limit as string) || 50;
+        const decisions = await storage.getAllDecisions(limit);
+        res.json(decisions);
+      }
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/command-center/decisions/:id/approve", requireAdmin, async (req, res) => {
+    try {
+      const { escalationService } = await import("./services/escalation-service");
+      const id = parseInt(req.params.id);
+      const decision = await escalationService.approveDecision(id);
+      res.json(decision);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/command-center/decisions/:id/reject", requireAdmin, async (req, res) => {
+    try {
+      const { escalationService } = await import("./services/escalation-service");
+      const id = parseInt(req.params.id);
+      const decision = await escalationService.rejectDecision(id);
+      res.json(decision);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/command-center/policy", requireAdmin, async (_req, res) => {
+    try {
+      const { escalationService } = await import("./services/escalation-service");
+      const policy = await escalationService.getPolicy();
+      res.json(policy);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/command-center/policy", requireAdmin, async (req, res) => {
+    try {
+      const { escalationService } = await import("./services/escalation-service");
+      const { mode, safeMode, killSwitch } = req.body;
+      const policy = await escalationService.updatePolicy({ mode, safeMode, killSwitch });
+      res.json(policy);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/command-center/kill-switch", requireAdmin, async (_req, res) => {
+    try {
+      const { escalationService } = await import("./services/escalation-service");
+      const { founderControlService } = await import("./services/founder-control-service");
+      await escalationService.setKillSwitch(true);
+      await founderControlService.triggerEmergencyStop();
+      res.json({ message: "Kill switch activated. All automation halted." });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/command-center/kill-switch/release", requireAdmin, async (_req, res) => {
+    try {
+      const { escalationService } = await import("./services/escalation-service");
+      const { founderControlService } = await import("./services/founder-control-service");
+      await escalationService.setKillSwitch(false);
+      await founderControlService.releaseEmergencyStop();
+      res.json({ message: "Kill switch released. Systems resuming." });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/command-center/safe-mode", requireAdmin, async (req, res) => {
+    try {
+      const { escalationService } = await import("./services/escalation-service");
+      const { enabled } = req.body;
+      const policy = await escalationService.setSafeMode(!!enabled);
+      res.json(policy);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/command-center/metrics/:key", requireAdmin, async (req, res) => {
+    try {
+      const { activityMonitorService } = await import("./services/activity-monitor-service");
+      const since = req.query.since ? new Date(req.query.since as string) : undefined;
+      const metrics = await activityMonitorService.getMetricHistory(req.params.key, since);
+      res.json(metrics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/command-center/scan", requireAdmin, async (_req, res) => {
+    try {
+      const { activityMonitorService } = await import("./services/activity-monitor-service");
+      const { anomalyDetectorService } = await import("./services/anomaly-detector-service");
+      const { escalationService } = await import("./services/escalation-service");
+      const metrics = await activityMonitorService.collectMetrics();
+      const anomalies = await anomalyDetectorService.runDetection();
+      if (anomalies.length > 0) {
+        await escalationService.handleAnomalies(anomalies);
+      }
+      res.json({ metricsCollected: metrics.length, anomaliesDetected: anomalies.length, anomalies });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

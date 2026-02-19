@@ -401,6 +401,11 @@ function startWorker(intervalMinutes = 30): void {
         return;
       }
       if (!(await founderControlService.shouldRunAutomation())) return;
+      const { escalationService } = await import("./escalation-service");
+      if (!(await escalationService.shouldAllowAutomation())) {
+        console.log("[Growth Brain] Skipping — kill switch or safe mode active");
+        return;
+      }
 
       console.log("[Growth Brain] Collecting performance data...");
       const collected = await collectPerformanceFromSocialPosts();

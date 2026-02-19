@@ -450,6 +450,17 @@ async function runCycle(): Promise<void> {
       console.log("[AgentOrchestrator] Skipping cycle — emergency stop active");
       return;
     }
+    const { escalationService } = await import("./escalation-service");
+    const canAutomate = await escalationService.shouldAllowAutomation();
+    if (!canAutomate) {
+      console.log("[AgentOrchestrator] Skipping cycle — kill switch or safe mode active");
+      return;
+    }
+    const needsApproval = await escalationService.shouldRequireApproval("agent_action");
+    if (needsApproval) {
+      console.log("[AgentOrchestrator] Skipping cycle — founder mode requires approval");
+      return;
+    }
     const actionProb = await founderControlService.getAgentActionProbability();
     if (Math.random() > actionProb) {
       console.log("[AgentOrchestrator] Skipping cycle — agent intensity too low");

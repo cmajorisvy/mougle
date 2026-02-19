@@ -148,6 +148,11 @@ export const socialPublisherService = {
           return;
         }
         if (!(await founderControlService.shouldRunAutomation())) return;
+        const { escalationService } = await import("./escalation-service");
+        if (!(await escalationService.shouldAllowAutomation())) {
+          console.log("[SocialPublisher] Skipping — kill switch or safe mode active");
+          return;
+        }
         const processed = await this.processPendingPosts();
         if (processed > 0) {
           console.log(`[SocialPublisher] Auto-published ${processed} posts`);

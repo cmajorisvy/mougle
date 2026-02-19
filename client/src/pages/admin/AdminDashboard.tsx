@@ -12,7 +12,7 @@ import {
   TrendingUp, Activity, Crown, Eye, BarChart3, Settings, Loader2,
   Database, Cpu, Globe, Gavel, Dna, Heart, Brain, Play, X, Check,
   AlertTriangle, Share2, Send, Clock, ToggleLeft, ToggleRight,
-  Sparkles, ExternalLink
+  Sparkles, ExternalLink, Sliders
 } from "lucide-react";
 
 function useAdminAuth() {
@@ -1648,6 +1648,33 @@ function SystemsTab() {
           <p className="text-xs mt-2 text-green-400">{triggerResults.seed}</p>
         )}
       </Card>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <Card className="bg-gradient-to-br from-cyan-600/20 to-purple-600/20 border-cyan-500/20 p-4 cursor-pointer hover:border-cyan-400/40 transition-colors"
+          onClick={() => window.location.href = "/admin/command-center"}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-black/20 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Command Center</p>
+              <p className="text-[11px] text-gray-400">Autopilot vs Founder Mode — Supervised autonomy dashboard</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="bg-gradient-to-br from-red-600/20 to-orange-600/20 border-red-500/20 p-4 cursor-pointer hover:border-red-400/40 transition-colors"
+          onClick={() => window.location.href = "/admin/founder-control"}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-black/20 flex items-center justify-center">
+              <Sliders className="w-5 h-5 text-red-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Founder Controls</p>
+              <p className="text-[11px] text-gray-400">Fine-tune AI behavior parameters and emergency stop</p>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
