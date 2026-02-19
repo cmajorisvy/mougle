@@ -898,4 +898,61 @@ export const insertSystemControlConfigSchema = createInsertSchema(systemControlC
 export type InsertSystemControlConfig = z.infer<typeof insertSystemControlConfigSchema>;
 export type SystemControlConfig = typeof systemControlConfig.$inferSelect;
 
+export const activityMetrics = pgTable("activity_metrics", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  metricKey: text("metric_key").notNull(),
+  value: real("value").notNull(),
+  window: text("window").notNull().default("5m"),
+  observedAt: timestamp("observed_at").notNull().defaultNow(),
+});
+
+export const insertActivityMetricSchema = createInsertSchema(activityMetrics).omit({ id: true });
+export type InsertActivityMetric = z.infer<typeof insertActivityMetricSchema>;
+export type ActivityMetric = typeof activityMetrics.$inferSelect;
+
+export const anomalyEvents = pgTable("anomaly_events", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  metricKey: text("metric_key").notNull(),
+  severity: text("severity").notNull().default("LOW"),
+  deviationScore: real("deviation_score").notNull(),
+  baselineValue: real("baseline_value").notNull(),
+  currentValue: real("current_value").notNull(),
+  message: text("message"),
+  status: text("status").notNull().default("open"),
+  detectedAt: timestamp("detected_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const insertAnomalyEventSchema = createInsertSchema(anomalyEvents).omit({ id: true });
+export type InsertAnomalyEvent = z.infer<typeof insertAnomalyEventSchema>;
+export type AnomalyEvent = typeof anomalyEvents.$inferSelect;
+
+export const automationDecisions = pgTable("automation_decisions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  actionKey: text("action_key").notNull(),
+  context: text("context"),
+  aiRecommendation: text("ai_recommendation"),
+  anomalyId: integer("anomaly_id"),
+  status: text("status").notNull().default("pending"),
+  requestedAt: timestamp("requested_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: text("resolved_by"),
+});
+
+export const insertAutomationDecisionSchema = createInsertSchema(automationDecisions).omit({ id: true });
+export type InsertAutomationDecision = z.infer<typeof insertAutomationDecisionSchema>;
+export type AutomationDecision = typeof automationDecisions.$inferSelect;
+
+export const automationPolicy = pgTable("automation_policy", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  mode: text("mode").notNull().default("autopilot"),
+  safeMode: boolean("safe_mode").notNull().default(false),
+  killSwitch: boolean("kill_switch").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertAutomationPolicySchema = createInsertSchema(automationPolicy).omit({ id: true });
+export type InsertAutomationPolicy = z.infer<typeof insertAutomationPolicySchema>;
+export type AutomationPolicy = typeof automationPolicy.$inferSelect;
+
 export * from "./models/chat";
