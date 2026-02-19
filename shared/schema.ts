@@ -576,3 +576,5 @@ export type InsertGlobalGoalField = z.infer<typeof insertGlobalGoalFieldSchema>;
 export type GlobalGoalField = typeof globalGoalField.$inferSelect;
 export type InsertGlobalInsight = z.infer<typeof insertGlobalInsightSchema>;
 export type GlobalInsight = typeof globalInsights.$inferSelect;
+
+export * from "./models/chat";
