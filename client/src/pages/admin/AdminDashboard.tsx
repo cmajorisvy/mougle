@@ -33,7 +33,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation";
+type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -47,6 +47,10 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "social", label: "Social", icon: Share2 },
   { id: "promotion", label: "Promotion", icon: Zap },
   { id: "growth", label: "Growth Brain", icon: Brain },
+  { id: "seo", label: "SEO Center", icon: Globe },
+  { id: "authority", label: "Authority", icon: Crown },
+  { id: "gravity", label: "Gravity", icon: Activity },
+  { id: "civilization", label: "Civilization", icon: Database },
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
@@ -1548,6 +1552,290 @@ function GrowthBrainTab() {
   );
 }
 
+function SEOCenterTab() {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["seo-stats"],
+    queryFn: () => api.seo.stats(),
+  });
+
+  const calcAuthority = useMutation({
+    mutationFn: () => api.seo.calculateAuthority(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seo-stats"] }),
+  });
+
+  if (isLoading) return <LoadingSpinner />;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Globe className="w-5 h-5 text-blue-400" /> SEO Center
+        </h2>
+        <Button data-testid="button-recalc-authority" size="sm" onClick={() => calcAuthority.mutate()} disabled={calcAuthority.isPending}>
+          <RefreshCw className={`w-4 h-4 mr-1 ${calcAuthority.isPending ? "animate-spin" : ""}`} /> Recalculate Authority
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard icon={FileText} label="Indexed Pages" value={stats?.indexedPages || 0} color="bg-blue-500/10 text-blue-400" />
+        <StatCard icon={Globe} label="Sitemap Status" value={stats?.sitemapStatus || "inactive"} color="bg-green-500/10 text-green-400" />
+        <StatCard icon={FileText} label="Posts" value={stats?.breakdown?.posts || 0} color="bg-purple-500/10 text-purple-400" />
+        <StatCard icon={Radio} label="Debates" value={stats?.breakdown?.debates || 0} color="bg-orange-500/10 text-orange-400" />
+      </div>
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Crawler Endpoints</h3>
+        <div className="space-y-2 text-xs">
+          {["/sitemap.xml", "/robots.txt", "/llms.txt", "/api/seo/knowledge", "/api/seo/knowledge-feed", "/api/public/knowledge", "/api/knowledge-feed"].map(endpoint => (
+            <div key={endpoint} className="flex items-center gap-2 bg-gray-800/40 rounded-lg px-3 py-2">
+              <Check className="w-3 h-3 text-green-400" />
+              <span className="text-gray-400 font-mono">{endpoint}</span>
+              <a href={endpoint} target="_blank" rel="noopener" className="ml-auto text-blue-400 hover:text-blue-300">
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card data-testid="card-seo-authorities" className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Topic Authority Scores</h3>
+        {!stats?.topicAuthorities?.length ? (
+          <p data-testid="text-seo-no-authorities" className="text-gray-500 text-sm">No authority data yet. Click "Recalculate Authority" to generate scores.</p>
+        ) : (
+          <div className="space-y-2">
+            {stats.topicAuthorities.map((t: any) => (
+              <div key={t.topicSlug} data-testid={`row-authority-${t.topicSlug}`} className="flex items-center gap-3 bg-gray-800/30 rounded-lg px-3 py-2">
+                <span data-testid={`text-authority-topic-${t.topicSlug}`} className="text-sm text-gray-300 font-medium min-w-[100px]">{t.topicSlug}</span>
+                <div className="flex-1 bg-gray-700/30 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full" style={{ width: `${Math.min(t.authorityScore * 100, 100)}%` }} />
+                </div>
+                <span data-testid={`text-authority-score-${t.topicSlug}`} className="text-xs text-gray-500 min-w-[40px] text-right">{(t.authorityScore * 100).toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function AuthorityEngineTab() {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["seo-stats"],
+    queryFn: () => api.seo.stats(),
+  });
+
+  const calcAuthority = useMutation({
+    mutationFn: () => api.seo.calculateAuthority(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seo-stats"] }),
+  });
+
+  if (isLoading) return <LoadingSpinner />;
+
+  const authorities = stats?.topicAuthorities || [];
+  const avgAuthority = authorities.length > 0 ? authorities.reduce((s: number, a: any) => s + a.authorityScore, 0) / authorities.length : 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Crown className="w-5 h-5 text-yellow-400" /> Authority Engine
+        </h2>
+        <Button data-testid="button-refresh-authority" size="sm" onClick={() => calcAuthority.mutate()} disabled={calcAuthority.isPending}>
+          <RefreshCw className={`w-4 h-4 mr-1 ${calcAuthority.isPending ? "animate-spin" : ""}`} /> Refresh
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <StatCard icon={Crown} label="Avg Authority" value={`${(avgAuthority * 100).toFixed(1)}%`} color="bg-yellow-500/10 text-yellow-400" />
+        <StatCard icon={Database} label="Topics Tracked" value={authorities.length} color="bg-blue-500/10 text-blue-400" />
+        <StatCard icon={FileText} label="Indexed Pages" value={stats?.indexedPages || 0} color="bg-green-500/10 text-green-400" />
+      </div>
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Topic Authority Breakdown</h3>
+        {authorities.length === 0 ? (
+          <p className="text-gray-500 text-sm">No authority data yet. Click Refresh to calculate.</p>
+        ) : (
+          <div className="space-y-3">
+            {authorities.map((a: any) => (
+              <div key={a.topicSlug} className="bg-gray-800/30 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-white font-medium">{a.topicSlug}</span>
+                  <span className="text-xs text-purple-400 font-mono">{(a.authorityScore * 100).toFixed(1)}%</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
+                  <span>Volume: {a.contentVolume}</span>
+                  <span>Engagement: {a.engagementQuality?.toFixed(1)}</span>
+                  <span>Verification: {(a.verificationAvg * 100).toFixed(0)}%</span>
+                </div>
+                <div className="mt-2 bg-gray-700/30 rounded-full h-1.5">
+                  <div className="bg-gradient-to-r from-yellow-500 to-orange-500 h-1.5 rounded-full" style={{ width: `${Math.min(a.authorityScore * 100, 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function NetworkGravityTab() {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["seo-stats"],
+    queryFn: () => api.seo.stats(),
+  });
+
+  const calcGravity = useMutation({
+    mutationFn: () => api.seo.calculateGravity(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seo-stats"] }),
+  });
+
+  if (isLoading) return <LoadingSpinner />;
+
+  const gravity = stats?.recentGravity || [];
+  const latest = gravity[0];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Activity className="w-5 h-5 text-cyan-400" /> Network Gravity
+        </h2>
+        <Button data-testid="button-calc-gravity" size="sm" onClick={() => calcGravity.mutate()} disabled={calcGravity.isPending}>
+          <RefreshCw className={`w-4 h-4 mr-1 ${calcGravity.isPending ? "animate-spin" : ""}`} /> Calculate
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <StatCard icon={Activity} label="Gravity Score" value={latest ? `${(latest.gravityScore * 100).toFixed(1)}%` : "N/A"} color="bg-cyan-500/10 text-cyan-400" />
+        <StatCard icon={Clock} label="Reply Latency" value={latest ? `${(latest.replyLatency / 3600).toFixed(1)}h` : "N/A"} color="bg-blue-500/10 text-blue-400" />
+        <StatCard icon={Bot} label="AI Ratio" value={latest ? `${(latest.aiParticipationRatio * 100).toFixed(0)}%` : "N/A"} color="bg-purple-500/10 text-purple-400" />
+      </div>
+
+      <Card data-testid="card-gravity-metrics" className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Latest Gravity Metrics</h3>
+        {!latest ? (
+          <p data-testid="text-gravity-empty" className="text-gray-500 text-sm">No gravity data yet. Click "Calculate" to generate network gravity metrics.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Reply Latency", value: `${(latest.replyLatency / 3600).toFixed(1)} hours`, desc: "Avg time to first reply", id: "reply-latency" },
+              { label: "Topic Recurrence", value: latest.topicRecurrenceRate?.toFixed(2), desc: "Posts per topic ratio", id: "topic-recurrence" },
+              { label: "AI Participation", value: `${(latest.aiParticipationRatio * 100).toFixed(0)}%`, desc: "AI agent ratio", id: "ai-participation" },
+              { label: "Creator Retention", value: `${(latest.creatorRetention * 100).toFixed(0)}%`, desc: "Active creators (30d)", id: "creator-retention" },
+            ].map(m => (
+              <div key={m.label} data-testid={`card-gravity-${m.id}`} className="bg-gray-800/30 rounded-xl p-3">
+                <p className="text-xs text-gray-500">{m.label}</p>
+                <p data-testid={`text-gravity-${m.id}`} className="text-lg font-bold text-white">{m.value}</p>
+                <p className="text-[10px] text-gray-600">{m.desc}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {gravity.length > 1 && (
+        <Card data-testid="card-gravity-history" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Gravity History</h3>
+          <div className="space-y-2">
+            {gravity.map((g: any) => (
+              <div key={g.id} data-testid={`row-gravity-${g.id}`} className="flex items-center gap-3 bg-gray-800/30 rounded-lg px-3 py-2">
+                <span className="text-xs text-gray-500">{new Date(g.recordedAt).toLocaleDateString()}</span>
+                <div className="flex-1 bg-gray-700/30 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full" style={{ width: `${Math.min(g.gravityScore * 100, 100)}%` }} />
+                </div>
+                <span data-testid={`text-gravity-score-${g.id}`} className="text-xs text-cyan-400 font-mono">{(g.gravityScore * 100).toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function CivilizationMetricsTab() {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["seo-stats"],
+    queryFn: () => api.seo.stats(),
+  });
+
+  const calcCiv = useMutation({
+    mutationFn: () => api.seo.calculateCivilization(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seo-stats"] }),
+  });
+
+  if (isLoading) return <LoadingSpinner />;
+
+  const metrics = stats?.recentCivilizationMetrics || [];
+  const latest = metrics[0];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Database className="w-5 h-5 text-emerald-400" /> Civilization Metrics
+        </h2>
+        <Button data-testid="button-calc-civilization" size="sm" onClick={() => calcCiv.mutate()} disabled={calcCiv.isPending}>
+          <RefreshCw className={`w-4 h-4 mr-1 ${calcCiv.isPending ? "animate-spin" : ""}`} /> Calculate
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard icon={Heart} label="Health Score" value={latest ? `${(latest.healthScore * 100).toFixed(1)}%` : "N/A"} color="bg-emerald-500/10 text-emerald-400" />
+        <StatCard icon={Check} label="Verified Entries" value={latest?.verifiedEntries || 0} color="bg-green-500/10 text-green-400" />
+        <StatCard icon={Crown} label="Expert Users" value={latest?.expertUserCount || 0} color="bg-yellow-500/10 text-yellow-400" />
+        <StatCard icon={Bot} label="AI Agents" value={latest?.specializedAgentCount || 0} color="bg-purple-500/10 text-purple-400" />
+      </div>
+
+      <Card data-testid="card-civilization-breakdown" className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Civilization Health Breakdown</h3>
+        {!latest ? (
+          <p data-testid="text-civilization-empty" className="text-gray-500 text-sm">No civilization data yet. Click "Calculate" to generate health metrics.</p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {[
+              { label: "Knowledge", id: "knowledge", items: [{ k: "Verified", v: latest.verifiedEntries }, { k: "Consensus", v: latest.consensusUpdates }, { k: "Revisions", v: latest.summaryRevisions }] },
+              { label: "Institutions", id: "institutions", items: [{ k: "Experts", v: latest.expertUserCount }, { k: "Agents", v: latest.specializedAgentCount }] },
+              { label: "Economy", id: "economy", items: [{ k: "Volume", v: latest.economyStats?.totalVolume || 0 }, { k: "Transactions", v: latest.economyStats?.transactionCount || 0 }] },
+            ].map(section => (
+              <div key={section.label} data-testid={`card-civ-${section.id}`} className="bg-gray-800/30 rounded-xl p-3">
+                <p className="text-xs text-gray-500 font-semibold mb-2">{section.label}</p>
+                {section.items.map(item => (
+                  <div key={item.k} className="flex justify-between text-xs py-0.5">
+                    <span className="text-gray-400">{item.k}</span>
+                    <span data-testid={`text-civ-${section.id}-${item.k.toLowerCase()}`} className="text-white font-mono">{item.v}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {metrics.length > 1 && (
+        <Card data-testid="card-civilization-history" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Health History</h3>
+          <div className="space-y-2">
+            {metrics.map((m: any) => (
+              <div key={m.id} data-testid={`row-civ-${m.id}`} className="flex items-center gap-3 bg-gray-800/30 rounded-lg px-3 py-2">
+                <span className="text-xs text-gray-500">{new Date(m.recordedAt).toLocaleDateString()}</span>
+                <div className="flex-1 bg-gray-700/30 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-emerald-500 to-green-500 h-2 rounded-full" style={{ width: `${Math.min(m.healthScore * 100, 100)}%` }} />
+                </div>
+                <span data-testid={`text-civ-score-${m.id}`} className="text-xs text-emerald-400 font-mono">{(m.healthScore * 100).toFixed(1)}%</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 function SystemsTab() {
   const [triggerResults, setTriggerResults] = useState<Record<string, string>>({});
 
@@ -1951,6 +2239,10 @@ export default function AdminDashboard() {
     social: SocialTab,
     promotion: PromotionTab,
     growth: GrowthBrainTab,
+    seo: SEOCenterTab,
+    authority: AuthorityEngineTab,
+    gravity: NetworkGravityTab,
+    civilization: CivilizationMetricsTab,
     systems: SystemsTab,
   }[activeTab];
 

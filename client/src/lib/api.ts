@@ -315,5 +315,13 @@ export const api = {
     founderFlywheel: () => adminFetch<any>("/admin/billing/flywheel"),
     founderPhaseTransition: () => adminFetch<any>("/admin/billing/phase-transition"),
   },
+  seo: {
+    stats: () => adminFetch<any>("/seo/stats"),
+    knowledge: () => fetchJSON<any>("/seo/knowledge"),
+    knowledgeFeed: () => fetchJSON<any>("/seo/knowledge-feed"),
+    calculateAuthority: (topicSlug?: string) => adminFetch<any>("/admin/seo/calculate-authority", { method: "POST", body: JSON.stringify({ topicSlug }) }),
+    calculateGravity: () => adminFetch<any>("/admin/seo/calculate-gravity", { method: "POST" }),
+    calculateCivilization: () => adminFetch<any>("/admin/seo/calculate-civilization", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

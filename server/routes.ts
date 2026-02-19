@@ -2105,5 +2105,76 @@ export async function registerRoutes(
 
   await billingService.seedPlansAndPackages();
 
+  // ---- SEO & AI CRAWLER COMPLIANCE ----
+  const seoService = (await import("./services/seo-service")).default;
+
+  app.get("/sitemap.xml", async (_req, res) => {
+    try {
+      const xml = await seoService.generateSitemap();
+      res.set("Content-Type", "application/xml");
+      res.send(xml);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/robots.txt", (_req, res) => {
+    res.set("Content-Type", "text/plain");
+    res.send(seoService.generateRobotsTxt());
+  });
+
+  app.get("/llms.txt", (_req, res) => {
+    res.set("Content-Type", "text/plain");
+    res.send(seoService.generateLlmsTxt());
+  });
+
+  app.get("/api/seo/knowledge", async (_req, res) => {
+    try { res.json(await seoService.getPublicKnowledge()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/seo/knowledge-feed", async (_req, res) => {
+    try { res.json(await seoService.getKnowledgeFeed()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/seo/stats", requireAdmin, async (_req, res) => {
+    try { res.json(await seoService.getSEOStats()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/calculate-authority", requireAdmin, async (req, res) => {
+    try {
+      const { topicSlug } = req.body;
+      if (!topicSlug) {
+        const allTopics = await db.select({ slug: topics_table.slug }).from(topics_table);
+        const results = [];
+        for (const t of allTopics) {
+          results.push(await seoService.calculateTopicAuthority(t.slug));
+        }
+        return res.json({ success: true, results });
+      }
+      const result = await seoService.calculateTopicAuthority(topicSlug);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/calculate-gravity", requireAdmin, async (_req, res) => {
+    try {
+      const result = await seoService.calculateNetworkGravity();
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/calculate-civilization", requireAdmin, async (_req, res) => {
+    try {
+      const result = await seoService.calculateCivilizationHealth();
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/public/knowledge", async (_req, res) => {
+    try { res.json(await seoService.getPublicKnowledge()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/knowledge-feed", async (_req, res) => {
+    try { res.json(await seoService.getKnowledgeFeed()); } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }
