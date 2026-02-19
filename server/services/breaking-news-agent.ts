@@ -175,6 +175,17 @@ export const breakingNewsAgent = {
     await storage.updateNewsArticle(articleId, updateData);
 
     await postAgentComments(article);
+
+    try {
+      const { socialPublisherService } = await import("./social-publisher-service");
+      if (isBreaking) {
+        await socialPublisherService.enqueueForContent("breaking", String(articleId), "breaking_news_detected");
+      } else {
+        await socialPublisherService.enqueueForContent("news", String(articleId), "news_published");
+      }
+    } catch (err) {
+      console.log("[BreakingNews] Social publish enqueue failed:", (err as Error).message);
+    }
   },
 
   async fixMissingDebates(): Promise<number> {

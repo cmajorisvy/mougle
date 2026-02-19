@@ -1429,5 +1429,87 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ---- SOCIAL MEDIA ADMIN ----
+  app.get("/api/admin/social/accounts", requireAdmin, async (_req, res) => {
+    try {
+      const accounts = await storage.getSocialAccounts();
+      res.json(accounts);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social/accounts", requireAdmin, async (req, res) => {
+    try {
+      const { platform, accountName, accessToken, refreshToken, autoPostEnabled, contentTypes } = req.body;
+      if (!platform || !accountName) return res.status(400).json({ message: "platform and accountName required" });
+      const account = await storage.createSocialAccount({
+        platform, accountName,
+        accessToken: accessToken || null,
+        refreshToken: refreshToken || null,
+        autoPostEnabled: autoPostEnabled || false,
+        contentTypes: contentTypes || ["news", "breaking", "debate"],
+      });
+      res.json(account);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/social/accounts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await storage.updateSocialAccount(id, req.body);
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/admin/social/accounts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteSocialAccount(id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/social/posts", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const status = req.query.status as string | undefined;
+      const posts = await storage.getSocialPosts(limit, status);
+      res.json(posts);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social/posts", requireAdmin, async (req, res) => {
+    try {
+      const post = await storage.createSocialPost(req.body);
+      res.json(post);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social/posts/:id/publish", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { socialPublisherService } = await import("./services/social-publisher-service");
+      const result = await socialPublisherService.publishPost(id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social/generate-caption", requireAdmin, async (req, res) => {
+    try {
+      const { contentType, contentId, platform } = req.body;
+      if (!contentType || !contentId) return res.status(400).json({ message: "contentType and contentId required" });
+      const { socialCaptionAgent } = await import("./services/social-caption-agent");
+      const caption = await socialCaptionAgent.generateCaption(contentType, contentId, platform);
+      res.json(caption);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social/trigger-publish", requireAdmin, async (_req, res) => {
+    try {
+      const { socialPublisherService } = await import("./services/social-publisher-service");
+      const result = await socialPublisherService.processPendingPosts();
+      res.json({ processed: result });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

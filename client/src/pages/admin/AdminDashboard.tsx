@@ -11,7 +11,8 @@ import {
   Trash2, Edit, Plus, RefreshCw, LogOut, ChevronRight, Search,
   TrendingUp, Activity, Crown, Eye, BarChart3, Settings, Loader2,
   Database, Cpu, Globe, Gavel, Dna, Heart, Brain, Play, X, Check,
-  AlertTriangle
+  AlertTriangle, Share2, Send, Clock, ToggleLeft, ToggleRight,
+  Sparkles, ExternalLink
 } from "lucide-react";
 
 function useAdminAuth() {
@@ -32,7 +33,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "systems";
+type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "systems";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -42,6 +43,7 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "debates", label: "Debates", icon: Radio },
   { id: "agents", label: "Agents", icon: Bot },
   { id: "flywheel", label: "Flywheel", icon: Film },
+  { id: "social", label: "Social", icon: Share2 },
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
@@ -628,6 +630,346 @@ function FlywheelTab() {
   );
 }
 
+const PLATFORM_ICONS: Record<string, string> = {
+  twitter: "X",
+  linkedin: "in",
+  facebook: "f",
+  reddit: "r",
+};
+
+const CONTENT_TYPES = ["news", "breaking", "debate", "post", "trending"];
+
+function SocialTab() {
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [newPlatform, setNewPlatform] = useState("twitter");
+  const [newName, setNewName] = useState("");
+  const [captionPreview, setCaptionPreview] = useState<any>(null);
+  const [previewContentType, setPreviewContentType] = useState("news");
+  const [previewContentId, setPreviewContentId] = useState("");
+
+  const { data: accounts = [], refetch: refetchAccounts } = useQuery({
+    queryKey: ["admin-social-accounts"],
+    queryFn: () => api.admin.social.accounts(),
+  });
+
+  const { data: posts = [], refetch: refetchPosts } = useQuery({
+    queryKey: ["admin-social-posts"],
+    queryFn: () => api.admin.social.posts(30),
+  });
+
+  const createAccountMutation = useMutation({
+    mutationFn: (data: any) => api.admin.social.createAccount(data),
+    onSuccess: () => { refetchAccounts(); setShowAddAccount(false); setNewName(""); },
+  });
+
+  const updateAccountMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.admin.social.updateAccount(id, data),
+    onSuccess: () => refetchAccounts(),
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: (id: number) => api.admin.social.deleteAccount(id),
+    onSuccess: () => refetchAccounts(),
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: (id: number) => api.admin.social.publishPost(id),
+    onSuccess: () => refetchPosts(),
+  });
+
+  const triggerPublishMutation = useMutation({
+    mutationFn: () => api.admin.social.triggerPublish(),
+    onSuccess: () => { refetchPosts(); refetchAccounts(); },
+  });
+
+  const captionMutation = useMutation({
+    mutationFn: (data: { contentType: string; contentId: string; platform?: string }) =>
+      api.admin.social.generateCaption(data),
+    onSuccess: (data) => setCaptionPreview(data),
+  });
+
+  const toggleAutoPost = (account: any) => {
+    updateAccountMutation.mutate({ id: account.id, data: { autoPostEnabled: !account.autoPostEnabled } });
+  };
+
+  const toggleContentType = (account: any, type: string) => {
+    const current = account.contentTypes || [];
+    const updated = current.includes(type)
+      ? current.filter((t: string) => t !== type)
+      : [...current, type];
+    updateAccountMutation.mutate({ id: account.id, data: { contentTypes: updated } });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-display font-bold">Social Media Automation</h2>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => triggerPublishMutation.mutate()}
+            disabled={triggerPublishMutation.isPending}
+            className="gap-1.5 border-gray-700"
+            data-testid="button-trigger-social-publish"
+          >
+            <Send className="w-3.5 h-3.5" />
+            {triggerPublishMutation.isPending ? "Publishing..." : "Publish Now"}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setShowAddAccount(true)}
+            className="gap-1.5 bg-purple-600 hover:bg-purple-700"
+            data-testid="button-add-social-account"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Account
+          </Button>
+        </div>
+      </div>
+
+      {showAddAccount && (
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-medium mb-3">Connect Social Account</h3>
+          <div className="flex gap-3 items-end">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground">Platform</label>
+              <select
+                value={newPlatform}
+                onChange={(e) => setNewPlatform(e.target.value)}
+                className="w-full mt-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm"
+                data-testid="select-social-platform"
+              >
+                <option value="twitter">X (Twitter)</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="facebook">Facebook</option>
+                <option value="reddit">Reddit</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground">Account Name</label>
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="@dig8opia"
+                className="mt-1 bg-gray-800 border-gray-700"
+                data-testid="input-social-account-name"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => createAccountMutation.mutate({
+                platform: newPlatform,
+                accountName: newName,
+                autoPostEnabled: true,
+                contentTypes: CONTENT_TYPES,
+              })}
+              disabled={!newName || createAccountMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="button-save-social-account"
+            >
+              <Check className="w-4 h-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowAddAccount(false)}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            OAuth integration is stubbed. Accounts will generate captions and track publish history for when live API keys are configured.
+          </p>
+        </Card>
+      )}
+
+      <div className="grid gap-4">
+        {accounts.length === 0 && !showAddAccount ? (
+          <Card className="bg-gray-900/60 border-gray-800/50 p-8 text-center">
+            <Share2 className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+            <p className="text-muted-foreground">No social accounts connected yet</p>
+            <p className="text-xs text-muted-foreground mt-1">Add accounts to enable automatic social media posting</p>
+          </Card>
+        ) : (
+          accounts.map((account: any) => (
+            <Card key={account.id} className="bg-gray-900/60 border-gray-800/50 p-4" data-testid={`social-account-${account.id}`}>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm ${
+                    account.platform === "twitter" ? "bg-gray-800" :
+                    account.platform === "linkedin" ? "bg-blue-700" :
+                    account.platform === "facebook" ? "bg-blue-600" :
+                    "bg-orange-600"
+                  }`}>
+                    {PLATFORM_ICONS[account.platform] || "?"}
+                  </div>
+                  <div>
+                    <div className="font-medium">{account.accountName || account.platform}</div>
+                    <div className="text-xs text-muted-foreground capitalize">{account.platform}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => toggleAutoPost(account)}
+                    className="flex items-center gap-1.5 text-xs"
+                    data-testid={`toggle-autopost-${account.id}`}
+                  >
+                    {account.autoPostEnabled ? (
+                      <><ToggleRight className="w-5 h-5 text-green-400" /><span className="text-green-400">Auto</span></>
+                    ) : (
+                      <><ToggleLeft className="w-5 h-5 text-gray-500" /><span className="text-gray-500">Off</span></>
+                    )}
+                  </button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => { if (confirm("Remove this social account?")) deleteAccountMutation.mutate(account.id); }}
+                    className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                    data-testid={`delete-account-${account.id}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <p className="text-xs text-muted-foreground mb-1.5">Auto-post content types:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {CONTENT_TYPES.map(type => (
+                    <button
+                      key={type}
+                      onClick={() => toggleContentType(account, type)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                        (account.contentTypes || []).includes(type)
+                          ? "bg-purple-600/30 text-purple-300 border border-purple-500/30"
+                          : "bg-gray-800/50 text-gray-500 border border-gray-700/50"
+                      }`}
+                      data-testid={`toggle-content-${account.id}-${type}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-purple-400" /> AI Caption Preview
+        </h3>
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground">Content Type</label>
+            <select
+              value={previewContentType}
+              onChange={(e) => setPreviewContentType(e.target.value)}
+              className="w-full mt-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm"
+              data-testid="select-caption-content-type"
+            >
+              {CONTENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="text-xs text-muted-foreground">Content ID</label>
+            <Input
+              value={previewContentId}
+              onChange={(e) => setPreviewContentId(e.target.value)}
+              placeholder="e.g. 1"
+              className="mt-1 bg-gray-800 border-gray-700"
+              data-testid="input-caption-content-id"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => captionMutation.mutate({ contentType: previewContentType, contentId: previewContentId })}
+            disabled={!previewContentId || captionMutation.isPending}
+            className="gap-1.5"
+            data-testid="button-generate-caption"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {captionMutation.isPending ? "Generating..." : "Preview"}
+          </Button>
+        </div>
+        {captionPreview && (
+          <div className="mt-4 space-y-3">
+            {Object.entries(captionPreview.captions || captionPreview).map(([platform, caption]: [string, any]) => (
+              <div key={platform} className="bg-gray-800/50 rounded-lg p-3">
+                <div className="text-xs font-medium text-purple-300 mb-1 capitalize">{platform}</div>
+                <p className="text-sm text-gray-300 whitespace-pre-wrap">{typeof caption === "string" ? caption : caption?.text || JSON.stringify(caption)}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <div>
+        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+          <Clock className="w-4 h-4" /> Recent Social Posts
+        </h3>
+        <div className="space-y-2">
+          {posts.length === 0 ? (
+            <Card className="bg-gray-900/60 border-gray-800/50 p-6 text-center">
+              <p className="text-sm text-muted-foreground">No social posts yet. Posts will appear here when content is auto-published or manually shared.</p>
+            </Card>
+          ) : (
+            posts.map((post: any) => (
+              <Card key={post.id} className="bg-gray-900/60 border-gray-800/50 p-3" data-testid={`social-post-${post.id}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold ${
+                      post.platform === "twitter" ? "bg-gray-700" :
+                      post.platform === "linkedin" ? "bg-blue-700" :
+                      post.platform === "facebook" ? "bg-blue-600" :
+                      "bg-orange-600"
+                    }`}>
+                      {PLATFORM_ICONS[post.platform] || "?"}
+                    </div>
+                    <div>
+                      <span className="text-sm">{post.contentType}:{post.contentId}</span>
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
+                        post.status === "published" ? "bg-green-900/30 text-green-400" :
+                        post.status === "failed" ? "bg-red-900/30 text-red-400" :
+                        post.status === "pending" ? "bg-yellow-900/30 text-yellow-400" :
+                        "bg-gray-800 text-gray-400"
+                      }`}>
+                        {post.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {post.status === "pending" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => publishMutation.mutate(post.id)}
+                        disabled={publishMutation.isPending}
+                        className="h-7 text-xs gap-1"
+                        data-testid={`publish-post-${post.id}`}
+                      >
+                        <Send className="w-3 h-3" /> Publish
+                      </Button>
+                    )}
+                    {post.postUrl && (
+                      <a href={post.postUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {post.scheduledFor ? new Date(post.scheduledFor).toLocaleDateString() : post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ""}
+                    </span>
+                  </div>
+                </div>
+                {post.caption && (
+                  <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{post.caption}</p>
+                )}
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SystemsTab() {
   const [triggerResults, setTriggerResults] = useState<Record<string, string>>({});
 
@@ -770,6 +1112,7 @@ export default function AdminDashboard() {
     debates: DebatesTab,
     agents: AgentsTab,
     flywheel: FlywheelTab,
+    social: SocialTab,
     systems: SystemsTab,
   }[activeTab];
 

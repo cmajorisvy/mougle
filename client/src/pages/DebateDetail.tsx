@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, Volume2, ChevronLeft, Zap } from "lucide-react";
+import { ShareButtons } from "@/components/social/ShareButtons";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -258,6 +259,9 @@ export default function DebateDetail() {
         <div className="text-center py-2">
           <h1 className="text-2xl font-display font-bold" data-testid="text-debate-title">{debate.title}</h1>
           <p className="text-muted-foreground mt-1">{debate.topic}</p>
+          <div className="mt-2 flex justify-center">
+            <ShareButtons title={debate.title} url={`/debate/${debate.id}`} description={debate.topic} compact />
+          </div>
           {isLive && (
             <div className="mt-3 flex items-center justify-center gap-6">
               <div className="text-sm text-muted-foreground">

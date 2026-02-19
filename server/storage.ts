@@ -45,6 +45,8 @@ import {
   type NewsComment, type InsertNewsComment,
   type NewsReaction, type InsertNewsReaction,
   type NewsShare, type InsertNewsShare,
+  type SocialAccount, type InsertSocialAccount,
+  type SocialPost, type InsertSocialPost,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -58,6 +60,7 @@ import {
   liveDebates, debateParticipants, debateTurns,
   flywheelJobs, generatedClips,
   newsArticles, newsComments, newsReactions, newsShares,
+  socialAccounts, socialPosts,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -286,6 +289,20 @@ export interface IStorage {
 
   createNewsShare(share: InsertNewsShare): Promise<NewsShare>;
   getNewsShareCount(articleId: number): Promise<number>;
+
+  createSocialAccount(account: InsertSocialAccount): Promise<SocialAccount>;
+  getSocialAccounts(): Promise<SocialAccount[]>;
+  getSocialAccount(id: number): Promise<SocialAccount | undefined>;
+  updateSocialAccount(id: number, data: Partial<SocialAccount>): Promise<SocialAccount>;
+  deleteSocialAccount(id: number): Promise<void>;
+  getActiveSocialAccounts(platform?: string): Promise<SocialAccount[]>;
+
+  createSocialPost(post: InsertSocialPost): Promise<SocialPost>;
+  getSocialPosts(limit?: number, status?: string): Promise<SocialPost[]>;
+  getSocialPost(id: number): Promise<SocialPost | undefined>;
+  updateSocialPost(id: number, data: Partial<SocialPost>): Promise<SocialPost>;
+  getPendingSocialPosts(): Promise<SocialPost[]>;
+  getSocialPostsByContent(contentType: string, contentId: string): Promise<SocialPost[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -1287,6 +1304,72 @@ export class DatabaseStorage implements IStorage {
     const result = await db.select({ count: sql<number>`count(*)` }).from(newsShares)
       .where(eq(newsShares.articleId, articleId));
     return Number(result[0]?.count || 0);
+  }
+
+  async createSocialAccount(account: InsertSocialAccount): Promise<SocialAccount> {
+    const [created] = await db.insert(socialAccounts).values(account).returning();
+    return created;
+  }
+
+  async getSocialAccounts(): Promise<SocialAccount[]> {
+    return db.select().from(socialAccounts).orderBy(desc(socialAccounts.createdAt));
+  }
+
+  async getSocialAccount(id: number): Promise<SocialAccount | undefined> {
+    const [account] = await db.select().from(socialAccounts).where(eq(socialAccounts.id, id));
+    return account;
+  }
+
+  async updateSocialAccount(id: number, data: Partial<SocialAccount>): Promise<SocialAccount> {
+    const [updated] = await db.update(socialAccounts).set({ ...data, updatedAt: new Date() }).where(eq(socialAccounts.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSocialAccount(id: number): Promise<void> {
+    await db.delete(socialAccounts).where(eq(socialAccounts.id, id));
+  }
+
+  async getActiveSocialAccounts(platform?: string): Promise<SocialAccount[]> {
+    if (platform) {
+      return db.select().from(socialAccounts)
+        .where(and(eq(socialAccounts.isActive, true), eq(socialAccounts.platform, platform)));
+    }
+    return db.select().from(socialAccounts).where(eq(socialAccounts.isActive, true));
+  }
+
+  async createSocialPost(post: InsertSocialPost): Promise<SocialPost> {
+    const [created] = await db.insert(socialPosts).values(post).returning();
+    return created;
+  }
+
+  async getSocialPosts(limit = 50, status?: string): Promise<SocialPost[]> {
+    if (status) {
+      return db.select().from(socialPosts)
+        .where(eq(socialPosts.status, status))
+        .orderBy(desc(socialPosts.createdAt)).limit(limit);
+    }
+    return db.select().from(socialPosts).orderBy(desc(socialPosts.createdAt)).limit(limit);
+  }
+
+  async getSocialPost(id: number): Promise<SocialPost | undefined> {
+    const [post] = await db.select().from(socialPosts).where(eq(socialPosts.id, id));
+    return post;
+  }
+
+  async updateSocialPost(id: number, data: Partial<SocialPost>): Promise<SocialPost> {
+    const [updated] = await db.update(socialPosts).set(data).where(eq(socialPosts.id, id)).returning();
+    return updated;
+  }
+
+  async getPendingSocialPosts(): Promise<SocialPost[]> {
+    return db.select().from(socialPosts)
+      .where(eq(socialPosts.status, "pending"))
+      .orderBy(asc(socialPosts.createdAt));
+  }
+
+  async getSocialPostsByContent(contentType: string, contentId: string): Promise<SocialPost[]> {
+    return db.select().from(socialPosts)
+      .where(and(eq(socialPosts.contentType, contentType), eq(socialPosts.contentId, contentId)));
   }
 }
 

@@ -133,6 +133,11 @@ export async function startDebate(debateId: number) {
   state.isRunning = true;
   state.currentTurnOrder = 0;
 
+  try {
+    const { socialPublisherService } = await import("./social-publisher-service");
+    await socialPublisherService.enqueueForContent("debate", String(debateId), "debate_live");
+  } catch {}
+
   emitEvent(debateId, {
     type: "debate_start",
     debateId,

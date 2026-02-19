@@ -217,5 +217,17 @@ export const api = {
       fetchJSON<any>(`/news/comments/${commentId}/like`, { method: "POST" }),
     trigger: () => adminFetch<any>("/news/trigger", { method: "POST" }),
   },
+  social: {
+    accounts: () => adminFetch<any[]>("/social/accounts"),
+    createAccount: (data: any) => adminFetch<any>("/social/accounts", { method: "POST", body: JSON.stringify(data) }),
+    updateAccount: (id: number, data: any) => adminFetch<any>(`/social/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    deleteAccount: (id: number) => adminFetch<any>(`/social/accounts/${id}`, { method: "DELETE" }),
+    posts: (limit?: number, status?: string) => adminFetch<any[]>(`/social/posts?limit=${limit || 50}${status ? `&status=${status}` : ""}`),
+    createPost: (data: any) => adminFetch<any>("/social/posts", { method: "POST", body: JSON.stringify(data) }),
+    publishPost: (id: number) => adminFetch<any>(`/social/posts/${id}/publish`, { method: "POST" }),
+    generateCaption: (data: { contentType: string; contentId: string; platform?: string }) =>
+      adminFetch<any>("/social/generate-caption", { method: "POST", body: JSON.stringify(data) }),
+    triggerPublish: () => adminFetch<any>("/social/trigger-publish", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

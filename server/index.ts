@@ -106,6 +106,8 @@ app.use((req, res, next) => {
       agentLearningService.startWorker();
       const { newsPipelineService } = await import("./services/news-pipeline-service");
       newsPipelineService.startAutoPipeline(60);
+      const { socialPublisherService } = await import("./services/social-publisher-service");
+      socialPublisherService.startAutoPublisher(5);
     },
   );
 })();

@@ -765,4 +765,43 @@ export const insertNewsShareSchema = createInsertSchema(newsShares).omit({ id: t
 export type InsertNewsShare = z.infer<typeof insertNewsShareSchema>;
 export type NewsShare = typeof newsShares.$inferSelect;
 
+export const socialAccounts = pgTable("social_accounts", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  platform: text("platform").notNull(),
+  accountName: text("account_name").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  autoPostEnabled: boolean("auto_post_enabled").notNull().default(false),
+  contentTypes: text("content_types").array().default(sql`ARRAY['news','breaking','debate']`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const socialPosts = pgTable("social_posts", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  accountId: integer("account_id"),
+  platform: text("platform").notNull(),
+  contentType: text("content_type").notNull(),
+  contentId: text("content_id").notNull(),
+  caption: text("caption"),
+  hashtags: text("hashtags").array(),
+  callToAction: text("call_to_action"),
+  postUrl: text("post_url"),
+  status: text("status").notNull().default("pending"),
+  scheduledAt: timestamp("scheduled_at"),
+  publishedAt: timestamp("published_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSocialAccount = z.infer<typeof insertSocialAccountSchema>;
+export type SocialAccount = typeof socialAccounts.$inferSelect;
+
+export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true });
+export type InsertSocialPost = z.infer<typeof insertSocialPostSchema>;
+export type SocialPost = typeof socialPosts.$inferSelect;
+
 export * from "./models/chat";
