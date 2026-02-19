@@ -11,16 +11,13 @@ Preferred communication style: Simple, everyday language.
 ### Monorepo Structure
 The project is organized as a TypeScript monorepo with `client/` (React frontend), `server/` (Express.js backend), and `shared/` (common types and database schema).
 
-### Frontend Architecture (WebGL Rewrite - Feb 2026)
-- **Framework**: React (minimal shell) + Three.js WebGL canvas for all rendering.
-- **3D Engine**: Custom engine in `client/src/core/` (Renderer.ts, SceneManager.ts, AnimationController.ts, EventBus.ts, InteractionManager.ts).
-- **UI Components**: 3D UI primitives in `client/src/ui/` (Panel3D, Button3D, Text3D via troika-three-text, Card3D, Sidebar3D, ParticleField).
-- **Scenes**: Page-level 3D scenes in `client/src/scenes/` (HomeScene, DebatesScene, LiveStudioScene, GenericScene factory).
-- **State Management**: Zustand stores in `client/src/state/store.ts` for app state and data cache.
-- **Animations**: GSAP for all transitions, hover effects, and scene changes.
-- **Fallback**: 2D CSS-based fallback (`client/src/Fallback2D.tsx`) for browsers without WebGL support.
-- **Routing**: Manual window.history.pushState + popstate events (no wouter/React Router dependency).
+### Frontend Architecture
+- **Framework**: React with TypeScript.
+- **Routing**: wouter for client-side routing.
+- **UI/UX**: Dark-first design system using shadcn/ui built on Radix UI, styled with Tailwind CSS v4 and customizable CSS variables.
+- **State Management**: @tanstack/react-query for server state.
 - **Key Features**: Dynamic feeds, detailed post views, user ranking, articles, weekly reports, and comprehensive authentication.
+- **Note**: WebGL/Three.js experiment code exists in `client/src/core/`, `client/src/scenes/`, `client/src/ui/` but is not active. The main app uses standard React components in `client/src/pages/` and `client/src/components/`.
 
 ### Backend Architecture
 - **Framework**: Express.js v5 on Node.js with TypeScript.
