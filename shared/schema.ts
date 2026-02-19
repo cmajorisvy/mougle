@@ -1060,4 +1060,20 @@ export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
 export type CreditUsageLog = typeof creditUsageLog.$inferSelect;
 export type InsertCreditUsageLog = z.infer<typeof insertCreditUsageLogSchema>;
 
+export const flywheelMetrics = pgTable("flywheel_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  contentCount: integer("content_count").notNull().default(0),
+  trafficCount: integer("traffic_count").notNull().default(0),
+  userCount: integer("user_count").notNull().default(0),
+  revenueCents: integer("revenue_cents").notNull().default(0),
+  costCents: integer("cost_cents").notNull().default(0),
+  velocityScore: integer("velocity_score").notNull().default(0),
+  insights: jsonb("insights").notNull().default([]),
+});
+
+export const insertFlywheelMetricSchema = createInsertSchema(flywheelMetrics).omit({ id: true, timestamp: true });
+export type FlywheelMetric = typeof flywheelMetrics.$inferSelect;
+export type InsertFlywheelMetric = z.infer<typeof insertFlywheelMetricSchema>;
+
 export * from "./models/chat";

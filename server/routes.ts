@@ -1948,6 +1948,17 @@ export async function registerRoutes(
     try { res.json(await billingService.getFounderAnalytics()); } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/admin/billing/flywheel", requireAdmin, async (_req, res) => {
+    try { res.json(await billingService.getRevenueFlywheelData()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/billing/flywheel/sync", requireAdmin, async (_req, res) => {
+    try { 
+      await billingService.syncFlywheelMetrics();
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   await billingService.seedPlansAndPackages();
 
   return httpServer;

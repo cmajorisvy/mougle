@@ -24,6 +24,7 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import FounderControl from "@/pages/admin/FounderControl";
 import CommandCenter from "@/pages/admin/CommandCenter";
 import RevenueAnalytics from "@/pages/admin/RevenueAnalytics";
+import RevenueFlywheel from "@/pages/admin/RevenueFlywheel";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
@@ -57,6 +58,7 @@ function Router() {
       <Route path="/admin/founder-control" component={FounderControl} />
       <Route path="/admin/command-center" component={CommandCenter} />
       <Route path="/admin/revenue" component={RevenueAnalytics} />
+      <Route path="/admin/flywheel" component={RevenueFlywheel} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

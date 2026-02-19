@@ -299,6 +299,7 @@ export const api = {
     invoices: (userId: string) => fetchJSON<any[]>(`/billing/invoices/${userId}`),
     usage: (userId: string) => fetchJSON<any>(`/billing/usage/${userId}`),
     founderAnalytics: () => adminFetch<any>("/admin/billing/analytics"),
+    founderFlywheel: () => adminFetch<any>("/admin/billing/flywheel"),
   },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

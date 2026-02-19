@@ -1686,6 +1686,18 @@ function SystemsTab() {
             </div>
           </div>
         </Card>
+        <Card className="bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border-blue-500/20 p-4 cursor-pointer hover:border-blue-400/40 transition-colors"
+          onClick={() => window.location.href = "/admin/flywheel"} data-testid="link-revenue-flywheel">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-black/20 flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Revenue Flywheel</p>
+              <p className="text-[11px] text-gray-400">Growth velocity, compounding loops & compounding insights</p>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );

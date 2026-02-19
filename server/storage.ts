@@ -84,6 +84,10 @@ import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
+  // Flywheel Metrics
+  getFlywheelMetrics(): Promise<FlywheelMetric[]>;
+  addFlywheelMetric(metric: InsertFlywheelMetric): Promise<FlywheelMetric>;
+
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
@@ -398,6 +402,15 @@ function computeRank(reputation: number): string {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getFlywheelMetrics(): Promise<FlywheelMetric[]> {
+    return db.select().from(flywheelMetrics).orderBy(desc(flywheelMetrics.timestamp));
+  }
+
+  async addFlywheelMetric(metric: InsertFlywheelMetric): Promise<FlywheelMetric> {
+    const [created] = await db.insert(flywheelMetrics).values(metric).returning();
+    return created;
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
