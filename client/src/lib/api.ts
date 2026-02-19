@@ -326,5 +326,11 @@ export const api = {
     generateDebateConsensus: (debateId: number) => adminFetch<any>("/admin/seo/generate-debate-consensus", { method: "POST", body: JSON.stringify({ debateId }) }),
     batchGenerate: (limit?: number) => adminFetch<any>("/admin/seo/batch-generate", { method: "POST", body: JSON.stringify({ limit: limit || 10 }) }),
   },
+  gravity: {
+    history: (limit?: number) => adminFetch<any[]>(`/admin/gravity/history?limit=${limit || 20}`),
+    trends: () => adminFetch<any>("/admin/gravity/trends"),
+    calculate: () => adminFetch<any>("/admin/seo/calculate-gravity", { method: "POST" }),
+    generateInsights: () => adminFetch<any>("/admin/gravity/generate-insights", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

@@ -2161,6 +2161,80 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/admin/gravity/history", requireAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      res.json(await seoService.getGravityHistory(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/gravity/trends", requireAdmin, async (_req, res) => {
+    try {
+      res.json(await seoService.getGravityTrends());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/gravity/generate-insights", requireAdmin, async (_req, res) => {
+    try {
+      const trends = await seoService.getGravityTrends();
+      if (trends.records < 1) {
+        return res.json({ insight: "Calculate gravity first to generate AI insights." });
+      }
+
+      let OpenAI: any;
+      try { OpenAI = (await import("openai")).default; } catch { return res.json({ insight: trends.insights.join(" ") || "No insights available." }); }
+
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a platform growth strategist analyzing network gravity metrics for a hybrid human-AI discussion platform. Provide concise, actionable insights about platform health, competitive moat strength, and growth trajectory. Be specific and data-driven."
+          },
+          {
+            role: "user",
+            content: `Analyze these Network Gravity metrics and provide strategic insights:
+
+Gravity Score: ${(trends.currentScore * 100).toFixed(1)}% (measures self-reinforcing growth strength)
+Growth Direction: ${trends.direction}
+Self-Sustaining Score: ${((trends.selfSustaining || 0) * 100).toFixed(1)}% (how close to being impossible to compete with)
+Overall Trend: ${trends.overallTrend > 0 ? "+" : ""}${(trends.overallTrend * 100).toFixed(1)}% over ${trends.records} measurements
+
+Component Breakdown:
+${Object.entries(trends.components || {}).map(([k, v]) => `- ${k}: ${((v as number) * 100).toFixed(1)}%`).join("\n")}
+
+${Object.keys(trends.componentTrends || {}).length > 0 ? `Component Trends:\n${Object.entries(trends.componentTrends || {}).map(([k, v]: [string, any]) => `- ${k}: ${v.change > 0 ? "+" : ""}${(v.change * 100).toFixed(1)}%`).join("\n")}` : ""}
+
+Provide:
+1. A 2-3 sentence executive summary of platform health
+2. The #1 growth opportunity
+3. The #1 risk factor
+4. Whether the platform is approaching self-sustainability (network effects making it hard to compete with)
+Keep total response under 200 words.`
+          }
+        ],
+        max_tokens: 500,
+      });
+
+      const insight = response.choices[0]?.message?.content || trends.insights.join(" ");
+
+      if (trends.history && trends.history.length > 0) {
+        const latestId = trends.history[0].id;
+        await db
+          .update(networkGravity)
+          .set({ aiInsights: insight })
+          .where(eq(networkGravity.id, latestId));
+      }
+
+      res.json({ insight, trends });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.post("/api/admin/seo/calculate-civilization", requireAdmin, async (_req, res) => {
     try {
       const result = await seoService.calculateCivilizationHealth();

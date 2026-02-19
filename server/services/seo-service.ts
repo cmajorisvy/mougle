@@ -344,14 +344,63 @@ Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents c
       ? Number(activeCreatorsResult?.value || 0) / totalUsersResult.value
       : 0;
 
+    const [commentCountResult] = await db
+      .select({ value: count() })
+      .from(comments);
+    const externalTrafficShare = Math.min(
+      (Number(commentCountResult?.value || 0) + Number(postCountResult?.value || 0)) / Math.max(Number(totalUsersResult?.value || 1) * 5, 1),
+      1
+    );
+
     const normalizedLatency = Math.max(0, 1 - Math.min(replyLatency / 86400, 1));
     const normalizedRecurrence = Math.min(topicRecurrenceRate / 10, 1);
 
+    const componentBreakdown: Record<string, number> = {
+      replySpeed: normalizedLatency,
+      topicDensity: normalizedRecurrence,
+      aiIntegration: aiParticipationRatio,
+      creatorStickiness: creatorRetention,
+      trafficEngagement: externalTrafficShare,
+    };
+
     const gravityScore =
-      (normalizedLatency * 0.25) +
-      (normalizedRecurrence * 0.25) +
+      (normalizedLatency * 0.2) +
+      (normalizedRecurrence * 0.2) +
       (aiParticipationRatio * 0.2) +
-      (creatorRetention * 0.3);
+      (creatorRetention * 0.25) +
+      (externalTrafficShare * 0.15);
+
+    const selfSustainingScore = Math.min(
+      (creatorRetention > 0.3 ? 0.3 : creatorRetention) +
+      (aiParticipationRatio > 0.2 ? 0.2 : aiParticipationRatio) +
+      (normalizedRecurrence > 0.3 ? 0.2 : normalizedRecurrence * 0.67) +
+      (normalizedLatency > 0.5 ? 0.15 : normalizedLatency * 0.3) +
+      (externalTrafficShare > 0.3 ? 0.15 : externalTrafficShare * 0.5),
+      1
+    );
+
+    const previousRecords = await db
+      .select()
+      .from(networkGravity)
+      .orderBy(desc(networkGravity.recordedAt))
+      .limit(2);
+
+    const prev = previousRecords[0];
+    const trendDelta = prev ? gravityScore - (prev.gravityScore || 0) : 0;
+    let growthDirection: string;
+    if (!prev) {
+      growthDirection = "establishing";
+    } else if (trendDelta > 0.05) {
+      growthDirection = "accelerating";
+    } else if (trendDelta > 0.01) {
+      growthDirection = "growing";
+    } else if (trendDelta > -0.01) {
+      growthDirection = "stable";
+    } else if (trendDelta > -0.05) {
+      growthDirection = "declining";
+    } else {
+      growthDirection = "contracting";
+    }
 
     const [result] = await db
       .insert(networkGravity)
@@ -360,11 +409,95 @@ Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents c
         replyLatency,
         topicRecurrenceRate,
         aiParticipationRatio,
+        externalTrafficShare,
         creatorRetention,
+        growthDirection,
+        trendDelta,
+        selfSustainingScore,
+        componentBreakdown,
       })
       .returning();
 
     return result;
+  },
+
+  async getGravityHistory(limit: number = 20): Promise<any[]> {
+    return db
+      .select()
+      .from(networkGravity)
+      .orderBy(desc(networkGravity.recordedAt))
+      .limit(Math.min(limit, 100));
+  },
+
+  async getGravityTrends(): Promise<any> {
+    const records = await db
+      .select()
+      .from(networkGravity)
+      .orderBy(desc(networkGravity.recordedAt))
+      .limit(30);
+
+    if (records.length < 2) {
+      return {
+        currentScore: records[0]?.gravityScore || 0,
+        direction: records[0]?.growthDirection || "establishing",
+        selfSustaining: records[0]?.selfSustainingScore || 0,
+        trend: "insufficient_data",
+        records: records.length,
+        components: records[0]?.componentBreakdown || {},
+        insights: [],
+      };
+    }
+
+    const latest = records[0];
+    const oldest = records[records.length - 1];
+    const overallTrend = (latest.gravityScore || 0) - (oldest.gravityScore || 0);
+
+    const componentTrends: Record<string, { current: number; change: number }> = {};
+    const latestBreakdown = (latest.componentBreakdown as Record<string, number>) || {};
+    const oldestBreakdown = (oldest.componentBreakdown as Record<string, number>) || {};
+    for (const key of Object.keys(latestBreakdown)) {
+      componentTrends[key] = {
+        current: latestBreakdown[key] || 0,
+        change: (latestBreakdown[key] || 0) - (oldestBreakdown[key] || 0),
+      };
+    }
+
+    const insights: string[] = [];
+    if (latest.selfSustainingScore && latest.selfSustainingScore > 0.6) {
+      insights.push("Platform is approaching self-sustaining territory. Network effects are strengthening.");
+    }
+    if (latest.creatorRetention && latest.creatorRetention > 0.4) {
+      insights.push("Strong creator retention indicates healthy content ecosystem.");
+    } else if (latest.creatorRetention && latest.creatorRetention < 0.1) {
+      insights.push("Low creator retention is a risk factor. Focus on creator engagement and incentives.");
+    }
+    if (latest.aiParticipationRatio && latest.aiParticipationRatio > 0.3) {
+      insights.push("AI participation is strong, enhancing content quality and response times.");
+    }
+    if (overallTrend > 0.1) {
+      insights.push("Gravity is trending strongly upward - platform moat is deepening.");
+    } else if (overallTrend < -0.1) {
+      insights.push("Gravity declining - investigate engagement drops and creator churn.");
+    }
+
+    return {
+      currentScore: latest.gravityScore,
+      direction: latest.growthDirection,
+      selfSustaining: latest.selfSustainingScore,
+      trendDelta: latest.trendDelta,
+      overallTrend,
+      records: records.length,
+      components: latestBreakdown,
+      componentTrends,
+      insights,
+      history: records.map(r => ({
+        id: r.id,
+        score: r.gravityScore,
+        direction: r.growthDirection,
+        selfSustaining: r.selfSustainingScore,
+        date: r.recordedAt,
+      })),
+    };
   },
 
   async calculateCivilizationHealth(): Promise<any> {

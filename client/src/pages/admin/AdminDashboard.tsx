@@ -1683,51 +1683,185 @@ function AuthorityEngineTab() {
 }
 
 function NetworkGravityTab() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ["seo-stats"],
-    queryFn: () => api.seo.stats(),
+  const { data: trends, isLoading: trendsLoading } = useQuery({
+    queryKey: ["gravity-trends"],
+    queryFn: () => api.gravity.trends(),
+  });
+
+  const { data: history = [], isLoading: historyLoading } = useQuery({
+    queryKey: ["gravity-history"],
+    queryFn: () => api.gravity.history(30),
   });
 
   const calcGravity = useMutation({
-    mutationFn: () => api.seo.calculateGravity(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["seo-stats"] }),
+    mutationFn: () => api.gravity.calculate(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["gravity-trends"] });
+      queryClient.invalidateQueries({ queryKey: ["gravity-history"] });
+    },
   });
 
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const generateInsights = useMutation({
+    mutationFn: () => api.gravity.generateInsights(),
+    onSuccess: (data) => {
+      setAiInsight(data.insight);
+      queryClient.invalidateQueries({ queryKey: ["gravity-trends"] });
+    },
+  });
+
+  const isLoading = trendsLoading || historyLoading;
   if (isLoading) return <LoadingSpinner />;
 
-  const gravity = stats?.recentGravity || [];
-  const latest = gravity[0];
+  const latest = history[0];
+  const directionColors: Record<string, string> = {
+    accelerating: "text-green-400 bg-green-500/10",
+    growing: "text-emerald-400 bg-emerald-500/10",
+    stable: "text-blue-400 bg-blue-500/10",
+    establishing: "text-yellow-400 bg-yellow-500/10",
+    declining: "text-orange-400 bg-orange-500/10",
+    contracting: "text-red-400 bg-red-500/10",
+  };
+  const directionIcons: Record<string, string> = {
+    accelerating: "rocket", growing: "trending-up", stable: "minus",
+    establishing: "compass", declining: "trending-down", contracting: "alert-triangle",
+  };
+
+  const components = (latest?.componentBreakdown as Record<string, number>) || trends?.components || {};
+  const componentLabels: Record<string, string> = {
+    replySpeed: "Reply Speed",
+    topicDensity: "Topic Density",
+    aiIntegration: "AI Integration",
+    creatorStickiness: "Creator Stickiness",
+    trafficEngagement: "Traffic Engagement",
+  };
+
+  const selfSustaining = latest?.selfSustainingScore || trends?.selfSustaining || 0;
+  const gravityScore = latest?.gravityScore || trends?.currentScore || 0;
+  const direction = latest?.growthDirection || trends?.direction || "establishing";
+  const delta = latest?.trendDelta || trends?.trendDelta || 0;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Activity className="w-5 h-5 text-cyan-400" /> Network Gravity
+          <Activity className="w-5 h-5 text-cyan-400" /> Network Gravity Model
         </h2>
-        <Button data-testid="button-calc-gravity" size="sm" onClick={() => calcGravity.mutate()} disabled={calcGravity.isPending}>
-          <RefreshCw className={`w-4 h-4 mr-1 ${calcGravity.isPending ? "animate-spin" : ""}`} /> Calculate
-        </Button>
+        <div className="flex gap-2">
+          <Button data-testid="button-generate-gravity-insights" size="sm" variant="outline" onClick={() => generateInsights.mutate()} disabled={generateInsights.isPending} className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10">
+            {generateInsights.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Sparkles className="w-4 h-4 mr-1" />} AI Insights
+          </Button>
+          <Button data-testid="button-calc-gravity" size="sm" onClick={() => calcGravity.mutate()} disabled={calcGravity.isPending}>
+            <RefreshCw className={`w-4 h-4 mr-1 ${calcGravity.isPending ? "animate-spin" : ""}`} /> Calculate
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <StatCard icon={Activity} label="Gravity Score" value={latest ? `${(latest.gravityScore * 100).toFixed(1)}%` : "N/A"} color="bg-cyan-500/10 text-cyan-400" />
-        <StatCard icon={Clock} label="Reply Latency" value={latest ? `${(latest.replyLatency / 3600).toFixed(1)}h` : "N/A"} color="bg-blue-500/10 text-blue-400" />
-        <StatCard icon={Bot} label="AI Ratio" value={latest ? `${(latest.aiParticipationRatio * 100).toFixed(0)}%` : "N/A"} color="bg-purple-500/10 text-purple-400" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard icon={Activity} label="Gravity Score" value={`${(gravityScore * 100).toFixed(1)}%`} color="bg-cyan-500/10 text-cyan-400" />
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${directionColors[direction] || "bg-gray-500/10 text-gray-400"}`}>
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <div>
+              <p data-testid="text-growth-direction" className="text-lg font-bold text-white capitalize">{direction}</p>
+              <p className="text-xs text-gray-500">Growth Direction</p>
+            </div>
+          </div>
+        </Card>
+        <StatCard icon={Shield} label="Self-Sustaining" value={`${(selfSustaining * 100).toFixed(1)}%`} color="bg-emerald-500/10 text-emerald-400" />
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${delta > 0 ? "bg-green-500/10 text-green-400" : delta < 0 ? "bg-red-500/10 text-red-400" : "bg-gray-500/10 text-gray-400"}`}>
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <div>
+              <p data-testid="text-trend-delta" className="text-lg font-bold text-white">{delta > 0 ? "+" : ""}{(delta * 100).toFixed(2)}%</p>
+              <p className="text-xs text-gray-500">Trend Delta</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {(aiInsight || latest?.aiInsights) && (
+        <Card data-testid="card-ai-insights" className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 border-purple-500/20 p-4">
+          <h3 className="text-sm font-semibold text-purple-300 mb-2 flex items-center gap-2">
+            <Sparkles className="w-4 h-4" /> AI Strategic Insights
+          </h3>
+          <p data-testid="text-ai-insight" className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
+            {aiInsight || latest?.aiInsights}
+          </p>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card data-testid="card-gravity-components" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Component Breakdown</h3>
+          {Object.keys(components).length === 0 ? (
+            <p className="text-gray-500 text-sm">No data yet. Calculate gravity to see component breakdown.</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(components).map(([key, val]) => (
+                <div key={key} data-testid={`component-${key}`}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-400">{componentLabels[key] || key}</span>
+                    <span className="text-cyan-400 font-mono">{((val as number) * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="bg-gray-700/30 rounded-full h-2">
+                    <div
+                      className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all"
+                      style={{ width: `${Math.min((val as number) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card data-testid="card-self-sustaining" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Self-Sustainability Meter</h3>
+          <div className="flex flex-col items-center py-4">
+            <div className="relative w-32 h-32">
+              <svg viewBox="0 0 36 36" className="w-32 h-32 transform -rotate-90">
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#374151" strokeWidth="3" />
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none"
+                  stroke={selfSustaining > 0.7 ? "#10B981" : selfSustaining > 0.4 ? "#F59E0B" : "#EF4444"}
+                  strokeWidth="3"
+                  strokeDasharray={`${selfSustaining * 100}, 100`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span data-testid="text-sustaining-score" className="text-2xl font-bold text-white">{(selfSustaining * 100).toFixed(0)}%</span>
+                <span className="text-[10px] text-gray-500">Moat Strength</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-3 text-center max-w-48">
+              {selfSustaining > 0.7 ? "Strong moat - platform is becoming self-sustaining" :
+               selfSustaining > 0.4 ? "Building momentum - network effects emerging" :
+               "Early stage - focus on creator acquisition and engagement"}
+            </p>
+          </div>
+        </Card>
       </div>
 
       <Card data-testid="card-gravity-metrics" className="bg-gray-900/60 border-gray-800/50 p-4">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">Latest Gravity Metrics</h3>
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Raw Metrics</h3>
         {!latest ? (
           <p data-testid="text-gravity-empty" className="text-gray-500 text-sm">No gravity data yet. Click "Calculate" to generate network gravity metrics.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {[
-              { label: "Reply Latency", value: `${(latest.replyLatency / 3600).toFixed(1)} hours`, desc: "Avg time to first reply", id: "reply-latency" },
-              { label: "Topic Recurrence", value: latest.topicRecurrenceRate?.toFixed(2), desc: "Posts per topic ratio", id: "topic-recurrence" },
-              { label: "AI Participation", value: `${(latest.aiParticipationRatio * 100).toFixed(0)}%`, desc: "AI agent ratio", id: "ai-participation" },
-              { label: "Creator Retention", value: `${(latest.creatorRetention * 100).toFixed(0)}%`, desc: "Active creators (30d)", id: "creator-retention" },
+              { label: "Reply Latency", value: `${((latest.replyLatency || 0) / 3600).toFixed(1)}h`, desc: "Avg time to first reply", id: "reply-latency" },
+              { label: "Topic Recurrence", value: (latest.topicRecurrenceRate || 0).toFixed(2), desc: "Posts per topic ratio", id: "topic-recurrence" },
+              { label: "AI Participation", value: `${((latest.aiParticipationRatio || 0) * 100).toFixed(0)}%`, desc: "AI agent ratio", id: "ai-participation" },
+              { label: "Creator Retention", value: `${((latest.creatorRetention || 0) * 100).toFixed(0)}%`, desc: "Active creators (30d)", id: "creator-retention" },
+              { label: "Traffic Engagement", value: `${((latest.externalTrafficShare || 0) * 100).toFixed(0)}%`, desc: "Content-to-user ratio", id: "traffic-engagement" },
+              { label: "Gravity Score", value: `${((latest.gravityScore || 0) * 100).toFixed(1)}%`, desc: "Composite gravity metric", id: "gravity-score" },
             ].map(m => (
-              <div key={m.label} data-testid={`card-gravity-${m.id}`} className="bg-gray-800/30 rounded-xl p-3">
+              <div key={m.id} data-testid={`card-gravity-${m.id}`} className="bg-gray-800/30 rounded-xl p-3">
                 <p className="text-xs text-gray-500">{m.label}</p>
                 <p data-testid={`text-gravity-${m.id}`} className="text-lg font-bold text-white">{m.value}</p>
                 <p className="text-[10px] text-gray-600">{m.desc}</p>
@@ -1737,17 +1871,38 @@ function NetworkGravityTab() {
         )}
       </Card>
 
-      {gravity.length > 1 && (
+      {history.length > 1 && (
         <Card data-testid="card-gravity-history" className="bg-gray-900/60 border-gray-800/50 p-4">
-          <h3 className="text-sm font-semibold text-gray-300 mb-3">Gravity History</h3>
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Gravity History & Trends</h3>
           <div className="space-y-2">
-            {gravity.map((g: any) => (
+            {history.map((g: any) => (
               <div key={g.id} data-testid={`row-gravity-${g.id}`} className="flex items-center gap-3 bg-gray-800/30 rounded-lg px-3 py-2">
-                <span className="text-xs text-gray-500">{new Date(g.recordedAt).toLocaleDateString()}</span>
+                <span className="text-xs text-gray-500 w-20">{new Date(g.recordedAt).toLocaleDateString()}</span>
                 <div className="flex-1 bg-gray-700/30 rounded-full h-2">
-                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full" style={{ width: `${Math.min(g.gravityScore * 100, 100)}%` }} />
+                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all" style={{ width: `${Math.min(g.gravityScore * 100, 100)}%` }} />
                 </div>
-                <span data-testid={`text-gravity-score-${g.id}`} className="text-xs text-cyan-400 font-mono">{(g.gravityScore * 100).toFixed(1)}%</span>
+                <span data-testid={`text-gravity-score-${g.id}`} className="text-xs text-cyan-400 font-mono w-12 text-right">{(g.gravityScore * 100).toFixed(1)}%</span>
+                {g.growthDirection && (
+                  <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded-full ${directionColors[g.growthDirection] || "bg-gray-500/10 text-gray-400"}`}>
+                    {g.growthDirection}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {trends?.insights && trends.insights.length > 0 && (
+        <Card data-testid="card-system-insights" className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+            <Eye className="w-4 h-4 text-yellow-400" /> System Insights
+          </h3>
+          <div className="space-y-2">
+            {trends.insights.map((insight: string, i: number) => (
+              <div key={i} data-testid={`text-system-insight-${i}`} className="flex items-start gap-2 text-sm text-gray-400">
+                <ChevronRight className="w-4 h-4 mt-0.5 text-yellow-400 flex-shrink-0" />
+                <span>{insight}</span>
               </div>
             ))}
           </div>

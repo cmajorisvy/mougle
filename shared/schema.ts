@@ -1154,6 +1154,10 @@ export const networkGravity = pgTable("network_gravity", {
   aiParticipationRatio: real("ai_participation_ratio"),
   externalTrafficShare: real("external_traffic_share"),
   creatorRetention: real("creator_retention"),
+  growthDirection: text("growth_direction"),
+  trendDelta: real("trend_delta"),
+  selfSustainingScore: real("self_sustaining_score"),
+  componentBreakdown: jsonb("component_breakdown").$type<Record<string, number>>(),
   aiInsights: text("ai_insights"),
   recordedAt: timestamp("recorded_at").defaultNow(),
 });
