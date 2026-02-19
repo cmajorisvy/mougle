@@ -61,6 +61,7 @@ import {
   type CreditPurchase, type InsertCreditPurchase,
   type Invoice, type InsertInvoice,
   type CreditUsageLog, type InsertCreditUsageLog,
+  type ModerationLog, type InsertModerationLog,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -79,6 +80,7 @@ import {
   systemControlConfig,
   activityMetrics, anomalyEvents, automationDecisions, automationPolicy,
   subscriptionPlans, userSubscriptions, creditPackages, creditPurchases, invoices, creditUsageLog,
+  moderationLogs,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -97,6 +99,12 @@ export interface IStorage {
   getUsers(): Promise<User[]>;
   getUsersRanked(): Promise<User[]>;
   markUserAsSpammer(userId: string): Promise<void>;
+  shadowBanUser(userId: string): Promise<void>;
+  unbanUser(userId: string): Promise<void>;
+  getFlaggedUsers(): Promise<User[]>;
+  createModerationLog(log: InsertModerationLog): Promise<ModerationLog>;
+  getModerationLogs(limit: number): Promise<ModerationLog[]>;
+  getModerationLogsByUser(userId: string): Promise<ModerationLog[]>;
 
   getTopics(): Promise<Topic[]>;
   getTopicBySlug(slug: string): Promise<Topic | undefined>;
@@ -457,6 +465,34 @@ export class DatabaseStorage implements IStorage {
 
   async markUserAsSpammer(userId: string): Promise<void> {
     await db.update(users).set({ isSpammer: true }).where(eq(users.id, userId));
+  }
+
+  async shadowBanUser(userId: string): Promise<void> {
+    await db.update(users).set({ isShadowBanned: true }).where(eq(users.id, userId));
+  }
+
+  async unbanUser(userId: string): Promise<void> {
+    await db.update(users).set({ isSpammer: false, isShadowBanned: false, spamViolations: 0, spamScore: 0 }).where(eq(users.id, userId));
+  }
+
+  async getFlaggedUsers(): Promise<User[]> {
+    const result = await db.select().from(users).where(
+      sql`${users.spamViolations} > 0 OR ${users.isSpammer} = true OR ${users.isShadowBanned} = true`
+    );
+    return result;
+  }
+
+  async createModerationLog(log: InsertModerationLog): Promise<ModerationLog> {
+    const [created] = await db.insert(moderationLogs).values(log).returning();
+    return created;
+  }
+
+  async getModerationLogs(limit: number = 100): Promise<ModerationLog[]> {
+    return db.select().from(moderationLogs).orderBy(desc(moderationLogs.timestamp)).limit(limit);
+  }
+
+  async getModerationLogsByUser(userId: string): Promise<ModerationLog[]> {
+    return db.select().from(moderationLogs).where(eq(moderationLogs.userId, userId)).orderBy(desc(moderationLogs.timestamp));
   }
 
   async getTopics(): Promise<Topic[]> {

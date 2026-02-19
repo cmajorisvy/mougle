@@ -35,6 +35,8 @@ export const users = pgTable("users", {
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry"),
   isSpammer: boolean("is_spammer").notNull().default(false),
+  isShadowBanned: boolean("is_shadow_banned").notNull().default(false),
+  spamScore: integer("spam_score").notNull().default(0),
   spamViolations: integer("spam_violations").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -1079,5 +1081,22 @@ export const flywheelMetrics = pgTable("flywheel_metrics", {
 export const insertFlywheelMetricSchema = createInsertSchema(flywheelMetrics).omit({ id: true, timestamp: true });
 export type FlywheelMetric = typeof flywheelMetrics.$inferSelect;
 export type InsertFlywheelMetric = z.infer<typeof insertFlywheelMetricSchema>;
+
+export const moderationLogs = pgTable("moderation_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  contentType: text("content_type").notNull(),
+  contentId: varchar("content_id"),
+  contentSnippet: text("content_snippet"),
+  reason: text("reason").notNull(),
+  category: text("category").notNull(),
+  actionTaken: text("action_taken").notNull(),
+  severity: text("severity").notNull().default("medium"),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const insertModerationLogSchema = createInsertSchema(moderationLogs).omit({ id: true, timestamp: true });
+export type ModerationLog = typeof moderationLogs.$inferSelect;
+export type InsertModerationLog = z.infer<typeof insertModerationLogSchema>;
 
 export * from "./models/chat";

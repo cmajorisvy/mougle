@@ -2,46 +2,28 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq, sql as dsql } from "drizzle-orm";
+import * as fs from "fs";
+import * as path from "path";
 
-const ADULT_TERMS = [
-  "porn", "xxx", "nsfw", "onlyfans", "sex video", "nude", "nudes", "naked",
-  "hentai", "erotic", "fetish", "camgirl", "camboy", "escort", "hooker",
-  "prostitut", "stripper", "booty call", "milf", "dilf", "orgasm", "orgy",
-  "threesome", "bdsm", "dominatrix", "submissive kink", "anal", "blowjob",
-  "handjob", "deepthroat", "cum shot", "creampie", "gangbang", "bukakke",
-  "sext", "dick pic", "pussy", "cock", "tits", "boobs", "ass pic",
-  "slutty", "whore", "slut", "pornhub", "xvideos", "xhamster", "redtube",
-  "brazzers", "chaturbate", "livejasmin", "bangbros", "realitykings",
-  "fap", "masturbat", "vibrator", "dildo", "fleshlight", "lingerie model",
-  "sugardaddy", "sugarbaby", "sugar daddy", "sugar baby", "sugar mommy",
-  "r34", "rule34", "lewd", "ahegao"
-];
-
-const GAMBLING_TERMS = [
-  "online casino", "casino bonus", "free spins", "slot machine", "poker online",
-  "sports betting", "bet365", "betway", "1xbet", "bovada", "draftkings",
-  "fanduel", "pinnacle", "unibet", "888casino", "pokerstars", "partypoker",
-  "blackjack online", "roulette online", "baccarat online", "craps online",
-  "gambling site", "place your bet", "betting odds", "win big money",
-  "jackpot", "mega win", "guaranteed win", "sure bet", "fixed match",
-  "match fixing", "rigged game", "casino deposit", "no deposit bonus",
-  "wagering requirement", "cashout bonus", "crypto casino", "crash gambling",
-  "csgo gambling", "skin gambling", "loot box", "gacha"
-];
-
-const NARCOTICS_TERMS = [
-  "buy weed", "buy cocaine", "buy heroin", "buy meth", "buy lsd",
-  "buy mdma", "buy ecstasy", "buy fentanyl", "buy xanax", "buy adderall",
-  "buy oxycontin", "buy oxycodone", "buy hydrocodone", "buy percocet",
-  "drug dealer", "drug supplier", "dark web drugs", "darknet market",
-  "silk road", "mushroom dealer", "shroom dealer", "acid dealer",
-  "crack cocaine", "crystal meth", "methamphetamine", "amphetamine",
-  "marijuana dealer", "cannabis dealer", "thc cartridge",
-  "buy steroids", "anabolic steroids", "prescription drugs online",
-  "pharmacy no prescription", "no rx needed", "ketamine supplier",
-  "dmt supplier", "pcp supplier", "ghb supplier", "rohypnol",
-  "date rape drug", "roofie"
-];
+let blockedTerms: any = null;
+function loadBlockedTerms() {
+  if (blockedTerms) return blockedTerms;
+  try {
+    const filePath = path.resolve(process.cwd(), "config/blocked_terms.json");
+    const raw = fs.readFileSync(filePath, "utf-8");
+    blockedTerms = JSON.parse(raw);
+  } catch {
+    blockedTerms = {
+      sexual_explicit_terms: [],
+      adult_services_terms: [],
+      gambling_terms: [],
+      narcotics_terms: [],
+      spam_phrases: [],
+      blocked_domains: [],
+    };
+  }
+  return blockedTerms;
+}
 
 const SPAM_PATTERNS = [
   /(?:https?:\/\/[^\s]+){3,}/i,
@@ -66,11 +48,16 @@ const SPAM_PATTERNS = [
 
 const URL_PATTERN = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
 
-interface ModerationResult {
+export type ContentCategory = "SAFE" | "ADULT" | "SEXUAL" | "GAMBLING" | "DRUGS" | "SPAM" | "SCAM";
+
+export interface ModerationResult {
   allowed: boolean;
   reasons: string[];
+  category: ContentCategory;
   isSpam: boolean;
+  spamScore: number;
   severity: "clean" | "low" | "medium" | "high";
+  blockedDomains: string[];
 }
 
 function normalizeText(text: string): string {
@@ -98,18 +85,29 @@ function checkTerms(text: string, terms: string[]): string[] {
   return found;
 }
 
-function checkSpamPatterns(text: string): boolean {
-  let matches = 0;
-  for (const pattern of SPAM_PATTERNS) {
-    if (pattern.test(text)) {
-      matches++;
-      if (matches >= 2) return true;
-    }
-  }
-  const urls = text.match(URL_PATTERN);
-  if (urls && urls.length >= 3) return true;
+function calculateSpamScore(text: string): number {
+  let score = 0;
 
-  return false;
+  for (const pattern of SPAM_PATTERNS) {
+    if (pattern.test(text)) score += 15;
+  }
+
+  const urls = text.match(URL_PATTERN) || [];
+  if (urls.length >= 3) score += 25;
+  if (urls.length >= 5) score += 25;
+
+  const hashtagCount = (text.match(/#\w+/g) || []).length;
+  if (hashtagCount > 5) score += 15;
+  if (hashtagCount > 10) score += 20;
+
+  if (hasExcessiveRepetition(text)) score += 20;
+
+  if (/(.{20,})\1{2,}/i.test(text)) score += 30;
+
+  const capsRatio = (text.replace(/[^A-Z]/g, "").length) / Math.max(text.length, 1);
+  if (capsRatio > 0.7 && text.length > 20) score += 15;
+
+  return Math.min(score, 100);
 }
 
 function hasExcessiveRepetition(text: string): boolean {
@@ -123,48 +121,46 @@ function hasExcessiveRepetition(text: string): boolean {
   return maxFreq > words.length * 0.5 && maxFreq > 3;
 }
 
-export function moderateContent(text: string, title?: string): ModerationResult {
-  const fullText = title ? `${title} ${text}` : text;
-  const reasons: string[] = [];
-  let severity: ModerationResult["severity"] = "clean";
-  let isSpam = false;
-
-  const adultMatches = checkTerms(fullText, ADULT_TERMS);
-  if (adultMatches.length > 0) {
-    reasons.push("Contains prohibited adult/explicit content");
-    severity = "high";
+function extractDomains(text: string): string[] {
+  const urls = text.match(URL_PATTERN) || [];
+  const domains: string[] = [];
+  for (const url of urls) {
+    try {
+      const parsed = new URL(url);
+      domains.push(parsed.hostname.replace(/^www\./, ""));
+    } catch {}
   }
+  return domains;
+}
 
-  const gamblingMatches = checkTerms(fullText, GAMBLING_TERMS);
-  if (gamblingMatches.length > 0) {
-    reasons.push("Contains prohibited gambling-related content");
-    severity = severity === "high" ? "high" : "medium";
+function checkBlockedDomains(text: string): string[] {
+  const terms = loadBlockedTerms();
+  const blockedList: string[] = terms.blocked_domains || [];
+  const domains = extractDomains(text);
+  const blocked: string[] = [];
+  for (const domain of domains) {
+    for (const bd of blockedList) {
+      if (domain === bd || domain.endsWith(`.${bd}`)) {
+        blocked.push(domain);
+        break;
+      }
+    }
   }
+  return blocked;
+}
 
-  const narcoticsMatches = checkTerms(fullText, NARCOTICS_TERMS);
-  if (narcoticsMatches.length > 0) {
-    reasons.push("Contains prohibited narcotics/drug-related content");
-    severity = "high";
-  }
-
-  if (checkSpamPatterns(fullText)) {
-    reasons.push("Content detected as spam");
-    isSpam = true;
-    severity = severity === "clean" ? "medium" : severity;
-  }
-
-  if (hasExcessiveRepetition(fullText)) {
-    reasons.push("Excessive word repetition detected");
-    isSpam = true;
-    severity = severity === "clean" ? "low" : severity;
-  }
-
-  return {
-    allowed: reasons.length === 0,
-    reasons,
-    isSpam,
-    severity,
-  };
+export function sanitizeHTML(text: string): string {
+  return text
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?>/gi, "")
+    .replace(/<form[\s\S]*?>[\s\S]*?<\/form>/gi, "")
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/on\w+\s*=\s*\S+/gi, "")
+    .replace(/javascript\s*:/gi, "")
+    .replace(/vbscript\s*:/gi, "")
+    .replace(/data\s*:\s*text\/html/gi, "");
 }
 
 export function sanitizeLinks(html: string): string {
@@ -178,23 +174,142 @@ export function sanitizeLinks(html: string): string {
   );
 }
 
-const SPAM_THRESHOLD = 3;
+function classifyContent(text: string): ContentCategory {
+  const terms = loadBlockedTerms();
 
-export async function recordViolation(userId: string, isSpam: boolean): Promise<boolean> {
+  const sexualMatches = checkTerms(text, [
+    ...(terms.sexual_explicit_terms || []),
+    ...(terms.adult_services_terms || []),
+  ]);
+  if (sexualMatches.length > 0) return "ADULT";
+
+  const gamblingMatches = checkTerms(text, terms.gambling_terms || []);
+  if (gamblingMatches.length > 0) return "GAMBLING";
+
+  const narcoticsMatches = checkTerms(text, terms.narcotics_terms || []);
+  if (narcoticsMatches.length > 0) return "DRUGS";
+
+  const spamMatches = checkTerms(text, terms.spam_phrases || []);
+  if (spamMatches.length > 0) return "SCAM";
+
+  const spamScore = calculateSpamScore(text);
+  if (spamScore >= 40) return "SPAM";
+
+  return "SAFE";
+}
+
+export function moderateContent(text: string, title?: string): ModerationResult {
+  const fullText = title ? `${title} ${text}` : text;
+  const sanitized = sanitizeHTML(fullText);
+  const reasons: string[] = [];
+  let severity: ModerationResult["severity"] = "clean";
+  let isSpam = false;
+
+  const category = classifyContent(sanitized);
+  const spamScore = calculateSpamScore(sanitized);
+  const blocked = checkBlockedDomains(sanitized);
+
+  if (category === "ADULT" || category === "SEXUAL") {
+    reasons.push("Contains prohibited adult/explicit content");
+    severity = "high";
+  }
+
+  if (category === "GAMBLING") {
+    reasons.push("Contains prohibited gambling-related content");
+    severity = severity === "high" ? "high" : "medium";
+  }
+
+  if (category === "DRUGS") {
+    reasons.push("Contains prohibited narcotics/drug-related content");
+    severity = "high";
+  }
+
+  if (category === "SCAM") {
+    reasons.push("Content detected as scam/fraud");
+    isSpam = true;
+    severity = "high";
+  }
+
+  if (category === "SPAM" || spamScore >= 40) {
+    reasons.push("Content detected as spam");
+    isSpam = true;
+    severity = severity === "clean" ? "medium" : severity;
+  }
+
+  if (blocked.length > 0) {
+    reasons.push(`Contains links to blocked domains: ${blocked.join(", ")}`);
+    severity = "high";
+  }
+
+  if (hasExcessiveRepetition(sanitized)) {
+    reasons.push("Excessive word repetition detected");
+    isSpam = true;
+    severity = severity === "clean" ? "low" : severity;
+  }
+
+  return {
+    allowed: reasons.length === 0,
+    reasons,
+    category,
+    isSpam,
+    spamScore,
+    severity,
+    blockedDomains: blocked,
+  };
+}
+
+export function moderateUsername(username: string): ModerationResult {
+  return moderateContent(username);
+}
+
+const WARNING_THRESHOLD = 3;
+const RESTRICTION_THRESHOLD = 5;
+const SPAMMER_THRESHOLD = 8;
+
+export async function recordViolation(
+  userId: string,
+  isSpam: boolean,
+  category: ContentCategory,
+  contentType: string,
+  contentSnippet?: string
+): Promise<{ markedAsSpammer: boolean; totalViolations: number }> {
   try {
     const increment = isSpam ? 2 : 1;
-    const [updated] = await db.update(users)
-      .set({ spamViolations: dsql`${users.spamViolations} + ${increment}` })
-      .where(eq(users.id, userId))
-      .returning({ spamViolations: users.spamViolations });
+    const spamIncrement = isSpam ? 15 : 5;
 
-    if (updated && updated.spamViolations >= SPAM_THRESHOLD) {
-      await storage.markUserAsSpammer(userId);
-      return true;
+    const [updated] = await db.update(users)
+      .set({
+        spamViolations: dsql`${users.spamViolations} + ${increment}`,
+        spamScore: dsql`LEAST(${users.spamScore} + ${spamIncrement}, 100)`,
+      })
+      .where(eq(users.id, userId))
+      .returning({ spamViolations: users.spamViolations, spamScore: users.spamScore });
+
+    try {
+      await storage.createModerationLog({
+        userId,
+        contentType,
+        contentSnippet: contentSnippet ? contentSnippet.substring(0, 200) : undefined,
+        reason: `Category: ${category}`,
+        category,
+        actionTaken: "blocked",
+        severity: category === "SAFE" ? "low" : "high",
+      });
+    } catch {}
+
+    if (updated) {
+      if (updated.spamViolations >= SPAMMER_THRESHOLD) {
+        await storage.markUserAsSpammer(userId);
+        return { markedAsSpammer: true, totalViolations: updated.spamViolations };
+      }
+      if (updated.spamViolations >= RESTRICTION_THRESHOLD) {
+        await storage.shadowBanUser(userId);
+      }
     }
-    return false;
+
+    return { markedAsSpammer: false, totalViolations: updated?.spamViolations || 0 };
   } catch {
-    return false;
+    return { markedAsSpammer: false, totalViolations: 0 };
   }
 }
 
@@ -205,4 +320,41 @@ export async function isUserSpammer(userId: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function isUserShadowBanned(userId: string): Promise<boolean> {
+  try {
+    const user = await storage.getUser(userId);
+    return user?.isShadowBanned === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getUserModerationStatus(userId: string): Promise<{
+  isSpammer: boolean;
+  isShadowBanned: boolean;
+  spamScore: number;
+  spamViolations: number;
+  canPost: boolean;
+  canPostLinks: boolean;
+}> {
+  try {
+    const user = await storage.getUser(userId);
+    if (!user) return { isSpammer: false, isShadowBanned: false, spamScore: 0, spamViolations: 0, canPost: true, canPostLinks: true };
+    return {
+      isSpammer: user.isSpammer,
+      isShadowBanned: user.isShadowBanned,
+      spamScore: user.spamScore,
+      spamViolations: user.spamViolations,
+      canPost: !user.isSpammer,
+      canPostLinks: !user.isSpammer && user.spamViolations < RESTRICTION_THRESHOLD,
+    };
+  } catch {
+    return { isSpammer: false, isShadowBanned: false, spamScore: 0, spamViolations: 0, canPost: true, canPostLinks: true };
+  }
+}
+
+export function stripLinksForSpammer(text: string): string {
+  return text.replace(URL_PATTERN, "[link removed]");
 }

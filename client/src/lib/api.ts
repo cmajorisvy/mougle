@@ -224,6 +224,15 @@ export const api = {
       optimize: (platform: string) =>
         adminFetch<any>("/admin/growth/optimize", { method: "POST", body: JSON.stringify({ platform }) }),
     },
+    moderation: {
+      flaggedUsers: () => adminFetch<any[]>("/admin/moderation/flagged-users"),
+      logs: (limit?: number) => adminFetch<any[]>(`/admin/moderation/logs?limit=${limit || 100}`),
+      userLogs: (userId: string) => adminFetch<any[]>(`/admin/moderation/logs/${userId}`),
+      shadowBan: (userId: string) => adminFetch<any>(`/admin/moderation/shadow-ban/${userId}`, { method: "POST" }),
+      unban: (userId: string) => adminFetch<any>(`/admin/moderation/unban/${userId}`, { method: "POST" }),
+      markSpammer: (userId: string) => adminFetch<any>(`/admin/moderation/mark-spammer/${userId}`, { method: "POST" }),
+      userStatus: (userId: string) => adminFetch<any>(`/admin/moderation/user-status/${userId}`),
+    },
     founderControl: {
       configs: () => adminFetch<any[]>("/admin/founder-control/configs"),
       status: () => adminFetch<any>("/admin/founder-control/status"),

@@ -32,7 +32,8 @@ import * as contentFlywheel from "./services/content-flywheel-service";
 import { newsPipelineService } from "./services/news-pipeline-service";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { moderateContent, recordViolation, isUserSpammer } from "./services/content-moderation-service";
+import { moderateContent, moderateUsername, recordViolation, isUserSpammer, isUserShadowBanned, sanitizeHTML, sanitizeLinks, getUserModerationStatus, stripLinksForSpammer, type ContentCategory } from "./services/content-moderation-service";
+import { postCooldownMiddleware } from "./middleware/rate-limiter";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -80,6 +81,10 @@ export async function registerRoutes(
     try {
       const parsed = signupSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      const usernameCheck = moderateUsername(parsed.data.username);
+      if (!usernameCheck.allowed) {
+        return res.status(400).json({ message: "Content violates platform safety guidelines." });
+      }
       const result = await authService.signup(parsed.data);
       res.status(201).json(result);
     } catch (err) { handleServiceError(res, err); }
@@ -94,6 +99,10 @@ export async function registerRoutes(
       };
       const parsed = signupSchema.safeParse(data);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      const usernameCheck = moderateUsername(parsed.data.username);
+      if (!usernameCheck.allowed) {
+        return res.status(400).json({ message: "Content violates platform safety guidelines." });
+      }
       const result = await authService.signup(parsed.data);
       res.status(201).json(result);
     } catch (err) { handleServiceError(res, err); }
@@ -170,7 +179,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/posts", async (req, res) => {
+  app.post("/api/posts", postCooldownMiddleware, async (req, res) => {
     try {
       const parsed = insertPostSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
@@ -179,10 +188,10 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Your account has been flagged for spam. You cannot create posts." });
       }
 
-      const modResult = moderateContent(parsed.data.content, parsed.data.title);
+      const modResult = moderateContent(sanitizeHTML(parsed.data.content), parsed.data.title);
       if (!modResult.allowed) {
-        if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam);
-        return res.status(400).json({ message: `Content rejected: ${modResult.reasons.join(". ")}` });
+        if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam, modResult.category, "post", parsed.data.content?.substring(0, 200));
+        return res.status(400).json({ message: "Content violates platform safety guidelines." });
       }
 
       res.status(201).json(await discussionService.createPost(parsed.data));
@@ -246,7 +255,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/posts/:postId/comments", async (req, res) => {
+  app.post("/api/posts/:postId/comments", postCooldownMiddleware, async (req, res) => {
     try {
       const data = { ...req.body, postId: req.params.postId };
       const parsed = insertCommentSchema.safeParse(data);
@@ -256,10 +265,10 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Your account has been flagged for spam. You cannot post comments." });
       }
 
-      const modResult = moderateContent(parsed.data.content);
+      const modResult = moderateContent(sanitizeHTML(parsed.data.content));
       if (!modResult.allowed) {
-        if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam);
-        return res.status(400).json({ message: `Comment rejected: ${modResult.reasons.join(". ")}` });
+        if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam, modResult.category, "comment", parsed.data.content?.substring(0, 200));
+        return res.status(400).json({ message: "Content violates platform safety guidelines." });
       }
 
       res.status(201).json(await discussionService.createComment(parsed.data));
@@ -1010,6 +1019,13 @@ export async function registerRoutes(
   // ---- LIVE DEBATES ----
   app.post("/api/debates", async (req, res) => {
     try {
+      const { topic, description } = req.body;
+      if (topic || description) {
+        const modResult = moderateContent(sanitizeHTML(description || ""), topic);
+        if (!modResult.allowed) {
+          return res.status(400).json({ message: "Content violates platform safety guidelines." });
+        }
+      }
       const debate = await debateOrchestrator.createDebate(req.body);
       res.status(201).json(debate);
     } catch (err) { handleServiceError(res, err); }
@@ -1324,6 +1340,68 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ---- ADMIN MODERATION ----
+  app.get("/api/admin/moderation/flagged-users", requireAdmin, async (_req, res) => {
+    try {
+      const flagged = await storage.getFlaggedUsers();
+      res.json(flagged.map(u => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        displayName: u.displayName,
+        role: u.role,
+        isSpammer: u.isSpammer,
+        isShadowBanned: u.isShadowBanned,
+        spamScore: u.spamScore,
+        spamViolations: u.spamViolations,
+        createdAt: u.createdAt,
+      })));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/moderation/logs", requireAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
+      const logs = await storage.getModerationLogs(limit);
+      res.json(logs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/moderation/logs/:userId", requireAdmin, async (req, res) => {
+    try {
+      const logs = await storage.getModerationLogsByUser(req.params.userId);
+      res.json(logs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/moderation/shadow-ban/:userId", requireAdmin, async (req, res) => {
+    try {
+      await storage.shadowBanUser(req.params.userId);
+      res.json({ message: "User shadow banned" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/moderation/unban/:userId", requireAdmin, async (req, res) => {
+    try {
+      await storage.unbanUser(req.params.userId);
+      res.json({ message: "User unbanned" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/moderation/mark-spammer/:userId", requireAdmin, async (req, res) => {
+    try {
+      await storage.markUserAsSpammer(req.params.userId);
+      res.json({ message: "User marked as spammer" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/moderation/user-status/:userId", requireAdmin, async (req, res) => {
+    try {
+      const status = await getUserModerationStatus(req.params.userId);
+      res.json(status);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   // ---- NEWS PIPELINE ----
   app.get("/api/news", async (req, res) => {
     try {
@@ -1420,7 +1498,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/news/:id/comments", async (req, res) => {
+  app.post("/api/news/:id/comments", postCooldownMiddleware, async (req, res) => {
     try {
       const articleId = parseInt(req.params.id);
       const { authorId, content, parentId, commentType } = req.body;
@@ -1430,10 +1508,10 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Your account has been flagged for spam. You cannot post comments." });
       }
 
-      const modResult = moderateContent(content);
+      const modResult = moderateContent(sanitizeHTML(content));
       if (!modResult.allowed) {
-        await recordViolation(authorId, modResult.isSpam);
-        return res.status(400).json({ message: `Comment rejected: ${modResult.reasons.join(". ")}` });
+        await recordViolation(authorId, modResult.isSpam, modResult.category, "news_comment", content?.substring(0, 200));
+        return res.status(400).json({ message: "Content violates platform safety guidelines." });
       }
 
       const comment = await storage.createNewsComment({
