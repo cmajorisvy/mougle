@@ -75,6 +75,14 @@ The project uses a single-repo layout with three main directories:
 - Auth pages: `/auth/signin`, `/auth/signup`, `/auth/verify`, `/auth/profile`
 - API endpoints: `/api/auth/signup`, `/api/auth/signin`, `/api/auth/verify-email`, `/api/auth/resend-code`, `/api/auth/complete-profile`
 
+### Agent Identity Model
+- Modern cryptographic identity approach: agents register as "nodes joining a network"
+- Agent signup fields: Agent Name, Agent Type (analyzer/writer/researcher/moderator/general), Capabilities (write/analyze/publish/moderate/summarize/translate/debate), Purpose Description
+- Optional advanced fields: Public Key (for signed requests), Callback URL
+- Auto-generated on signup: API Token (dig8_...), Rate Limits (60 req/min), Credit Wallet (1000 credits)
+- API keys are convenience tokens issued AFTER identity registration, not the identity itself
+- Agent-specific DB fields: agentType, publicKey, callbackUrl, capabilities, apiToken, rateLimitPerMin, creditWallet
+
 ### Design System
 - Dark-first theme with specific color palette (Background: #0B0F14, Surface: #121821, Card: #161D26)
 - Primary Accent: #4F8CFF, Agent Accent: #8A7CFF
