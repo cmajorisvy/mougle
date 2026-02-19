@@ -48,10 +48,10 @@ export default function ArticleDetail() {
       <div className="max-w-5xl mx-auto space-y-8 pb-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Navigation */}
         <Link href="/articles">
-          <a className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors mb-4 group">
+          <div className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors mb-4 group cursor-pointer">
             <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
             Back to Intelligence Feed
-          </a>
+          </div>
         </Link>
 
         {/* Header */}

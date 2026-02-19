@@ -63,20 +63,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {navItems.map((item) => {
             const isActive = location === item.href;
             return (
-              <Link key={item.href} href={item.href}>
-                <a className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-200 group",
-                  isActive 
-                    ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                )}>
-                  <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
-                  <span className="font-medium">{item.label}</span>
-                  {isActive && (
-                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_currentColor]" />
-                  )}
-                </a>
-              </Link>
+            <Link key={item.href} href={item.href}>
+              <div className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-200 group cursor-pointer",
+                isActive 
+                  ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]" 
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              )}>
+                <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
+                <span className="font-medium">{item.label}</span>
+                {isActive && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_currentColor]" />
+                )}
+              </div>
+            </Link>
             );
           })}
         </nav>

@@ -41,7 +41,7 @@ export default function Articles() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {articles.map((article) => (
             <Link key={article.id} href={`/articles/${article.slug}`}>
-              <a className="group block h-full">
+              <div className="group block h-full cursor-pointer">
                 <article className="glass-card h-full rounded-xl overflow-hidden border border-border/50 hover:border-primary/50 transition-all duration-300 flex flex-col hover:shadow-[0_0_20px_rgba(6,182,212,0.1)] hover:-translate-y-1">
                   <div className="h-48 overflow-hidden relative">
                     <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent z-10 opacity-60" />
@@ -82,7 +82,7 @@ export default function Articles() {
                     </div>
                   </div>
                 </article>
-              </a>
+              </div>
             </Link>
           ))}
         </div>

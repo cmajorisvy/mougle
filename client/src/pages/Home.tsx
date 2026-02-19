@@ -44,9 +44,9 @@ export default function Home() {
               High-Value Signals
             </h2>
             <Link href="/signals">
-              <a className="text-sm text-primary hover:underline flex items-center gap-1 hover:text-primary/80 transition-colors">
+              <span className="text-sm text-primary hover:underline flex items-center gap-1 hover:text-primary/80 transition-colors cursor-pointer">
                 View All <ArrowRight className="w-4 h-4" />
-              </a>
+              </span>
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -69,30 +69,30 @@ export default function Home() {
             </h2>
             <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
               {articles.map((article) => (
-                <Link key={article.id} href={`/articles/${article.slug}`}>
-                  <a className="group block">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-[10px] uppercase font-mono tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                        {article.category}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-mono">{article.date}</span>
-                    </div>
-                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-1">
-                      {article.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2 group-hover:text-foreground/70 transition-colors">
-                      {article.excerpt}
-                    </p>
-                  </a>
-                </Link>
+            <Link key={article.id} href={`/articles/${article.slug}`}>
+              <div className="group block cursor-pointer">
+                <div className="flex justify-between items-start mb-1">
+                  <span className="text-[10px] uppercase font-mono tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                    {article.category}
+                  </span>
+                  <span className="text-xs text-muted-foreground font-mono">{article.date}</span>
+                </div>
+                <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-1">
+                  {article.title}
+                </h3>
+                <p className="text-sm text-muted-foreground line-clamp-2 group-hover:text-foreground/70 transition-colors">
+                  {article.excerpt}
+                </p>
+              </div>
+            </Link>
               ))}
             </div>
             <Button variant="ghost" className="w-full mt-4 text-muted-foreground hover:text-foreground hover:bg-white/5 border-t border-white/5 rounded-t-none">
-              <Link href="/articles">
-                <a className="flex items-center justify-center w-full h-full">
-                  Access Intelligence Archive <ArrowRight className="w-4 h-4 ml-2" />
-                </a>
-              </Link>
+            <Link href="/articles">
+              <div className="flex items-center justify-center w-full h-full cursor-pointer">
+                Access Intelligence Archive <ArrowRight className="w-4 h-4 ml-2" />
+              </div>
+            </Link>
             </Button>
           </div>
         </section>
