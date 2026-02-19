@@ -10,6 +10,7 @@ import { agentOrchestrator } from "./services/agent-orchestrator";
 import { economyService } from "./services/economy-service";
 import { agentLearningService } from "./services/agent-learning-service";
 import { collaborationService } from "./services/agent-collaboration-service";
+import { governanceService } from "./services/governance-service";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -410,6 +411,140 @@ export async function registerRoutes(
         confidenceLevel: confidenceLevel || null,
       });
       res.status(201).json(msg);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- GOVERNANCE ----
+  app.get("/api/governance/proposals", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const proposals = await storage.getProposals(status);
+      const enriched = await Promise.all(
+        proposals.map(async (p) => {
+          const creator = await storage.getUser(p.creatorId);
+          const votes = await storage.getVotesByProposal(p.id);
+          return { ...p, creatorName: creator?.displayName || "Unknown", creatorAvatar: creator?.avatar || null, voteCount: votes.length };
+        })
+      );
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/governance/proposals/:id", async (req, res) => {
+    try {
+      const proposal = await storage.getProposal(req.params.id);
+      if (!proposal) return res.status(404).json({ message: "Proposal not found" });
+      const creator = await storage.getUser(proposal.creatorId);
+      const votes = await storage.getVotesByProposal(proposal.id);
+      const enrichedVotes = await Promise.all(
+        votes.map(async (v) => {
+          const voter = await storage.getUser(v.voterId);
+          return { ...v, voterName: voter?.displayName || "Unknown", voterAvatar: voter?.avatar || null };
+        })
+      );
+      res.json({ ...proposal, creatorName: creator?.displayName || "Unknown", votes: enrichedVotes });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/governance/proposals", async (req, res) => {
+    try {
+      const { creatorId, creatorType, proposalType, title, description, targetId, targetId2, parameters } = req.body;
+      if (!creatorId || !proposalType || !title || !description) {
+        return res.status(400).json({ message: "creatorId, proposalType, title, and description required" });
+      }
+      const proposal = await governanceService.createProposal(creatorId, creatorType || "agent", proposalType, title, description, targetId, targetId2, parameters);
+      res.status(201).json(proposal);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/governance/proposals/:id/vote", async (req, res) => {
+    try {
+      const { voterId, voterType, voteChoice, reasoning } = req.body;
+      if (!voterId || !voteChoice) return res.status(400).json({ message: "voterId and voteChoice required" });
+      const vote = await governanceService.castVote(req.params.id, voterId, voterType || "agent", voteChoice, reasoning);
+      res.status(201).json(vote);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/governance/metrics", async (_req, res) => {
+    try {
+      res.json(await governanceService.getGovernanceMetrics());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/governance/trigger", async (_req, res) => {
+    try {
+      const result = await governanceService.runGovernanceCycle();
+      res.json({ message: "Governance cycle triggered", ...result });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/alliances", async (_req, res) => {
+    try {
+      const alliancesList = await storage.getAlliances();
+      const enriched = await Promise.all(
+        alliancesList.map(async (a) => {
+          const members = await storage.getAllianceMembers(a.id);
+          const societies = await Promise.all(members.map(async (m) => {
+            const s = await storage.getSociety(m.societyId);
+            return s ? { id: s.id, name: s.name, reputation: s.reputationScore, treasury: s.treasuryBalance } : null;
+          }));
+          return { ...a, societies: societies.filter(Boolean), memberCount: members.length };
+        })
+      );
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/institutions", async (_req, res) => {
+    try {
+      res.json(await governanceService.getInstitutions());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/institution-rules", async (_req, res) => {
+    try {
+      res.json(await storage.getInstitutionRules());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/task-contracts", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const contracts = await storage.getTaskContracts(status);
+      const enriched = await Promise.all(
+        contracts.map(async (c) => {
+          const bids = await storage.getTaskBids(c.id);
+          const post = await storage.getPost(c.postId);
+          return { ...c, bidCount: bids.length, postTitle: post?.title || null };
+        })
+      );
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/task-contracts", async (req, res) => {
+    try {
+      const { postId, description, requiredExpertise } = req.body;
+      if (!postId || !description) return res.status(400).json({ message: "postId and description required" });
+      const contract = await governanceService.createTaskContract(postId, description, requiredExpertise || []);
+      res.status(201).json(contract);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/task-contracts/:id/bid", async (req, res) => {
+    try {
+      const { societyId, expectedAccuracy, completionTime, creditCost } = req.body;
+      if (!societyId || expectedAccuracy === undefined) return res.status(400).json({ message: "societyId and expectedAccuracy required" });
+      const bid = await governanceService.submitBid(req.params.id, societyId, expectedAccuracy, completionTime || 60, creditCost || 50);
+      res.status(201).json(bid);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/task-contracts/:id/select-bid", async (req, res) => {
+    try {
+      const bestBid = await governanceService.selectBestBid(req.params.id);
+      res.json(bestBid);
     } catch (err) { handleServiceError(res, err); }
   });
 

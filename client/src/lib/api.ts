@@ -84,5 +84,26 @@ export const api = {
   agentChat: {
     send: (data: any) => fetchJSON<any>("/agent/internal-chat", { method: "POST", body: JSON.stringify(data) }),
   },
+  governance: {
+    proposals: (status?: string) => fetchJSON<any[]>(`/governance/proposals${status ? `?status=${status}` : ""}`),
+    proposal: (id: string) => fetchJSON<any>(`/governance/proposals/${id}`),
+    createProposal: (data: any) => fetchJSON<any>("/governance/proposals", { method: "POST", body: JSON.stringify(data) }),
+    vote: (proposalId: string, data: any) => fetchJSON<any>(`/governance/proposals/${proposalId}/vote`, { method: "POST", body: JSON.stringify(data) }),
+    metrics: () => fetchJSON<any>("/governance/metrics"),
+    trigger: () => fetchJSON<any>("/governance/trigger", { method: "POST" }),
+  },
+  alliances: {
+    list: () => fetchJSON<any[]>("/alliances"),
+  },
+  institutions: {
+    list: () => fetchJSON<any[]>("/institutions"),
+    rules: () => fetchJSON<any[]>("/institution-rules"),
+  },
+  taskContracts: {
+    list: (status?: string) => fetchJSON<any[]>(`/task-contracts${status ? `?status=${status}` : ""}`),
+    create: (data: any) => fetchJSON<any>("/task-contracts", { method: "POST", body: JSON.stringify(data) }),
+    bid: (contractId: string, data: any) => fetchJSON<any>(`/task-contracts/${contractId}/bid`, { method: "POST", body: JSON.stringify(data) }),
+    selectBid: (contractId: string) => fetchJSON<any>(`/task-contracts/${contractId}/select-bid`, { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles, Users, GitBranch, CheckCircle2, CircleDot, Gem, Search, Scale, FileText, AlertTriangle } from "lucide-react";
+import { Loader2, Bot, Activity, Zap, MessageSquare, Shield, Eye, Clock, Play, RefreshCw, Crown, Award, Medal, Coins, ArrowUpRight, ArrowDownRight, TrendingUp, Wallet, Brain, Target, Compass, BarChart3, Sparkles, Users, GitBranch, CheckCircle2, CircleDot, Gem, Search, Scale, FileText, AlertTriangle, Vote, Handshake, Building2, ScrollText, Gavel, ThumbsUp, ThumbsDown, Timer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -87,6 +87,40 @@ export default function AgentDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/societies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/collaboration/metrics"] });
+    },
+  });
+
+  const { data: govProposals = [], isLoading: govProposalsLoading } = useQuery({
+    queryKey: ["/api/governance/proposals"],
+    queryFn: () => api.governance.proposals(),
+    refetchInterval: 15000,
+  });
+
+  const { data: govMetrics, isLoading: govMetricsLoading } = useQuery({
+    queryKey: ["/api/governance/metrics"],
+    queryFn: () => api.governance.metrics(),
+    refetchInterval: 15000,
+  });
+
+  const { data: alliancesData = [] } = useQuery({
+    queryKey: ["/api/alliances"],
+    queryFn: () => api.alliances.list(),
+    refetchInterval: 15000,
+  });
+
+  const { data: institutionsData = [] } = useQuery({
+    queryKey: ["/api/institutions"],
+    queryFn: () => api.institutions.list(),
+    refetchInterval: 15000,
+  });
+
+  const govTriggerMutation = useMutation({
+    mutationFn: () => api.governance.trigger(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/governance/proposals"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/governance/metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/alliances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/institutions"] });
     },
   });
 
@@ -854,6 +888,237 @@ export default function AgentDashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4" data-testid="section-governance">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-display font-bold flex items-center gap-2">
+              <Gavel className="w-5 h-5 text-violet-400" />
+              Governance & Institutions
+            </h2>
+            <Button
+              data-testid="button-trigger-governance"
+              variant="outline"
+              size="sm"
+              className="h-8 bg-card border-white/10 hover:bg-violet-500/10 hover:border-violet-500/30 hover:text-violet-400"
+              onClick={() => govTriggerMutation.mutate()}
+              disabled={govTriggerMutation.isPending}
+            >
+              {govTriggerMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Vote className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              Run Governance Cycle
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            {[
+              { icon: ScrollText, label: "Total Proposals", value: govMetrics?.totalProposals || 0, color: "text-violet-400" },
+              { icon: Vote, label: "Active", value: govMetrics?.activeProposals || 0, color: "text-blue-400" },
+              { icon: CheckCircle2, label: "Executed", value: govMetrics?.executedProposals || 0, color: "text-green-400" },
+              { icon: Handshake, label: "Alliances", value: govMetrics?.activeAlliances || 0, color: "text-cyan-400" },
+              { icon: Building2, label: "Institutions", value: govMetrics?.institutions || 0, color: "text-amber-400" },
+              { icon: ThumbsUp, label: "Approval Rate", value: `${govMetrics?.approvalRate || 0}%`, color: "text-emerald-400" },
+            ].map((stat) => (
+              <div key={stat.label} className="glass-card rounded-xl p-3 border border-white/5">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-1">
+                  <stat.icon className="w-3 h-3" />
+                  {stat.label}
+                </div>
+                <span className={cn("font-semibold text-base", stat.color)}>{govMetricsLoading ? "..." : stat.value}</span>
+              </div>
+            ))}
+          </div>
+
+          {govProposalsLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            </div>
+          ) : govProposals.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm glass-card rounded-xl border border-white/5">
+              No governance proposals yet. Trigger a governance cycle to auto-generate proposals.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <ScrollText className="w-3 h-3" /> Active Proposals
+              </div>
+              {govProposals.slice(0, 10).map((proposal: any) => {
+                const statusColors: Record<string, string> = {
+                  discussion: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+                  voting: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+                  executed: "bg-green-500/10 text-green-400 border-green-500/20",
+                  rejected: "bg-red-500/10 text-red-400 border-red-500/20",
+                  expired: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+                  failed: "bg-red-500/10 text-red-400 border-red-500/20",
+                };
+                const typeIcons: Record<string, any> = {
+                  SOCIETY_MERGE: GitBranch,
+                  ALLIANCE_FORMATION: Handshake,
+                  AGENT_ADMISSION: Users,
+                  INSTITUTION_PROMOTION: Building2,
+                  DISPUTE_RESOLUTION: Gavel,
+                  REWARD_PARAMETER_CHANGE: Coins,
+                  ECONOMY_ADJUSTMENT: TrendingUp,
+                  RULE_CHANGE: ScrollText,
+                };
+                const TypeIcon = typeIcons[proposal.proposalType] || ScrollText;
+                const totalVotes = (proposal.votesFor || 0) + (proposal.votesAgainst || 0);
+                const approvalPct = totalVotes > 0 ? Math.round(((proposal.votesFor || 0) / totalVotes) * 100) : 0;
+                return (
+                  <div key={proposal.id} data-testid={`proposal-${proposal.id}`} className="glass-card rounded-xl p-4 border border-white/5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div className="p-2 rounded-lg bg-violet-500/10 mt-0.5">
+                          <TypeIcon className="w-4 h-4 text-violet-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium truncate">{proposal.title}</span>
+                            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", statusColors[proposal.status] || "")}>
+                              {proposal.status}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-white/5 text-muted-foreground border-white/10">
+                              {proposal.proposalType.replace(/_/g, " ")}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{proposal.description}</p>
+                          <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Avatar className="w-4 h-4">
+                                <AvatarImage src={proposal.creatorAvatar} />
+                                <AvatarFallback className="text-[8px] bg-violet-500/20 text-violet-400">{proposal.creatorName?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              {proposal.creatorName}
+                            </span>
+                            {proposal.createdAt && (
+                              <span className="flex items-center gap-1">
+                                <Timer className="w-3 h-3" />
+                                {formatDistanceToNow(new Date(proposal.createdAt), { addSuffix: true })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 text-xs shrink-0">
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center gap-1 text-green-400">
+                            <ThumbsUp className="w-3 h-3" />{proposal.votesFor || 0}
+                          </span>
+                          <span className="flex items-center gap-1 text-red-400">
+                            <ThumbsDown className="w-3 h-3" />{proposal.votesAgainst || 0}
+                          </span>
+                        </div>
+                        {totalVotes > 0 && (
+                          <div className="w-20">
+                            <div className="flex gap-0.5 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-green-500/70 rounded-l-full" style={{ width: `${approvalPct}%` }} />
+                              <div className="bg-red-500/70 rounded-r-full" style={{ width: `${100 - approvalPct}%` }} />
+                            </div>
+                            <div className="text-[10px] text-center text-muted-foreground mt-0.5">{approvalPct}% approval</div>
+                          </div>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">{proposal.voteCount || 0} votes</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {(alliancesData.length > 0 || institutionsData.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {alliancesData.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                    <Handshake className="w-3 h-3" /> Alliances
+                  </div>
+                  {alliancesData.map((alliance: any) => (
+                    <div key={alliance.id} data-testid={`alliance-${alliance.id}`} className="glass-card rounded-lg p-3 border border-white/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Handshake className="w-4 h-4 text-cyan-400" />
+                          <span className="text-sm font-medium">{alliance.name}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+                          {alliance.memberCount} societies
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+                        <span>Treasury: <span className="text-amber-400 font-medium">{(alliance.sharedTreasury || 0).toLocaleString()} IC</span></span>
+                        <span>Rep: <span className="text-emerald-400 font-medium">{Math.round(alliance.collectiveReputation || 0)}</span></span>
+                      </div>
+                      {alliance.societies?.length > 0 && (
+                        <div className="flex gap-1.5 mt-2 flex-wrap">
+                          {alliance.societies.map((s: any) => (
+                            <Badge key={s.id} variant="outline" className="text-[10px] px-1.5 py-0 bg-white/5 border-white/10">
+                              {s.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {institutionsData.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                    <Building2 className="w-3 h-3" /> Autonomous Institutions
+                  </div>
+                  {institutionsData.map((inst: any) => (
+                    <div key={inst.id} data-testid={`institution-${inst.id}`} className="glass-card rounded-lg p-3 border border-white/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-amber-400" />
+                          <span className="text-sm font-medium">{inst.name}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                          Institution
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
+                        <span>Members: <span className="font-medium">{inst.memberCount}</span></span>
+                        <span>Rep: <span className="text-emerald-400 font-medium">{Math.round(inst.reputationScore || 0)}</span></span>
+                        <span>Treasury: <span className="text-amber-400 font-medium">{(inst.treasuryBalance || 0).toLocaleString()} IC</span></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {govMetrics?.proposalsByType && Object.keys(govMetrics.proposalsByType).length > 0 && (
+            <div className="glass-card rounded-xl p-4 border border-white/5">
+              <div className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-3">
+                <BarChart3 className="w-3 h-3" /> Proposals by Type
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {Object.entries(govMetrics.proposalsByType).map(([type, count]) => {
+                  const typeColors: Record<string, string> = {
+                    SOCIETY_MERGE: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+                    ALLIANCE_FORMATION: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+                    AGENT_ADMISSION: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+                    INSTITUTION_PROMOTION: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                    DISPUTE_RESOLUTION: "bg-red-500/10 text-red-400 border-red-500/20",
+                    REWARD_PARAMETER_CHANGE: "bg-green-500/10 text-green-400 border-green-500/20",
+                    ECONOMY_ADJUSTMENT: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+                    RULE_CHANGE: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+                  };
+                  return (
+                    <Badge key={type} variant="outline" className={cn("text-xs px-2 py-1", typeColors[type] || "bg-white/5 text-muted-foreground border-white/10")}>
+                      {type.replace(/_/g, " ")}: {String(count)}
+                    </Badge>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

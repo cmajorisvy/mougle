@@ -206,6 +206,84 @@ export const agentMessages = pgTable("agent_messages", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const governanceProposals = pgTable("governance_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull(),
+  creatorType: text("creator_type").notNull().default("agent"),
+  proposalType: text("proposal_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  status: text("status").notNull().default("discussion"),
+  targetId: varchar("target_id"),
+  targetId2: varchar("target_id2"),
+  parameters: jsonb("parameters").notNull().default({}),
+  votesFor: integer("votes_for").notNull().default(0),
+  votesAgainst: integer("votes_against").notNull().default(0),
+  totalVotingPower: real("total_voting_power").notNull().default(0),
+  discussionDeadline: timestamp("discussion_deadline"),
+  votingDeadline: timestamp("voting_deadline"),
+  executedAt: timestamp("executed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const governanceVotes = pgTable("governance_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").notNull(),
+  voterId: varchar("voter_id").notNull(),
+  voterType: text("voter_type").notNull().default("agent"),
+  votingPower: real("voting_power").notNull().default(1),
+  voteChoice: text("vote_choice").notNull(),
+  reasoning: text("reasoning"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const alliances = pgTable("alliances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  sharedTreasury: integer("shared_treasury").notNull().default(0),
+  collectiveReputation: real("collective_reputation").notNull().default(0),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const allianceMembers = pgTable("alliance_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  allianceId: varchar("alliance_id").notNull(),
+  societyId: varchar("society_id").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+export const institutionRules = pgTable("institution_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleName: text("rule_name").notNull().unique(),
+  ruleValue: text("rule_value").notNull(),
+  category: text("category").notNull().default("general"),
+  lastModifiedByVote: varchar("last_modified_by_vote"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const taskContracts = pgTable("task_contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  description: text("description").notNull(),
+  requiredExpertise: text("required_expertise").array(),
+  status: text("status").notNull().default("open"),
+  selectedBidId: varchar("selected_bid_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const taskBids = pgTable("task_bids", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractId: varchar("contract_id").notNull(),
+  societyId: varchar("society_id").notNull(),
+  expectedAccuracy: real("expected_accuracy").notNull(),
+  completionTime: integer("completion_time").notNull(),
+  creditCost: integer("credit_cost").notNull(),
+  score: real("score"),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const agentActivityLog = pgTable("agent_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -234,6 +312,13 @@ export const insertAgentSocietySchema = createInsertSchema(agentSocieties).omit(
 export const insertSocietyMemberSchema = createInsertSchema(societyMembers).omit({ id: true, joinedAt: true });
 export const insertDelegatedTaskSchema = createInsertSchema(delegatedTasks).omit({ id: true, createdAt: true, completedAt: true });
 export const insertAgentMessageSchema = createInsertSchema(agentMessages).omit({ id: true, createdAt: true });
+export const insertGovernanceProposalSchema = createInsertSchema(governanceProposals).omit({ id: true, createdAt: true, executedAt: true, votesFor: true, votesAgainst: true, totalVotingPower: true });
+export const insertGovernanceVoteSchema = createInsertSchema(governanceVotes).omit({ id: true, createdAt: true });
+export const insertAllianceSchema = createInsertSchema(alliances).omit({ id: true, createdAt: true });
+export const insertAllianceMemberSchema = createInsertSchema(allianceMembers).omit({ id: true, joinedAt: true });
+export const insertInstitutionRuleSchema = createInsertSchema(institutionRules).omit({ id: true, updatedAt: true });
+export const insertTaskContractSchema = createInsertSchema(taskContracts).omit({ id: true, createdAt: true });
+export const insertTaskBidSchema = createInsertSchema(taskBids).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -270,3 +355,17 @@ export type InsertDelegatedTask = z.infer<typeof insertDelegatedTaskSchema>;
 export type DelegatedTask = typeof delegatedTasks.$inferSelect;
 export type InsertAgentMessage = z.infer<typeof insertAgentMessageSchema>;
 export type AgentMessage = typeof agentMessages.$inferSelect;
+export type InsertGovernanceProposal = z.infer<typeof insertGovernanceProposalSchema>;
+export type GovernanceProposal = typeof governanceProposals.$inferSelect;
+export type InsertGovernanceVote = z.infer<typeof insertGovernanceVoteSchema>;
+export type GovernanceVote = typeof governanceVotes.$inferSelect;
+export type InsertAlliance = z.infer<typeof insertAllianceSchema>;
+export type Alliance = typeof alliances.$inferSelect;
+export type InsertAllianceMember = z.infer<typeof insertAllianceMemberSchema>;
+export type AllianceMember = typeof allianceMembers.$inferSelect;
+export type InsertInstitutionRule = z.infer<typeof insertInstitutionRuleSchema>;
+export type InstitutionRule = typeof institutionRules.$inferSelect;
+export type InsertTaskContract = z.infer<typeof insertTaskContractSchema>;
+export type TaskContract = typeof taskContracts.$inferSelect;
+export type InsertTaskBid = z.infer<typeof insertTaskBidSchema>;
+export type TaskBid = typeof taskBids.$inferSelect;

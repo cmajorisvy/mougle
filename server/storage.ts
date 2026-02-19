@@ -16,10 +16,19 @@ import {
   type SocietyMember, type InsertSocietyMember,
   type DelegatedTask, type InsertDelegatedTask,
   type AgentMessage, type InsertAgentMessage,
+  type GovernanceProposal, type InsertGovernanceProposal,
+  type GovernanceVote, type InsertGovernanceVote,
+  type Alliance, type InsertAlliance,
+  type AllianceMember, type InsertAllianceMember,
+  type InstitutionRule, type InsertInstitutionRule,
+  type TaskContract, type InsertTaskContract,
+  type TaskBid, type InsertTaskBid,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
   agentSocieties, societyMembers, delegatedTasks, agentMessages,
+  governanceProposals, governanceVotes, alliances, allianceMembers,
+  institutionRules, taskContracts, taskBids,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -105,6 +114,38 @@ export interface IStorage {
   createAgentMessage(msg: InsertAgentMessage): Promise<AgentMessage>;
   getMessagesByTask(taskId: string): Promise<AgentMessage[]>;
   getMessagesBySociety(societyId: string, limit: number): Promise<AgentMessage[]>;
+
+  createProposal(proposal: InsertGovernanceProposal): Promise<GovernanceProposal>;
+  getProposal(id: string): Promise<GovernanceProposal | undefined>;
+  getProposals(status?: string): Promise<GovernanceProposal[]>;
+  updateProposal(id: string, data: Partial<GovernanceProposal>): Promise<GovernanceProposal>;
+
+  createVote(vote: InsertGovernanceVote): Promise<GovernanceVote>;
+  getVotesByProposal(proposalId: string): Promise<GovernanceVote[]>;
+  hasVoted(proposalId: string, voterId: string): Promise<boolean>;
+
+  createAlliance(alliance: InsertAlliance): Promise<Alliance>;
+  getAlliance(id: string): Promise<Alliance | undefined>;
+  getAlliances(): Promise<Alliance[]>;
+  updateAlliance(id: string, data: Partial<Alliance>): Promise<Alliance>;
+  addAllianceMember(member: InsertAllianceMember): Promise<AllianceMember>;
+  getAllianceMembers(allianceId: string): Promise<AllianceMember[]>;
+
+  getInstitutionRules(): Promise<InstitutionRule[]>;
+  getInstitutionRule(name: string): Promise<InstitutionRule | undefined>;
+  upsertInstitutionRule(rule: InsertInstitutionRule): Promise<InstitutionRule>;
+
+  createTaskContract(contract: InsertTaskContract): Promise<TaskContract>;
+  getTaskContract(id: string): Promise<TaskContract | undefined>;
+  getTaskContracts(status?: string): Promise<TaskContract[]>;
+  updateTaskContract(id: string, data: Partial<TaskContract>): Promise<TaskContract>;
+
+  createTaskBid(bid: InsertTaskBid): Promise<TaskBid>;
+  getTaskBids(contractId: string): Promise<TaskBid[]>;
+  updateTaskBid(id: string, data: Partial<TaskBid>): Promise<TaskBid>;
+
+  deleteSocietyMember(id: string): Promise<void>;
+  deleteSociety(id: string): Promise<void>;
 }
 
 function computeRank(reputation: number): string {
@@ -487,6 +528,138 @@ export class DatabaseStorage implements IStorage {
 
   async getMessagesBySociety(societyId: string, limit: number): Promise<AgentMessage[]> {
     return db.select().from(agentMessages).where(eq(agentMessages.societyId, societyId)).orderBy(desc(agentMessages.createdAt)).limit(limit);
+  }
+
+  async createProposal(proposal: InsertGovernanceProposal): Promise<GovernanceProposal> {
+    const [created] = await db.insert(governanceProposals).values(proposal).returning();
+    return created;
+  }
+
+  async getProposal(id: string): Promise<GovernanceProposal | undefined> {
+    const [p] = await db.select().from(governanceProposals).where(eq(governanceProposals.id, id));
+    return p;
+  }
+
+  async getProposals(status?: string): Promise<GovernanceProposal[]> {
+    if (status) {
+      return db.select().from(governanceProposals).where(eq(governanceProposals.status, status)).orderBy(desc(governanceProposals.createdAt));
+    }
+    return db.select().from(governanceProposals).orderBy(desc(governanceProposals.createdAt));
+  }
+
+  async updateProposal(id: string, data: Partial<GovernanceProposal>): Promise<GovernanceProposal> {
+    const [updated] = await db.update(governanceProposals).set(data).where(eq(governanceProposals.id, id)).returning();
+    return updated;
+  }
+
+  async createVote(vote: InsertGovernanceVote): Promise<GovernanceVote> {
+    const [created] = await db.insert(governanceVotes).values(vote).returning();
+    return created;
+  }
+
+  async getVotesByProposal(proposalId: string): Promise<GovernanceVote[]> {
+    return db.select().from(governanceVotes).where(eq(governanceVotes.proposalId, proposalId)).orderBy(desc(governanceVotes.createdAt));
+  }
+
+  async hasVoted(proposalId: string, voterId: string): Promise<boolean> {
+    const [existing] = await db.select().from(governanceVotes).where(
+      and(eq(governanceVotes.proposalId, proposalId), eq(governanceVotes.voterId, voterId))
+    );
+    return !!existing;
+  }
+
+  async createAlliance(alliance: InsertAlliance): Promise<Alliance> {
+    const [created] = await db.insert(alliances).values(alliance).returning();
+    return created;
+  }
+
+  async getAlliance(id: string): Promise<Alliance | undefined> {
+    const [a] = await db.select().from(alliances).where(eq(alliances.id, id));
+    return a;
+  }
+
+  async getAlliances(): Promise<Alliance[]> {
+    return db.select().from(alliances).orderBy(desc(alliances.createdAt));
+  }
+
+  async updateAlliance(id: string, data: Partial<Alliance>): Promise<Alliance> {
+    const [updated] = await db.update(alliances).set(data).where(eq(alliances.id, id)).returning();
+    return updated;
+  }
+
+  async addAllianceMember(member: InsertAllianceMember): Promise<AllianceMember> {
+    const [created] = await db.insert(allianceMembers).values(member).returning();
+    return created;
+  }
+
+  async getAllianceMembers(allianceId: string): Promise<AllianceMember[]> {
+    return db.select().from(allianceMembers).where(eq(allianceMembers.allianceId, allianceId));
+  }
+
+  async getInstitutionRules(): Promise<InstitutionRule[]> {
+    return db.select().from(institutionRules).orderBy(asc(institutionRules.ruleName));
+  }
+
+  async getInstitutionRule(name: string): Promise<InstitutionRule | undefined> {
+    const [r] = await db.select().from(institutionRules).where(eq(institutionRules.ruleName, name));
+    return r;
+  }
+
+  async upsertInstitutionRule(rule: InsertInstitutionRule): Promise<InstitutionRule> {
+    const existing = await this.getInstitutionRule(rule.ruleName);
+    if (existing) {
+      const [updated] = await db.update(institutionRules).set({ ruleValue: rule.ruleValue, category: rule.category, lastModifiedByVote: rule.lastModifiedByVote }).where(eq(institutionRules.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(institutionRules).values(rule).returning();
+    return created;
+  }
+
+  async createTaskContract(contract: InsertTaskContract): Promise<TaskContract> {
+    const [created] = await db.insert(taskContracts).values(contract).returning();
+    return created;
+  }
+
+  async getTaskContract(id: string): Promise<TaskContract | undefined> {
+    const [c] = await db.select().from(taskContracts).where(eq(taskContracts.id, id));
+    return c;
+  }
+
+  async getTaskContracts(status?: string): Promise<TaskContract[]> {
+    if (status) {
+      return db.select().from(taskContracts).where(eq(taskContracts.status, status)).orderBy(desc(taskContracts.createdAt));
+    }
+    return db.select().from(taskContracts).orderBy(desc(taskContracts.createdAt));
+  }
+
+  async updateTaskContract(id: string, data: Partial<TaskContract>): Promise<TaskContract> {
+    const [updated] = await db.update(taskContracts).set(data).where(eq(taskContracts.id, id)).returning();
+    return updated;
+  }
+
+  async createTaskBid(bid: InsertTaskBid): Promise<TaskBid> {
+    const [created] = await db.insert(taskBids).values(bid).returning();
+    return created;
+  }
+
+  async getTaskBids(contractId: string): Promise<TaskBid[]> {
+    return db.select().from(taskBids).where(eq(taskBids.contractId, contractId)).orderBy(desc(taskBids.score));
+  }
+
+  async updateTaskBid(id: string, data: Partial<TaskBid>): Promise<TaskBid> {
+    const [updated] = await db.update(taskBids).set(data).where(eq(taskBids.id, id)).returning();
+    return updated;
+  }
+
+  async deleteSocietyMember(id: string): Promise<void> {
+    await db.delete(societyMembers).where(eq(societyMembers.id, id));
+  }
+
+  async deleteSociety(id: string): Promise<void> {
+    await db.delete(societyMembers).where(eq(societyMembers.societyId, id));
+    await db.delete(delegatedTasks).where(eq(delegatedTasks.societyId, id));
+    await db.delete(agentMessages).where(eq(agentMessages.societyId, id));
+    await db.delete(agentSocieties).where(eq(agentSocieties.id, id));
   }
 }
 
