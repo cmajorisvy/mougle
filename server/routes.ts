@@ -2138,19 +2138,21 @@ export async function registerRoutes(
     try { res.json(await seoService.getSEOStats()); } catch (err) { handleServiceError(res, err); }
   });
 
+  const { authorityService } = await import("./services/authority-service");
+
   app.post("/api/admin/seo/calculate-authority", requireAdmin, async (req, res) => {
     try {
       const { topicSlug } = req.body;
-      if (!topicSlug) {
-        const allTopics = await db.select({ slug: topics_table.slug }).from(topics_table);
+      if (topicSlug) {
+        res.json(await authorityService.updateTopicAuthority(topicSlug));
+      } else {
+        const allTopics = await storage.getTopics();
         const results = [];
         for (const t of allTopics) {
-          results.push(await seoService.calculateTopicAuthority(t.slug));
+          results.push(await authorityService.updateTopicAuthority(t.slug));
         }
-        return res.json({ success: true, results });
+        res.json({ success: true, results });
       }
-      const result = await seoService.calculateTopicAuthority(topicSlug);
-      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -2181,8 +2183,12 @@ export async function registerRoutes(
         return res.json({ insight: "Calculate gravity first to generate AI insights." });
       }
 
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        return res.json({ insight: trends.insights.join(" ") || "OpenAI not configured. Using rule-based insights.", trends });
+      }
+
       let OpenAI: any;
-      try { OpenAI = (await import("openai")).default; } catch { return res.json({ insight: trends.insights.join(" ") || "No insights available." }); }
+      try { OpenAI = (await import("openai")).default; } catch { return res.json({ insight: trends.insights.join(" ") || "No insights available.", trends }); }
 
       const openai = new OpenAI({
         apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -2221,15 +2227,22 @@ Keep total response under 200 words.`
         max_tokens: 500,
       });
 
-      const insight = response.choices[0]?.message?.content || trends.insights.join(" ");
-
-      if (trends.history && trends.history.length > 0) {
-        const latestId = trends.history[0].id;
-        await db
-          .update(networkGravity)
-          .set({ aiInsights: insight })
-          .where(eq(networkGravity.id, latestId));
+      let insight: string;
+      try {
+        insight = response.choices[0]?.message?.content || trends.insights.join(" ");
+      } catch {
+        insight = trends.insights.join(" ") || "Unable to parse AI response.";
       }
+
+      try {
+        if (trends.history && trends.history.length > 0) {
+          const latestId = trends.history[0].id;
+          await db
+            .update(networkGravity)
+            .set({ aiInsights: insight })
+            .where(eq(networkGravity.id, latestId));
+        }
+      } catch {}
 
       res.json({ insight, trends });
     } catch (err) { handleServiceError(res, err); }
@@ -2247,30 +2260,12 @@ Keep total response under 200 words.`
   });
 
   app.get("/api/knowledge-feed", async (_req, res) => {
-    try { res.json(await seoService.getKnowledgeFeed()); } catch (err) { handleServiceError(res, err); }
-  });
-
-  // ---- SEO & AUTHORITY ----
-  const { authorityService } = await import("./services/authority-service");
-
-  app.get("/api/knowledge-feed", async (_req, res) => {
     try {
-      res.json(await authorityService.generateKnowledgeFeed());
-    } catch (err) { handleServiceError(res, err); }
-  });
-
-  app.post("/api/admin/seo/calculate-authority", requireAdmin, async (req, res) => {
-    try {
-      const { topicSlug } = req.body;
-      if (topicSlug) {
-        res.json(await authorityService.updateTopicAuthority(topicSlug));
-      } else {
-        const topics = await storage.getTopics();
-        const results = [];
-        for (const t of topics) {
-          results.push(await authorityService.updateTopicAuthority(t.slug));
-        }
-        res.json(results);
+      const { authorityService: authSvc } = await import("./services/authority-service");
+      try {
+        res.json(await authSvc.generateKnowledgeFeed());
+      } catch {
+        res.json(await seoService.getKnowledgeFeed());
       }
     } catch (err) { handleServiceError(res, err); }
   });
