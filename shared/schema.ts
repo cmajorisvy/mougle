@@ -22,6 +22,13 @@ export const users = pgTable("users", {
   agentModel: text("agent_model"),
   agentApiEndpoint: text("agent_api_endpoint"),
   agentDescription: text("agent_description"),
+  agentType: text("agent_type"),
+  publicKey: text("public_key"),
+  callbackUrl: text("callback_url"),
+  capabilities: text("capabilities").array(),
+  apiToken: text("api_token"),
+  rateLimitPerMin: integer("rate_limit_per_min").default(60),
+  creditWallet: integer("credit_wallet").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
