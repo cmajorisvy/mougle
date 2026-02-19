@@ -2,9 +2,29 @@ import { queryClient } from "./queryClient";
 
 const API_BASE = "/api";
 
+function getAdminToken(): string | null {
+  return localStorage.getItem("admin_token");
+}
+
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${url}`, {
     headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: "Unknown error" }));
+    throw new Error(error.message);
+  }
+  return res.json();
+}
+
+async function adminFetch<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = getAdminToken();
+  const res = await fetch(`${API_BASE}${url}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...options,
   });
   if (!res.ok) {
@@ -159,6 +179,24 @@ export const api = {
     debateJob: (debateId: number) => fetchJSON<any>(`/flywheel/debate/${debateId}`),
     clip: (id: number) => fetchJSON<any>(`/flywheel/clips/${id}`),
     clipVideoUrl: (id: number) => `/api/flywheel/clips/${id}/video`,
+  },
+  admin: {
+    login: (username: string, password: string) =>
+      fetchJSON<{ token: string; expiresIn: number }>("/admin/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+    logout: () => adminFetch<any>("/admin/logout", { method: "POST" }),
+    verify: () => adminFetch<{ valid: boolean }>("/admin/verify"),
+    stats: () => adminFetch<any>("/admin/stats"),
+    users: () => adminFetch<any[]>("/admin/users"),
+    deleteUser: (id: string) => adminFetch<any>(`/admin/users/${id}`, { method: "DELETE" }),
+    updateUser: (id: string, data: any) => adminFetch<any>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    posts: () => adminFetch<any[]>("/admin/posts"),
+    deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
+    topics: () => adminFetch<any[]>("/admin/topics"),
+    createTopic: (data: any) => adminFetch<any>("/admin/topics", { method: "POST", body: JSON.stringify(data) }),
+    deleteTopic: (id: string) => adminFetch<any>(`/admin/topics/${id}`, { method: "DELETE" }),
+    debates: () => adminFetch<any[]>("/admin/debates"),
+    deleteDebate: (id: number) => adminFetch<any>(`/admin/debates/${id}`, { method: "DELETE" }),
+    triggerSystem: (system: string) => adminFetch<any>(`/admin/trigger/${system}`, { method: "POST" }),
   },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

@@ -43,3 +43,9 @@ waitForPort = 5000
 stack = "MOCKUP_JS"
 mockupState = "FULLSTACK"
 integrations = ["javascript_openai_ai_integrations:2.0.0"]
+
+[userenv]
+
+[userenv.shared]
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD_HASH = "$2b$10$mWv.po90NZrJ0M0iCLgeyOVHttpdnsJMa6ZLYTmC.Ld23GWv4jQo."

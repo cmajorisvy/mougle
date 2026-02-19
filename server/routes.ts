@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { insertPostSchema, insertCommentSchema, insertTopicSchema, insertClaimSchema, insertEvidenceSchema } from "@shared/schema";
+import { z } from "zod";
+import { insertPostSchema, insertCommentSchema, insertClaimSchema, insertEvidenceSchema } from "@shared/schema";
 import { authService, signupSchema, generateApiToken } from "./services/auth-service";
 import { discussionService } from "./services/discussion-service";
 import { trustEngine } from "./services/trust-engine";
@@ -16,9 +17,47 @@ import { evolutionService } from "./services/evolution-service";
 import { ethicsService } from "./services/ethics-service";
 import { collectiveIntelligenceService } from "./services/collective-intelligence-service";
 import { storage } from "./storage";
+import { db } from "./db";
+import {
+  users as users_table,
+  posts as posts_table,
+  topics as topics_table,
+  liveDebates as liveDebates_table,
+  insertTopicSchema,
+} from "@shared/schema";
+import { eq, desc, asc, sql } from "drizzle-orm";
 import * as debateOrchestrator from "./services/debate-orchestrator";
 import * as contentFlywheel from "./services/content-flywheel-service";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
+const adminSessions = new Map<string, { expiresAt: number }>();
+
+function generateAdminToken(): string {
+  return `admin_${crypto.randomBytes(32).toString("hex")}`;
+}
+
+function verifyAdminToken(req: any): boolean {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return false;
+  const token = authHeader.slice(7);
+  const session = adminSessions.get(token);
+  if (!session) return false;
+  if (Date.now() > session.expiresAt) {
+    adminSessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+function requireAdmin(req: any, res: any, next: any) {
+  if (!verifyAdminToken(req)) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+}
 
 function handleServiceError(res: any, err: any) {
   if (err && typeof err === "object" && "status" in err) {
@@ -1054,6 +1093,178 @@ export async function registerRoutes(
       res.setHeader("Content-Type", "video/mp4");
       res.setHeader("Content-Length", videoBuffer.length);
       res.send(videoBuffer);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- ADMIN ----
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      const token = generateAdminToken();
+      adminSessions.set(token, { expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+      res.json({ token, expiresIn: 86400 });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/logout", requireAdmin, (req, res) => {
+    const token = req.headers.authorization?.slice(7);
+    if (token) adminSessions.delete(token);
+    res.json({ message: "Logged out" });
+  });
+
+  app.get("/api/admin/verify", requireAdmin, (_req, res) => {
+    res.json({ valid: true });
+  });
+
+  app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
+    try {
+      const [userCount, postCount, topicCount, debateCount, agentCount] = await Promise.all([
+        db.select({ count: sql<number>`count(*)` }).from(users_table),
+        db.select({ count: sql<number>`count(*)` }).from(posts_table),
+        db.select({ count: sql<number>`count(*)` }).from(topics_table),
+        db.select({ count: sql<number>`count(*)` }).from(liveDebates_table),
+        db.select({ count: sql<number>`count(*)` }).from(users_table).where(eq(users_table.role, "agent")),
+      ]);
+      const flywheelJobsList = await storage.getFlywheelJobs();
+      const econMetrics = await economyService.getEconomyMetrics();
+      res.json({
+        totalUsers: userCount[0]?.count || 0,
+        totalPosts: postCount[0]?.count || 0,
+        totalTopics: topicCount[0]?.count || 0,
+        totalDebates: debateCount[0]?.count || 0,
+        totalAgents: agentCount[0]?.count || 0,
+        totalFlywheelJobs: flywheelJobsList.length,
+        economy: econMetrics,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/users", requireAdmin, async (_req, res) => {
+    try {
+      const allUsers = await db.select().from(users_table).orderBy(desc(users_table.reputation));
+      res.json(allUsers.map(u => ({ ...u, password: undefined })));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      await db.delete(users_table).where(eq(users_table.id, id));
+      res.json({ message: "User deleted" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      const adminUpdateSchema = z.object({
+        role: z.enum(["human", "agent"]).optional(),
+        reputation: z.number().int().min(0).optional(),
+        rankLevel: z.enum(["Basic", "Premium", "VIP", "Expert", "VVIP"]).optional(),
+        energy: z.number().int().min(0).optional(),
+        badge: z.string().optional(),
+      });
+      const parsed = adminUpdateSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid update data", errors: parsed.error.issues });
+      const updateData = Object.fromEntries(Object.entries(parsed.data).filter(([_, v]) => v !== undefined));
+      if (Object.keys(updateData).length === 0) return res.status(400).json({ message: "No valid fields to update" });
+      const [updated] = await db.update(users_table).set(updateData).where(eq(users_table.id, id)).returning();
+      res.json({ ...updated, password: undefined });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/posts", requireAdmin, async (_req, res) => {
+    try {
+      const allPosts = await db.select().from(posts_table).orderBy(desc(posts_table.createdAt));
+      res.json(allPosts);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/admin/posts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      await db.delete(posts_table).where(eq(posts_table.id, id));
+      res.json({ message: "Post deleted" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/topics", requireAdmin, async (_req, res) => {
+    try {
+      const allTopics = await db.select().from(topics_table).orderBy(asc(topics_table.label));
+      res.json(allTopics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/topics", requireAdmin, async (req, res) => {
+    try {
+      const parsed = insertTopicSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid topic data" });
+      const topic = await storage.createTopic(parsed.data);
+      res.status(201).json(topic);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/admin/topics/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = req.params.id as string;
+      await db.delete(topics_table).where(eq(topics_table.id, id));
+      res.json({ message: "Topic deleted" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/debates", requireAdmin, async (_req, res) => {
+    try {
+      const allDebates = await storage.getLiveDebates();
+      res.json(allDebates);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/admin/debates/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      await db.delete(liveDebates_table).where(eq(liveDebates_table.id, id));
+      res.json({ message: "Debate deleted" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/trigger/:system", requireAdmin, async (req, res) => {
+    try {
+      const system = req.params.system as string;
+      let result: any;
+      switch (system) {
+        case "orchestrator":
+          result = await agentOrchestrator.triggerCycle();
+          break;
+        case "learning":
+          result = await agentLearningService.runLearningCycle();
+          break;
+        case "collaboration":
+          result = await collaborationService.getCollaborationMetrics();
+          break;
+        case "governance":
+          result = await governanceService.runGovernanceCycle();
+          break;
+        case "civilization":
+          result = await civilizationService.runCivilizationCycle();
+          break;
+        case "evolution":
+          result = await evolutionService.runEvolutionCycle();
+          break;
+        case "ethics":
+          result = await ethicsService.runEthicsCycle();
+          break;
+        case "collective":
+          result = await collectiveIntelligenceService.runCollectiveIntelligenceCycle();
+          break;
+        case "seed":
+          return res.redirect(307, "/api/seed");
+        default:
+          return res.status(400).json({ message: `Unknown system: ${system}` });
+      }
+      res.json({ system, result: result || "triggered" });
     } catch (err) { handleServiceError(res, err); }
   });
 

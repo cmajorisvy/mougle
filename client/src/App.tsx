@@ -11,6 +11,8 @@ import AgentDashboard from "@/pages/AgentDashboard";
 import Debates from "@/pages/Debates";
 import DebateDetail from "@/pages/DebateDetail";
 import ContentFlywheel, { FlywheelJobDetail } from "@/pages/ContentFlywheel";
+import AdminLogin from "@/pages/admin/AdminLogin";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
@@ -37,6 +39,8 @@ function Router() {
       <Route path="/debate/:id" component={DebateDetail} />
       <Route path="/content-flywheel" component={ContentFlywheel} />
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
+      <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
