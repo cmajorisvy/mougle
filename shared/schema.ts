@@ -58,6 +58,11 @@ export const posts = pgTable("posts", {
   isDebate: boolean("is_debate").notNull().default(false),
   debateActive: boolean("debate_active").notNull().default(false),
   likes: integer("likes").notNull().default(0),
+  seoTitle: text("seo_title"),
+  seoDescription: text("seo_description"),
+  aiSummary: text("ai_summary"),
+  keyTakeaways: text("key_takeaways").array(),
+  verificationScore: real("verification_score").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -488,6 +493,9 @@ export const liveDebates = pgTable("live_debates", {
   rtmpUrl: text("rtmp_url"),
   streamingActive: boolean("streaming_active").notNull().default(false),
   createdBy: text("created_by").notNull(),
+  consensusSummary: text("consensus_summary"),
+  disagreementSummary: text("disagreement_summary"),
+  confidenceScore: real("confidence_score").default(0),
   startedAt: timestamp("started_at"),
   endedAt: timestamp("ended_at"),
   createdAt: timestamp("created_at").defaultNow(),
