@@ -45,6 +45,14 @@ export function subscribe(debateId: number, listener: (event: DebateEvent) => vo
   return () => { state!.listeners.delete(listener); };
 }
 
+export function emitOverride(debateId: number, speakerId: string | null) {
+  emitEvent(debateId, {
+    type: "turn_start",
+    debateId,
+    data: { overrideSpeakerId: speakerId, moderatorOverride: true },
+  });
+}
+
 export async function createDebate(params: {
   title: string;
   topic: string;

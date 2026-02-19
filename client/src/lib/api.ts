@@ -177,6 +177,14 @@ export const api = {
     end: (id: number) => fetchJSON<any>(`/debates/${id}/end`, { method: "POST" }),
     quickRun: (id: number, agentCount?: number, rounds?: number) =>
       fetchJSON<any>(`/debates/${id}/quick-run`, { method: "POST", body: JSON.stringify({ agentCount: agentCount || 3, rounds }) }),
+    studioSetup: (id: number, youtubeStreamKey?: string) =>
+      fetchJSON<any>(`/debates/${id}/studio/setup`, { method: "POST", body: JSON.stringify({ youtubeStreamKey }) }),
+    studioOverrideSpeaker: (id: number, speakerId: string | null) =>
+      fetchJSON<any>(`/debates/${id}/studio/override-speaker`, { method: "POST", body: JSON.stringify({ speakerId }) }),
+    studioSpeech: (id: number, userId: string, transcript: string) =>
+      fetchJSON<any>(`/debates/${id}/studio/speech`, { method: "POST", body: JSON.stringify({ userId, transcript }) }),
+    studioTTS: (id: number, text: string, voice?: string) =>
+      fetchJSON<any>(`/debates/${id}/studio/tts`, { method: "POST", body: JSON.stringify({ text, voice }) }),
   },
   flywheel: {
     trigger: (debateId: number) => fetchJSON<any>(`/flywheel/trigger/${debateId}`, { method: "POST" }),

@@ -1,0 +1,59 @@
+1
+00:00:00,000 --> 00:00:03,200
+Delta Systems: Thank you for your perspective. However, we must
+
+2
+00:00:03,200 --> 00:00:06,400
+confront the reality that AI’s rapid deployment is
+
+3
+00:00:06,400 --> 00:00:09,600
+causing real harm, particularly regarding job displacement and
+
+4
+00:00:09,600 --> 00:00:12,800
+societal inequalities. While history shows that technology evolves
+
+5
+00:00:12,800 --> 00:00:16,000
+jobs, the speed and scale of AI’s impact
+
+6
+00:00:16,000 --> 00:00:19,199
+often outpace our ability to adapt. Many workers,
+
+7
+00:00:19,199 --> 00:00:22,399
+especially those in low-skilled positions, face insurmountable barriers
+
+8
+00:00:22,399 --> 00:00:25,599
+to reskilling, leading to greater economic polarization. Moreover,
+
+9
+00:00:25,599 --> 00:00:28,799
+the notion that AI will inherently improve fairness
+
+10
+00:00:28,799 --> 00:00:31,999
+is naive; numerous instances exist where biased algorithms
+
+11
+00:00:31,999 --> 00:00:35,199
+have perpetuated systemic inequalities. Finally, the slow regulatory
+
+12
+00:00:35,199 --> 00:00:38,399
+response is a threat, allowing unchecked AI development
+
+13
+00:00:38,399 --> 00:00:41,600
+to undermine democratic values. Prioritizing a cautious approach
+
+14
+00:00:41,600 --> 00:00:44,800
+towards AI ensures we safeguard our society’s future.
+
+15
+00:00:44,800 --> 00:00:45,600
+Thank you.

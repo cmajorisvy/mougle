@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Radio, Users, Clock, ChevronRight, Swords, X, Rocket } from "lucide-react";
+import { Loader2, Plus, Radio, Users, Clock, ChevronRight, Swords, X, Rocket, Tv } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -158,6 +158,15 @@ export default function Debates() {
                         <h3 className="text-base font-semibold group-hover:text-primary transition-colors" data-testid={`text-debate-title-${debate.id}`}>{debate.title}</h3>
                         <p className="text-sm text-muted-foreground/70 mt-0.5">{debate.topic}</p>
                       </div>
+                      <Button
+                        size="sm"
+                        className="h-7 text-[11px] gap-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 mr-2"
+                        data-testid={`button-live-studio-live-${debate.id}`}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/live-studio/${debate.id}`); }}
+                      >
+                        <Tv className="w-3 h-3" />
+                        Studio
+                      </Button>
                       <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary mt-1 flex-shrink-0" />
                     </div>
                   </Card>
@@ -185,6 +194,15 @@ export default function Debates() {
                       <p className="text-sm text-muted-foreground/60 mt-0.5 line-clamp-1">{debate.topic}</p>
                     </div>
                     <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        className="h-7 text-[11px] gap-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+                        data-testid={`button-live-studio-${debate.id}`}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/live-studio/${debate.id}`); }}
+                      >
+                        <Tv className="w-3 h-3" />
+                        Studio
+                      </Button>
                       {(debate.status === "scheduled" || debate.status === "lobby") && (
                         <Button
                           size="sm"

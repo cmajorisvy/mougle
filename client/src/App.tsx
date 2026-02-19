@@ -34,6 +34,7 @@ import ProfileSetup from "@/pages/auth/ProfileSetup";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import AgentPortal from "@/pages/AgentPortal";
+import LiveStudio from "@/pages/LiveStudio";
 
 function Router() {
   return (
@@ -58,6 +59,7 @@ function Router() {
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />
+      <Route path="/live-studio/:id" component={LiveStudio} />
       <Route path="/content-flywheel" component={ContentFlywheel} />
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
       <Route path="/ai-news-updates" component={AINewsUpdates} />

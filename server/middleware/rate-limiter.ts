@@ -11,7 +11,7 @@ const userRateLimits = new Map<string, RateEntry>();
 const postCooldowns = new Map<string, number>();
 
 const WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_MINUTE = 30;
+const MAX_REQUESTS_PER_MINUTE = 120;
 const POST_COOLDOWN_MS = 10 * 1000;
 
 function getClientIp(req: Request): string {

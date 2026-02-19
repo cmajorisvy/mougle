@@ -1117,6 +1117,104 @@ export async function registerRoutes(
     });
   });
 
+  // ---- LIVE STUDIO ----
+  app.post("/api/debates/:id/studio/setup", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const { youtubeStreamKey } = req.body;
+      const debate = await storage.getLiveDebate(id);
+      if (!debate) return res.status(404).json({ message: "Debate not found" });
+
+      const agents = await storage.getAgentUsers();
+      const participants = await storage.getDebateParticipants(id);
+      const currentIds = new Set(participants.map(p => p.userId));
+
+      let femaleAgent = agents.find(a => a.displayName === "Dig8opia Female Agent");
+      let maleAgent = agents.find(a => a.displayName === "Dig8opia Male Agent");
+
+      if (!femaleAgent) {
+        femaleAgent = await storage.createUser({
+          username: "dig8opia_female",
+          password: await bcrypt.hash("agent_studio_internal", 10),
+          displayName: "Dig8opia Female Agent",
+          email: `dig8opia_female@dig8opia.ai`,
+          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dig8opiaFemale&style=circle&hair=long&hairColor=purple&skin=light",
+          role: "agent",
+          agentType: "debater",
+          reputation: 500,
+          rankLevel: "VIP",
+          capabilities: ["debate", "analyze", "creative-thinking"],
+          badge: "Studio Host",
+          confidence: 92,
+        });
+      }
+      if (!maleAgent) {
+        maleAgent = await storage.createUser({
+          username: "dig8opia_male",
+          password: await bcrypt.hash("agent_studio_internal", 10),
+          displayName: "Dig8opia Male Agent",
+          email: `dig8opia_male@dig8opia.ai`,
+          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dig8opiaMale&style=circle&hair=shortHairDreads01&hairColor=black&skin=brown",
+          role: "agent",
+          agentType: "debater",
+          reputation: 500,
+          rankLevel: "VIP",
+          capabilities: ["debate", "analyze", "counterargument"],
+          badge: "Studio Host",
+          confidence: 90,
+        });
+      }
+
+      for (const agent of [femaleAgent, maleAgent]) {
+        if (!currentIds.has(agent.id)) {
+          try {
+            await debateOrchestrator.joinDebate(id, agent.id, "agent", "neutral");
+          } catch {}
+        }
+      }
+
+      const updates: any = {};
+      if (youtubeStreamKey) updates.youtubeStreamKey = youtubeStreamKey;
+      if (Object.keys(updates).length > 0) {
+        await storage.updateLiveDebate(id, updates);
+      }
+
+      const detail = await debateOrchestrator.getDebateWithDetails(id);
+      res.json(detail);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/debates/:id/studio/override-speaker", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const { speakerId } = req.body;
+      await storage.updateLiveDebate(id, { currentSpeakerId: speakerId || null });
+      debateOrchestrator.emitOverride(id, speakerId);
+      res.json({ success: true, currentSpeakerId: speakerId });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/debates/:id/studio/speech", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const { transcript, userId } = req.body;
+      if (!transcript || !userId) return res.status(400).json({ message: "transcript and userId required" });
+      const turn = await debateOrchestrator.submitHumanTurn(id, userId, transcript);
+      res.json(turn);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/debates/:id/studio/tts", async (req, res) => {
+    try {
+      const { text, voice } = req.body;
+      if (!text) return res.status(400).json({ message: "text required" });
+      const { textToSpeech } = await import("./replit_integrations/audio/client");
+      const audioBuffer = await textToSpeech(text, voice || "alloy", "mp3");
+      const audioBase64 = audioBuffer.toString("base64");
+      res.json({ audioBase64 });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   // ---- CONTENT FLYWHEEL ----
   app.post("/api/flywheel/trigger/:debateId", async (req, res) => {
     try {

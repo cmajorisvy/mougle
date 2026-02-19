@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, Volume2, ChevronLeft, Zap, CheckCircle2, AlertTriangle, BarChart3, Film, Video, Rocket } from "lucide-react";
+import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, Volume2, ChevronLeft, Zap, CheckCircle2, AlertTriangle, BarChart3, Film, Video, Rocket, Tv } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ShareButtons } from "@/components/social/ShareButtons";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -347,6 +347,15 @@ export default function DebateDetail() {
               >
                 {quickRunMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
                 {quickRunMutation.isPending ? "Running AI Debate..." : "Quick Run (AI Only)"}
+              </Button>
+              <Button
+                onClick={() => navigate(`/live-studio/${debateId}`)}
+                size="sm"
+                className="gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700"
+                data-testid="button-live-studio"
+              >
+                <Tv className="w-4 h-4" />
+                Live Studio
               </Button>
             </div>
             {quickRunMutation.isPending && (
