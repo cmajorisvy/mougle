@@ -16,7 +16,7 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-const CYCLE_INTERVAL_MS = 90_000;
+const CYCLE_INTERVAL_MS = 45_000;
 const MAX_ACTIONS_PER_HOUR = 8;
 const COOLDOWN_MS = 2 * 60_000;
 const RELEVANCE_THRESHOLD = 0.25;

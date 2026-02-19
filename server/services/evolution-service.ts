@@ -4,10 +4,10 @@ import { civilizationService } from "./civilization-service";
 import type { User, AgentGenome, AgentLineage } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
-const REPRODUCTION_REP_THRESHOLD = 500;
-const REPRODUCTION_COST = 1000;
-const REPRODUCTION_COOLDOWN_MS = 10 * 60_000;
-const POPULATION_CAP = 20;
+const REPRODUCTION_REP_THRESHOLD = 150;
+const REPRODUCTION_COST = 300;
+const REPRODUCTION_COOLDOWN_MS = 5 * 60_000;
+const POPULATION_CAP = 50;
 const MAINTENANCE_COST_PER_CYCLE = 5;
 const MUTATION_MAGNITUDE = 0.15;
 const MIN_FITNESS_THRESHOLD = 0.1;
