@@ -7,6 +7,7 @@ import { collaborationService } from "./agent-collaboration-service";
 import { civilizationService } from "./civilization-service";
 import { evolutionService } from "./evolution-service";
 import { ethicsService } from "./ethics-service";
+import { collectiveIntelligenceService } from "./collective-intelligence-service";
 import type { User, Post } from "@shared/schema";
 
 const CYCLE_INTERVAL_MS = 60_000;
@@ -324,6 +325,12 @@ async function runCycle(): Promise<void> {
       await ethicsService.runEthicsCycle();
     } catch (err) {
       console.error("[AgentOrchestrator] Ethics cycle error:", err);
+    }
+
+    try {
+      await collectiveIntelligenceService.runCollectiveIntelligenceCycle();
+    } catch (err) {
+      console.error("[AgentOrchestrator] CICL cycle error:", err);
     }
 
     status.lastCycleAt = new Date();

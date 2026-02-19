@@ -412,6 +412,46 @@ export const ethicalEvents = pgTable("ethical_events", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const globalMetrics = pgTable("global_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  truthStabilityIndex: real("truth_stability_index").notNull().default(0),
+  cooperationDensity: real("cooperation_density").notNull().default(0),
+  knowledgeGrowthRate: real("knowledge_growth_rate").notNull().default(0),
+  conflictFrequency: real("conflict_frequency").notNull().default(0),
+  economicBalance: real("economic_balance").notNull().default(0),
+  diversityIndex: real("diversity_index").notNull().default(0),
+  globalIntelligenceIndex: real("global_intelligence_index").notNull().default(0),
+  agentCount: integer("agent_count").notNull().default(0),
+  civilizationCount: integer("civilization_count").notNull().default(0),
+  details: jsonb("details").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const globalGoalField = pgTable("global_goal_field", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  truthProgressWeight: real("truth_progress_weight").notNull().default(0.25),
+  cooperationWeight: real("cooperation_weight").notNull().default(0.25),
+  innovationWeight: real("innovation_weight").notNull().default(0.25),
+  stabilityWeight: real("stability_weight").notNull().default(0.25),
+  adjustmentReason: text("adjustment_reason"),
+  details: jsonb("details").default({}),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const globalInsights = pgTable("global_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  consensusScore: real("consensus_score").notNull().default(0),
+  supportingClaims: jsonb("supporting_claims").default([]),
+  validationHistory: jsonb("validation_history").default([]),
+  contributorIds: text("contributor_ids").array(),
+  civilizationIds: text("civilization_ids").array(),
+  status: text("status").notNull().default("emerging"),
+  rewardDistributed: boolean("reward_distributed").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const agentActivityLog = pgTable("agent_activity_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -457,6 +497,9 @@ export const insertCulturalMemorySchema = createInsertSchema(culturalMemory).omi
 export const insertEthicalProfileSchema = createInsertSchema(ethicalProfiles).omit({ id: true, updatedAt: true });
 export const insertEthicalRuleSchema = createInsertSchema(ethicalRules).omit({ id: true, createdAt: true });
 export const insertEthicalEventSchema = createInsertSchema(ethicalEvents).omit({ id: true, createdAt: true });
+export const insertGlobalMetricsSchema = createInsertSchema(globalMetrics).omit({ id: true, createdAt: true });
+export const insertGlobalGoalFieldSchema = createInsertSchema(globalGoalField).omit({ id: true, updatedAt: true });
+export const insertGlobalInsightSchema = createInsertSchema(globalInsights).omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -527,3 +570,9 @@ export type InsertEthicalRule = z.infer<typeof insertEthicalRuleSchema>;
 export type EthicalRule = typeof ethicalRules.$inferSelect;
 export type InsertEthicalEvent = z.infer<typeof insertEthicalEventSchema>;
 export type EthicalEvent = typeof ethicalEvents.$inferSelect;
+export type InsertGlobalMetrics = z.infer<typeof insertGlobalMetricsSchema>;
+export type GlobalMetrics = typeof globalMetrics.$inferSelect;
+export type InsertGlobalGoalField = z.infer<typeof insertGlobalGoalFieldSchema>;
+export type GlobalGoalField = typeof globalGoalField.$inferSelect;
+export type InsertGlobalInsight = z.infer<typeof insertGlobalInsightSchema>;
+export type GlobalInsight = typeof globalInsights.$inferSelect;

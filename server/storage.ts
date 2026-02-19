@@ -33,6 +33,9 @@ import {
   type EthicalProfile, type InsertEthicalProfile,
   type EthicalRule, type InsertEthicalRule,
   type EthicalEvent, type InsertEthicalEvent,
+  type GlobalMetrics, type InsertGlobalMetrics,
+  type GlobalGoalField, type InsertGlobalGoalField,
+  type GlobalInsight, type InsertGlobalInsight,
   users, topics, posts, comments, postLikes,
   claims, evidence, trustScores, agentVotes, reputationHistory, expertiseTags,
   transactions, agentLearningProfiles, agentActivityLog,
@@ -42,6 +45,7 @@ import {
   civilizations, agentIdentities, agentMemory, civilizationInvestments,
   agentGenomes, agentLineage, culturalMemory,
   ethicalProfiles, ethicalRules, ethicalEvents,
+  globalMetrics, globalGoalField, globalInsights,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc } from "drizzle-orm";
@@ -206,6 +210,18 @@ export interface IStorage {
   createEthicalEvent(event: InsertEthicalEvent): Promise<EthicalEvent>;
   getEthicalEvents(limit: number): Promise<EthicalEvent[]>;
   getEthicalEventsByActor(actorId: string, limit: number): Promise<EthicalEvent[]>;
+
+  createGlobalMetrics(metrics: InsertGlobalMetrics): Promise<GlobalMetrics>;
+  getLatestGlobalMetrics(): Promise<GlobalMetrics | undefined>;
+  getGlobalMetricsHistory(limit: number): Promise<GlobalMetrics[]>;
+
+  upsertGlobalGoalField(data: Partial<GlobalGoalField>): Promise<GlobalGoalField>;
+  getLatestGoalField(): Promise<GlobalGoalField | undefined>;
+
+  createGlobalInsight(insight: InsertGlobalInsight): Promise<GlobalInsight>;
+  getGlobalInsight(id: string): Promise<GlobalInsight | undefined>;
+  getGlobalInsights(status?: string): Promise<GlobalInsight[]>;
+  updateGlobalInsight(id: string, data: Partial<GlobalInsight>): Promise<GlobalInsight>;
 }
 
 function computeRank(reputation: number): string {
@@ -909,6 +925,57 @@ export class DatabaseStorage implements IStorage {
 
   async getEthicalEventsByActor(actorId: string, limit: number): Promise<EthicalEvent[]> {
     return db.select().from(ethicalEvents).where(eq(ethicalEvents.actorId, actorId)).orderBy(desc(ethicalEvents.createdAt)).limit(limit);
+  }
+
+  async createGlobalMetrics(metrics: InsertGlobalMetrics): Promise<GlobalMetrics> {
+    const [created] = await db.insert(globalMetrics).values(metrics).returning();
+    return created;
+  }
+
+  async getLatestGlobalMetrics(): Promise<GlobalMetrics | undefined> {
+    const [latest] = await db.select().from(globalMetrics).orderBy(desc(globalMetrics.createdAt)).limit(1);
+    return latest;
+  }
+
+  async getGlobalMetricsHistory(limit: number): Promise<GlobalMetrics[]> {
+    return db.select().from(globalMetrics).orderBy(desc(globalMetrics.createdAt)).limit(limit);
+  }
+
+  async upsertGlobalGoalField(data: Partial<GlobalGoalField>): Promise<GlobalGoalField> {
+    const existing = await this.getLatestGoalField();
+    if (existing) {
+      const [updated] = await db.update(globalGoalField).set({ ...data, updatedAt: new Date() }).where(eq(globalGoalField.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(globalGoalField).values(data as any).returning();
+    return created;
+  }
+
+  async getLatestGoalField(): Promise<GlobalGoalField | undefined> {
+    const [latest] = await db.select().from(globalGoalField).orderBy(desc(globalGoalField.updatedAt)).limit(1);
+    return latest;
+  }
+
+  async createGlobalInsight(insight: InsertGlobalInsight): Promise<GlobalInsight> {
+    const [created] = await db.insert(globalInsights).values(insight).returning();
+    return created;
+  }
+
+  async getGlobalInsight(id: string): Promise<GlobalInsight | undefined> {
+    const [insight] = await db.select().from(globalInsights).where(eq(globalInsights.id, id));
+    return insight;
+  }
+
+  async getGlobalInsights(status?: string): Promise<GlobalInsight[]> {
+    if (status) {
+      return db.select().from(globalInsights).where(eq(globalInsights.status, status)).orderBy(desc(globalInsights.createdAt));
+    }
+    return db.select().from(globalInsights).orderBy(desc(globalInsights.createdAt));
+  }
+
+  async updateGlobalInsight(id: string, data: Partial<GlobalInsight>): Promise<GlobalInsight> {
+    const [updated] = await db.update(globalInsights).set(data).where(eq(globalInsights.id, id)).returning();
+    return updated;
   }
 }
 

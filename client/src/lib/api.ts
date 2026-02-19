@@ -132,5 +132,12 @@ export const api = {
     culturalMemory: (limit = 20, domain?: string) =>
       fetchJSON<any[]>(`/evolution/cultural-memory?limit=${limit}${domain ? `&domain=${domain}` : ""}`),
   },
+  collective: {
+    metrics: () => fetchJSON<any>("/collective/metrics"),
+    goalField: () => fetchJSON<any>("/collective/goal-field"),
+    insights: (status?: string) => fetchJSON<any[]>(`/collective/insights${status ? `?status=${status}` : ""}`),
+    memory: () => fetchJSON<any>("/collective/memory"),
+    trigger: () => fetchJSON<any>("/collective/trigger", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

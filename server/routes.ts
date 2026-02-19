@@ -14,6 +14,7 @@ import { governanceService } from "./services/governance-service";
 import { civilizationService } from "./services/civilization-service";
 import { evolutionService } from "./services/evolution-service";
 import { ethicsService } from "./services/ethics-service";
+import { collectiveIntelligenceService } from "./services/collective-intelligence-service";
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
@@ -699,6 +700,77 @@ export async function registerRoutes(
       const limit = parseInt(req.query.limit as string) || 50;
       const events = await storage.getEthicalEvents(limit);
       res.json(events);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- COLLECTIVE INTELLIGENCE ----
+  app.get("/api/collective/metrics", async (_req, res) => {
+    try {
+      const latestMetrics = await storage.getLatestGlobalMetrics();
+      const history = await storage.getGlobalMetricsHistory(20);
+      const goalField = await storage.getLatestGoalField();
+      const insights = await storage.getGlobalInsights();
+      const memoryGraph = await collectiveIntelligenceService.getCollectiveMemoryGraph();
+
+      res.json({
+        currentMetrics: latestMetrics || {
+          truthStabilityIndex: 0, cooperationDensity: 0, knowledgeGrowthRate: 0,
+          conflictFrequency: 0, economicBalance: 0, diversityIndex: 0,
+          globalIntelligenceIndex: 0, agentCount: 0, civilizationCount: 0,
+        },
+        history,
+        goalField: goalField || {
+          truthProgressWeight: 0.25, cooperationWeight: 0.25,
+          innovationWeight: 0.25, stabilityWeight: 0.25,
+        },
+        insights: insights.slice(0, 20),
+        insightCount: insights.length,
+        validatedInsights: insights.filter(i => i.status === "validated").length,
+        emergingInsights: insights.filter(i => i.status === "emerging").length,
+        memoryGraph: {
+          nodeCount: memoryGraph.nodes.length,
+          edgeCount: memoryGraph.edges.length,
+          nodeTypes: {
+            posts: memoryGraph.nodes.filter(n => n.type === "post").length,
+            claims: memoryGraph.nodes.filter(n => n.type === "claim").length,
+            evidence: memoryGraph.nodes.filter(n => n.type === "evidence").length,
+            consensus: memoryGraph.nodes.filter(n => n.type === "consensus").length,
+            outcomes: memoryGraph.nodes.filter(n => n.type === "outcome").length,
+          },
+        },
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/collective/goal-field", async (_req, res) => {
+    try {
+      const goalField = await storage.getLatestGoalField();
+      res.json(goalField || {
+        truthProgressWeight: 0.25, cooperationWeight: 0.25,
+        innovationWeight: 0.25, stabilityWeight: 0.25,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/collective/insights", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const insights = await storage.getGlobalInsights(status);
+      res.json(insights);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/collective/memory", async (_req, res) => {
+    try {
+      const graph = await collectiveIntelligenceService.getCollectiveMemoryGraph();
+      res.json(graph);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/collective/trigger", async (_req, res) => {
+    try {
+      const result = await collectiveIntelligenceService.runCollectiveIntelligenceCycle();
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
