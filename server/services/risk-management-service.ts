@@ -457,6 +457,152 @@ class RiskManagementService {
     const [request] = await db.select().from(dataRequests).where(eq(dataRequests.id, id));
     return request;
   }
+
+  async getUserDataRequests(userId: string) {
+    return db.select().from(dataRequests)
+      .where(eq(dataRequests.userId, userId))
+      .orderBy(desc(dataRequests.requestedAt))
+      .limit(20);
+  }
+
+  async getGatewayHealth() {
+    const metrics = aiGateway.getGatewayMetrics();
+    const failRate = metrics.totalRequests > 0
+      ? (metrics.failedRequests / metrics.totalRequests) * 100 : 0;
+    const creditBlockRate = metrics.totalRequests > 0
+      ? (metrics.blockedByCredits / metrics.totalRequests) * 100 : 0;
+    const rateLimitBlockRate = metrics.totalRequests > 0
+      ? (metrics.blockedByRateLimit / metrics.totalRequests) * 100 : 0;
+
+    const healthStatus = failRate > 15 || creditBlockRate > 20 ? "critical"
+      : failRate > 5 || creditBlockRate > 10 ? "warning" : "healthy";
+
+    return {
+      status: healthStatus,
+      metrics: {
+        totalRequests: metrics.totalRequests,
+        failedRequests: metrics.failedRequests,
+        failRate: Math.round(failRate * 10) / 10,
+        blockedByCredits: metrics.blockedByCredits,
+        creditBlockRate: Math.round(creditBlockRate * 10) / 10,
+        blockedByRateLimit: metrics.blockedByRateLimit,
+        rateLimitBlockRate: Math.round(rateLimitBlockRate * 10) / 10,
+        requestsThisMinute: metrics.requestsThisMinute,
+        requestsThisHour: metrics.requestsThisHour,
+        totalTokensUsed: metrics.totalTokensUsed,
+        totalCreditsCharged: metrics.totalCreditsCharged,
+        activeChains: metrics.activeChains,
+        activeDebates: metrics.activeDebates,
+      },
+      limits: {
+        rateLimits: metrics.rateLimits,
+        trainingLimits: metrics.trainingLimits,
+        loopLimits: metrics.loopLimits,
+        debateLimits: metrics.debateLimits,
+      },
+      costConfig: {
+        costPerModel: metrics.costPerModel,
+        actionCosts: metrics.actionCosts,
+      },
+    };
+  }
+
+  async getMemoryIsolationStatus() {
+    let privacyData: any = { totalViolations: 0, unresolvedViolations: [], severityBreakdown: { critical: 0, high: 0, medium: 0, low: 0 }, rules: [] };
+    try {
+      privacyData = await privacyGatewayService.getFounderMonitoring();
+    } catch {}
+
+    const [vaultStats] = await db.select({
+      totalVaults: sql<number>`COUNT(*)`,
+      activeVaults: sql<number>`COUNT(*) FILTER (WHERE is_active = true)`,
+      ultraPrivate: sql<number>`COUNT(*) FILTER (WHERE privacy_mode = 'ultra_private')`,
+      personal: sql<number>`COUNT(*) FILTER (WHERE privacy_mode = 'personal')`,
+      collaborative: sql<number>`COUNT(*) FILTER (WHERE privacy_mode = 'collaborative')`,
+      open: sql<number>`COUNT(*) FILTER (WHERE privacy_mode = 'open')`,
+    }).from(sql`agent_privacy_vaults`).catch(() => [{}] as any);
+
+    return {
+      vaults: {
+        total: vaultStats?.totalVaults || 0,
+        active: vaultStats?.activeVaults || 0,
+        modeDistribution: {
+          ultra_private: vaultStats?.ultraPrivate || 0,
+          personal: vaultStats?.personal || 0,
+          collaborative: vaultStats?.collaborative || 0,
+          open: vaultStats?.open || 0,
+        },
+      },
+      violations: {
+        total: privacyData.totalViolations || 0,
+        unresolved: privacyData.unresolvedViolations?.length || 0,
+        severity: privacyData.severityBreakdown || {},
+        recent: privacyData.recentViolations?.slice(0, 5) || [],
+      },
+      rules: {
+        active: privacyData.activeRules || 0,
+        list: privacyData.rules?.slice(0, 10) || [],
+      },
+    };
+  }
+
+  async getRiskTrends(days = 14) {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const snapshots = await db.select().from(riskSnapshots)
+      .where(gte(riskSnapshots.snapshotDate, since))
+      .orderBy(riskSnapshots.snapshotDate)
+      .limit(days * 2);
+
+    return snapshots.map(s => ({
+      date: s.snapshotDate,
+      technical: s.technicalRisk,
+      economic: s.economicRisk,
+      privacy: s.privacyRisk,
+      ecosystem: s.ecosystemRisk,
+      legal: s.legalRisk,
+      overall: s.overallRisk,
+    }));
+  }
+
+  private mitigationConfig: Record<string, { enabled: boolean; threshold: number; action: string }> = {
+    auto_rate_limit: { enabled: true, threshold: 80, action: "Throttle high-frequency callers" },
+    credit_alerts: { enabled: true, threshold: 10, action: "Alert users with low credits" },
+    privacy_lockdown: { enabled: false, threshold: 3, action: "Lock entities with 3+ critical violations" },
+    spam_auto_ban: { enabled: true, threshold: 5, action: "Auto-ban after 5 spam violations" },
+    data_request_sla: { enabled: true, threshold: 30, action: "Escalate unfulfilled requests after 30 days" },
+  };
+
+  getMitigationControls() {
+    return Object.entries(this.mitigationConfig).map(([id, config]) => ({
+      id,
+      ...config,
+    }));
+  }
+
+  updateMitigationControl(id: string, updates: { enabled?: boolean; threshold?: number }) {
+    if (!this.mitigationConfig[id]) throw new Error("Unknown mitigation control");
+    if (updates.enabled !== undefined) this.mitigationConfig[id].enabled = updates.enabled;
+    if (updates.threshold !== undefined) this.mitigationConfig[id].threshold = updates.threshold;
+    return { id, ...this.mitigationConfig[id] };
+  }
+
+  async getComprehensiveDashboard() {
+    const [overview, gatewayHealth, memoryIsolation, trends, mitigations] = await Promise.all([
+      this.getRiskOverview(),
+      this.getGatewayHealth(),
+      this.getMemoryIsolationStatus(),
+      this.getRiskTrends(14),
+      Promise.resolve(this.getMitigationControls()),
+    ]);
+
+    return {
+      overview,
+      gatewayHealth,
+      memoryIsolation,
+      trends,
+      mitigations,
+    };
+  }
 }
 
 export const riskManagementService = new RiskManagementService();

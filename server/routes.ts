@@ -4415,6 +4415,44 @@ Keep under 200 words.`
     try { await riskManagementService.processDataDeletion(req.params.id); res.json({ processed: true }); } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/risk/dashboard", requireAdmin, async (_req, res) => {
+    try { res.json(await riskManagementService.getComprehensiveDashboard()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/risk/gateway-health", requireAdmin, async (_req, res) => {
+    try { res.json(await riskManagementService.getGatewayHealth()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/risk/memory-isolation", requireAdmin, async (_req, res) => {
+    try { res.json(await riskManagementService.getMemoryIsolationStatus()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/risk/trends", requireAdmin, async (req, res) => {
+    try {
+      const days = req.query.days ? parseInt(req.query.days as string) : 14;
+      res.json(await riskManagementService.getRiskTrends(days));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/risk/mitigations", requireAdmin, async (_req, res) => {
+    try { res.json(riskManagementService.getMitigationControls()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/risk/mitigations/:id", requireAdmin, async (req, res) => {
+    try {
+      const { enabled, threshold } = req.body;
+      res.json(riskManagementService.updateMitigationControl(req.params.id, { enabled, threshold }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/user-data/requests", async (req, res) => {
+    try {
+      const userId = req.headers["x-user-id"] as string;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      res.json(await riskManagementService.getUserDataRequests(userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   // ---- TRUTH-ANCHORED EVOLUTION ----
 
   app.post("/api/truth/memories", async (req, res) => {

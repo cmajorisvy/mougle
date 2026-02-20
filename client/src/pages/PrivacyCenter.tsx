@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Shield, Lock, Eye, AlertTriangle, Settings, Activity,
-  Plus, Check, X, ShieldAlert, ShieldCheck, Globe, Users, UserX
+  Plus, Check, X, ShieldAlert, ShieldCheck, Globe, Users, UserX,
+  Download, Trash2, FileText, Loader2, Clock
 } from "lucide-react";
 import { getCurrentUserId } from "@/lib/mockData";
 
@@ -58,6 +59,12 @@ export default function PrivacyCenter() {
     enabled: !!userId && activeTab === "founder",
   });
 
+  const { data: dataRequests = [] } = useQuery({
+    queryKey: ["/api/user-data/requests"],
+    queryFn: () => fetchWithAuth("/api/user-data/requests"),
+    enabled: !!userId && activeTab === "my-data",
+  });
+
   if (!userId) {
     return (
       <Layout>
@@ -101,6 +108,9 @@ export default function PrivacyCenter() {
             <TabsTrigger value="violations" data-testid="tab-violations">
               <AlertTriangle className="w-4 h-4 mr-1" /> Violations
             </TabsTrigger>
+            <TabsTrigger value="my-data" data-testid="tab-my-data">
+              <FileText className="w-4 h-4 mr-1" /> My Data
+            </TabsTrigger>
             <TabsTrigger value="founder" data-testid="tab-founder">
               <ShieldAlert className="w-4 h-4 mr-1" /> Founder Monitor
             </TabsTrigger>
@@ -120,6 +130,10 @@ export default function PrivacyCenter() {
 
           <TabsContent value="violations" data-testid="violations-tab-content">
             <ViolationsTab violations={violations} queryClient={queryClient} />
+          </TabsContent>
+
+          <TabsContent value="my-data" data-testid="my-data-tab-content">
+            <MyDataTab userId={userId} requests={dataRequests} queryClient={queryClient} />
           </TabsContent>
 
           <TabsContent value="founder" data-testid="founder-tab-content">
@@ -699,6 +713,117 @@ function FounderTab({ data }: { data: any }) {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function MyDataTab({ userId, requests, queryClient }: { userId: string; requests: any[]; queryClient: any }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const exportMutation = useMutation({
+    mutationFn: () => fetchWithAuth("/api/user-data/export", { method: "POST", body: JSON.stringify({ userId }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/user-data/requests"] }),
+  });
+
+  const deletionMutation = useMutation({
+    mutationFn: () => fetchWithAuth("/api/user-data/deletion", { method: "POST", body: JSON.stringify({ userId }) }),
+    onSuccess: () => {
+      setConfirmDelete(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/user-data/requests"] });
+    },
+  });
+
+  const STATUS_STYLES: Record<string, string> = {
+    pending: "bg-yellow-500/20 text-yellow-400",
+    processing: "bg-blue-500/20 text-blue-400",
+    completed: "bg-green-500/20 text-green-400",
+    failed: "bg-red-500/20 text-red-400",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <Download className="w-5 h-5 text-blue-400" /> Export My Data
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-zinc-400 text-sm">Download a copy of all your data including posts, comments, profile information, and activity history.</p>
+            <Button
+              onClick={() => exportMutation.mutate()}
+              disabled={exportMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-request-export"
+            >
+              {exportMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Download className="w-4 h-4 mr-2" />}
+              Request Data Export
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-400" /> Delete My Data
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-zinc-400 text-sm">Permanently delete all your data from the platform. This action cannot be undone.</p>
+            {!confirmDelete ? (
+              <Button
+                variant="destructive"
+                onClick={() => setConfirmDelete(true)}
+                data-testid="button-start-deletion"
+              >
+                <Trash2 className="w-4 h-4 mr-2" /> Request Data Deletion
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => deletionMutation.mutate()}
+                  disabled={deletionMutation.isPending}
+                  data-testid="button-confirm-deletion"
+                >
+                  {deletionMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Confirm Deletion
+                </Button>
+                <Button variant="outline" onClick={() => setConfirmDelete(false)} data-testid="button-cancel-deletion">Cancel</Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader>
+          <CardTitle className="text-white text-lg flex items-center gap-2">
+            <Clock className="w-5 h-5 text-zinc-400" /> Request History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {requests.length === 0 ? (
+            <p className="text-zinc-500 text-center py-6" data-testid="text-no-requests">No data requests yet</p>
+          ) : (
+            <div className="space-y-2">
+              {requests.map((req: any) => (
+                <div key={req.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg" data-testid={`data-request-${req.id}`}>
+                  <div className="flex items-center gap-3">
+                    {req.requestType === "export" ? <Download className="w-4 h-4 text-blue-400" /> : <Trash2 className="w-4 h-4 text-red-400" />}
+                    <div>
+                      <span className="text-white text-sm font-medium capitalize">{req.requestType}</span>
+                      <p className="text-zinc-500 text-xs">{new Date(req.requestedAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <Badge className={STATUS_STYLES[req.status] || ""}>{req.status}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
