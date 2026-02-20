@@ -3138,4 +3138,54 @@ export const insertDevOrderSchema = createInsertSchema(devOrders).omit({ id: tru
 export type DevOrder = typeof devOrders.$inferSelect;
 export type InsertDevOrder = z.infer<typeof insertDevOrderSchema>;
 
+export const knowledgePages = pgTable("knowledge_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  topicSlug: text("topic_slug").notNull(),
+  clusterId: varchar("cluster_id"),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  content: text("content").notNull(),
+  summary: text("summary"),
+  keyTakeaways: text("key_takeaways").array(),
+  faqItems: jsonb("faq_items").$type<{ question: string; answer: string }[]>(),
+  howToSteps: jsonb("how_to_steps").$type<{ name: string; text: string }[]>(),
+  schemaMarkupTypes: text("schema_markup_types").array(),
+  metaTitle: text("meta_title"),
+  metaDescription: text("meta_description"),
+  keywords: text("keywords").array(),
+  relatedToolIds: text("related_tool_ids").array(),
+  relatedPageIds: text("related_page_ids").array(),
+  citationCount: integer("citation_count").notNull().default(0),
+  views: integer("views").notNull().default(0),
+  updateCount: integer("update_count").notNull().default(0),
+  lastUpdatedWithInsight: timestamp("last_updated_with_insight"),
+  indexed: boolean("indexed").notNull().default(false),
+  status: text("status").notNull().default("draft"),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertKnowledgePageSchema = createInsertSchema(knowledgePages).omit({ id: true, citationCount: true, views: true, updateCount: true, createdAt: true, updatedAt: true });
+export type KnowledgePage = typeof knowledgePages.$inferSelect;
+export type InsertKnowledgePage = z.infer<typeof insertKnowledgePageSchema>;
+
+export const topicClusters = pgTable("topic_clusters", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  pillarPageId: varchar("pillar_page_id"),
+  topicSlugs: text("topic_slugs").array(),
+  description: text("description"),
+  totalPages: integer("total_pages").notNull().default(0),
+  avgCitationScore: real("avg_citation_score").notNull().default(0),
+  domainAuthority: real("domain_authority").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTopicClusterSchema = createInsertSchema(topicClusters).omit({ id: true, totalPages: true, avgCitationScore: true, domainAuthority: true, createdAt: true, updatedAt: true });
+export type TopicCluster = typeof topicClusters.$inferSelect;
+export type InsertTopicCluster = z.infer<typeof insertTopicClusterSchema>;
+
 export * from "./models/chat";

@@ -667,6 +667,19 @@ export const api = {
     extractSolution: (ticketId: string) => adminFetch<any>(`/admin/kb/extract/${ticketId}`, { method: "POST" }),
     generateArticle: (solutionIds: string[]) => adminFetch<any>("/admin/kb/generate-article", { method: "POST", body: JSON.stringify({ solutionIds }) }),
   },
+  adminSeo: {
+    getDashboard: () => adminFetch<any>("/admin/seo/dashboard"),
+    getPages: (status?: string) => adminFetch<any[]>(`/admin/seo/pages${status ? `?status=${status}` : ""}`),
+    getClusters: () => adminFetch<any[]>("/admin/seo/clusters"),
+    publishPage: (id: string) => adminFetch<any>(`/admin/seo/pages/${id}/publish`, { method: "POST" }),
+    updateInsights: (id: string) => adminFetch<any>(`/admin/seo/pages/${id}/update-insights`, { method: "POST" }),
+    autoGenerate: () => adminFetch<any>("/admin/seo/auto-generate", { method: "POST" }),
+    updateAll: () => adminFetch<any>("/admin/seo/update-all", { method: "POST" }),
+    generatePage: (topicSlug: string) => adminFetch<any>("/admin/seo/generate-page", { method: "POST", body: JSON.stringify({ topicSlug }) }),
+    createCluster: (name: string, topicSlugs: string[], description?: string) =>
+      adminFetch<any>("/admin/seo/create-cluster", { method: "POST", body: JSON.stringify({ name, topicSlugs, description }) }),
+    buildClusterPages: (id: string) => adminFetch<any>(`/admin/seo/clusters/${id}/build-pages`, { method: "POST" }),
+  },
   adminMarketing: {
     getDashboard: () => adminFetch<any>("/admin/marketing/dashboard"),
     getArticles: (status?: string) => adminFetch<any[]>(`/admin/marketing/articles${status ? `?status=${status}` : ""}`),

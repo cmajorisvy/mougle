@@ -6217,6 +6217,85 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ SILENT SEO DOMINANCE ============
+  const { silentSeoService } = await import("./services/silent-seo-service");
+
+  app.get("/api/knowledge/:slug", async (req, res) => {
+    try {
+      const page = await silentSeoService.getKnowledgePage(req.params.slug);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/knowledge", async (_req, res) => {
+    try { res.json(await silentSeoService.getAllPages("published")); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/knowledge/citation/:pageId", async (req, res) => {
+    try { res.json(await silentSeoService.recordCitation(req.params.pageId)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/seo/dashboard", requireAdmin, async (_req, res) => {
+    try { res.json(await silentSeoService.getSeoDashboard()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/seo/pages", requireAdmin, async (req, res) => {
+    try { res.json(await silentSeoService.getAllPages(req.query.status as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/seo/clusters", requireAdmin, async (_req, res) => {
+    try { res.json(await silentSeoService.getClusters()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/seo/clusters/:id", requireAdmin, async (req, res) => {
+    try {
+      const result = await silentSeoService.getClusterWithPages(req.params.id);
+      if (!result) return res.status(404).json({ message: "Cluster not found" });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/generate-page", requireAdmin, async (req, res) => {
+    try {
+      const { topicSlug, customTitle, customDesc } = req.body;
+      if (!topicSlug) return res.status(400).json({ message: "topicSlug required" });
+      res.json(await silentSeoService.generateKnowledgePage(topicSlug, { customTitle, customDesc }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/auto-generate", requireAdmin, async (_req, res) => {
+    try { res.json(await silentSeoService.autoGenerateForAllTopics()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/pages/:id/publish", requireAdmin, async (req, res) => {
+    try {
+      const page = await silentSeoService.publishPage(req.params.id);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/pages/:id/update-insights", requireAdmin, async (req, res) => {
+    try { res.json(await silentSeoService.updatePageWithInsights(req.params.id)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/update-all", requireAdmin, async (_req, res) => {
+    try { res.json(await silentSeoService.updateAllPagesWithInsights()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/create-cluster", requireAdmin, async (req, res) => {
+    try {
+      const { name, topicSlugs, description } = req.body;
+      if (!name || !topicSlugs?.length) return res.status(400).json({ message: "name and topicSlugs required" });
+      res.json(await silentSeoService.createTopicCluster({ name, topicSlugs, description }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/seo/clusters/:id/build-pages", requireAdmin, async (req, res) => {
+    try { res.json(await silentSeoService.buildClusterPages(req.params.id)); } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ $0 MARKETING ENGINE ============
   const { marketingEngineService } = await import("./services/marketing-engine-service");
 
