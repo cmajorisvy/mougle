@@ -60,6 +60,7 @@ import { labsFlywheelService } from "./services/labs-flywheel-service";
 import { superLoopService } from "./services/super-loop-service";
 import { phaseTransitionService } from "./services/phase-transition-service";
 import { razorpayMarketplaceService } from "./services/razorpay-marketplace-service";
+import { publisherResponsibilityService } from "./services/publisher-responsibility-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -2812,6 +2813,63 @@ Keep under 200 words.`
     try {
       const orders = await razorpayMarketplaceService.getCreatorOrders(req.params.userId);
       res.json(orders);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/publisher/profile/:userId", async (req, res) => {
+    try {
+      const profile = await publisherResponsibilityService.getProfile(req.params.userId);
+      res.json({ profile });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/publisher/profile", async (req, res) => {
+    try {
+      const { userId, publisherName, companyName, businessType, address, city, state, country, postalCode, supportEmail, supportPhone, websiteUrl } = req.body;
+      if (!userId || !publisherName || !supportEmail || !address || !businessType) {
+        return res.status(400).json({ error: "userId, publisherName, supportEmail, address, and businessType are required" });
+      }
+      const profile = await publisherResponsibilityService.createOrUpdateProfile(userId, {
+        publisherName, companyName, businessType, address, city, state, country, postalCode, supportEmail, supportPhone, websiteUrl,
+      });
+      res.json({ profile });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/publisher/accept-agreement", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const ip = req.headers["x-forwarded-for"]?.toString() || req.socket?.remoteAddress || "unknown";
+      const profile = await publisherResponsibilityService.acceptAgreement(userId, ip);
+      res.json({ profile });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/publisher/can-publish/:userId", async (req, res) => {
+    try {
+      const result = await publisherResponsibilityService.canPublish(req.params.userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/publisher/agreement", async (_req, res) => {
+    try {
+      res.json(publisherResponsibilityService.getAgreementText());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/publisher/app-info/:appId", async (req, res) => {
+    try {
+      const info = await publisherResponsibilityService.getPublisherInfoForApp(req.params.appId);
+      if (!info) return res.status(404).json({ error: "App not found" });
+      res.json(info);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/publisher/disclaimer", async (_req, res) => {
+    try {
+      res.json({ disclaimer: publisherResponsibilityService.getPlatformDisclaimer() });
     } catch (err) { handleServiceError(res, err); }
   });
 

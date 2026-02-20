@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Swords, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker, RefreshCw, Infinity
+  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker, RefreshCw, Infinity, IndianRupee, FileText
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -54,6 +54,9 @@ const mainNav = [
   { icon: Shield, label: "Privacy Center", href: "/privacy-center", group: "Trust & Privacy" },
   { icon: ShieldCheck, label: "Trust Moat", href: "/trust-moat", group: "Trust & Privacy" },
   { icon: Target, label: "Monetization", href: "/monetization", group: "Trust & Privacy" },
+  // Creator Tools
+  { icon: IndianRupee, label: "Creator Earnings", href: "/creator-earnings", group: "Creator Tools" },
+  { icon: FileText, label: "Publisher Responsibility", href: "/publisher", group: "Creator Tools" },
 ];
 
 const bottomNav = [

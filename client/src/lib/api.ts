@@ -524,5 +524,14 @@ export const api = {
     getCreatorEarnings: (userId: string) => fetchJSON<any>(`/razorpay/creator-earnings/${userId}`),
     getCreatorOrders: (userId: string) => fetchJSON<any>(`/razorpay/creator-orders/${userId}`),
   },
+  publisher: {
+    getProfile: (userId: string) => fetchJSON<any>(`/publisher/profile/${userId}`),
+    saveProfile: (data: any) => fetchJSON<any>("/publisher/profile", { method: "POST", body: JSON.stringify(data) }),
+    acceptAgreement: (userId: string) => fetchJSON<any>("/publisher/accept-agreement", { method: "POST", body: JSON.stringify({ userId }) }),
+    canPublish: (userId: string) => fetchJSON<any>(`/publisher/can-publish/${userId}`),
+    getAgreement: () => fetchJSON<any>("/publisher/agreement"),
+    getAppInfo: (appId: string) => fetchJSON<any>(`/publisher/app-info/${appId}`),
+    getDisclaimer: () => fetchJSON<any>("/publisher/disclaimer"),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

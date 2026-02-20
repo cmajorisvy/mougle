@@ -2600,4 +2600,31 @@ export type InsertMarketplaceOrder = z.infer<typeof insertMarketplaceOrderSchema
 export type CreatorEarning = typeof creatorEarnings.$inferSelect;
 export type InsertCreatorEarning = z.infer<typeof insertCreatorEarningSchema>;
 
+export const creatorPublisherProfiles = pgTable("creator_publisher_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  publisherName: text("publisher_name").notNull(),
+  companyName: text("company_name"),
+  businessType: text("business_type").notNull().default("individual"),
+  address: text("address").notNull(),
+  city: text("city"),
+  state: text("state"),
+  country: text("country").notNull().default("India"),
+  postalCode: text("postal_code"),
+  supportEmail: text("support_email").notNull(),
+  supportPhone: text("support_phone"),
+  websiteUrl: text("website_url"),
+  agreementVersion: text("agreement_version"),
+  agreementAcceptedAt: timestamp("agreement_accepted_at"),
+  agreementIpAddress: text("agreement_ip_address"),
+  isVerified: boolean("is_verified").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCreatorPublisherProfileSchema = createInsertSchema(creatorPublisherProfiles).omit({ id: true, createdAt: true, updatedAt: true, isVerified: true });
+export type CreatorPublisherProfile = typeof creatorPublisherProfiles.$inferSelect;
+export type InsertCreatorPublisherProfile = z.infer<typeof insertCreatorPublisherProfileSchema>;
+
 export * from "./models/chat";

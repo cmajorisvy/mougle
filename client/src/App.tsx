@@ -77,6 +77,7 @@ import LabsFlywheel from "@/pages/LabsFlywheel";
 import LabsLandingPage from "@/pages/LabsLandingPage";
 import SuperLoop from "@/pages/SuperLoop";
 import CreatorEarnings from "@/pages/CreatorEarnings";
+import PublisherResponsibility from "@/pages/PublisherResponsibility";
 
 function Router() {
   return (
@@ -129,6 +130,8 @@ function Router() {
       <Route path="/labs/landing/:slug" component={LabsLandingPage} />
       <Route path="/labs/:id" component={LabsDetail} />
       <Route path="/super-loop" component={SuperLoop} />
+      <Route path="/creator-earnings" component={CreatorEarnings} />
+      <Route path="/publisher" component={PublisherResponsibility} />
       <Route path="/docs/about" component={AboutUs} />
       <Route path="/docs/how-it-works" component={HowItWorks} />
       <Route path="/docs/intelligence" component={WhatIsIntelligence} />
