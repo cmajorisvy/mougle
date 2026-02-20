@@ -1,10 +1,75 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { StudioScene } from "./StudioScene";
 import { Avatar, createDefaultAgents, createAgentFromParticipant } from "./AvatarBuilder";
 import { CameraDirector } from "./CameraDirector";
 import { VoiceController } from "./VoiceController";
 import { AgentProfile } from "./types";
+
+const VignetteShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    offset: { value: 0.95 },
+    darkness: { value: 1.2 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float offset;
+    uniform float darkness;
+    varying vec2 vUv;
+    void main() {
+      vec4 texel = texture2D(tDiffuse, vUv);
+      vec2 uv = (vUv - vec2(0.5)) * vec2(offset);
+      float vig = 1.0 - dot(uv, uv);
+      vig = clamp(pow(vig, darkness), 0.0, 1.0);
+      texel.rgb *= vig;
+      gl_FragColor = texel;
+    }
+  `,
+};
+
+const FilmGrainShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    time: { value: 0.0 },
+    intensity: { value: 0.06 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float time;
+    uniform float intensity;
+    varying vec2 vUv;
+    float rand(vec2 co) {
+      return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    }
+    void main() {
+      vec4 texel = texture2D(tDiffuse, vUv);
+      float grain = rand(vUv + vec2(time)) * intensity;
+      texel.rgb += vec3(grain) - vec3(intensity * 0.5);
+      gl_FragColor = texel;
+    }
+  `,
+};
 
 interface DebateStudio3DProps {
   debateId: number | null;
@@ -23,6 +88,9 @@ export function DebateStudio3D({
 }: DebateStudio3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const composerRef = useRef<EffectComposer | null>(null);
+  const filmGrainPassRef = useRef<ShaderPass | null>(null);
+  const fxaaPassRef = useRef<ShaderPass | null>(null);
   const studioRef = useRef<StudioScene | null>(null);
   const cameraRef = useRef<CameraDirector | null>(null);
   const voiceRef = useRef<VoiceController | null>(null);
@@ -107,12 +175,13 @@ export function DebateStudio3D({
       onReady?.();
       return;
     }
+    const pixelRatio = Math.min(window.devicePixelRatio, 2);
     webglRenderer.setSize(width, height);
-    webglRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    webglRenderer.setPixelRatio(pixelRatio);
     webglRenderer.shadowMap.enabled = true;
     webglRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
     webglRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    webglRenderer.toneMappingExposure = 1.1;
+    webglRenderer.toneMappingExposure = 1.15;
     webglRenderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(webglRenderer.domElement);
     rendererRef.current = webglRenderer;
@@ -123,6 +192,42 @@ export function DebateStudio3D({
     const camera = new CameraDirector();
     camera.resize(width, height);
     cameraRef.current = camera;
+
+    try {
+      const composer = new EffectComposer(webglRenderer);
+      const renderPass = new RenderPass(studio.scene, camera.camera);
+      composer.addPass(renderPass);
+
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(width, height),
+        0.25,
+        0.6,
+        0.85
+      );
+      composer.addPass(bloomPass);
+
+      const vignettePass = new ShaderPass(VignetteShader);
+      composer.addPass(vignettePass);
+
+      const filmGrainPass = new ShaderPass(FilmGrainShader);
+      composer.addPass(filmGrainPass);
+      filmGrainPassRef.current = filmGrainPass;
+
+      const fxaaPass = new ShaderPass(FXAAShader);
+      fxaaPass.uniforms["resolution"].value.set(
+        1 / (width * pixelRatio),
+        1 / (height * pixelRatio)
+      );
+      composer.addPass(fxaaPass);
+      fxaaPassRef.current = fxaaPass;
+
+      const outputPass = new OutputPass();
+      composer.addPass(outputPass);
+
+      composerRef.current = composer;
+    } catch {
+      composerRef.current = null;
+    }
 
     const voice = new VoiceController((speakerId) => {
       if (speakerId) {
@@ -155,7 +260,19 @@ export function DebateStudio3D({
     camera.update(dt, elapsed);
     avatarsRef.current.forEach((avatar) => avatar.update(dt, elapsed));
 
-    renderer.render(studio.scene, camera.camera);
+    if (composerRef.current) {
+      if (filmGrainPassRef.current) {
+        filmGrainPassRef.current.uniforms["time"].value = elapsed;
+      }
+      try {
+        composerRef.current.render();
+      } catch {
+        renderer.render(studio.scene, camera.camera);
+      }
+    } else {
+      renderer.render(studio.scene, camera.camera);
+    }
+
     rafRef.current = requestAnimationFrame(animate);
   }, []);
 
@@ -166,11 +283,20 @@ export function DebateStudio3D({
       const container = containerRef.current;
       const renderer = rendererRef.current;
       const camera = cameraRef.current;
+      const composer = composerRef.current;
       if (!container || !renderer || !camera) return;
       const w = container.clientWidth;
       const h = container.clientHeight;
+      const pr = Math.min(window.devicePixelRatio, 2);
       renderer.setSize(w, h);
       camera.resize(w, h);
+      if (composer) composer.setSize(w, h);
+      if (fxaaPassRef.current) {
+        fxaaPassRef.current.uniforms["resolution"].value.set(
+          1 / (w * pr),
+          1 / (h * pr)
+        );
+      }
     };
 
     window.addEventListener("resize", handleResize);
@@ -179,6 +305,8 @@ export function DebateStudio3D({
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(rafRef.current);
       clearAvatars();
+      composerRef.current?.dispose();
+      composerRef.current = null;
       rendererRef.current?.dispose();
       studioRef.current?.dispose();
       cameraRef.current?.dispose();
