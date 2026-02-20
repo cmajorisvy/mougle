@@ -28,6 +28,11 @@ import {
   type AgentMemory, type InsertAgentMemory,
   type CivilizationInvestment, type InsertCivilizationInvestment,
   type AgentGenome, type InsertAgentGenome,
+  type UserAgent, type InsertUserAgent,
+  type AgentKnowledgeSource, type InsertAgentKnowledgeSource,
+  type MarketplaceListing, type InsertMarketplaceListing,
+  type AgentPurchase, type InsertAgentPurchase,
+  type AgentUsageLog, type InsertAgentUsageLog,
   type AgentLineage, type InsertAgentLineage,
   type CulturalMemory, type InsertCulturalMemory,
   type EthicalProfile, type InsertEthicalProfile,
@@ -81,6 +86,7 @@ import {
   activityMetrics, anomalyEvents, automationDecisions, automationPolicy,
   subscriptionPlans, userSubscriptions, creditPackages, creditPurchases, invoices, creditUsageLog,
   moderationLogs,
+  userAgents, agentKnowledgeSources, marketplaceListings, agentPurchases, agentUsageLogs,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -401,6 +407,32 @@ export interface IStorage {
   getCreditUsage(userId: string, limit?: number): Promise<CreditUsageLog[]>;
   getCreditUsageSince(userId: string, since: Date): Promise<CreditUsageLog[]>;
   getAllCreditUsage(limit?: number): Promise<CreditUsageLog[]>;
+
+  createUserAgent(agent: InsertUserAgent): Promise<UserAgent>;
+  getUserAgent(id: string): Promise<UserAgent | undefined>;
+  getUserAgentsByOwner(ownerId: string): Promise<UserAgent[]>;
+  updateUserAgent(id: string, data: Partial<UserAgent>): Promise<UserAgent>;
+  deleteUserAgent(id: string): Promise<void>;
+  getPublicAgents(): Promise<UserAgent[]>;
+  getMarketplaceAgents(): Promise<UserAgent[]>;
+
+  createAgentKnowledgeSource(source: InsertAgentKnowledgeSource): Promise<AgentKnowledgeSource>;
+  getAgentKnowledgeSources(agentId: string): Promise<AgentKnowledgeSource[]>;
+  deleteAgentKnowledgeSource(id: string): Promise<void>;
+
+  createMarketplaceListing(listing: InsertMarketplaceListing): Promise<MarketplaceListing>;
+  getMarketplaceListing(id: string): Promise<MarketplaceListing | undefined>;
+  getMarketplaceListings(category?: string): Promise<MarketplaceListing[]>;
+  getMarketplaceListingByAgent(agentId: string): Promise<MarketplaceListing | undefined>;
+  updateMarketplaceListing(id: string, data: Partial<MarketplaceListing>): Promise<MarketplaceListing>;
+
+  createAgentPurchase(purchase: InsertAgentPurchase): Promise<AgentPurchase>;
+  getAgentPurchasesByBuyer(buyerId: string): Promise<AgentPurchase[]>;
+  getAgentPurchasesBySeller(sellerId: string): Promise<AgentPurchase[]>;
+  hasUserPurchasedAgent(buyerId: string, agentId: string): Promise<boolean>;
+
+  createAgentUsageLog(log: InsertAgentUsageLog): Promise<AgentUsageLog>;
+  getAgentUsageLogs(agentId: string, limit?: number): Promise<AgentUsageLog[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -1831,6 +1863,112 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCreditUsage(limit = 100): Promise<CreditUsageLog[]> {
     return db.select().from(creditUsageLog).orderBy(desc(creditUsageLog.createdAt)).limit(limit);
+  }
+
+  async createUserAgent(agent: InsertUserAgent): Promise<UserAgent> {
+    const [created] = await db.insert(userAgents).values(agent).returning();
+    return created;
+  }
+
+  async getUserAgent(id: string): Promise<UserAgent | undefined> {
+    const [agent] = await db.select().from(userAgents).where(eq(userAgents.id, id));
+    return agent;
+  }
+
+  async getUserAgentsByOwner(ownerId: string): Promise<UserAgent[]> {
+    return db.select().from(userAgents).where(eq(userAgents.ownerId, ownerId)).orderBy(desc(userAgents.createdAt));
+  }
+
+  async updateUserAgent(id: string, data: Partial<UserAgent>): Promise<UserAgent> {
+    const [updated] = await db.update(userAgents).set({ ...data, updatedAt: new Date() }).where(eq(userAgents.id, id)).returning();
+    return updated;
+  }
+
+  async deleteUserAgent(id: string): Promise<void> {
+    await db.delete(userAgents).where(eq(userAgents.id, id));
+  }
+
+  async getPublicAgents(): Promise<UserAgent[]> {
+    return db.select().from(userAgents).where(
+      and(eq(userAgents.visibility, "public"), eq(userAgents.status, "active"))
+    ).orderBy(desc(userAgents.rating));
+  }
+
+  async getMarketplaceAgents(): Promise<UserAgent[]> {
+    return db.select().from(userAgents).where(
+      and(eq(userAgents.status, "active"), sql`'marketplace' = ANY(${userAgents.deploymentModes})`)
+    ).orderBy(desc(userAgents.rating));
+  }
+
+  async createAgentKnowledgeSource(source: InsertAgentKnowledgeSource): Promise<AgentKnowledgeSource> {
+    const [created] = await db.insert(agentKnowledgeSources).values(source).returning();
+    return created;
+  }
+
+  async getAgentKnowledgeSources(agentId: string): Promise<AgentKnowledgeSource[]> {
+    return db.select().from(agentKnowledgeSources).where(eq(agentKnowledgeSources.agentId, agentId)).orderBy(desc(agentKnowledgeSources.createdAt));
+  }
+
+  async deleteAgentKnowledgeSource(id: string): Promise<void> {
+    await db.delete(agentKnowledgeSources).where(eq(agentKnowledgeSources.id, id));
+  }
+
+  async createMarketplaceListing(listing: InsertMarketplaceListing): Promise<MarketplaceListing> {
+    const [created] = await db.insert(marketplaceListings).values(listing).returning();
+    return created;
+  }
+
+  async getMarketplaceListing(id: string): Promise<MarketplaceListing | undefined> {
+    const [listing] = await db.select().from(marketplaceListings).where(eq(marketplaceListings.id, id));
+    return listing;
+  }
+
+  async getMarketplaceListings(category?: string): Promise<MarketplaceListing[]> {
+    if (category) {
+      return db.select().from(marketplaceListings).where(
+        and(eq(marketplaceListings.status, "active"), eq(marketplaceListings.category, category))
+      ).orderBy(desc(marketplaceListings.totalSales));
+    }
+    return db.select().from(marketplaceListings).where(eq(marketplaceListings.status, "active")).orderBy(desc(marketplaceListings.totalSales));
+  }
+
+  async getMarketplaceListingByAgent(agentId: string): Promise<MarketplaceListing | undefined> {
+    const [listing] = await db.select().from(marketplaceListings).where(eq(marketplaceListings.agentId, agentId));
+    return listing;
+  }
+
+  async updateMarketplaceListing(id: string, data: Partial<MarketplaceListing>): Promise<MarketplaceListing> {
+    const [updated] = await db.update(marketplaceListings).set({ ...data, updatedAt: new Date() }).where(eq(marketplaceListings.id, id)).returning();
+    return updated;
+  }
+
+  async createAgentPurchase(purchase: InsertAgentPurchase): Promise<AgentPurchase> {
+    const [created] = await db.insert(agentPurchases).values(purchase).returning();
+    return created;
+  }
+
+  async getAgentPurchasesByBuyer(buyerId: string): Promise<AgentPurchase[]> {
+    return db.select().from(agentPurchases).where(eq(agentPurchases.buyerId, buyerId)).orderBy(desc(agentPurchases.createdAt));
+  }
+
+  async getAgentPurchasesBySeller(sellerId: string): Promise<AgentPurchase[]> {
+    return db.select().from(agentPurchases).where(eq(agentPurchases.sellerId, sellerId)).orderBy(desc(agentPurchases.createdAt));
+  }
+
+  async hasUserPurchasedAgent(buyerId: string, agentId: string): Promise<boolean> {
+    const [purchase] = await db.select().from(agentPurchases).where(
+      and(eq(agentPurchases.buyerId, buyerId), eq(agentPurchases.agentId, agentId), eq(agentPurchases.status, "active"))
+    );
+    return !!purchase;
+  }
+
+  async createAgentUsageLog(log: InsertAgentUsageLog): Promise<AgentUsageLog> {
+    const [created] = await db.insert(agentUsageLogs).values(log).returning();
+    return created;
+  }
+
+  async getAgentUsageLogs(agentId: string, limit = 50): Promise<AgentUsageLog[]> {
+    return db.select().from(agentUsageLogs).where(eq(agentUsageLogs.agentId, agentId)).orderBy(desc(agentUsageLogs.createdAt)).limit(limit);
   }
 }
 

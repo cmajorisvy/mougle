@@ -25,6 +25,10 @@ import {
   topics as topics_table,
   liveDebates as liveDebates_table,
   insertTopicSchema,
+  userAgents as userAgents_table,
+  marketplaceListings as marketplaceListings_table,
+  agentPurchases as agentPurchases_table,
+  transactions as transactions_table,
 } from "@shared/schema";
 import { eq, desc, asc, sql } from "drizzle-orm";
 import * as debateOrchestrator from "./services/debate-orchestrator";
@@ -2500,6 +2504,229 @@ Keep under 200 words.`
       const limit = Math.max(1, Math.min(50, Number(req.body?.limit) || 10));
       const result = await aiContentService.batchGeneratePostSEO(limit);
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- USER-OWNED AI AGENT PLATFORM ROUTES ----
+
+  app.post("/api/user-agents", async (req, res) => {
+    try {
+      const { ownerId, name, persona, skills, avatarUrl, voiceId, model, provider, systemPrompt, temperature, visibility, deploymentModes, rateLimitPerMin, tags } = req.body;
+      if (!ownerId || !name) return res.status(400).json({ error: "ownerId and name are required" });
+      const agent = await storage.createUserAgent({
+        ownerId, name, persona, skills, avatarUrl, voiceId,
+        model: model || "gpt-4o", provider: provider || "openai",
+        systemPrompt, temperature, visibility, status: "draft",
+        deploymentModes: deploymentModes || ["private"],
+        rateLimitPerMin: rateLimitPerMin || 30, tags,
+      });
+      res.json(agent);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/user-agents", async (req, res) => {
+    try {
+      const ownerId = req.query.ownerId as string;
+      if (ownerId) {
+        res.json(await storage.getUserAgentsByOwner(ownerId));
+      } else {
+        res.json(await storage.getPublicAgents());
+      }
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/user-agents/:id", async (req, res) => {
+    try {
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      res.json(agent);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/user-agents/:id", async (req, res) => {
+    try {
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      const updated = await storage.updateUserAgent(req.params.id, req.body);
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/user-agents/:id", async (req, res) => {
+    try {
+      await storage.deleteUserAgent(req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/user-agents/:id/deploy", async (req, res) => {
+    try {
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      const { modes } = req.body;
+      const validModes = ["private", "public", "debate", "api", "marketplace"];
+      const filtered = (modes || []).filter((m: string) => validModes.includes(m));
+      const visibility = filtered.includes("public") || filtered.includes("marketplace") ? "public" : "private";
+      const updated = await storage.updateUserAgent(req.params.id, {
+        deploymentModes: filtered,
+        visibility,
+        status: "active",
+      });
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/user-agents/:id/knowledge", async (req, res) => {
+    try {
+      res.json(await storage.getAgentKnowledgeSources(req.params.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/user-agents/:id/knowledge", async (req, res) => {
+    try {
+      const { sourceType, title, content, uri, metadata } = req.body;
+      if (!sourceType || !title) return res.status(400).json({ error: "sourceType and title required" });
+      const source = await storage.createAgentKnowledgeSource({
+        agentId: req.params.id,
+        sourceType, title, content, uri, metadata,
+        status: "processed",
+      });
+      res.json(source);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/user-agents/knowledge/:sourceId", async (req, res) => {
+    try {
+      await storage.deleteAgentKnowledgeSource(req.params.sourceId);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketplace/listings", async (req, res) => {
+    try {
+      const category = req.query.category as string | undefined;
+      const listings = await storage.getMarketplaceListings(category);
+      const enriched = await Promise.all(listings.map(async (l) => {
+        const agent = await storage.getUserAgent(l.agentId);
+        const seller = await storage.getUser(l.sellerId);
+        return { ...l, agent, sellerName: seller?.displayName };
+      }));
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketplace/listings/:id", async (req, res) => {
+    try {
+      const listing = await storage.getMarketplaceListing(req.params.id);
+      if (!listing) return res.status(404).json({ error: "Listing not found" });
+      const agent = await storage.getUserAgent(listing.agentId);
+      const seller = await storage.getUser(listing.sellerId);
+      res.json({ ...listing, agent, sellerName: seller?.displayName });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/marketplace/listings", async (req, res) => {
+    try {
+      const { agentId, sellerId, title, description, pricingModel, priceCredits, monthlyCredits, category } = req.body;
+      if (!agentId || !sellerId || !title) return res.status(400).json({ error: "agentId, sellerId, and title required" });
+      const agent = await storage.getUserAgent(agentId);
+      if (!agent || agent.ownerId !== sellerId) return res.status(403).json({ error: "Not authorized" });
+      await storage.updateUserAgent(agentId, {
+        deploymentModes: [...new Set([...(agent.deploymentModes || []), "marketplace"])],
+        visibility: "public",
+        status: "active",
+      });
+      const listing = await storage.createMarketplaceListing({
+        agentId, sellerId, title, description,
+        pricingModel: pricingModel || "one_time",
+        priceCredits: priceCredits || 100,
+        monthlyCredits, category,
+        revenueSplit: 0.7, featured: false, status: "active",
+      });
+      res.json(listing);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/marketplace/purchase", async (req, res) => {
+    try {
+      const { buyerId, listingId } = req.body;
+      if (!buyerId || !listingId) return res.status(400).json({ error: "buyerId and listingId required" });
+      const listing = await storage.getMarketplaceListing(listingId);
+      if (!listing) return res.status(404).json({ error: "Listing not found" });
+      const already = await storage.hasUserPurchasedAgent(buyerId, listing.agentId);
+      if (already) return res.status(400).json({ error: "Already purchased" });
+      const buyer = await storage.getUser(buyerId);
+      if (!buyer || (buyer.creditWallet || 0) < listing.priceCredits) {
+        return res.status(400).json({ error: "Insufficient credits" });
+      }
+      const sellerEarnings = Math.floor(listing.priceCredits * listing.revenueSplit);
+      const platformFee = listing.priceCredits - sellerEarnings;
+      const purchase = await db.transaction(async (tx) => {
+        await tx.update(users_table).set({ creditWallet: sql`COALESCE(${users_table.creditWallet}, 0) - ${listing.priceCredits}` }).where(eq(users_table.id, buyerId));
+        await tx.update(users_table).set({ creditWallet: sql`COALESCE(${users_table.creditWallet}, 0) + ${sellerEarnings}` }).where(eq(users_table.id, listing.sellerId));
+        await tx.insert(transactions_table).values({
+          senderId: buyerId, receiverId: listing.sellerId,
+          amount: sellerEarnings, transactionType: "agent_purchase",
+          referenceId: listingId, description: `Agent purchase: ${listing.title}`,
+        });
+        const [purchaseRecord] = await tx.insert(agentPurchases_table).values({
+          buyerId, listingId, agentId: listing.agentId, sellerId: listing.sellerId,
+          creditsPaid: listing.priceCredits, sellerEarnings, platformFee,
+          purchaseType: listing.pricingModel, status: "active",
+        }).returning();
+        await tx.update(marketplaceListings_table).set({
+          totalSales: sql`COALESCE(${marketplaceListings_table.totalSales}, 0) + 1`,
+          totalRevenue: sql`COALESCE(${marketplaceListings_table.totalRevenue}, 0) + ${listing.priceCredits}`,
+        }).where(eq(marketplaceListings_table.id, listingId));
+        await tx.update(userAgents_table).set({
+          totalCreditsEarned: sql`COALESCE(${userAgents_table.totalCreditsEarned}, 0) + ${sellerEarnings}`,
+        }).where(eq(userAgents_table.id, listing.agentId));
+        return purchaseRecord;
+      });
+      res.json(purchase);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketplace/purchases/:userId", async (req, res) => {
+    try {
+      const purchases = await storage.getAgentPurchasesByBuyer(req.params.userId);
+      const enriched = await Promise.all(purchases.map(async (p) => {
+        const agent = await storage.getUserAgent(p.agentId);
+        return { ...p, agentName: agent?.name, agentAvatarUrl: agent?.avatarUrl };
+      }));
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketplace/earnings/:userId", async (req, res) => {
+    try {
+      const sales = await storage.getAgentPurchasesBySeller(req.params.userId);
+      const totalEarnings = sales.reduce((sum, s) => sum + s.sellerEarnings, 0);
+      const totalSales = sales.length;
+      res.json({ totalEarnings, totalSales, sales });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/user-agents/:id/use", async (req, res) => {
+    try {
+      const { userId, actionType, creditsSpent } = req.body;
+      if (!userId || !actionType) return res.status(400).json({ error: "userId and actionType required" });
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      const log = await storage.createAgentUsageLog({
+        agentId: req.params.id, userId, actionType, creditsSpent: creditsSpent || 0,
+      });
+      await storage.updateUserAgent(req.params.id, {
+        totalUsageCount: (agent.totalUsageCount || 0) + 1,
+      });
+      res.json(log);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/user-agents/:id/usage", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      res.json(await storage.getAgentUsageLogs(req.params.id, limit));
     } catch (err) { handleServiceError(res, err); }
   });
 

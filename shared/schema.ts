@@ -1181,4 +1181,106 @@ export type InsertCivilizationMetric = z.infer<typeof insertCivilizationMetricsS
 export type NetworkGravityRecord = typeof networkGravity.$inferSelect;
 export type InsertNetworkGravity = z.infer<typeof insertNetworkGravitySchema>;
 
+// ---- USER-OWNED AI AGENT PLATFORM ----
+
+export const userAgents = pgTable("user_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").notNull(),
+  name: text("name").notNull(),
+  persona: text("persona"),
+  skills: text("skills").array(),
+  avatarUrl: text("avatar_url"),
+  voiceId: text("voice_id"),
+  model: text("model").notNull().default("gpt-4o"),
+  provider: text("provider").notNull().default("openai"),
+  systemPrompt: text("system_prompt"),
+  temperature: real("temperature").notNull().default(0.7),
+  visibility: text("visibility").notNull().default("private"),
+  status: text("status").notNull().default("draft"),
+  deploymentModes: text("deployment_modes").array().notNull().default(sql`ARRAY['private']::text[]`),
+  rateLimitPerMin: integer("rate_limit_per_min").notNull().default(30),
+  totalUsageCount: integer("total_usage_count").notNull().default(0),
+  totalCreditsEarned: integer("total_credits_earned").notNull().default(0),
+  rating: real("rating").notNull().default(0),
+  ratingCount: integer("rating_count").notNull().default(0),
+  tags: text("tags").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const agentKnowledgeSources = pgTable("agent_knowledge_sources", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  sourceType: text("source_type").notNull(),
+  title: text("title").notNull(),
+  content: text("content"),
+  uri: text("uri"),
+  metadata: jsonb("metadata").default({}),
+  status: text("status").notNull().default("pending"),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const marketplaceListings = pgTable("marketplace_listings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  sellerId: varchar("seller_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  pricingModel: text("pricing_model").notNull().default("one_time"),
+  priceCredits: integer("price_credits").notNull().default(100),
+  monthlyCredits: integer("monthly_credits"),
+  revenueSplit: real("revenue_split").notNull().default(0.7),
+  category: text("category"),
+  featured: boolean("featured").notNull().default(false),
+  totalSales: integer("total_sales").notNull().default(0),
+  totalRevenue: integer("total_revenue").notNull().default(0),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const agentPurchases = pgTable("agent_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buyerId: varchar("buyer_id").notNull(),
+  listingId: varchar("listing_id").notNull(),
+  agentId: varchar("agent_id").notNull(),
+  sellerId: varchar("seller_id").notNull(),
+  creditsPaid: integer("credits_paid").notNull(),
+  sellerEarnings: integer("seller_earnings").notNull(),
+  platformFee: integer("platform_fee").notNull(),
+  purchaseType: text("purchase_type").notNull().default("one_time"),
+  status: text("status").notNull().default("active"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentUsageLogs = pgTable("agent_usage_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  actionType: text("action_type").notNull(),
+  creditsSpent: integer("credits_spent").notNull().default(0),
+  tokensUsed: integer("tokens_used"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserAgentSchema = createInsertSchema(userAgents).omit({ id: true, createdAt: true, updatedAt: true, totalUsageCount: true, totalCreditsEarned: true, rating: true, ratingCount: true });
+export const insertAgentKnowledgeSourceSchema = createInsertSchema(agentKnowledgeSources).omit({ id: true, createdAt: true, processedAt: true });
+export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({ id: true, createdAt: true, updatedAt: true, totalSales: true, totalRevenue: true });
+export const insertAgentPurchaseSchema = createInsertSchema(agentPurchases).omit({ id: true, createdAt: true });
+export const insertAgentUsageLogSchema = createInsertSchema(agentUsageLogs).omit({ id: true, createdAt: true });
+
+export type UserAgent = typeof userAgents.$inferSelect;
+export type InsertUserAgent = z.infer<typeof insertUserAgentSchema>;
+export type AgentKnowledgeSource = typeof agentKnowledgeSources.$inferSelect;
+export type InsertAgentKnowledgeSource = z.infer<typeof insertAgentKnowledgeSourceSchema>;
+export type MarketplaceListing = typeof marketplaceListings.$inferSelect;
+export type InsertMarketplaceListing = z.infer<typeof insertMarketplaceListingSchema>;
+export type AgentPurchase = typeof agentPurchases.$inferSelect;
+export type InsertAgentPurchase = z.infer<typeof insertAgentPurchaseSchema>;
+export type AgentUsageLog = typeof agentUsageLogs.$inferSelect;
+export type InsertAgentUsageLog = z.infer<typeof insertAgentUsageLogSchema>;
+
 export * from "./models/chat";

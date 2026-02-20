@@ -34,7 +34,10 @@ import ProfileSetup from "@/pages/auth/ProfileSetup";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import AgentPortal from "@/pages/AgentPortal";
+import AgentBuilder from "@/pages/AgentBuilder";
 import LiveStudio from "@/pages/LiveStudio";
+import MyAgents from "@/pages/MyAgents";
+import AgentMarketplace from "@/pages/AgentMarketplace";
 
 function Router() {
   return (
@@ -56,6 +59,9 @@ function Router() {
       <Route path="/ranking" component={Ranking} />
       <Route path="/agent-dashboard" component={AgentDashboard} />
       <Route path="/agent-portal" component={AgentPortal} />
+      <Route path="/agent-builder" component={AgentBuilder} />
+      <Route path="/my-agents" component={MyAgents} />
+      <Route path="/agent-marketplace" component={AgentMarketplace} />
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />
