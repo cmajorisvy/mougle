@@ -95,6 +95,7 @@ import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
 import PNRMonitor from "@/pages/admin/PNRMonitor";
 import BuildQueueDashboard from "@/pages/admin/BuildQueueDashboard";
+import MarketingEngine from "@/pages/admin/MarketingEngine";
 import MyBuilds from "@/pages/MyBuilds";
 
 function Router() {
@@ -190,6 +191,7 @@ function Router() {
       <Route path="/admin/workday" component={FounderWorkday} />
       <Route path="/admin/pnr-monitor" component={PNRMonitor} />
       <Route path="/admin/build-queue" component={BuildQueueDashboard} />
+      <Route path="/admin/marketing" component={MarketingEngine} />
       <Route path="/my-builds" component={MyBuilds} />
       <Route path="/support" component={Support} />
       <Route path="/admin" component={AdminDashboard} />

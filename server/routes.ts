@@ -6217,6 +6217,97 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ $0 MARKETING ENGINE ============
+  const { marketingEngineService } = await import("./services/marketing-engine-service");
+
+  app.get("/api/marketing/articles", async (req, res) => {
+    try { res.json(await marketingEngineService.getArticles("published")); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketing/articles/:slug", async (req, res) => {
+    try {
+      const article = await marketingEngineService.getArticleBySlug(req.params.slug);
+      if (!article) return res.status(404).json({ message: "Article not found" });
+      res.json(article);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketing/seo/:slug", async (req, res) => {
+    try {
+      const page = await marketingEngineService.getSeoPageBySlug(req.params.slug);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketing/referral", resolveUser, async (req: any, res) => {
+    try { res.json(await marketingEngineService.getOrCreateReferralLink(req.user.id)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/marketing/referral/:code/click", async (req, res) => {
+    try { res.json({ tracked: await marketingEngineService.trackReferralClick(req.params.code) }); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketing/convert-discussion", requireAdmin, async (req, res) => {
+    try {
+      const { postId } = req.body;
+      if (!postId) return res.status(400).json({ message: "postId required" });
+      res.json(await marketingEngineService.convertDiscussionToArticle(postId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketing/generate-seo-page", requireAdmin, async (req, res) => {
+    try {
+      const { type, referenceId, name, description } = req.body;
+      if (!type || !name) return res.status(400).json({ message: "type and name required" });
+      res.json(await marketingEngineService.generateSeoPage(type, referenceId || "", { name, description: description || name }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketing/auto-seo-pages", requireAdmin, async (_req, res) => {
+    try { res.json(await marketingEngineService.autoGenerateToolSeoPages()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketing/daily-summary", requireAdmin, async (_req, res) => {
+    try { res.json(await marketingEngineService.generateDailySummary()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketing/select-social", requireAdmin, async (_req, res) => {
+    try { res.json(await marketingEngineService.selectHighQualityForSocial()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketing/articles/:id/publish", requireAdmin, async (req, res) => {
+    try {
+      const article = await marketingEngineService.publishArticle(req.params.id);
+      if (!article) return res.status(404).json({ message: "Article not found" });
+      res.json(article);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketing/seo-pages/:id/index", requireAdmin, async (req, res) => {
+    try {
+      const page = await marketingEngineService.indexSeoPage(req.params.id);
+      if (!page) return res.status(404).json({ message: "Page not found" });
+      res.json(page);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/marketing/articles", requireAdmin, async (req, res) => {
+    try { res.json(await marketingEngineService.getArticles(req.query.status as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/marketing/seo-pages", requireAdmin, async (_req, res) => {
+    try { res.json(await marketingEngineService.getSeoPages()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/marketing/referrals", requireAdmin, async (_req, res) => {
+    try { res.json(await marketingEngineService.getReferralStats()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/marketing/dashboard", requireAdmin, async (_req, res) => {
+    try { res.json(await marketingEngineService.getGrowthDashboard()); } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ ON-DEMAND DEV & BOOTSTRAP SURVIVAL ============
   const { onDemandDevService } = await import("./services/on-demand-dev-service");
 

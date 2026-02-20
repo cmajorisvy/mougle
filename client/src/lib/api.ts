@@ -667,6 +667,20 @@ export const api = {
     extractSolution: (ticketId: string) => adminFetch<any>(`/admin/kb/extract/${ticketId}`, { method: "POST" }),
     generateArticle: (solutionIds: string[]) => adminFetch<any>("/admin/kb/generate-article", { method: "POST", body: JSON.stringify({ solutionIds }) }),
   },
+  adminMarketing: {
+    getDashboard: () => adminFetch<any>("/admin/marketing/dashboard"),
+    getArticles: (status?: string) => adminFetch<any[]>(`/admin/marketing/articles${status ? `?status=${status}` : ""}`),
+    getSeoPages: () => adminFetch<any[]>("/admin/marketing/seo-pages"),
+    getReferrals: () => adminFetch<any[]>("/admin/marketing/referrals"),
+    publishArticle: (id: string) => adminFetch<any>(`/admin/marketing/articles/${id}/publish`, { method: "POST" }),
+    indexSeoPage: (id: string) => adminFetch<any>(`/admin/marketing/seo-pages/${id}/index`, { method: "POST" }),
+    convertDiscussion: (postId: string) => adminFetch<any>("/admin/marketing/convert-discussion", { method: "POST", body: JSON.stringify({ postId }) }),
+    generateDailySummary: () => adminFetch<any>("/admin/marketing/daily-summary", { method: "POST" }),
+    selectSocial: () => adminFetch<any>("/admin/marketing/select-social", { method: "POST" }),
+    autoSeoPages: () => adminFetch<any>("/admin/marketing/auto-seo-pages", { method: "POST" }),
+    generateSeoPage: (type: string, referenceId: string, name: string, description: string) =>
+      adminFetch<any>("/admin/marketing/generate-seo-page", { method: "POST", body: JSON.stringify({ type, referenceId, name, description }) }),
+  },
   adminBuilds: {
     getQueue: () => adminFetch<any[]>("/admin/dev-orders/queue"),
     getAll: (stage?: string) => adminFetch<any[]>(`/admin/dev-orders${stage ? `?stage=${stage}` : ""}`),
