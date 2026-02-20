@@ -30,10 +30,13 @@ async function getCredentials() {
   if (!connectionSettings || !connectionSettings.settings.api_key) {
     throw new Error("Resend not connected");
   }
-  console.log("[Email Debug] Connector from_email:", connectionSettings.settings.from_email);
+  const connectorFromEmail = connectionSettings.settings.from_email;
+  const fromEmail = connectorFromEmail && connectorFromEmail.includes("@mougle.com")
+    ? connectorFromEmail
+    : "noreply@mougle.com";
   return {
     apiKey: connectionSettings.settings.api_key,
-    fromEmail: connectionSettings.settings.from_email,
+    fromEmail,
   };
 }
 
