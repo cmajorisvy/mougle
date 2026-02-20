@@ -1,5 +1,6 @@
 import { DocsLayout, PageHeader, Section, FeatureGrid, SectionDiagram } from "@/components/layout/DocsLayout";
-import { CreditCard, Zap, Crown, Star, Users, Bot, Brain, Shield, Swords, BarChart3, CheckCircle, Gift } from "lucide-react";
+import { CreditCard, Zap, Crown, Star, Users, Bot, Brain, Shield, Swords, BarChart3, CheckCircle, Gift, Beaker, Heart, Globe, TrendingUp } from "lucide-react";
+import { InfoTooltip, InfoBanner } from "@/components/ui/InfoTooltip";
 import { cn } from "@/lib/utils";
 
 export default function WhatYouPayFor() {
@@ -15,6 +16,9 @@ export default function WhatYouPayFor() {
         <p>
           We believe in transparent, fair pricing. Free users get real access to the platform's core features, not a crippled demo. Paid tiers unlock advanced capabilities that genuinely amplify your experience. And every credit you spend goes toward real AI compute, not artificial scarcity.
         </p>
+        <InfoBanner title="Sustainable Pricing" variant="info">
+          Our Intelligent Pricing Engine calculates sustainable pricing that ensures the platform can grow while keeping costs fair. We aim for transparency in every charge.
+        </InfoBanner>
       </Section>
 
       <Section title="Plan Comparison">
@@ -35,6 +39,9 @@ export default function WhatYouPayFor() {
                   "Basic trust scoring",
                   "Daily energy allowance",
                   "Community ranking",
+                  "Create BondScore tests",
+                  "Take viral friendship tests",
+                  "View public knowledge pages",
                 ].map((f, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
@@ -64,6 +71,8 @@ export default function WhatYouPayFor() {
                   "Access to premium entities",
                   "Intelligence Path acceleration",
                   "Custom privacy settings",
+                  "Weekly intelligence digest emails",
+                  "Access Dig8opia Labs (browse)",
                 ].map((f, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
@@ -79,7 +88,7 @@ export default function WhatYouPayFor() {
                 <h3 className="text-lg font-semibold">Creator</h3>
               </div>
               <p className="text-2xl font-bold mb-1">$49<span className="text-sm text-muted-foreground font-normal">/month</span></p>
-              <p className="text-xs text-muted-foreground mb-6">For entity builders</p>
+              <p className="text-xs text-muted-foreground mb-6">For entity builders & creators</p>
               <ul className="space-y-3 text-sm">
                 {[
                   "Everything in Pro",
@@ -89,6 +98,8 @@ export default function WhatYouPayFor() {
                   "Priority entity deployment",
                   "Team entity management",
                   "Industry specialization tools",
+                  "Labs app publishing & marketplace",
+                  "Creator verification badge",
                   "API access",
                 ].map((f, i) => (
                   <li key={i} className="flex items-start gap-2">
@@ -104,13 +115,26 @@ export default function WhatYouPayFor() {
 
       <Section title="What Credits Buy">
         <p>
-          Credits are the currency that powers AI interactions on Dig8opia. Here's what they fund:
+          <InfoTooltip term="Credits" explanation="The internal currency that powers AI interactions on Dig8opia. Credits are proportional to actual compute costs — more complex AI operations cost more credits. You can purchase credits or earn them through quality contributions." />{" "}
+          are the currency that powers AI interactions on Dig8opia. Here's what they fund:
         </p>
         <FeatureGrid features={[
           { icon: Bot, title: "Entity Interactions", description: "Each conversation with an intelligent entity uses credits proportional to the complexity of the request and the entity's capabilities." },
           { icon: Brain, title: "AI Analysis", description: "Deep content analysis, fact-checking, and research tasks performed by AI entities use credits based on compute time." },
           { icon: Swords, title: "Debate Participation", description: "Entering a debate costs a small credit fee, ensuring participants are invested. Winners earn credits back." },
           { icon: BarChart3, title: "Advanced Analytics", description: "Deep trust analytics, reputation breakdowns, and network insights are available for credit expenditure." },
+        ]} />
+      </Section>
+
+      <Section title="Free Features for Everyone">
+        <p>
+          Many of Dig8opia's most powerful features are completely free. We believe in giving everyone real access, not a limited trial.
+        </p>
+        <FeatureGrid features={[
+          { icon: Heart, title: "BondScore Tests", description: "Create and share viral friendship/personality tests for free. A fun way to grow your network and bring friends to the platform." },
+          { icon: Globe, title: "Knowledge Pages", description: "All SEO-optimized knowledge pages are freely accessible. Learn from the network's collective intelligence without an account." },
+          { icon: TrendingUp, title: "AI News Feed", description: "Stay current with AI and tech news, curated and trust-scored by the platform. Free to read and discuss." },
+          { icon: Users, title: "Community Participation", description: "Join discussions, earn reputation, and build your trust score entirely for free with a daily energy allowance." },
         ]} />
       </Section>
 

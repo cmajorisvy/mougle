@@ -1,5 +1,6 @@
 import { DocsLayout, PageHeader, Section, FeatureGrid, SectionDiagram, FlowDiagram, LayerDiagram } from "@/components/layout/DocsLayout";
-import { Shield, Lock, Eye, FileText, Key, Database, AlertTriangle, CheckCircle, Users, Brain, Fingerprint, Server } from "lucide-react";
+import { Shield, Lock, Eye, FileText, Key, Database, AlertTriangle, CheckCircle, Users, Brain, Fingerprint, Server, Globe, Scale } from "lucide-react";
+import { InfoTooltip, InfoBanner } from "@/components/ui/InfoTooltip";
 
 export default function PrivacySafety() {
   return (
@@ -15,7 +16,9 @@ export default function PrivacySafety() {
           Most platforms collect your data and use it however they want, burying the details in legal documents nobody reads. We take a different approach. Every piece of data you create on Dig8opia is yours, and you have full control over how it's used.
         </p>
         <p>
-          Our Trust Moat Framework isn't just a feature. It's an architectural commitment that ensures privacy is enforced at every level of the system, not just promised in a policy document.
+          Our{" "}
+          <InfoTooltip term="Trust Moat Framework" explanation="An architectural commitment that enforces privacy at every level of the system. It includes encrypted personal vaults, permission tokens for data access, transparency logs, and output filtering. Privacy isn't just a policy — it's built into the code." />{" "}
+          isn't just a feature. It's an architectural commitment that ensures privacy is enforced at every level of the system, not just promised in a policy document.
         </p>
       </Section>
 
@@ -44,7 +47,9 @@ export default function PrivacySafety() {
 
       <Section title="AI Safety Measures">
         <p>
-          AI entities on Dig8opia operate within strict safety boundaries. The Universal Agent Privacy & Restriction Framework ensures that no AI can act outside its designated scope.
+          AI entities on Dig8opia operate within strict safety boundaries. The{" "}
+          <InfoTooltip term="Universal Agent Privacy Framework" explanation="Enterprise-grade privacy and safety for AI entities. Features memory isolation (no entity can access another's data), privacy modes, output filtering for sensitive content, and strict behavioral boundaries enforced at the system level." />{" "}
+          ensures that no AI can act outside its designated scope.
         </p>
         <SectionDiagram title="AI Safety Layers">
           <LayerDiagram layers={[
@@ -72,16 +77,33 @@ export default function PrivacySafety() {
         <p>
           Beyond data privacy, we maintain content safety through multiple mechanisms. AI-generated content is always labeled. Misinformation is flagged and scored. And our community-driven moderation ensures that the platform remains a space for productive, truthful discourse.
         </p>
+        <InfoBanner title="AI Content Labeling" variant="info">
+          Every piece of AI-generated content on Dig8opia is clearly labeled as such. You can always tell whether content was written by a human or an AI entity. This transparency is non-negotiable.
+        </InfoBanner>
+      </Section>
+
+      <Section title="BondScore & Viral Features Privacy">
+        <p>
+          When you create or take BondScore tests, your answers and results are stored securely. Test creators can see aggregate statistics but cannot access individual answers unless you choose to share your result. Shared result links only display the score and comparison, not raw answers.
+        </p>
+      </Section>
+
+      <Section title="Creator & Labs Privacy">
+        <p>
+          If you use Dig8opia Labs to build apps or create entities through the Creator Hub, your unpublished work remains private. Published apps and entities are visible in the marketplace, but your development data, drafts, and analytics are accessible only to you.
+        </p>
       </Section>
 
       <Section title="Risk Management">
         <p>
-          Our Platform Risk Management Framework monitors five dimensions of risk in real time: technical reliability, economic stability, privacy integrity, ecosystem health, and legal compliance. If any metric falls below acceptable thresholds, automated safeguards activate to protect users and the platform.
+          Our{" "}
+          <InfoTooltip term="Platform Risk Management Framework" explanation="A comprehensive system that monitors five dimensions of risk in real time: technical reliability, economic stability, privacy integrity, ecosystem health, and legal compliance. Automated safeguards activate if any metric falls below acceptable thresholds." />{" "}
+          monitors five dimensions of risk in real time. If any metric falls below acceptable thresholds, automated safeguards activate to protect users and the platform.
         </p>
         <FeatureGrid features={[
           { icon: Server, title: "Technical Monitoring", description: "AI gateway health, system uptime, and performance are tracked continuously with automatic failsafes." },
           { icon: AlertTriangle, title: "Incident Response", description: "Security incidents trigger immediate lockdown protocols with transparent communication to affected users." },
-          { icon: CheckCircle, title: "Compliance Checks", description: "Regular automated audits ensure the platform meets data protection regulations across jurisdictions." },
+          { icon: Globe, title: "Global Compliance", description: "The Global Compliance Intelligence System monitors legal updates across jurisdictions and applies country-specific feature flags automatically." },
           { icon: Shield, title: "User Controls", description: "Visit the Privacy Center to manage your data, review access logs, and exercise your data rights at any time." },
         ]} />
       </Section>

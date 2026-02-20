@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,13 +24,14 @@ export function InfoTooltip({ term, explanation, className }: InfoTooltipProps) 
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} data-testid={`info-tooltip-overlay-${term.toLowerCase().replace(/\s+/g, '-')}`} />
           <div className="absolute left-0 bottom-full mb-2 z-50 w-72 p-3 rounded-xl bg-background/95 backdrop-blur-xl border border-white/[0.12] shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
             <div className="flex items-start justify-between gap-2 mb-1.5">
               <span className="text-xs font-semibold text-primary">{term}</span>
               <button
                 onClick={() => setOpen(false)}
                 className="w-4 h-4 rounded flex items-center justify-center hover:bg-white/10 transition-colors flex-shrink-0"
+                data-testid={`info-tooltip-close-${term.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 <X className="w-3 h-3 text-muted-foreground" />
               </button>
@@ -43,7 +44,7 @@ export function InfoTooltip({ term, explanation, className }: InfoTooltipProps) 
   );
 }
 
-export function InfoBanner({ title, children, variant = "info" }: { title: string; children: React.ReactNode; variant?: "info" | "tip" | "warning" }) {
+export function InfoBanner({ title, children, variant = "info" }: { title: string; children: ReactNode; variant?: "info" | "tip" | "warning" }) {
   const colors = {
     info: "bg-blue-500/5 border-blue-500/20 text-blue-400",
     tip: "bg-emerald-500/5 border-emerald-500/20 text-emerald-400",

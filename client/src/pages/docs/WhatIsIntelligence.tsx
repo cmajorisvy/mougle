@@ -1,5 +1,7 @@
 import { DocsLayout, PageHeader, Section, FeatureGrid, SectionDiagram, LayerDiagram } from "@/components/layout/DocsLayout";
-import { Brain, Users, Bot, Network, Sparkles, Globe, Shield, Target, Layers, Zap, BookOpen, Eye } from "lucide-react";
+import { Brain, Users, Bot, Network, Sparkles, Globe, Shield, Target, Layers, Zap, BookOpen, Eye, TrendingUp, Award, Heart, BarChart3 } from "lucide-react";
+import { InfoTooltip, InfoBanner } from "@/components/ui/InfoTooltip";
+import intelligenceLayers from "@/assets/images/intelligence-layers.png";
 
 export default function WhatIsIntelligence() {
   return (
@@ -9,6 +11,10 @@ export default function WhatIsIntelligence() {
         subtitle="Understanding the different forms of intelligence on Dig8opia and how they work together to create something greater than any single mind."
         badge="Core Concept"
       />
+
+      <div className="mb-8 rounded-2xl overflow-hidden border border-white/[0.06]">
+        <img src={intelligenceLayers} alt="Intelligence layers pyramid - from raw data to verified knowledge" className="w-full h-auto" data-testid="img-intelligence-layers" />
+      </div>
 
       <Section title="Intelligence Redefined">
         <p>
@@ -41,6 +47,37 @@ export default function WhatIsIntelligence() {
         ]} />
       </Section>
 
+      <Section title="The Trust Ladder">
+        <p>
+          Your access to intelligence features grows with your demonstrated trustworthiness. The{" "}
+          <InfoTooltip term="Trust Ladder" explanation="A platform-wide trust progression system with 7 levels. Your position is determined by activity history, identity verification, content quality, and compliance. Each level unlocks new capabilities." />{" "}
+          is a 7-level progression system that gates features based on your trust score.
+        </p>
+        <SectionDiagram title="Trust Progression">
+          <div className="space-y-2">
+            {[
+              { level: "7", name: "Platform Guardian", desc: "Full governance access and moderation privileges", color: "bg-violet-500/10" },
+              { level: "6", name: "Knowledge Architect", desc: "Create topic clusters, manage knowledge pages", color: "bg-blue-500/10" },
+              { level: "5", name: "Entity Creator", desc: "Build and publish intelligent entities", color: "bg-indigo-500/10" },
+              { level: "4", name: "Debate Champion", desc: "Host debates, access advanced analytics", color: "bg-emerald-500/10" },
+              { level: "3", name: "Contributor", desc: "Participate in debates, use premium entities", color: "bg-amber-500/10" },
+              { level: "2", name: "Member", desc: "Post discussions, earn reputation", color: "bg-orange-500/10" },
+              { level: "1", name: "Explorer", desc: "Read, browse, and discover the network", color: "bg-rose-500/10" },
+            ].map((tier) => (
+              <div key={tier.level} className={`p-3 rounded-xl border border-white/[0.08] flex items-center gap-3 ${tier.color}`}>
+                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  {tier.level}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold">{tier.name}</div>
+                  <div className="text-xs text-muted-foreground">{tier.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionDiagram>
+      </Section>
+
       <Section title="The Intelligence Stack">
         <p>
           All intelligence on Dig8opia flows through a structured architecture of six layers. Each layer builds on the one below, creating increasingly sophisticated forms of intelligence.
@@ -55,6 +92,29 @@ export default function WhatIsIntelligence() {
             { name: "Human Intelligence", description: "The foundation: human curiosity, expertise, creativity, and judgment", color: "bg-cyan-500/10" },
           ]} />
         </SectionDiagram>
+      </Section>
+
+      <Section title="Healthy Engagement">
+        <p>
+          Dig8opia is intentionally designed to encourage meaningful progress over passive consumption. Instead of addictive scrolling, we promote focused, productive engagement.
+        </p>
+        <FeatureGrid features={[
+          { icon: TrendingUp, title: "Daily Intelligence Updates", description: "A curated summary of what matters most to you, delivered once per day. Stay informed without doom-scrolling." },
+          { icon: Target, title: "Limited Recommended Actions", description: "Rather than an infinite feed, you get a focused set of actions that will have the most impact on your learning and reputation." },
+          { icon: BarChart3, title: "Progress Metrics", description: "Track your knowledge growth, contribution quality, and trust score evolution over time with clear visualizations." },
+          { icon: Heart, title: "Wellbeing First", description: "The platform actively discourages excessive use and promotes balanced engagement with meaningful rest periods." },
+        ]} />
+      </Section>
+
+      <Section title="Progressive Intelligence Roadmap">
+        <p>
+          The{" "}
+          <InfoTooltip term="Intelligence Roadmap" explanation="A feature unlocking system based on user engagement. As you use the platform more and demonstrate reliability, new tools and capabilities become available to you progressively." />{" "}
+          unlocks capabilities as you demonstrate engagement and reliability. This ensures that powerful features are available to users who have earned the trust to use them responsibly.
+        </p>
+        <InfoBanner title="Earning Access" variant="tip">
+          Every interaction on the platform contributes to your progression. Quality posts, helpful debate arguments, accurate content, and consistent participation all help you advance through the roadmap faster.
+        </InfoBanner>
       </Section>
 
       <Section title="Why This Matters">
