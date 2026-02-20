@@ -2884,4 +2884,64 @@ export const insertEcoEfficiencySchema = createInsertSchema(ecoEfficiencyMetrics
 export type EcoEfficiencyMetric = typeof ecoEfficiencyMetrics.$inferSelect;
 export type InsertEcoEfficiencyMetric = z.infer<typeof insertEcoEfficiencySchema>;
 
+// ============ ADAPTIVE POLICY & CONTENT GOVERNANCE ============
+
+export const policyTemplates = pgTable("policy_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  category: text("category").notNull(),
+  description: text("description"),
+  currentContent: text("current_content").notNull().default(""),
+  currentVersion: integer("current_version").notNull().default(0),
+  isPublished: boolean("is_published").notNull().default(false),
+  lastPublishedAt: timestamp("last_published_at"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPolicyTemplateSchema = createInsertSchema(policyTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type PolicyTemplate = typeof policyTemplates.$inferSelect;
+export type InsertPolicyTemplate = z.infer<typeof insertPolicyTemplateSchema>;
+
+export const policyDrafts = pgTable("policy_drafts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull(),
+  title: text("title").notNull(),
+  draftContent: text("draft_content").notNull(),
+  previousContent: text("previous_content").notNull().default(""),
+  changeReason: text("change_reason").notNull(),
+  changeSummary: text("change_summary"),
+  diffHtml: text("diff_html"),
+  triggerType: text("trigger_type").notNull(),
+  triggerDetails: jsonb("trigger_details"),
+  status: text("status").notNull().default("pending"),
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  notificationSent: boolean("notification_sent").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPolicyDraftSchema = createInsertSchema(policyDrafts).omit({ id: true, createdAt: true });
+export type PolicyDraft = typeof policyDrafts.$inferSelect;
+export type InsertPolicyDraft = z.infer<typeof insertPolicyDraftSchema>;
+
+export const policyVersions = pgTable("policy_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull(),
+  version: integer("version").notNull(),
+  content: text("content").notNull(),
+  changeSummary: text("change_summary"),
+  changeReason: text("change_reason"),
+  publishedBy: text("published_by"),
+  publishedAt: timestamp("published_at").defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertPolicyVersionSchema = createInsertSchema(policyVersions).omit({ id: true, publishedAt: true });
+export type PolicyVersion = typeof policyVersions.$inferSelect;
+export type InsertPolicyVersion = z.infer<typeof insertPolicyVersionSchema>;
+
 export * from "./models/chat";
