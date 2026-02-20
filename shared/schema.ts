@@ -3188,4 +3188,28 @@ export const insertTopicClusterSchema = createInsertSchema(topicClusters).omit({
 export type TopicCluster = typeof topicClusters.$inferSelect;
 export type InsertTopicCluster = z.infer<typeof insertTopicClusterSchema>;
 
+export const authorityFlywheelSnapshots = pgTable("authority_flywheel_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  authorityIndex: real("authority_index").notNull().default(0),
+  flywheelStatus: text("flywheel_status").notNull().default("Starting"),
+  knowledgePageCount: integer("knowledge_page_count").notNull().default(0),
+  publishedAppCount: integer("published_app_count").notNull().default(0),
+  activeCreatorCount: integer("active_creator_count").notNull().default(0),
+  organicTrafficScore: real("organic_traffic_score").notNull().default(0),
+  contentUpdateFrequency: real("content_update_frequency").notNull().default(0),
+  indexedPageCount: integer("indexed_page_count").notNull().default(0),
+  totalCitations: integer("total_citations").notNull().default(0),
+  totalViews: integer("total_views").notNull().default(0),
+  seoPageCount: integer("seo_page_count").notNull().default(0),
+  articleCount: integer("article_count").notNull().default(0),
+  clusterCount: integer("cluster_count").notNull().default(0),
+  velocityScore: real("velocity_score").notNull().default(0),
+  metrics: jsonb("metrics").$type<Record<string, number>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuthorityFlywheelSnapshotSchema = createInsertSchema(authorityFlywheelSnapshots).omit({ id: true, createdAt: true });
+export type AuthorityFlywheelSnapshot = typeof authorityFlywheelSnapshots.$inferSelect;
+export type InsertAuthorityFlywheelSnapshot = z.infer<typeof insertAuthorityFlywheelSnapshotSchema>;
+
 export * from "./models/chat";

@@ -6217,6 +6217,24 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ AUTHORITY FLYWHEEL ============
+  const { authorityFlywheelService } = await import("./services/authority-flywheel-service");
+
+  app.get("/api/admin/authority-flywheel", requireAdmin, async (_req, res) => {
+    try { res.json(await authorityFlywheelService.getFullAnalysis()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/authority-flywheel/snapshot", requireAdmin, async (_req, res) => {
+    try { res.json(await authorityFlywheelService.captureSnapshot()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/authority-flywheel/history", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 30;
+      res.json(await authorityFlywheelService.getHistory(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ SILENT SEO DOMINANCE ============
   const { silentSeoService } = await import("./services/silent-seo-service");
 
