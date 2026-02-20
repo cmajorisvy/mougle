@@ -3060,6 +3060,58 @@ export const insertOpsActionSchema = createInsertSchema(opsActions).omit({ id: t
 export type OpsAction = typeof opsActions.$inferSelect;
 export type InsertOpsAction = z.infer<typeof insertOpsActionSchema>;
 
+export const marketingArticles = pgTable("marketing_articles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceType: text("source_type").notNull(),
+  sourceId: text("source_id"),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
+  content: text("content").notNull(),
+  metaDescription: text("meta_description"),
+  keywords: text("keywords").array(),
+  category: text("category").notNull().default("insight"),
+  status: text("status").notNull().default("draft"),
+  views: integer("views").notNull().default(0),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMarketingArticleSchema = createInsertSchema(marketingArticles).omit({ id: true, views: true, createdAt: true });
+export type MarketingArticle = typeof marketingArticles.$inferSelect;
+export type InsertMarketingArticle = z.infer<typeof insertMarketingArticleSchema>;
+
+export const seoPages = pgTable("seo_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(),
+  referenceId: text("reference_id"),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
+  content: text("content").notNull(),
+  metaDescription: text("meta_description"),
+  keywords: text("keywords").array(),
+  indexed: boolean("indexed").notNull().default(false),
+  views: integer("views").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSeoPageSchema = createInsertSchema(seoPages).omit({ id: true, views: true, createdAt: true });
+export type SeoPage = typeof seoPages.$inferSelect;
+export type InsertSeoPage = z.infer<typeof insertSeoPageSchema>;
+
+export const referralLinks = pgTable("referral_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  code: text("code").notNull().unique(),
+  clicks: integer("clicks").notNull().default(0),
+  conversions: integer("conversions").notNull().default(0),
+  lastClickedAt: timestamp("last_clicked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertReferralLinkSchema = createInsertSchema(referralLinks).omit({ id: true, clicks: true, conversions: true, createdAt: true });
+export type ReferralLink = typeof referralLinks.$inferSelect;
+export type InsertReferralLink = z.infer<typeof insertReferralLinkSchema>;
+
 export const devOrders = pgTable("dev_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
