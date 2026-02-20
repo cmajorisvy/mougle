@@ -1,8 +1,14 @@
+import OpenAI from "openai";
 import { storage } from "../storage";
-import { textToSpeech } from "../replit_integrations/audio/client";
 import type { LiveDebate, DebateParticipant, DebateTurn } from "@shared/schema";
-import { runFlywheelPipeline } from "./content-flywheel-service";
 import { aiGateway } from "./ai-gateway";
+
+function getOpenAI(): OpenAI {
+  return new OpenAI({
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  });
+}
 
 type VoiceType = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
 
@@ -274,19 +280,6 @@ Rules:
       data: { turn, participant, agentName },
     });
 
-    try {
-      const voice = (participant.ttsVoice as VoiceType) || "alloy";
-      const audioBuffer = await textToSpeech(content, voice, "mp3");
-      const audioBase64 = audioBuffer.toString("base64");
-
-      emitEvent(debateId, {
-        type: "speech_ready",
-        debateId,
-        data: { turnId: turn.id, audioBase64, participantId: participant.id, agentName },
-      });
-    } catch (ttsError) {
-      console.error("TTS error for agent turn:", ttsError);
-    }
 
     await storage.updateDebateParticipant(participant.id, {
       turnsUsed: (participant.turnsUsed || 0) + 1,
@@ -377,10 +370,6 @@ export async function endDebate(debateId: number) {
   emitEvent(debateId, { type: "debate_end", debateId, data: { debate: updated } });
   activeDebates.delete(debateId);
 
-  runFlywheelPipeline(debateId).catch(err => {
-    console.log(`[Flywheel] Auto-trigger for debate ${debateId} skipped or failed:`, err?.message || err);
-  });
-
   return updated;
 }
 
@@ -459,7 +448,7 @@ Rules:
           messages.push({ role: "user", content: "You are the first speaker. Deliver your opening argument." });
         }
 
-        const response = await openai.chat.completions.create({
+        const response = await getOpenAI().chat.completions.create({
           model: "gpt-4o-mini",
           messages,
           max_tokens: 200,
@@ -500,11 +489,7 @@ Rules:
     currentSpeakerId: null,
   });
 
-  console.log(`[QuickRun] Debate ${debateId} completed, triggering flywheel...`);
-
-  runFlywheelPipeline(debateId).catch(err => {
-    console.log(`[Flywheel] Auto-trigger for debate ${debateId} failed:`, err?.message || err);
-  });
+  console.log(`[QuickRun] Debate ${debateId} completed`);
 
   return updated;
 }

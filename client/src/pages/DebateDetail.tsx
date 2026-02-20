@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, Volume2, ChevronLeft, Zap, CheckCircle2, AlertTriangle, BarChart3, Film, Video, Rocket, Tv } from "lucide-react";
+import { Loader2, Radio, Users, Clock, Play, Square, Send, Bot, User, ChevronLeft, Zap, CheckCircle2, AlertTriangle, BarChart3, Rocket, Tv } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { ShareButtons } from "@/components/social/ShareButtons";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -74,7 +74,7 @@ function ParticipantAvatar({ participant, isSpeaking }: { participant: any; isSp
         {isAgent ? <Bot className="w-6 h-6" /> : <User className="w-6 h-6" />}
         {isSpeaking && (
           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-            <Volume2 className="w-2.5 h-2.5 text-white" />
+            <Zap className="w-2.5 h-2.5 text-white" />
           </div>
         )}
       </div>
@@ -120,7 +120,6 @@ export default function DebateDetail() {
   const [, navigate] = useLocation();
   const [humanInput, setHumanInput] = useState("");
   const transcriptRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   const { data: debate, isLoading } = useQuery({
     queryKey: ["/api/debates", debateId],
@@ -166,11 +165,6 @@ export default function DebateDetail() {
           setLiveTurns(prev => [...prev, event.data.turn]);
           break;
         case "speech_ready":
-          if (event.data.audioBase64 && audioRef.current) {
-            const blob = base64ToBlob(event.data.audioBase64, "audio/mp3");
-            audioRef.current.src = URL.createObjectURL(blob);
-            audioRef.current.play().catch(() => {});
-          }
           break;
         case "round_change":
           setCurrentRound(event.data.round);
@@ -214,22 +208,6 @@ export default function DebateDetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/debates", debateId] }),
   });
 
-  const flywheelMutation = useMutation({
-    mutationFn: () => api.flywheel.trigger(debateId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/flywheel/debate", debateId] });
-    },
-  });
-
-  const { data: flywheelJob } = useQuery({
-    queryKey: ["/api/flywheel/debate", debateId],
-    queryFn: () => api.flywheel.debateJob(debateId!).catch(() => null),
-    enabled: !!debateId,
-    refetchInterval: (query) => {
-      const d = query.state.data;
-      return d?.status === "processing" ? 3000 : false;
-    },
-  });
 
   const submitTurnMutation = useMutation({
     mutationFn: (content: string) => api.debates.submitTurn(debateId!, debate?.currentSpeakerId || "", content),
@@ -256,7 +234,6 @@ export default function DebateDetail() {
 
   return (
     <Layout>
-      <audio ref={audioRef} className="hidden" />
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={() => navigate("/live-debates")} className="gap-1" data-testid="button-back-debates">
@@ -362,7 +339,7 @@ export default function DebateDetail() {
               <div className="mt-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
                 <p className="text-sm text-purple-300 flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  AI agents are debating and generating video clips... This may take a minute.
+                  AI agents are debating... This may take a minute.
                 </p>
               </div>
             )}
@@ -374,103 +351,6 @@ export default function DebateDetail() {
           </Card>
         )}
 
-        {debateStatus === "completed" && allTurns.length > 0 && (
-          <Card className="p-4 bg-card border-purple-500/10">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold flex items-center gap-2 text-purple-400">
-                <Film className="w-4 h-4" />
-                Video Generation
-              </h3>
-              {flywheelJob?.status && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  flywheelJob.status === "completed" ? "bg-green-500/20 text-green-400" :
-                  flywheelJob.status === "processing" ? "bg-yellow-500/20 text-yellow-400" :
-                  flywheelJob.status === "failed" ? "bg-red-500/20 text-red-400" :
-                  "bg-blue-500/20 text-blue-400"
-                }`}>
-                  {flywheelJob.status}
-                </span>
-              )}
-            </div>
-            {!flywheelJob ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Generate viral short-form video clips from this debate's highlights.</p>
-                <Button
-                  onClick={() => flywheelMutation.mutate()}
-                  disabled={flywheelMutation.isPending}
-                  size="sm"
-                  className="gap-2 bg-purple-600 hover:bg-purple-700"
-                  data-testid="button-generate-clips"
-                >
-                  {flywheelMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Video className="w-4 h-4" />}
-                  Generate Video Clips
-                </Button>
-                {flywheelMutation.isError && (
-                  <p className="text-xs text-red-400">{(flywheelMutation.error as any)?.message || "Failed to start video generation"}</p>
-                )}
-              </div>
-            ) : flywheelJob.status === "processing" ? (
-              <div className="space-y-2">
-                <p className="text-sm text-yellow-300 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Generating clips... {flywheelJob.completedClips}/{flywheelJob.totalClips}
-                </p>
-                <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
-                  <div className="bg-purple-500 h-full transition-all" style={{ width: `${flywheelJob.totalClips > 0 ? (flywheelJob.completedClips / flywheelJob.totalClips) * 100 : 0}%` }} />
-                </div>
-              </div>
-            ) : flywheelJob.status === "completed" ? (
-              <div className="space-y-3">
-                <p className="text-sm text-green-400 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4" />
-                  {flywheelJob.completedClips} clips generated!
-                </p>
-                {flywheelJob.clips && flywheelJob.clips.length > 0 && (
-                  <div className="space-y-2">
-                    {flywheelJob.clips.filter((c: any) => c.status === "rendered").map((clip: any) => (
-                      <div key={clip.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/50 border border-gray-700/50">
-                        <div className="flex-1 min-w-0 mr-2">
-                          <p className="text-sm font-medium text-white truncate">{clip.title}</p>
-                          <p className="text-xs text-gray-500">{clip.durationSeconds}s · {clip.format}</p>
-                        </div>
-                        <div className="flex gap-1.5">
-                          <a href={api.flywheel.clipVideoUrl(clip.id)} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" variant="outline" className="text-xs h-7 gap-1" data-testid={`button-play-clip-${clip.id}`}>
-                              <Play className="w-3 h-3" /> Play
-                            </Button>
-                          </a>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <Button
-                  onClick={() => navigate(`/flywheel/${flywheelJob.id}`)}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs gap-1.5"
-                  data-testid="button-view-flywheel"
-                >
-                  <Film className="w-3 h-3" /> View All in Content Flywheel
-                </Button>
-              </div>
-            ) : flywheelJob.status === "failed" ? (
-              <div className="space-y-2">
-                <p className="text-sm text-red-400">{flywheelJob.errorMessage || "Video generation failed"}</p>
-                <Button
-                  onClick={() => flywheelMutation.mutate()}
-                  disabled={flywheelMutation.isPending}
-                  size="sm"
-                  variant="outline"
-                  className="text-xs gap-1.5"
-                  data-testid="button-retry-clips"
-                >
-                  <Video className="w-4 h-4" /> Retry
-                </Button>
-              </div>
-            ) : null}
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="lg:col-span-2 bg-card border-white/10 flex flex-col" style={{ minHeight: "400px" }}>
@@ -537,7 +417,7 @@ export default function DebateDetail() {
                       <p className="text-xs text-muted-foreground">{p.turnsUsed} turns · {p.position || "open"}</p>
                     </div>
                     {currentSpeaker?.id === p.id && (
-                      <Volume2 className="w-4 h-4 text-primary animate-pulse" />
+                      <Zap className="w-4 h-4 text-primary animate-pulse" />
                     )}
                   </div>
                 ))}
@@ -619,11 +499,3 @@ export default function DebateDetail() {
   );
 }
 
-function base64ToBlob(base64: string, contentType: string): Blob {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return new Blob([bytes], { type: contentType });
-}

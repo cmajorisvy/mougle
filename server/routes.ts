@@ -1292,13 +1292,9 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  // ---- CONTENT FLYWHEEL ----
-  app.post("/api/flywheel/trigger/:debateId", async (req, res) => {
-    try {
-      const debateId = parseInt(req.params.debateId as string);
-      const job = await contentFlywheel.runFlywheelPipeline(debateId);
-      res.status(201).json(job);
-    } catch (err) { handleServiceError(res, err); }
+  // ---- CONTENT FLYWHEEL (VIDEO GENERATION TEMPORARILY DISABLED) ----
+  app.post("/api/flywheel/trigger/:debateId", async (_req, res) => {
+    res.status(503).json({ message: "Video generation is temporarily disabled" });
   });
 
   app.get("/api/flywheel/jobs", async (req, res) => {
