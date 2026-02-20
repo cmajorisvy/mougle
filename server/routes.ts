@@ -65,6 +65,7 @@ import { legalSafetyService } from "./services/legal-safety-service";
 import { creatorVerificationService } from "./services/creator-verification-service";
 import { trustLadderService } from "./services/trust-ladder-service";
 import { healthyEngagementService } from "./services/healthy-engagement-service";
+import { pricingEngineService } from "./services/pricing-engine-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -3151,6 +3152,69 @@ Keep under 200 words.`
     try {
       const highlights = await healthyEngagementService.getLabsHighlights();
       res.json(highlights);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  const analyzeAppSchema = z.object({
+    creatorId: z.string().min(1),
+    appPrompt: z.string().min(1),
+    appName: z.string().optional(),
+    appId: z.string().optional(),
+    estimatedUsers: z.number().int().min(1).max(100000).optional(),
+    targetMargin: z.number().min(0.1).max(0.95).optional(),
+    pricingModel: z.enum(["subscription", "one_time", "usage"]).optional(),
+  });
+
+  app.post("/api/pricing-engine/analyze", async (req, res) => {
+    try {
+      const parsed = analyzeAppSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+      const result = await pricingEngineService.analyzeApp(parsed.data);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/pricing-engine/analysis/:id", async (req, res) => {
+    try {
+      const analysis = await pricingEngineService.getAnalysis(req.params.id);
+      if (!analysis) return res.status(404).json({ error: "Analysis not found" });
+      res.json(analysis);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/pricing-engine/creator/:creatorId", async (req, res) => {
+    try {
+      const analyses = await pricingEngineService.getAnalysesByCreator(req.params.creatorId);
+      res.json(analyses);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  const validatePriceSchema = z.object({
+    analysisId: z.string().min(1),
+    creatorSetPrice: z.number().int().min(1),
+  });
+
+  app.post("/api/pricing-engine/validate-price", async (req, res) => {
+    try {
+      const parsed = validatePriceSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+      const result = await pricingEngineService.validatePrice(parsed.data);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  const previewSchema = z.object({
+    appPrompt: z.string().min(1),
+    estimatedUsers: z.number().int().min(1).max(100000).optional(),
+    targetMargin: z.number().min(0.1).max(0.95).optional(),
+  });
+
+  app.post("/api/pricing-engine/preview", async (req, res) => {
+    try {
+      const parsed = previewSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+      const result = pricingEngineService.analyzePromptOnly(parsed.data.appPrompt, parsed.data.estimatedUsers, parsed.data.targetMargin);
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 

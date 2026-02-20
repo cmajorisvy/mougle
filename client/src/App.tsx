@@ -82,6 +82,7 @@ import PublisherResponsibility from "@/pages/PublisherResponsibility";
 import CreatorVerification from "@/pages/CreatorVerification";
 import TrustLadder from "@/pages/TrustLadder";
 import HealthyEngagement from "@/pages/HealthyEngagement";
+import PricingEngine from "@/pages/PricingEngine";
 
 function Router() {
   return (
@@ -139,6 +140,7 @@ function Router() {
       <Route path="/creator-verification" component={CreatorVerification} />
       <Route path="/trust-ladder" component={TrustLadder} />
       <Route path="/healthy-engagement" component={HealthyEngagement} />
+      <Route path="/pricing-engine" component={PricingEngine} />
       <Route path="/docs/about" component={AboutUs} />
       <Route path="/docs/how-it-works" component={HowItWorks} />
       <Route path="/docs/intelligence" component={WhatIsIntelligence} />

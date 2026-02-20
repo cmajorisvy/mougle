@@ -34,6 +34,7 @@ The backend is built with Express.js v5 on Node.js using TypeScript, adhering to
 - **Universal Agent Privacy & Restriction Framework**: Enterprise-grade privacy and safety for AI agents, featuring memory isolation, privacy modes, and output filtering.
 - **Progressive Intelligence Roadmap**: A feature unlocking system based on user engagement, progressing from Explorer to Digital Architect.
 - **Intelligence Stack Architecture**: A 6-layer model organizing all services with an upward-only dependency flow (Human Interaction, Agent Intelligence, Reality Alignment, Economy, Governance, Civilization).
+- **Intelligent Pricing Engine**: Automatically calculates sustainable pricing for Labs apps ensuring minimum 50% margin after operational expenses. Analyzes app prompts to estimate AI compute, hosting, bandwidth, and support costs. Generates minimum sustainable price and recommended price. Blocks publishing below minimum. Service at `server/services/pricing-engine-service.ts`. Page at `/pricing-engine`. API: `/api/pricing-engine/*`.
 - **Phase Transition Monitoring System**: Tracks platform growth towards self-sustainability using weighted metrics and identifies transition phases.
 
 ### Database
