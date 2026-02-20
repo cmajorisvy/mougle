@@ -5848,6 +5848,7 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
 
   // ============ SUPPORT TICKET SYSTEM ============
   const { supportTicketService } = await import("./services/support-ticket-service");
+  const { zeroSupportLearningService } = await import("./services/zero-support-learning-service");
   const { emailService: emailSvc } = await import("./services/email-service");
 
   app.post("/api/support/tickets", resolveUser, async (req: any, res) => {
@@ -5952,6 +5953,11 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
       const { status } = req.body;
       if (!status) return res.status(400).json({ error: "Status required" });
       const ticket = await supportTicketService.updateStatus(req.params.id, status);
+      if (status === "RESOLVED" || status === "CLOSED") {
+        zeroSupportLearningService.autoGenerateFromTicket(req.params.id).then(r => {
+          if (r.article) console.log(`[ZeroSupport] Auto-generated KB article from ticket ${req.params.id}: ${r.article.title}`);
+        }).catch(e => console.error("[ZeroSupport] Auto-extraction failed:", e));
+      }
       res.json(ticket);
     } catch (err) { handleServiceError(res, err); }
   });
@@ -6010,30 +6016,120 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
-  // Chat assistant endpoint
+  // ============ ZERO-SUPPORT LEARNING SYSTEM ============
+
+  // KB-enhanced chat assistant (replaces basic chat)
   app.post("/api/support/chat", async (req, res) => {
     try {
       const { message } = req.body;
       if (!message) return res.status(400).json({ error: "Message required" });
+      const result = await zeroSupportLearningService.kbEnhancedChat(message);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
 
-      const { default: OpenAI } = await import("openai");
-      const openai = new OpenAI({
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      });
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a helpful support assistant for Dig8opia, a Hybrid Intelligence Network platform. Help users with questions about the platform features, account issues, billing, and technical problems. Be concise, friendly, and professional. If you cannot resolve the issue, suggest the user create a support ticket for further assistance. Key features: Trust scoring, AI agents, reputation system, Labs app creation, creator tools, debates, and knowledge verification.`,
-          },
-          { role: "user", content: message },
-        ],
-        temperature: 0.7,
-        max_tokens: 300,
-      });
-      res.json({ reply: response.choices[0]?.message?.content || "I'm here to help! Could you tell me more about your issue?" });
+  // Preventive help prompts
+  app.post("/api/support/preventive-help", async (req, res) => {
+    try {
+      const { context } = req.body;
+      const prompts = await zeroSupportLearningService.getPreventiveHelp(context || "browsing support page");
+      res.json({ prompts });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Public KB search
+  app.get("/api/support/kb/search", async (req, res) => {
+    try {
+      const q = req.query.q as string;
+      if (!q) return res.status(400).json({ error: "Query required" });
+      const articles = await zeroSupportLearningService.searchKB(q);
+      res.json(articles);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Public KB articles
+  app.get("/api/support/kb/articles", async (_req, res) => {
+    try {
+      const articles = await zeroSupportLearningService.getAllArticles("published");
+      res.json(articles);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Mark article helpful
+  app.post("/api/support/kb/articles/:id/helpful", async (req, res) => {
+    try {
+      await zeroSupportLearningService.markHelpful(req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Auto-classify ticket on creation
+  app.post("/api/support/classify", async (req, res) => {
+    try {
+      const { subject, description } = req.body;
+      if (!subject || !description) return res.status(400).json({ error: "Subject and description required" });
+      const classification = await zeroSupportLearningService.classifyTicket(subject, description);
+      res.json(classification);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Admin KB management
+  app.get("/api/admin/kb/stats", requireAdmin, async (_req, res) => {
+    try { res.json(await zeroSupportLearningService.getLearningStats()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/kb/articles", requireAdmin, async (req, res) => {
+    try { res.json(await zeroSupportLearningService.getAllArticles(req.query.status as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/kb/articles/:id", requireAdmin, async (req, res) => {
+    try {
+      const a = await zeroSupportLearningService.getArticleById(req.params.id);
+      if (!a) return res.status(404).json({ error: "Article not found" });
+      res.json(a);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/admin/kb/articles/:id", requireAdmin, async (req, res) => {
+    try {
+      const a = await zeroSupportLearningService.updateArticle(req.params.id, req.body);
+      res.json(a);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/kb/articles/:id/approve", requireAdmin, async (req, res) => {
+    try {
+      const a = await zeroSupportLearningService.approveArticle(req.params.id, "admin");
+      res.json(a);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/kb/articles/:id/reject", requireAdmin, async (req, res) => {
+    try {
+      const a = await zeroSupportLearningService.rejectArticle(req.params.id);
+      res.json(a);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/kb/solutions", requireAdmin, async (req, res) => {
+    try { res.json(await zeroSupportLearningService.getSolutions(req.query.ticketId as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Extract solution from resolved ticket
+  app.post("/api/admin/kb/extract/:ticketId", requireAdmin, async (req, res) => {
+    try {
+      const result = await zeroSupportLearningService.autoGenerateFromTicket(req.params.ticketId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Generate KB article from solutions
+  app.post("/api/admin/kb/generate-article", requireAdmin, async (req, res) => {
+    try {
+      const { solutionIds } = req.body;
+      if (!solutionIds?.length) return res.status(400).json({ error: "solutionIds required" });
+      const article = await zeroSupportLearningService.generateKBArticle(solutionIds);
+      res.json(article);
     } catch (err) { handleServiceError(res, err); }
   });
 

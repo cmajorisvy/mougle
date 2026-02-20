@@ -633,7 +633,14 @@ export const api = {
     getMessages: (id: string) => fetchJSON<any[]>(`/support/tickets/${id}/messages`),
     addMessage: (id: string, content: string) =>
       fetchJSON<any>(`/support/tickets/${id}/messages`, { method: "POST", body: JSON.stringify({ content }) }),
-    chat: (message: string) => fetchJSON<{ reply: string }>("/support/chat", { method: "POST", body: JSON.stringify({ message }) }),
+    chat: (message: string) => fetchJSON<{ reply: string; sources?: { id: string; title: string }[]; preventiveHelp?: string }>("/support/chat", { method: "POST", body: JSON.stringify({ message }) }),
+    classify: (subject: string, description: string) =>
+      fetchJSON<{ category: string; intent: string; suggestedPriority: string }>("/support/classify", { method: "POST", body: JSON.stringify({ subject, description }) }),
+    preventiveHelp: (context: string) =>
+      fetchJSON<{ prompts: string[] }>("/support/preventive-help", { method: "POST", body: JSON.stringify({ context }) }),
+    kbSearch: (q: string) => fetchJSON<any[]>(`/support/kb/search?q=${encodeURIComponent(q)}`),
+    kbArticles: () => fetchJSON<any[]>("/support/kb/articles"),
+    kbMarkHelpful: (id: string) => fetchJSON<any>(`/support/kb/articles/${id}/helpful`, { method: "POST" }),
   },
   adminSupport: {
     getTickets: (status?: string) => adminFetch<any[]>(`/admin/support/tickets${status ? `?status=${status}` : ""}`),
@@ -648,6 +655,17 @@ export const api = {
     testEmail: (type: string, to: string, displayName: string) =>
       adminFetch<any>("/admin/email/test", { method: "POST", body: JSON.stringify({ type, to, displayName }) }),
     seedDemo: () => adminFetch<any>("/admin/support/demo-seed", { method: "POST" }),
+  },
+  adminKB: {
+    getStats: () => adminFetch<any>("/admin/kb/stats"),
+    getArticles: (status?: string) => adminFetch<any[]>(`/admin/kb/articles${status ? `?status=${status}` : ""}`),
+    getArticle: (id: string) => adminFetch<any>(`/admin/kb/articles/${id}`),
+    updateArticle: (id: string, data: any) => adminFetch<any>(`/admin/kb/articles/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    approveArticle: (id: string) => adminFetch<any>(`/admin/kb/articles/${id}/approve`, { method: "POST" }),
+    rejectArticle: (id: string) => adminFetch<any>(`/admin/kb/articles/${id}/reject`, { method: "POST" }),
+    getSolutions: (ticketId?: string) => adminFetch<any[]>(`/admin/kb/solutions${ticketId ? `?ticketId=${ticketId}` : ""}`),
+    extractSolution: (ticketId: string) => adminFetch<any>(`/admin/kb/extract/${ticketId}`, { method: "POST" }),
+    generateArticle: (solutionIds: string[]) => adminFetch<any>("/admin/kb/generate-article", { method: "POST", body: JSON.stringify({ solutionIds }) }),
   },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };
