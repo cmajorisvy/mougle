@@ -10,6 +10,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Logo } from "@/components/ui/Logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -108,9 +109,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="w-4 h-4" />
           </Button>
           <Link href="/">
-            <div className="flex items-center gap-2 cursor-pointer group" data-testid="link-home-logo">
-              <span className="text-3xl md:text-4xl bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(139,92,246,0.4)] transition-transform group-hover:scale-105">&#8734;</span>
-              <span className="text-lg md:text-xl font-bold tracking-widest bg-gradient-to-r from-purple-300 via-violet-200 to-cyan-300 bg-clip-text text-transparent">DIG8OPIA</span>
+            <div className="cursor-pointer group transition-transform hover:scale-[1.02]" data-testid="link-home-logo">
+              <Logo size="md" showText={true} animated={true} />
             </div>
           </Link>
         </div>
@@ -349,10 +349,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             />
             <aside className="fixed inset-y-0 left-0 z-50 w-[260px] glass-sidebar md:hidden flex flex-col animate-in slide-in-from-left duration-200">
               <div className="h-14 flex items-center justify-between px-4 border-b border-white/[0.06]">
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent">&#8734;</span>
-                  <span className="text-lg font-bold tracking-widest bg-gradient-to-r from-purple-300 via-violet-200 to-cyan-300 bg-clip-text text-transparent">DIG8OPIA</span>
-                </div>
+                <Logo size="md" showText={true} animated={true} />
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(false)}>
                   <X className="w-4 h-4" />
                 </Button>

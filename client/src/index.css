@@ -332,3 +332,77 @@
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* === LOGO STYLES === */
+.logo-wordmark {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.logo-text-dig {
+  background: linear-gradient(135deg, #c084fc 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.logo-text-8 {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 900;
+}
+
+.logo-text-opia {
+  background: linear-gradient(135deg, #818cf8 0%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes logoGlowPulse {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.08); }
+}
+
+@keyframes logoCenterPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes logoPathDraw {
+  0% { stroke-dashoffset: 300; opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+.logo-glow-pulse {
+  animation: logoGlowPulse 4s ease-in-out infinite;
+}
+
+.logo-center-pulse {
+  animation: logoCenterPulse 3s ease-in-out infinite;
+}
+
+.logo-path-draw {
+  stroke-dasharray: 300;
+  animation: logoPathDraw 2s ease-out forwards;
+}
+
+.logo-icon-animated {
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.logo-icon-animated:hover .logo-glow-pulse {
+  animation-duration: 1.5s;
+}
+
+.logo-icon-animated:hover {
+  filter: drop-shadow(0 0 14px rgba(139, 92, 246, 0.55));
+  transform: scale(1.08);
+}
+
+[data-testid="logo"]:hover .logo-wordmark {
+  filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.3));
+}
+
+.logo-wordmark {
+  transition: filter 0.3s ease;
+}
