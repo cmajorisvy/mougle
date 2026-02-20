@@ -3341,4 +3341,65 @@ export type SdhConfig = typeof sdhConfig.$inferSelect;
 export type InsertSdhAccount = z.infer<typeof insertSdhAccountSchema>;
 export type InsertSdhPost = z.infer<typeof insertSdhPostSchema>;
 
+// ---- Growth Autopilot Stack ----
+
+export const growthAutopilotConfig = pgTable("growth_autopilot_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contentEngineEnabled: boolean("content_engine_enabled").notNull().default(false),
+  socialDistEnabled: boolean("social_dist_enabled").notNull().default(false),
+  viralEngineEnabled: boolean("viral_engine_enabled").notNull().default(false),
+  emailAutomationEnabled: boolean("email_automation_enabled").notNull().default(false),
+  aiOptimizerEnabled: boolean("ai_optimizer_enabled").notNull().default(false),
+  seoAutoGenerate: boolean("seo_auto_generate").notNull().default(false),
+  seoAutoUpdate: boolean("seo_auto_update").notNull().default(false),
+  socialAutoSchedule: boolean("social_auto_schedule").notNull().default(false),
+  viralAutoPromote: boolean("viral_auto_promote").notNull().default(false),
+  emailDigestFrequency: text("email_digest_frequency").notNull().default("weekly"),
+  optimizerRunFrequency: text("optimizer_run_frequency").notNull().default("daily"),
+  lastCycleAt: timestamp("last_cycle_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const growthEmailTriggers = pgTable("growth_email_triggers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  triggerType: text("trigger_type").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  subjectTemplate: text("subject_template").notNull(),
+  bodyTemplate: text("body_template").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  triggerCount: integer("trigger_count").notNull().default(0),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const growthAutopilotLogs = pgTable("growth_autopilot_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  system: text("system").notNull(),
+  action: text("action").notNull(),
+  details: text("details"),
+  result: text("result").notNull().default("success"),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const growthOptimizationInsights = pgTable("growth_optimization_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  insightType: text("insight_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  recommendation: text("recommendation").notNull(),
+  impact: text("impact").notNull().default("medium"),
+  status: text("status").notNull().default("pending"),
+  metrics: jsonb("metrics").$type<Record<string, any>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGrowthEmailTriggerSchema = createInsertSchema(growthEmailTriggers).omit({ id: true, triggerCount: true, lastTriggeredAt: true, createdAt: true });
+export type GrowthAutopilotConfig = typeof growthAutopilotConfig.$inferSelect;
+export type GrowthEmailTrigger = typeof growthEmailTriggers.$inferSelect;
+export type GrowthAutopilotLog = typeof growthAutopilotLogs.$inferSelect;
+export type GrowthOptimizationInsight = typeof growthOptimizationInsights.$inferSelect;
+export type InsertGrowthEmailTrigger = z.infer<typeof insertGrowthEmailTriggerSchema>;
+
 export * from "./models/chat";

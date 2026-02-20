@@ -100,6 +100,7 @@ import SilentSeoDashboard from "@/pages/admin/SilentSeoDashboard";
 import AuthorityFlywheel from "@/pages/admin/AuthorityFlywheel";
 import InevitablePlatformMonitor from "@/pages/admin/InevitablePlatformMonitor";
 import SocialDistributionHub from "@/pages/admin/SocialDistributionHub";
+import GrowthAutopilot from "@/pages/admin/GrowthAutopilot";
 import MyBuilds from "@/pages/MyBuilds";
 import BondScoreDashboard from "@/pages/BondScoreDashboard";
 import BondScoreCreate from "@/pages/BondScoreCreate";
@@ -204,6 +205,7 @@ function Router() {
       <Route path="/admin/authority-flywheel" component={AuthorityFlywheel} />
       <Route path="/admin/inevitable-platform" component={InevitablePlatformMonitor} />
       <Route path="/admin/social-hub" component={SocialDistributionHub} />
+      <Route path="/admin/growth-autopilot" component={GrowthAutopilot} />
       <Route path="/bondscore" component={BondScoreDashboard} />
       <Route path="/bondscore/create" component={BondScoreCreate} />
       <Route path="/bondscore/result/:shareId" component={BondScoreResult} />

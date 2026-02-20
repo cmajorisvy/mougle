@@ -6301,6 +6301,65 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     try { res.json(await socialDistributionService.getSchedulerStatus()); } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ GROWTH AUTOPILOT STACK ============
+  const { growthAutopilotService } = await import("./services/growth-autopilot-service");
+
+  app.get("/api/admin/growth-autopilot/dashboard", requireAdmin, async (_req, res) => {
+    try { res.json(await growthAutopilotService.getDashboard()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/growth-autopilot/config", requireAdmin, async (_req, res) => {
+    try { res.json(await growthAutopilotService.getConfig()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/growth-autopilot/config", requireAdmin, async (req, res) => {
+    try { res.json(await growthAutopilotService.updateConfig(req.body)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/growth-autopilot/run-cycle", requireAdmin, async (_req, res) => {
+    try { res.json(await growthAutopilotService.runFullCycle()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/growth-autopilot/run/:system", requireAdmin, async (req, res) => {
+    try {
+      const sys = req.params.system;
+      let result;
+      switch (sys) {
+        case "content": result = await growthAutopilotService.runContentEngine(); break;
+        case "social": result = await growthAutopilotService.runSocialDistribution(); break;
+        case "viral": result = await growthAutopilotService.runViralEngine(); break;
+        case "email": result = await growthAutopilotService.runEmailAutomation(); break;
+        case "optimizer": result = await growthAutopilotService.runAIOptimizer(); break;
+        default: return res.status(400).json({ error: "Unknown system" });
+      }
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/growth-autopilot/logs", requireAdmin, async (req, res) => {
+    try { res.json(await growthAutopilotService.getLogs(Number(req.query.limit) || 50)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/growth-autopilot/insights", requireAdmin, async (_req, res) => {
+    try { res.json(await growthAutopilotService.getInsights()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/growth-autopilot/insights/:id", requireAdmin, async (req, res) => {
+    try { res.json(await growthAutopilotService.updateInsightStatus(req.params.id, req.body.status)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/growth-autopilot/email-triggers", requireAdmin, async (_req, res) => {
+    try { res.json(await growthAutopilotService.getEmailTriggers()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/growth-autopilot/email-triggers", requireAdmin, async (req, res) => {
+    try { res.json(await growthAutopilotService.createEmailTrigger(req.body)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/growth-autopilot/email-triggers/:id/toggle", requireAdmin, async (req, res) => {
+    try { res.json(await growthAutopilotService.toggleEmailTrigger(req.params.id, req.body.active)); } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ VIRAL BONDSCORE ============
   const { bondscoreService } = await import("./services/bondscore-service");
 
