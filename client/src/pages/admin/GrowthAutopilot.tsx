@@ -190,15 +190,15 @@ export default function GrowthAutopilot() {
         ))}
       </div>
 
-      {tab === "overview" && d && (
+      {tab === "overview" && d && d.overview && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <StatBox label="Total Users" value={d.overview.totalUsers} color="#4f7df9" sub={`+${d.overview.weeklyNewUsers} this week`} />
-              <StatBox label="Total Content" value={d.overview.totalContent} color="#10b981" />
-              <StatBox label="Social Posts" value={d.overview.totalSocialPosts} color="#1d9bf0" />
-              <StatBox label="Viral Conv." value={`${d.overview.viralConversionRate}%`} color="#f97316" />
-              <StatBox label="Systems Active" value={`${d.overview.systemsActive}/${d.overview.systemsTotal}`} color={d.overview.systemsActive === d.overview.systemsTotal ? "#10b981" : "#eab308"} />
+              <StatBox label="Total Users" value={d.overview?.totalUsers ?? 0} color="#4f7df9" sub={`+${d.overview?.weeklyNewUsers ?? 0} this week`} />
+              <StatBox label="Total Content" value={d.overview?.totalContent ?? 0} color="#10b981" />
+              <StatBox label="Social Posts" value={d.overview?.totalSocialPosts ?? 0} color="#1d9bf0" />
+              <StatBox label="Viral Conv." value={`${d.overview?.viralConversionRate ?? 0}%`} color="#f97316" />
+              <StatBox label="Systems Active" value={`${d.overview?.systemsActive ?? 0}/${d.overview?.systemsTotal ?? 5}`} color={(d.overview?.systemsActive ?? 0) === (d.overview?.systemsTotal ?? 5) ? "#10b981" : "#eab308"} />
             </div>
           </Card>
 
