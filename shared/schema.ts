@@ -2617,6 +2617,7 @@ export const creatorPublisherProfiles = pgTable("creator_publisher_profiles", {
   agreementVersion: text("agreement_version"),
   agreementAcceptedAt: timestamp("agreement_accepted_at"),
   agreementIpAddress: text("agreement_ip_address"),
+  trustLevel: text("trust_level").notNull().default("explorer"),
   isVerified: boolean("is_verified").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -2689,5 +2690,26 @@ export type AiUsageViolation = typeof aiUsageViolations.$inferSelect;
 
 export const insertDailyCreationLimitSchema = createInsertSchema(dailyCreationLimits).omit({ id: true, updatedAt: true });
 export type DailyCreationLimit = typeof dailyCreationLimits.$inferSelect;
+
+export const creatorPromotionDeclarations = pgTable("creator_promotion_declarations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  marketingMethods: text("marketing_methods").array().notNull(),
+  targetAudience: text("target_audience"),
+  promotionChannels: text("promotion_channels").array(),
+  spamAgreement: boolean("spam_agreement").notNull().default(false),
+  legalComplianceAgreement: boolean("legal_compliance_agreement").notNull().default(false),
+  dataUsageConsent: boolean("data_usage_consent").notNull().default(false),
+  additionalNotes: text("additional_notes"),
+  declarationVersion: text("declaration_version").notNull().default("1.0"),
+  acceptedAt: timestamp("accepted_at").defaultNow(),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCreatorPromotionDeclarationSchema = createInsertSchema(creatorPromotionDeclarations).omit({ id: true, createdAt: true, updatedAt: true });
+export type CreatorPromotionDeclaration = typeof creatorPromotionDeclarations.$inferSelect;
+export type InsertCreatorPromotionDeclaration = z.infer<typeof insertCreatorPromotionDeclarationSchema>;
 
 export * from "./models/chat";
