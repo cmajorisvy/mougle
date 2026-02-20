@@ -85,6 +85,7 @@ import HealthyEngagement from "@/pages/HealthyEngagement";
 import PricingEngine from "@/pages/PricingEngine";
 import CreatorFinance from "@/pages/CreatorFinance";
 import AiCfoDashboard from "@/pages/admin/AiCfoDashboard";
+import FounderDebugConsole from "@/pages/admin/FounderDebugConsole";
 
 function Router() {
   return (
@@ -170,6 +171,7 @@ function Router() {
       <Route path="/admin/knowledge-alignment" component={KnowledgeAlignment} />
       <Route path="/admin/intelligence-stack" component={IntelligenceStack} />
       <Route path="/admin/ai-cfo" component={AiCfoDashboard} />
+      <Route path="/admin/debug" component={FounderDebugConsole} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

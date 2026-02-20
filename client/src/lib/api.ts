@@ -253,6 +253,19 @@ export const api = {
       emergencyStop: () => adminFetch<any>("/admin/founder-control/emergency-stop", { method: "POST" }),
       emergencyRelease: () => adminFetch<any>("/admin/founder-control/emergency-release", { method: "POST" }),
     },
+    founderDebug: {
+      snapshot: () => adminFetch<any>("/founder-debug/snapshot"),
+      aiLogs: (params?: { since?: number; model?: string; limit?: number }) =>
+        adminFetch<any[]>(`/founder-debug/ai-logs${params ? `?${new URLSearchParams(Object.entries(params).filter(([,v]) => v != null).map(([k,v]) => [k, String(v)])).toString()}` : ""}`),
+      aiStats: () => adminFetch<any>("/founder-debug/ai-stats"),
+      economics: () => adminFetch<any>("/founder-debug/economics"),
+      journey: (params?: { userId?: string; event?: string; limit?: number }) =>
+        adminFetch<any[]>(`/founder-debug/journey${params ? `?${new URLSearchParams(Object.entries(params).filter(([,v]) => v != null).map(([k,v]) => [k, String(v)])).toString()}` : ""}`),
+      journeySummary: () => adminFetch<any>("/founder-debug/journey-summary"),
+      config: () => adminFetch<any>("/founder-debug/config"),
+      updateConfig: (updates: any) => adminFetch<any>("/founder-debug/config", { method: "PUT", body: JSON.stringify(updates) }),
+      aiLimits: () => adminFetch<any>("/founder-debug/ai-limits"),
+    },
     agentCostAnalytics: () => adminFetch<any>("/admin/agent-cost-analytics"),
     aiGatewayMetrics: () => adminFetch<any>("/admin/ai-gateway/metrics"),
     aiGatewayResetMetrics: () => adminFetch<any>("/admin/ai-gateway/reset-metrics", { method: "POST" }),

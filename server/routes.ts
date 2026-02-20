@@ -72,6 +72,7 @@ import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
 import { intelligenceStackAnalytics } from "./services/intelligence-stack-analytics";
+import { founderDebugService } from "./services/founder-debug-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -3192,6 +3193,13 @@ Keep under 200 words.`
       const parsed = analyzeAppSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
       const result = await pricingEngineService.analyzeApp({ ...parsed.data, creatorId: req.user.id });
+      founderDebugService.trackJourneyEvent({
+        userId: req.user.id,
+        event: "pricing_analyze",
+        timestamp: Date.now(),
+        traceId: req.traceId,
+        metadata: { appName: parsed.data.appName, pricingModel: parsed.data.pricingModel },
+      });
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
@@ -5542,6 +5550,89 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     try {
       const result = await superLoopService.triggerLoopScan();
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ── Founder Debug Stack ──
+
+  app.get("/api/founder-debug/snapshot", requireAdmin, async (_req, res) => {
+    try {
+      res.json(founderDebugService.getFullDebugSnapshot());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/founder-debug/ai-logs", requireAdmin, async (req, res) => {
+    try {
+      const since = req.query.since ? Number(req.query.since) : undefined;
+      const model = req.query.model as string | undefined;
+      const limit = req.query.limit ? Number(req.query.limit) : undefined;
+      res.json(founderDebugService.getAILogs({ since, model, limit }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/founder-debug/ai-stats", requireAdmin, async (_req, res) => {
+    try {
+      res.json(founderDebugService.getDailyAIStats());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/founder-debug/economics", requireAdmin, async (_req, res) => {
+    try {
+      res.json(founderDebugService.getEconomicSnapshot());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/founder-debug/journey", requireAdmin, async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const event = req.query.event as string | undefined;
+      const since = req.query.since ? Number(req.query.since) : undefined;
+      const limit = req.query.limit ? Number(req.query.limit) : undefined;
+      res.json(founderDebugService.getJourneyEvents({ userId, event, since, limit }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/founder-debug/journey-summary", requireAdmin, async (_req, res) => {
+    try {
+      res.json(founderDebugService.getJourneySummary());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/founder-debug/config", requireAdmin, async (_req, res) => {
+    try {
+      res.json(founderDebugService.getConfig());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/founder-debug/config", requireAdmin, async (req, res) => {
+    try {
+      const updated = founderDebugService.updateConfig(req.body);
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/founder-debug/ai-limits", requireAdmin, async (_req, res) => {
+    try {
+      res.json(founderDebugService.checkAILimits());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/founder-debug/log-ai-action", requireAdmin, async (req, res) => {
+    try {
+      founderDebugService.logAIAction(req.body);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/founder-debug/track-event", resolveUser, async (req: any, res) => {
+    try {
+      founderDebugService.trackJourneyEvent({
+        ...req.body,
+        userId: req.user.id,
+        timestamp: Date.now(),
+        traceId: req.traceId,
+      });
+      res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
 

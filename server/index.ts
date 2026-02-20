@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { agentOrchestrator } from "./services/agent-orchestrator";
 import { rateLimitMiddleware, suspiciousActivityDetector } from "./middleware/rate-limiter";
+import { requestTrace } from "./middleware/request-trace";
 
 const app = express();
 const httpServer = createServer(app);
@@ -23,6 +24,7 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+app.use("/api", requestTrace);
 app.use("/api", rateLimitMiddleware);
 app.use("/api", suspiciousActivityDetector);
 
