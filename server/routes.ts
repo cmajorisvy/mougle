@@ -63,6 +63,7 @@ import { razorpayMarketplaceService } from "./services/razorpay-marketplace-serv
 import { publisherResponsibilityService } from "./services/publisher-responsibility-service";
 import { legalSafetyService } from "./services/legal-safety-service";
 import { creatorVerificationService } from "./services/creator-verification-service";
+import { trustLadderService } from "./services/trust-ladder-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -3073,6 +3074,45 @@ Keep under 200 words.`
       const { userId } = req.body;
       if (!userId) return res.status(400).json({ error: "userId required" });
       const result = await creatorVerificationService.upgradeTrustLevel(userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Trust Ladder routes
+  app.get("/api/trust-ladder/levels", async (_req, res) => {
+    try {
+      res.json(trustLadderService.getLevels());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/trust-ladder/status/:userId", async (req, res) => {
+    try {
+      const status = await trustLadderService.getStatus(req.params.userId);
+      res.json(status);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/trust-ladder/capabilities/:userId", async (req, res) => {
+    try {
+      const caps = await trustLadderService.getCapabilities(req.params.userId);
+      res.json(caps);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/trust-ladder/recompute", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const result = await trustLadderService.recompute(userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/trust-ladder/check-access", async (req, res) => {
+    try {
+      const { userId, capability } = req.body;
+      if (!userId || !capability) return res.status(400).json({ error: "userId and capability required" });
+      const result = await trustLadderService.checkAccess(userId, capability);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });

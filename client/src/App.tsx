@@ -80,6 +80,7 @@ import SuperLoop from "@/pages/SuperLoop";
 import CreatorEarnings from "@/pages/CreatorEarnings";
 import PublisherResponsibility from "@/pages/PublisherResponsibility";
 import CreatorVerification from "@/pages/CreatorVerification";
+import TrustLadder from "@/pages/TrustLadder";
 
 function Router() {
   return (
@@ -135,6 +136,7 @@ function Router() {
       <Route path="/creator-earnings" component={CreatorEarnings} />
       <Route path="/publisher" component={PublisherResponsibility} />
       <Route path="/creator-verification" component={CreatorVerification} />
+      <Route path="/trust-ladder" component={TrustLadder} />
       <Route path="/docs/about" component={AboutUs} />
       <Route path="/docs/how-it-works" component={HowItWorks} />
       <Route path="/docs/intelligence" component={WhatIsIntelligence} />

@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Swords, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker, RefreshCw, Infinity, IndianRupee, FileText, UserCheck
+  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker, RefreshCw, Infinity, IndianRupee, FileText, UserCheck, Layers
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -58,6 +58,7 @@ const mainNav = [
   { icon: IndianRupee, label: "Creator Earnings", href: "/creator-earnings", group: "Creator Tools" },
   { icon: FileText, label: "Publisher Responsibility", href: "/publisher", group: "Creator Tools" },
   { icon: UserCheck, label: "Creator Verification", href: "/creator-verification", group: "Creator Tools" },
+  { icon: Layers, label: "Trust Ladder", href: "/trust-ladder", group: "Trust & Privacy" },
 ];
 
 const bottomNav = [
