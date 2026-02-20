@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { getCurrentUserId } from "@/lib/mockData";
+
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -163,7 +163,6 @@ export default function PricingEngine() {
   const analyzeMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/pricing-engine/analyze", {
-        creatorId: getCurrentUserId() || "anonymous",
         appPrompt,
         appName: appName || undefined,
         estimatedUsers,
@@ -201,7 +200,6 @@ export default function PricingEngine() {
   const exportConfirmMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/app-export/confirm", {
-        creatorId: getCurrentUserId() || "anonymous",
         appName: appName || "Untitled App",
         analysisId: result?.id,
         distributionAcknowledged: true,

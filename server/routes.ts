@@ -101,6 +101,24 @@ function requireAdmin(req: any, res: any, next: any) {
   next();
 }
 
+const DEV_USER = {
+  id: "dev-user-001",
+  username: "dev_tester",
+  email: "dev@dig8opia.local",
+  role: "creator" as const,
+};
+
+function resolveUser(req: any, res: any, next: any) {
+  if (req.user) return next();
+
+  if (process.env.NODE_ENV !== "production") {
+    req.user = DEV_USER;
+    return next();
+  }
+
+  return res.status(401).json({ message: "Authentication required" });
+}
+
 function handleServiceError(res: any, err: any) {
   if (err && typeof err === "object" && "status" in err) {
     return res.status(err.status).json({ message: err.message });
@@ -3158,7 +3176,6 @@ Keep under 200 words.`
   });
 
   const analyzeAppSchema = z.object({
-    creatorId: z.string().min(1),
     appPrompt: z.string().min(1),
     appName: z.string().optional(),
     appId: z.string().optional(),
@@ -3170,11 +3187,11 @@ Keep under 200 words.`
     amortizationMonths: z.number().int().min(1).max(60).optional(),
   });
 
-  app.post("/api/pricing-engine/analyze", async (req, res) => {
+  app.post("/api/pricing-engine/analyze", resolveUser, async (req: any, res) => {
     try {
       const parsed = analyzeAppSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
-      const result = await pricingEngineService.analyzeApp(parsed.data);
+      const result = await pricingEngineService.analyzeApp({ ...parsed.data, creatorId: req.user.id });
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
@@ -3253,7 +3270,6 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
 5. NO GUARANTEES: Dig8opia makes no guarantees about the exported app's compatibility, performance, or acceptance on any external platform.`;
 
   const exportConfirmSchema = z.object({
-    creatorId: z.string().min(1),
     appName: z.string().min(1),
     analysisId: z.string().optional(),
     distributionAcknowledged: z.literal(true, { errorMap: () => ({ message: "You must acknowledge the external distribution responsibility" }) }),
@@ -3264,13 +3280,13 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     res.json({ disclaimer: EXTERNAL_DISTRIBUTION_DISCLAIMER });
   });
 
-  app.post("/api/app-export/confirm", async (req, res) => {
+  app.post("/api/app-export/confirm", resolveUser, async (req: any, res) => {
     try {
       const parsed = exportConfirmSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
 
       const [exported] = await db.insert(appExports_table).values({
-        creatorId: parsed.data.creatorId,
+        creatorId: req.user.id,
         appName: parsed.data.appName,
         analysisId: parsed.data.analysisId || null,
         exportType: "web_package",
