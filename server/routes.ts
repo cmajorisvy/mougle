@@ -6217,6 +6217,90 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ SOCIAL DISTRIBUTION HUB ============
+  const { socialDistributionService } = await import("./services/social-distribution-service");
+
+  app.get("/api/admin/sdh/analytics", requireAdmin, async (_req, res) => {
+    try { res.json(await socialDistributionService.getAnalytics()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/sdh/accounts", requireAdmin, async (_req, res) => {
+    try { res.json(await socialDistributionService.getAccounts()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/sdh/accounts", requireAdmin, async (req, res) => {
+    try {
+      const { platform, accountName, accountHandle, accessToken, refreshToken, apiKey, apiSecret } = req.body;
+      if (!platform || !accountName) return res.status(400).json({ message: "platform and accountName required" });
+      res.status(201).json(await socialDistributionService.addAccount({ platform, accountName, accountHandle, accessToken, refreshToken, apiKey, apiSecret }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/sdh/accounts/:id/toggle", requireAdmin, async (req, res) => {
+    try {
+      res.json(await socialDistributionService.toggleAccount(req.params.id, req.body.active));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/admin/sdh/accounts/:id", requireAdmin, async (req, res) => {
+    try { res.json(await socialDistributionService.deleteAccount(req.params.id)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/sdh/config", requireAdmin, async (_req, res) => {
+    try { res.json(await socialDistributionService.getConfig()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/sdh/config", requireAdmin, async (req, res) => {
+    try { res.json(await socialDistributionService.updateConfig(req.body)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/sdh/detect-content", requireAdmin, async (_req, res) => {
+    try { res.json(await socialDistributionService.detectImportantContent()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/sdh/generate-post", requireAdmin, async (req, res) => {
+    try {
+      const { platform, sourceType, sourceId, title, description, url } = req.body;
+      if (!platform || !title) return res.status(400).json({ message: "platform and title required" });
+      res.json(await socialDistributionService.generatePost({ platform, sourceType, sourceId, title, description, url }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/sdh/posts", requireAdmin, async (req, res) => {
+    try {
+      res.status(201).json(await socialDistributionService.createPost(req.body));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/sdh/posts", requireAdmin, async (req, res) => {
+    try {
+      const { status, platform, limit } = req.query as any;
+      res.json(await socialDistributionService.getPosts({ status, platform, limit: limit ? parseInt(limit) : undefined }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/sdh/posts/:id/status", requireAdmin, async (req, res) => {
+    try {
+      res.json(await socialDistributionService.updatePostStatus(req.params.id, req.body.status, req.body));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/sdh/posts/:id/publish", requireAdmin, async (req, res) => {
+    try { res.json(await socialDistributionService.publishPost(req.params.id)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/admin/sdh/posts/:id", requireAdmin, async (req, res) => {
+    try { res.json(await socialDistributionService.deletePost(req.params.id)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/sdh/auto-detect", requireAdmin, async (_req, res) => {
+    try { res.json(await socialDistributionService.autoDetectAndGenerate()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/sdh/scheduler", requireAdmin, async (_req, res) => {
+    try { res.json(await socialDistributionService.getSchedulerStatus()); } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ VIRAL BONDSCORE ============
   const { bondscoreService } = await import("./services/bondscore-service");
 

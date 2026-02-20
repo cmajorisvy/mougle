@@ -3281,4 +3281,64 @@ export const insertInevitablePlatformSnapshotSchema = createInsertSchema(inevita
 export type InevitablePlatformSnapshot = typeof inevitablePlatformSnapshots.$inferSelect;
 export type InsertInevitablePlatformSnapshot = z.infer<typeof insertInevitablePlatformSnapshotSchema>;
 
+export const sdhAccounts = pgTable("sdh_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platform: text("platform").notNull(),
+  accountName: text("account_name").notNull(),
+  accountHandle: text("account_handle"),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  apiKey: text("api_key"),
+  apiSecret: text("api_secret"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastPostedAt: timestamp("last_posted_at"),
+  postCount: integer("post_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const sdhPosts = pgTable("sdh_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accountId: varchar("account_id").notNull(),
+  platform: text("platform").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceId: text("source_id"),
+  sourceUrl: text("source_url"),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  hashtags: text("hashtags").array(),
+  imageUrl: text("image_url"),
+  postUrl: text("post_url"),
+  status: text("status").notNull().default("draft"),
+  scheduledAt: timestamp("scheduled_at"),
+  publishedAt: timestamp("published_at"),
+  impressions: integer("impressions").notNull().default(0),
+  clicks: integer("clicks").notNull().default(0),
+  engagement: integer("engagement").notNull().default(0),
+  errorMessage: text("error_message"),
+  qualityScore: real("quality_score").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const sdhConfig = pgTable("sdh_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postsPerDay: integer("posts_per_day").notNull().default(3),
+  minQualityScore: real("min_quality_score").notNull().default(0.6),
+  autoPost: boolean("auto_post").notNull().default(false),
+  includeImages: boolean("include_images").notNull().default(true),
+  platforms: text("platforms").array(),
+  contentTypes: text("content_types").array(),
+  postingStartHour: integer("posting_start_hour").notNull().default(9),
+  postingEndHour: integer("posting_end_hour").notNull().default(21),
+  timezone: text("timezone").notNull().default("UTC"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSdhAccountSchema = createInsertSchema(sdhAccounts).omit({ id: true, postCount: true, createdAt: true, lastPostedAt: true });
+export const insertSdhPostSchema = createInsertSchema(sdhPosts).omit({ id: true, impressions: true, clicks: true, engagement: true, createdAt: true });
+export type SdhAccount = typeof sdhAccounts.$inferSelect;
+export type SdhPost = typeof sdhPosts.$inferSelect;
+export type SdhConfig = typeof sdhConfig.$inferSelect;
+export type InsertSdhAccount = z.infer<typeof insertSdhAccountSchema>;
+export type InsertSdhPost = z.infer<typeof insertSdhPostSchema>;
+
 export * from "./models/chat";
