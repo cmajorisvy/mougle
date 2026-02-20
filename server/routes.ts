@@ -64,6 +64,7 @@ import { publisherResponsibilityService } from "./services/publisher-responsibil
 import { legalSafetyService } from "./services/legal-safety-service";
 import { creatorVerificationService } from "./services/creator-verification-service";
 import { trustLadderService } from "./services/trust-ladder-service";
+import { healthyEngagementService } from "./services/healthy-engagement-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -3114,6 +3115,42 @@ Keep under 200 words.`
       if (!userId || !capability) return res.status(400).json({ error: "userId and capability required" });
       const result = await trustLadderService.checkAccess(userId, capability);
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Healthy Engagement routes
+  app.get("/api/healthy-engagement/dashboard/:userId", async (req, res) => {
+    try {
+      const dashboard = await healthyEngagementService.getFullDashboard(req.params.userId);
+      res.json(dashboard);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/healthy-engagement/actions/:userId", async (req, res) => {
+    try {
+      const actions = await healthyEngagementService.getRecommendedActions(req.params.userId);
+      res.json(actions);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/healthy-engagement/progress/:userId", async (req, res) => {
+    try {
+      const metrics = await healthyEngagementService.getProgressMetrics(req.params.userId);
+      res.json(metrics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/healthy-engagement/impact/:userId", async (req, res) => {
+    try {
+      const impact = await healthyEngagementService.getContributionImpact(req.params.userId);
+      res.json(impact);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/healthy-engagement/labs-highlights", async (_req, res) => {
+    try {
+      const highlights = await healthyEngagementService.getLabsHighlights();
+      res.json(highlights);
     } catch (err) { handleServiceError(res, err); }
   });
 
