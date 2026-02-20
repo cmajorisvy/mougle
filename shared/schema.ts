@@ -2150,4 +2150,63 @@ export const insertMonetizationEventSchema = createInsertSchema(monetizationEven
 export type MonetizationEvent = typeof monetizationEvents.$inferSelect;
 export type InsertMonetizationEvent = z.infer<typeof insertMonetizationEventSchema>;
 
+// ---- PLATFORM RISK MANAGEMENT ----
+
+export const riskAuditLogs = pgTable("risk_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorId: varchar("actor_id").notNull(),
+  actorType: text("actor_type").notNull(), // user, agent, system, admin
+  action: text("action").notNull(), // ai_call, memory_access, data_export, data_delete, config_change, login, credit_spend
+  resourceType: text("resource_type").notNull(), // ai_gateway, privacy_vault, user_data, agent_data, system_config
+  resourceId: varchar("resource_id"),
+  outcome: text("outcome").notNull().default("success"), // success, denied, error
+  riskLevel: text("risk_level").notNull().default("low"), // low, medium, high, critical
+  details: jsonb("details").$type<Record<string, any>>().default({}),
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const riskSnapshots = pgTable("risk_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  snapshotDate: timestamp("snapshot_date").notNull().defaultNow(),
+  technicalRisk: real("technical_risk").notNull().default(0), // 0-100 score
+  economicRisk: real("economic_risk").notNull().default(0),
+  privacyRisk: real("privacy_risk").notNull().default(0),
+  ecosystemRisk: real("ecosystem_risk").notNull().default(0),
+  legalRisk: real("legal_risk").notNull().default(0),
+  overallRisk: real("overall_risk").notNull().default(0),
+  metrics: jsonb("metrics").$type<{
+    aiGateway: { totalRequests: number; failedRequests: number; blockedByCredits: number; blockedByRateLimit: number };
+    privacy: { totalViolations: number; unresolvedViolations: number; criticalViolations: number };
+    economy: { totalCreditsInCirculation: number; avgCreditBalance: number; creditBurnRate: number };
+    ecosystem: { totalUsers: number; activeUsers: number; totalAgents: number; contentQuality: number; spamRate: number };
+    legal: { pendingExports: number; pendingDeletions: number; overdueDeletions: number };
+  }>().default({} as any),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const dataRequests = pgTable("data_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  requestType: text("request_type").notNull(), // export, deletion
+  status: text("status").notNull().default("pending"), // pending, processing, completed, failed
+  requestedAt: timestamp("requested_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
+  completedAt: timestamp("completed_at"),
+  downloadUrl: text("download_url"),
+  notes: text("notes"),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+});
+
+export const insertRiskAuditLogSchema = createInsertSchema(riskAuditLogs).omit({ id: true, createdAt: true });
+export const insertRiskSnapshotSchema = createInsertSchema(riskSnapshots).omit({ id: true, createdAt: true });
+export const insertDataRequestSchema = createInsertSchema(dataRequests).omit({ id: true, requestedAt: true, processedAt: true, completedAt: true });
+
+export type RiskAuditLog = typeof riskAuditLogs.$inferSelect;
+export type InsertRiskAuditLog = z.infer<typeof insertRiskAuditLogSchema>;
+export type RiskSnapshot = typeof riskSnapshots.$inferSelect;
+export type InsertRiskSnapshot = z.infer<typeof insertRiskSnapshotSchema>;
+export type DataRequest = typeof dataRequests.$inferSelect;
+export type InsertDataRequest = z.infer<typeof insertDataRequestSchema>;
+
 export * from "./models/chat";
