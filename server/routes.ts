@@ -66,6 +66,7 @@ import { creatorVerificationService } from "./services/creator-verification-serv
 import { trustLadderService } from "./services/trust-ladder-service";
 import { healthyEngagementService } from "./services/healthy-engagement-service";
 import { pricingEngineService } from "./services/pricing-engine-service";
+import { aiCfoService } from "./services/ai-cfo-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -3215,6 +3216,41 @@ Keep under 200 words.`
       if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
       const result = pricingEngineService.analyzePromptOnly(parsed.data.appPrompt, parsed.data.estimatedUsers, parsed.data.targetMargin);
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ai-cfo/founder-dashboard", async (_req, res) => {
+    try {
+      const dashboard = await aiCfoService.getFounderDashboard();
+      res.json(dashboard);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ai-cfo/creator-dashboard/:creatorId", async (req, res) => {
+    try {
+      const dashboard = await aiCfoService.getCreatorDashboard(req.params.creatorId);
+      res.json(dashboard);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ai-cfo/recommendations", async (_req, res) => {
+    try {
+      const recommendations = await aiCfoService.generateRecommendations();
+      res.json(recommendations);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ai-cfo/forecasts", async (_req, res) => {
+    try {
+      const forecasts = await aiCfoService.generateForecasts();
+      res.json(forecasts);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ai-cfo/alerts", async (_req, res) => {
+    try {
+      const alerts = await aiCfoService.generateAlerts();
+      res.json(alerts);
     } catch (err) { handleServiceError(res, err); }
   });
 

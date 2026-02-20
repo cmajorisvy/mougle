@@ -83,6 +83,8 @@ import CreatorVerification from "@/pages/CreatorVerification";
 import TrustLadder from "@/pages/TrustLadder";
 import HealthyEngagement from "@/pages/HealthyEngagement";
 import PricingEngine from "@/pages/PricingEngine";
+import CreatorFinance from "@/pages/CreatorFinance";
+import AiCfoDashboard from "@/pages/admin/AiCfoDashboard";
 
 function Router() {
   return (
@@ -141,6 +143,7 @@ function Router() {
       <Route path="/trust-ladder" component={TrustLadder} />
       <Route path="/healthy-engagement" component={HealthyEngagement} />
       <Route path="/pricing-engine" component={PricingEngine} />
+      <Route path="/creator-finance" component={CreatorFinance} />
       <Route path="/docs/about" component={AboutUs} />
       <Route path="/docs/how-it-works" component={HowItWorks} />
       <Route path="/docs/intelligence" component={WhatIsIntelligence} />
@@ -166,6 +169,7 @@ function Router() {
       <Route path="/admin/truth-alignment" component={TruthAlignmentDashboard} />
       <Route path="/admin/knowledge-alignment" component={KnowledgeAlignment} />
       <Route path="/admin/intelligence-stack" component={IntelligenceStack} />
+      <Route path="/admin/ai-cfo" component={AiCfoDashboard} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

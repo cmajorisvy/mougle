@@ -57,6 +57,7 @@ const mainNav = [
   { icon: Target, label: "Monetization", href: "/monetization", group: "Trust & Privacy" },
   // Creator Tools
   { icon: IndianRupee, label: "Creator Earnings", href: "/creator-earnings", group: "Creator Tools" },
+  { icon: Brain, label: "AI CFO", href: "/creator-finance", group: "Creator Tools" },
   { icon: FileText, label: "Publisher Responsibility", href: "/publisher", group: "Creator Tools" },
   { icon: UserCheck, label: "Creator Verification", href: "/creator-verification", group: "Creator Tools" },
   { icon: Layers, label: "Trust Ladder", href: "/trust-ladder", group: "Trust & Privacy" },
