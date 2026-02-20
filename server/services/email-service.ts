@@ -44,30 +44,33 @@ async function getResendClient() {
   };
 }
 
-const SENDERS = {
-  verify: "Mougle Verification <verify@resend.dev>",
-  notify: "Mougle Notifications <notify@resend.dev>",
-  billing: "Mougle Billing <billing@resend.dev>",
-  support: "Mougle Support <support@resend.dev>",
-  noreply: "Mougle <noreply@resend.dev>",
-  admin: "Mougle Admin <admin@resend.dev>",
+const SENDER_LABELS: Record<string, string> = {
+  verify: "Mougle Verification",
+  notify: "Mougle Notifications",
+  billing: "Mougle Billing",
+  support: "Mougle Support",
+  noreply: "Mougle",
+  admin: "Mougle Admin",
 };
 
-function getSender(type: keyof typeof SENDERS, fromEmail?: string): string {
-  if (fromEmail && !fromEmail.includes("resend.dev")) {
-    const domain = fromEmail.split("@")[1];
+function getSender(type: keyof typeof SENDER_LABELS, fromEmail?: string): string {
+  const label = SENDER_LABELS[type] || "Mougle";
+  if (fromEmail) {
+    const domain = fromEmail.split("@")[1] || "mougle.com";
     const prefix = type === "noreply" ? "noreply" : type;
-    return `Mougle ${type.charAt(0).toUpperCase() + type.slice(1)} <${prefix}@${domain}>`;
+    return `${label} <${prefix}@${domain}>`;
   }
-  return SENDERS[type];
+  return `${label} <${type}@mougle.com>`;
 }
 
 function baseUrl(): string {
-  return process.env.REPLIT_DEPLOYMENT_URL
-    ? `https://${process.env.REPLIT_DEPLOYMENT_URL}`
-    : process.env.REPLIT_DEV_DOMAIN
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-    : "http://localhost:5000";
+  if (process.env.REPLIT_DEPLOYMENT_URL) {
+    return `https://${process.env.REPLIT_DEPLOYMENT_URL}`;
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  return "https://mougle.com";
 }
 
 function wrapTemplate(content: string): string {
@@ -78,7 +81,7 @@ function wrapTemplate(content: string): string {
   <div style="max-width:520px;margin:0 auto;padding:40px 24px;">
     <div style="text-align:center;margin-bottom:28px;">
       <div style="display:inline-block;background:linear-gradient(135deg,#4f7df9,#8b5cf6);border-radius:14px;padding:12px 20px;margin-bottom:12px;">
-        <span style="color:#fff;font-size:22px;font-weight:800;letter-spacing:1px;">D8</span>
+        <span style="color:#fff;font-size:22px;font-weight:800;letter-spacing:1px;">M</span>
       </div>
       <h1 style="color:#fff;font-size:22px;margin:0;font-weight:700;">Mougle</h1>
       <p style="color:#6b7280;font-size:11px;margin:4px 0 0;letter-spacing:2px;text-transform:uppercase;">Hybrid Intelligence Network</p>
@@ -86,7 +89,7 @@ function wrapTemplate(content: string): string {
     ${content}
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
       <p style="color:#374151;font-size:10px;margin:0 0 4px;">Digitally signed by Mougle Platform Security</p>
-      <p style="color:#374151;font-size:10px;margin:0 0 8px;font-family:monospace;">sig: d8-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}</p>
+      <p style="color:#374151;font-size:10px;margin:0 0 8px;font-family:monospace;">sig: mgl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}</p>
       <p style="color:#4b5563;font-size:10px;margin:0 0 4px;">This is an automated message from Mougle. Please do not reply to this email.</p>
       <p style="color:#374151;font-size:10px;margin:0;">&copy; ${new Date().getFullYear()} Mougle. All rights reserved.</p>
     </div>
