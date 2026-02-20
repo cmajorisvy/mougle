@@ -1,5 +1,7 @@
 import { Avatar } from "./AvatarBuilder";
 
+const RING_SIZE = 16;
+
 export class VoiceController {
   private avatars: Map<string, Avatar> = new Map();
   private currentAudio: HTMLAudioElement | null = null;
@@ -8,6 +10,9 @@ export class VoiceController {
   private dataArray: Uint8Array | null = null;
   private animFrameId: number = 0;
   private onSpeakerChange: ((speakerId: string | null) => void) | null = null;
+  private lipSyncDelayMs: number = 80 + Math.random() * 40;
+  private levelRing: { time: number; level: number }[] = [];
+  private isActive: boolean = false;
 
   constructor(onSpeakerChange?: (speakerId: string | null) => void) {
     this.onSpeakerChange = onSpeakerChange || null;
@@ -42,14 +47,32 @@ export class VoiceController {
       source.connect(this.analyser);
       this.analyser.connect(this.audioContext.destination);
 
+      this.levelRing = [];
+      this.isActive = true;
+      const delayMs = this.lipSyncDelayMs;
+
       const updateLevel = () => {
-        if (!this.analyser || !this.dataArray) return;
+        if (!this.isActive || !this.analyser || !this.dataArray) return;
         this.analyser.getByteFrequencyData(this.dataArray);
         const avg = this.dataArray.reduce((a, b) => a + b, 0) / this.dataArray.length / 255;
-        if (avatar) {
-          avatar.setSpeaking(true, avg);
+        const now = performance.now();
+
+        this.levelRing.push({ time: now, level: avg });
+        if (this.levelRing.length > RING_SIZE) this.levelRing.shift();
+
+        const targetTime = now - delayMs;
+        let delayedLevel = avg;
+        for (let i = this.levelRing.length - 1; i >= 0; i--) {
+          if (this.levelRing[i].time <= targetTime) {
+            delayedLevel = this.levelRing[i].level;
+            break;
+          }
         }
-        if (!audio.paused && !audio.ended) {
+
+        if (avatar && this.isActive) {
+          avatar.setSpeaking(true, delayedLevel);
+        }
+        if (!audio.paused && !audio.ended && this.isActive) {
           this.animFrameId = requestAnimationFrame(updateLevel);
         }
       };
@@ -94,11 +117,13 @@ export class VoiceController {
   }
 
   stopCurrent(): void {
+    this.isActive = false;
     if (this.currentAudio) {
       this.currentAudio.pause();
       this.currentAudio = null;
     }
     cancelAnimationFrame(this.animFrameId);
+    this.levelRing = [];
     this.avatars.forEach((avatar) => avatar.setSpeaking(false, 0));
   }
 

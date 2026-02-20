@@ -445,9 +445,12 @@ export class Avatar {
     });
   }
 
-  setListenTarget(targetId: string | null): void {
+  setListenTarget(targetId: string | null, targetSeatIndex: number = -1): void {
     this.state.listenTargetId = targetId;
+    this._listenSeatIndex = targetSeatIndex;
   }
+
+  private _listenSeatIndex: number = -1;
 
   update(dt: number, elapsed: number): void {
     this.updatePerlinMicroMotion(elapsed);
@@ -689,7 +692,7 @@ export class Avatar {
   }
 
   private getSpeakerSeatIndex(speakerId: string): number {
-    return -1;
+    return this._listenSeatIndex;
   }
 
   private getSkinTone(): number {

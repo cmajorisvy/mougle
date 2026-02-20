@@ -202,14 +202,27 @@ export function DebateStudio3D({
   }, [participants, loadAvatarsFromParticipants]);
 
   useEffect(() => {
-    if (!currentSpeakerId || !cameraRef.current) return;
-    const idx = avatarOrderRef.current.indexOf(currentSpeakerId);
-    if (idx >= 0) {
-      cameraRef.current.focusOnSpeaker(idx);
+    if (!cameraRef.current) return;
+
+    if (currentSpeakerId) {
+      const idx = avatarOrderRef.current.indexOf(currentSpeakerId);
+      if (idx >= 0) {
+        cameraRef.current.focusOnSpeaker(idx);
+      }
     }
 
+    const speakerSeatIdx = currentSpeakerId
+      ? avatarOrderRef.current.indexOf(currentSpeakerId)
+      : -1;
+
     avatarsRef.current.forEach((avatar, id) => {
-      avatar.setSpeaking(id === currentSpeakerId, id === currentSpeakerId ? 0.5 : 0);
+      if (id === currentSpeakerId) {
+        avatar.setSpeaking(true, 0.5);
+        avatar.setListenTarget(null);
+      } else {
+        avatar.setSpeaking(false, 0);
+        avatar.setListenTarget(currentSpeakerId || null, speakerSeatIdx);
+      }
     });
   }, [currentSpeakerId]);
 
