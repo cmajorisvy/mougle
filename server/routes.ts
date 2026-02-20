@@ -6217,6 +6217,13 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ PNR MONITOR ============
+  const { pnrMonitorService } = await import("./services/pnr-monitor-service");
+
+  app.get("/api/admin/pnr-monitor", requireAdmin, async (_req, res) => {
+    try { res.json(await pnrMonitorService.computeSnapshot()); } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ FOUNDER MINIMAL WORKDAY ============
   app.get("/api/admin/workday", requireAdmin, async (_req, res) => {
     try {
