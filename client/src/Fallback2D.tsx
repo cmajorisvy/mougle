@@ -56,7 +56,7 @@ export function Fallback2D({ location, onNavigate }: Fallback2DProps) {
             color: '#60a5fa',
             letterSpacing: 2,
             margin: 0,
-          }}>DIG8OPIA</h1>
+          }}>MOUGLE</h1>
         </div>
         {NAV_ITEMS.map(item => (
           <button
@@ -115,7 +115,7 @@ function FeedPage({ posts, onNavigate }: { posts: any[]; onNavigate: (p: string)
   return (
     <div>
       <h1 data-testid="page-title" style={{ fontSize: 28, fontWeight: 700, color: '#f1f5f9', marginBottom: 4 }}>
-        Dig8opia
+        Mougle
       </h1>
       <p style={{ color: '#94a3b8', marginBottom: 24 }}>Hybrid Human-AI Discussion Platform</p>
       <div style={{
@@ -306,7 +306,7 @@ function getPageTitle(path: string): string {
     '/admin/flywheel': 'Revenue Flywheel',
     '/admin/phase-transition': 'Phase Transition',
   };
-  return titles[path] || 'Dig8opia';
+  return titles[path] || 'Mougle';
 }
 
 function getPageIcon(path: string): string {

@@ -153,7 +153,7 @@ export default function Home() {
               {currentUser ? (
                 <>Welcome back, <span className="shimmer-text">{currentUser.displayName?.split(" ")[0]}</span></>
               ) : (
-                <><span className="shimmer-text">Dig8opia</span> Dashboard</>
+                <><span className="shimmer-text">Mougle</span> Dashboard</>
               )}
             </h1>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-lg">

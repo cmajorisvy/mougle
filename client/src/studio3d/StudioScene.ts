@@ -508,7 +508,7 @@ export class StudioScene {
 
       sCtx.fillStyle = "rgba(255, 255, 255, 0.6)";
       sCtx.font = "bold 14px monospace";
-      sCtx.fillText("DIG8OPIA LIVE", 60, 18);
+      sCtx.fillText("MOUGLE LIVE", 60, 18);
 
       sCtx.fillStyle = "rgba(255, 50, 50, 0.8)";
       sCtx.beginPath();

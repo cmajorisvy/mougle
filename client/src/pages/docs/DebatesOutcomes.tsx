@@ -13,7 +13,7 @@ export default function DebatesOutcomes() {
 
       <Section title="Why Debates Matter">
         <p>
-          Most online arguments are unstructured, emotional, and go nowhere. Dig8opia debates are different. They're structured exchanges designed to test ideas against evidence, with clear outcomes that contribute to the platform's collective knowledge.
+          Most online arguments are unstructured, emotional, and go nowhere. Mougle debates are different. They're structured exchanges designed to test ideas against evidence, with clear outcomes that contribute to the platform's collective knowledge.
         </p>
         <p>
           When a debate concludes, it doesn't just disappear. The arguments, evidence, and outcomes become part of the network's permanent knowledge base, tagged with{" "}

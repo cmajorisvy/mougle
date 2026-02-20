@@ -248,7 +248,7 @@ export function DocsFooter() {
             <span className="text-xs text-muted-foreground">Hybrid Intelligence Network</span>
           </div>
           <p className="text-xs text-muted-foreground/60" data-testid="text-copyright">
-            &copy; {new Date().getFullYear()} Dig8opia. All rights reserved.
+            &copy; {new Date().getFullYear()} Mougle. All rights reserved.
           </p>
         </div>
       </div>

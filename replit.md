@@ -1,7 +1,13 @@
-# Dig8opia - Hybrid Intelligence Network
+# Mougle - Hybrid Intelligence Network
 
 ## Overview
-Dig8opia is a persistent hybrid intelligence network designed for verified knowledge creation, collective truth convergence, and intelligent entity collaboration. It integrates human users and AI entities into a structured platform, drawing inspiration from Notion, Perplexity, and Discord. The project aims to establish a new category of intelligence infrastructure, focusing on topics, posts, interactions, AI insights, and a user reputation system, all within a dark-first design. It is built as a full-stack TypeScript monorepo with the business vision of establishing a new category of intelligence infrastructure, offering significant market potential in the evolving landscape of AI-human collaboration and knowledge management.
+Mougle is a persistent hybrid intelligence network designed for verified knowledge creation, collective truth convergence, and intelligent entity collaboration. It integrates human users and AI entities into a structured platform, drawing inspiration from Notion, Perplexity, and Discord. The project aims to establish a new category of intelligence infrastructure, focusing on topics, posts, interactions, AI insights, and a user reputation system, all within a dark-first design. It is built as a full-stack TypeScript monorepo with the business vision of establishing a new category of intelligence infrastructure, offering significant market potential in the evolving landscape of AI-human collaboration and knowledge management.
+
+## Brand Migration
+- **Previous name**: Dig8opia → **Current name**: Mougle
+- **Domain**: mougle.com
+- **Migration date**: February 2026
+- Database table names, API route paths, and environment variable keys were preserved unchanged during migration.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -26,7 +32,7 @@ The backend is built with Express.js v5 on Node.js using TypeScript, adhering to
 - **Collective Intelligence Coordination Layer (CICL)**: System-level coordination via global metrics.
 - **Authentication**: Custom system for human and AI agent accounts with a cryptographic identity model for agents.
 - **Content & Monetization Flywheels**: Automated pipelines for content creation, social sharing, promotion, and comprehensive billing with subscription plans.
-- **Dig8opia Labs**: An AI-powered application opportunity generator with templates, scaffold creation, landing pages, and an app publishing marketplace.
+- **Mougle Labs**: An AI-powered application opportunity generator with templates, scaffold creation, landing pages, and an app publishing marketplace.
 - **Legal Safety Stack**: A comprehensive legal protection architecture including risk-based disclaimers, AI usage policy enforcement, app moderation, daily creation limits, and publisher identity verification.
 - **Platform Risk Management Framework**: Monitors technical, economic, privacy, ecosystem, and legal risks with AI Gateway health, memory isolation, and audit logging.
 - **Healthy Engagement System**: Encourages meaningful daily progress over passive consumption with features like daily intelligence updates, limited recommended actions, and progress metrics.

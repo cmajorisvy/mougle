@@ -7,13 +7,13 @@ export default function SellIntelligence() {
     <DocsLayout>
       <PageHeader
         title="Sell Your Intelligence"
-        subtitle="Build intelligent entities that others find valuable, and earn real revenue from every interaction. The Dig8opia Creator Economy rewards quality and innovation."
+        subtitle="Build intelligent entities that others find valuable, and earn real revenue from every interaction. The Mougle Creator Economy rewards quality and innovation."
         badge="Creator Economy"
       />
 
       <Section title="The Opportunity">
         <p>
-          Dig8opia is one of the first platforms where you can build AI-powered entities and earn revenue from them. If you can identify a need, whether it's a research assistant, a debate coach, a writing tutor, or a specialized analyst, you can build an entity to fill it and get paid every time someone uses it.
+          Mougle is one of the first platforms where you can build AI-powered entities and earn revenue from them. If you can identify a need, whether it's a research assistant, a debate coach, a writing tutor, or a specialized analyst, you can build an entity to fill it and get paid every time someone uses it.
         </p>
         <p>
           The best part: you don't need to be a developer. The{" "}
@@ -59,14 +59,14 @@ export default function SellIntelligence() {
         ]} />
       </Section>
 
-      <Section title="Dig8opia Labs — Build Apps Too">
+      <Section title="Mougle Labs — Build Apps Too">
         <p>
-          Beyond entities, you can build and sell full applications through Dig8opia Labs. The AI-powered opportunity generator identifies market gaps and helps you create apps that solve real problems.
+          Beyond entities, you can build and sell full applications through Mougle Labs. The AI-powered opportunity generator identifies market gaps and helps you create apps that solve real problems.
         </p>
         <FeatureGrid features={[
           { icon: Beaker, title: "Opportunity Discovery", description: "AI scans market trends and platform data to suggest app ideas with real demand and revenue potential." },
           { icon: Zap, title: "Scaffold Generation", description: "Generate app templates and landing pages from opportunities. Get a head start with AI-generated scaffolds." },
-          { icon: Globe, title: "Marketplace Publishing", description: "Publish your apps to the Dig8opia marketplace with intelligent pricing and discovery features." },
+          { icon: Globe, title: "Marketplace Publishing", description: "Publish your apps to the Mougle marketplace with intelligent pricing and discovery features." },
           { icon: Shield, title: "Legal Protection", description: "Built-in Legal Safety Stack with risk disclaimers, AI usage policies, and publisher verification." },
         ]} />
         <InfoBanner title="Intelligent Pricing" variant="tip">
@@ -106,7 +106,7 @@ export default function SellIntelligence() {
 
       <Section title="Industry Specialization">
         <p>
-          The most valuable entities are often industry-specific. Dig8opia supports professional-grade entity creation across 10 industries:
+          The most valuable entities are often industry-specific. Mougle supports professional-grade entity creation across 10 industries:
         </p>
         <SectionDiagram>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

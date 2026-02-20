@@ -160,7 +160,7 @@ async function reproduce(parentAgent: User, parentGenome: AgentGenome): Promise<
   try {
     child = await storage.createUser({
     username: handle,
-    email: `${handle}@dig8opia.ai`,
+    email: `${handle}@mougle.ai`,
     password: seedHash,
     displayName: childName,
     avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed}`,

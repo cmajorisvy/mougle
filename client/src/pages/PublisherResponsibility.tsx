@@ -180,7 +180,7 @@ function AgreementSection({ userId, profile, onAccepted }: { userId: string; pro
         ) : (
           <div className="space-y-3">
             <div className="text-xs text-muted-foreground">
-              By clicking below, you acknowledge that you have read, understood, and agree to the Creator Publisher Agreement. You accept full responsibility for any applications you publish on Dig8opia Labs.
+              By clicking below, you acknowledge that you have read, understood, and agree to the Creator Publisher Agreement. You accept full responsibility for any applications you publish on Mougle Labs.
             </div>
             <Button
               data-testid="button-accept-agreement"
@@ -292,7 +292,7 @@ export default function PublisherResponsibility() {
               <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
               <h3 className="text-lg font-bold">You're Ready to Publish</h3>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Your publisher profile is complete and the agreement is signed. You can now publish applications on Dig8opia Labs.
+                Your publisher profile is complete and the agreement is signed. You can now publish applications on Mougle Labs.
               </p>
             </CardContent>
           </Card>
@@ -307,7 +307,7 @@ export default function PublisherResponsibility() {
           </CardHeader>
           <CardContent>
             <div className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.06] text-xs text-muted-foreground leading-relaxed">
-              Dig8opia is a technology platform that provides infrastructure, tools, and distribution services for creators to build and publish applications. Dig8opia does not operate published applications and bears no responsibility for application-specific outcomes, decisions, data handling, or content. Each published application is independently operated by its creator/publisher, who is solely responsible for its functionality, legal compliance, and user support. For app-specific issues, users should contact the publisher directly using the information displayed on the app page.
+              Mougle is a technology platform that provides infrastructure, tools, and distribution services for creators to build and publish applications. Mougle does not operate published applications and bears no responsibility for application-specific outcomes, decisions, data handling, or content. Each published application is independently operated by its creator/publisher, who is solely responsible for its functionality, legal compliance, and user support. For app-specific issues, users should contact the publisher directly using the information displayed on the app page.
             </div>
           </CardContent>
         </Card>

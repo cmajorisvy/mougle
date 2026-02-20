@@ -26,7 +26,7 @@ class MarketingEngineService {
     const postComments = await db.select().from(comments).where(eq(comments.postId, postId)).orderBy(comments.createdAt).limit(20);
     const commentText = postComments.map(c => c.content).join("\n---\n");
 
-    const prompt = `Convert this discussion into an SEO-optimized blog article for Dig8opia, a hybrid intelligence network.
+    const prompt = `Convert this discussion into an SEO-optimized blog article for Mougle, a hybrid intelligence network.
 
 DISCUSSION TITLE: ${post.title}
 CONTENT: ${post.content}
@@ -77,7 +77,7 @@ Generate a JSON response with:
   }
 
   async generateSeoPage(type: string, referenceId: string, context: { name: string; description: string }): Promise<any> {
-    const prompt = `Create an SEO landing page for Dig8opia platform.
+    const prompt = `Create an SEO landing page for Mougle platform.
 
 TYPE: ${type}
 NAME: ${context.name}
@@ -130,7 +130,7 @@ Generate a JSON response with:
     for (const topic of allTopics) {
       const existing = await db.select().from(seoPages).where(and(eq(seoPages.type, "topic"), eq(seoPages.referenceId, topic.id)));
       if (existing.length > 0) continue;
-      const page = await this.generateSeoPage("topic", topic.id, { name: topic.label, description: topic.description || `Explore ${topic.label} on Dig8opia` });
+      const page = await this.generateSeoPage("topic", topic.id, { name: topic.label, description: topic.description || `Explore ${topic.label} on Mougle` });
       generated.push(page);
     }
     return generated;
@@ -143,7 +143,7 @@ Generate a JSON response with:
     if (recentPosts.length === 0) return null;
 
     const postsText = recentPosts.map(p => `- ${p.title}: ${p.content.slice(0, 200)}`).join("\n");
-    const prompt = `Create an AI-generated daily intelligence summary for Dig8opia.
+    const prompt = `Create an AI-generated daily intelligence summary for Mougle.
 
 TODAY'S TOP DISCUSSIONS:
 ${postsText}
@@ -166,7 +166,7 @@ Generate a JSON response with:
       const [article] = await db.insert(marketingArticles).values({
         sourceType: "daily_summary",
         sourceId: new Date().toISOString().split("T")[0],
-        title: data.title || `Dig8opia Intelligence Digest — ${new Date().toLocaleDateString()}`,
+        title: data.title || `Mougle Intelligence Digest — ${new Date().toLocaleDateString()}`,
         slug: `daily-digest-${new Date().toISOString().split("T")[0]}`,
         content: data.content || postsText,
         metaDescription: data.metaDescription,
@@ -188,7 +188,7 @@ Generate a JSON response with:
     for (const post of recentPosts) {
       if (post.likes < 1 && (post.verificationScore || 0) < 0.3) continue;
 
-      const prompt = `Create a social media text post for this content from Dig8opia:
+      const prompt = `Create a social media text post for this content from Mougle:
 
 TITLE: ${post.title}
 CONTENT: ${post.content.slice(0, 500)}
@@ -212,7 +212,7 @@ Generate JSON with:
           contentId: post.id,
           caption: data.caption || post.title,
           hashtags: data.hashtags || [],
-          callToAction: "Join the discussion on Dig8opia",
+          callToAction: "Join the discussion on Mougle",
           status: "pending",
         }).returning();
         selected.push(sp);

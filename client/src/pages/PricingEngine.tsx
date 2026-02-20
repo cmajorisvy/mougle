@@ -483,20 +483,20 @@ export default function PricingEngine() {
               </div>
               <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-700/50 mb-4">
                 <p className="text-sm text-zinc-300 leading-relaxed">
-                  {result.distributionNote || "Dig8opia provides web app infrastructure only. External distribution (mobile stores, third-party platforms) is the creator's responsibility."}
+                  {result.distributionNote || "Mougle provides web app infrastructure only. External distribution (mobile stores, third-party platforms) is the creator's responsibility."}
                 </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="bg-zinc-900/40 rounded-lg p-3 border border-zinc-800" data-testid="dist-platform-provided">
                   <div className="flex items-center gap-2 mb-2">
                     <Package className="w-4 h-4 text-emerald-400" />
-                    <span className="text-sm font-medium text-emerald-300">What Dig8opia Provides</span>
+                    <span className="text-sm font-medium text-emerald-300">What Mougle Provides</span>
                   </div>
                   <ul className="space-y-1 text-xs text-zinc-400">
                     <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Web app hosting and infrastructure</li>
                     <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Pricing analysis and sustainability checks</li>
                     <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Exportable web app packages</li>
-                    <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Marketplace listing on Dig8opia</li>
+                    <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Marketplace listing on Mougle</li>
                   </ul>
                 </div>
                 <div className="bg-zinc-900/40 rounded-lg p-3 border border-zinc-800" data-testid="dist-creator-responsible">
@@ -540,17 +540,17 @@ export default function PricingEngine() {
                   <div className="bg-zinc-900/80 rounded-lg p-4 border border-amber-500/30 max-h-48 overflow-y-auto text-xs text-zinc-400 leading-relaxed whitespace-pre-line" data-testid="text-disclaimer">
                     {`EXTERNAL DISTRIBUTION RESPONSIBILITY ACKNOWLEDGMENT
 
-By exporting this application from Dig8opia, I ("Creator") acknowledge and agree:
+By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
-1. INFRASTRUCTURE PROVIDER ONLY: Dig8opia acts solely as an infrastructure and development platform.
+1. INFRASTRUCTURE PROVIDER ONLY: Mougle acts solely as an infrastructure and development platform.
 
 2. CREATOR RESPONSIBILITY: I am solely responsible for publishing, distributing, and operating the exported app on any external platform.
 
-3. NO LIABILITY: Dig8opia shall not be liable for any issues arising from external distribution.
+3. NO LIABILITY: Mougle shall not be liable for any issues arising from external distribution.
 
-4. INDEMNIFICATION: I agree to indemnify and hold Dig8opia harmless from any claims arising from my distribution of the exported application.
+4. INDEMNIFICATION: I agree to indemnify and hold Mougle harmless from any claims arising from my distribution of the exported application.
 
-5. NO GUARANTEES: Dig8opia makes no guarantees about the exported app's compatibility or acceptance on any external platform.`}
+5. NO GUARANTEES: Mougle makes no guarantees about the exported app's compatibility or acceptance on any external platform.`}
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch
@@ -744,7 +744,7 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
 
             <div className="text-center text-xs text-zinc-600 pb-4" data-testid="section-footer">
               Pricing includes Replit AI development cost amortization + 18% Indian GST.
-              Dig8opia is an infrastructure provider only. External distribution responsibility lies with the creator.
+              Mougle is an infrastructure provider only. External distribution responsibility lies with the creator.
               Creators keep 70% of revenue through Razorpay Route split.
             </div>
           </>

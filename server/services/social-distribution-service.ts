@@ -216,7 +216,7 @@ Return JSON with:
       return {
         title: data.title,
         body: `${data.title}\n\n${data.description.slice(0, 100)}${data.description.length > 100 ? "..." : ""}\n\n${data.url}`,
-        hashtags: ["dig8opia", "knowledge", data.sourceType],
+        hashtags: ["mougle", "knowledge", data.sourceType],
         qualityScore: 0.5,
       };
     }

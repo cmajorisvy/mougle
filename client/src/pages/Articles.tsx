@@ -9,7 +9,7 @@ import { useEffect } from "react";
 
 export default function Articles() {
   useEffect(() => {
-    document.title = "Intelligence Feed | Dig8opia";
+    document.title = "Intelligence Feed | Mougle";
   }, []);
 
   return (

@@ -278,7 +278,7 @@ export function createAuthScene(): GenericScene {
   return new GenericScene({
     name: 'auth',
     title: 'Sign In',
-    subtitle: 'Access your Dig8opia account',
+    subtitle: 'Access your Mougle account',
     icon: '🔐',
     accentColor: 0x3b82f6,
   });

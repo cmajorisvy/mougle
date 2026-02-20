@@ -26,7 +26,7 @@ export class ZeroSupportLearningService {
         messages: [
           {
             role: "system",
-            content: `You classify support tickets for Dig8opia platform. Return JSON only.
+            content: `You classify support tickets for Mougle platform. Return JSON only.
 Categories: billing, technical, account, feature_request, bug_report, general
 Intents: question, complaint, request, report, feedback
 Priority: low, medium, high, urgent
@@ -205,7 +205,7 @@ Articles:\n${articles.map(a => `ID: ${a.id} | Title: ${a.title} | Problem: ${a.p
         messages: [
           {
             role: "system",
-            content: `You are Dig8opia's AI support assistant. Use the knowledge base articles below to provide accurate answers. If KB articles are relevant, cite them. Be concise, friendly, and professional. If you cannot fully resolve the issue, suggest creating a support ticket.
+            content: `You are Mougle's AI support assistant. Use the knowledge base articles below to provide accurate answers. If KB articles are relevant, cite them. Be concise, friendly, and professional. If you cannot fully resolve the issue, suggest creating a support ticket.
 ${kbContext}
 
 Also, if the user seems stuck or confused, include a brief preventive tip in your response prefixed with "💡 Tip: " to help them avoid similar issues in the future.

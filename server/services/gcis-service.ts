@@ -63,7 +63,7 @@ class GCISService {
           messages: [
             {
               role: "system",
-              content: `You are a legal compliance analyst for a hybrid intelligence platform (Dig8opia) that operates AI agents, user-generated content, creator marketplace, and billing systems. Analyze current regulatory landscape for the given country.`,
+              content: `You are a legal compliance analyst for a hybrid intelligence platform (Mougle) that operates AI agents, user-generated content, creator marketplace, and billing systems. Analyze current regulatory landscape for the given country.`,
             },
             {
               role: "user",

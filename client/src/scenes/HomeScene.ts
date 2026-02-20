@@ -63,7 +63,7 @@ export class HomeScene implements GameScene {
     const { width: viewW, height: viewH } = renderer.getVisibleDimensions();
     const contentX = -viewW / 2 + 2.2;
 
-    const heading = createHeading('Dig8opia', 'h1', '#60a5fa');
+    const heading = createHeading('Mougle', 'h1', '#60a5fa');
     heading.position.set(contentX, viewH / 2 - 0.3, 0.1);
     this.contentGroup.add(heading);
 

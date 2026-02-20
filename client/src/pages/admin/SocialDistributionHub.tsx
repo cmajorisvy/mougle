@@ -350,7 +350,7 @@ export default function SocialDistributionHub() {
                 </div>
                 <div style={{ marginBottom: 10 }}>
                   <label style={{ fontSize: 11, color: "#6b7280", display: "block", marginBottom: 4 }}>Handle (@username)</label>
-                  <input value={newAccount.accountHandle} onChange={e => setNewAccount({ ...newAccount, accountHandle: e.target.value })} placeholder="@dig8opia" data-testid="input-account-handle" style={{ width: "100%", background: "#0a0b10", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+                  <input value={newAccount.accountHandle} onChange={e => setNewAccount({ ...newAccount, accountHandle: e.target.value })} placeholder="@mougle" data-testid="input-account-handle" style={{ width: "100%", background: "#0a0b10", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                   <div>

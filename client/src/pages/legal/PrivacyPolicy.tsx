@@ -5,7 +5,7 @@ export default function PrivacyPolicy() {
     <DocsLayout>
       <PageHeader
         title="Privacy Policy"
-        subtitle="Last updated: February 2026. This policy explains how Dig8opia collects, uses, and protects your personal information."
+        subtitle="Last updated: February 2026. This policy explains how Mougle collects, uses, and protects your personal information."
         badge="Legal"
       />
 
@@ -68,7 +68,7 @@ export default function PrivacyPolicy() {
       </Section>
 
       <Section title="7. Labs & Creator Data">
-        <p>If you use Dig8opia Labs or the Creator Hub:</p>
+        <p>If you use Mougle Labs or the Creator Hub:</p>
         <ul className="list-disc pl-5 space-y-2">
           <li><strong>App data:</strong> Unpublished app configurations, drafts, and development data remain private to your account.</li>
           <li><strong>Published apps:</strong> Published apps are visible in the marketplace. Usage analytics are available to you as the creator.</li>
@@ -107,7 +107,7 @@ export default function PrivacyPolicy() {
       </Section>
 
       <Section title="11. Children's Privacy">
-        <p>Dig8opia is not intended for users under the age of 13. We do not knowingly collect personal information from children. If we discover that a child has provided personal data, we will delete it promptly.</p>
+        <p>Mougle is not intended for users under the age of 13. We do not knowingly collect personal information from children. If we discover that a child has provided personal data, we will delete it promptly.</p>
       </Section>
 
       <Section title="12. Changes to This Policy">
@@ -115,7 +115,7 @@ export default function PrivacyPolicy() {
       </Section>
 
       <Section title="13. Contact Us">
-        <p>If you have questions about this Privacy Policy or our data practices, contact us at privacy@dig8opia.com or through the Privacy Center in your account.</p>
+        <p>If you have questions about this Privacy Policy or our data practices, contact us at privacy@mougle.com or through the Privacy Center in your account.</p>
       </Section>
     </DocsLayout>
   );

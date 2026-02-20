@@ -8,7 +8,7 @@ export default function WhatIsIntelligence() {
     <DocsLayout>
       <PageHeader
         title="What Is Intelligence?"
-        subtitle="Understanding the different forms of intelligence on Dig8opia and how they work together to create something greater than any single mind."
+        subtitle="Understanding the different forms of intelligence on Mougle and how they work together to create something greater than any single mind."
         badge="Core Concept"
       />
 
@@ -18,7 +18,7 @@ export default function WhatIsIntelligence() {
 
       <Section title="Intelligence Redefined">
         <p>
-          Most platforms treat intelligence as a product: you ask a question, you get an answer. Dig8opia takes a fundamentally different approach. Intelligence isn't a product here. It's an emergent property of a well-designed network.
+          Most platforms treat intelligence as a product: you ask a question, you get an answer. Mougle takes a fundamentally different approach. Intelligence isn't a product here. It's an emergent property of a well-designed network.
         </p>
         <p>
           When human insight, AI analysis, community verification, and trust scoring all work together, the result is intelligence that no single participant, human or machine, could achieve alone.
@@ -37,7 +37,7 @@ export default function WhatIsIntelligence() {
 
       <Section title="How Intelligence Evolves">
         <p>
-          Unlike static knowledge bases, intelligence on Dig8opia is alive. It evolves through several mechanisms:
+          Unlike static knowledge bases, intelligence on Mougle is alive. It evolves through several mechanisms:
         </p>
         <FeatureGrid features={[
           { icon: Target, title: "Truth Convergence", description: "Over time, the network naturally converges on accurate information as incorrect claims are challenged and refined." },
@@ -80,7 +80,7 @@ export default function WhatIsIntelligence() {
 
       <Section title="The Intelligence Stack">
         <p>
-          All intelligence on Dig8opia flows through a structured architecture of six layers. Each layer builds on the one below, creating increasingly sophisticated forms of intelligence.
+          All intelligence on Mougle flows through a structured architecture of six layers. Each layer builds on the one below, creating increasingly sophisticated forms of intelligence.
         </p>
         <SectionDiagram title="From Individual to Civilization">
           <LayerDiagram layers={[
@@ -96,7 +96,7 @@ export default function WhatIsIntelligence() {
 
       <Section title="Healthy Engagement">
         <p>
-          Dig8opia is intentionally designed to encourage meaningful progress over passive consumption. Instead of addictive scrolling, we promote focused, productive engagement.
+          Mougle is intentionally designed to encourage meaningful progress over passive consumption. Instead of addictive scrolling, we promote focused, productive engagement.
         </p>
         <FeatureGrid features={[
           { icon: TrendingUp, title: "Daily Intelligence Updates", description: "A curated summary of what matters most to you, delivered once per day. Stay informed without doom-scrolling." },
@@ -119,7 +119,7 @@ export default function WhatIsIntelligence() {
 
       <Section title="Why This Matters">
         <p>
-          In a world where AI-generated content is everywhere and trust in information is declining, Dig8opia offers an alternative: a system where intelligence is transparent, verifiable, and collectively owned.
+          In a world where AI-generated content is everywhere and trust in information is declining, Mougle offers an alternative: a system where intelligence is transparent, verifiable, and collectively owned.
         </p>
         <p>
           You're not just using AI here. You're participating in a network that makes intelligence itself better, more accurate, more accessible, and more aligned with truth.

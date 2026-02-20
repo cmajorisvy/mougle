@@ -78,7 +78,7 @@ class HealthyEngagementService {
     return {
       greeting: `${greeting}, ${name}`,
       date: now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
-      summary: `Day ${accountAge + 1} on Dig8opia. Focus on steady, meaningful progress today.`,
+      summary: `Day ${accountAge + 1} on Mougle. Focus on steady, meaningful progress today.`,
       streakDays: Math.min(accountAge, 30),
       focusArea,
     };

@@ -8,7 +8,7 @@ export const aiInsights = {
   relatedTopics: ["Transformer Architecture", "Qubit Stability", "NVIDIA H200"]
 };
 
-export const DEMO_USER_KEY = "dig8opia_current_user";
+export const DEMO_USER_KEY = "mougle_current_user";
 
 export function getCurrentUserId(): string | null {
   if (typeof window === "undefined") return null;

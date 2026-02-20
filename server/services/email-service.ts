@@ -45,19 +45,19 @@ async function getResendClient() {
 }
 
 const SENDERS = {
-  verify: "Dig8opia Verification <verify@resend.dev>",
-  notify: "Dig8opia Notifications <notify@resend.dev>",
-  billing: "Dig8opia Billing <billing@resend.dev>",
-  support: "Dig8opia Support <support@resend.dev>",
-  noreply: "Dig8opia <noreply@resend.dev>",
-  admin: "Dig8opia Admin <admin@resend.dev>",
+  verify: "Mougle Verification <verify@resend.dev>",
+  notify: "Mougle Notifications <notify@resend.dev>",
+  billing: "Mougle Billing <billing@resend.dev>",
+  support: "Mougle Support <support@resend.dev>",
+  noreply: "Mougle <noreply@resend.dev>",
+  admin: "Mougle Admin <admin@resend.dev>",
 };
 
 function getSender(type: keyof typeof SENDERS, fromEmail?: string): string {
   if (fromEmail && !fromEmail.includes("resend.dev")) {
     const domain = fromEmail.split("@")[1];
     const prefix = type === "noreply" ? "noreply" : type;
-    return `Dig8opia ${type.charAt(0).toUpperCase() + type.slice(1)} <${prefix}@${domain}>`;
+    return `Mougle ${type.charAt(0).toUpperCase() + type.slice(1)} <${prefix}@${domain}>`;
   }
   return SENDERS[type];
 }
@@ -80,15 +80,15 @@ function wrapTemplate(content: string): string {
       <div style="display:inline-block;background:linear-gradient(135deg,#4f7df9,#8b5cf6);border-radius:14px;padding:12px 20px;margin-bottom:12px;">
         <span style="color:#fff;font-size:22px;font-weight:800;letter-spacing:1px;">D8</span>
       </div>
-      <h1 style="color:#fff;font-size:22px;margin:0;font-weight:700;">Dig8opia</h1>
+      <h1 style="color:#fff;font-size:22px;margin:0;font-weight:700;">Mougle</h1>
       <p style="color:#6b7280;font-size:11px;margin:4px 0 0;letter-spacing:2px;text-transform:uppercase;">Hybrid Intelligence Network</p>
     </div>
     ${content}
     <div style="margin-top:32px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
-      <p style="color:#374151;font-size:10px;margin:0 0 4px;">Digitally signed by Dig8opia Platform Security</p>
+      <p style="color:#374151;font-size:10px;margin:0 0 4px;">Digitally signed by Mougle Platform Security</p>
       <p style="color:#374151;font-size:10px;margin:0 0 8px;font-family:monospace;">sig: d8-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}</p>
-      <p style="color:#4b5563;font-size:10px;margin:0 0 4px;">This is an automated message from Dig8opia. Please do not reply to this email.</p>
-      <p style="color:#374151;font-size:10px;margin:0;">&copy; ${new Date().getFullYear()} Dig8opia. All rights reserved.</p>
+      <p style="color:#4b5563;font-size:10px;margin:0 0 4px;">This is an automated message from Mougle. Please do not reply to this email.</p>
+      <p style="color:#374151;font-size:10px;margin:0;">&copy; ${new Date().getFullYear()} Mougle. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -106,7 +106,7 @@ export class EmailService {
       const result = await client.emails.send({
         from: getSender("verify", fromEmail),
         to,
-        subject: `${code} is your Dig8opia verification code`,
+        subject: `${code} is your Mougle verification code`,
         html: wrapTemplate(cardWrap(`
           <p style="color:#e5e7eb;font-size:15px;margin:0 0 8px;">Hi ${displayName},</p>
           <p style="color:#9ca3af;font-size:13px;margin:0 0 24px;">Enter this code to verify your email address:</p>
@@ -129,11 +129,11 @@ export class EmailService {
       const result = await client.emails.send({
         from: getSender("noreply", fromEmail),
         to,
-        subject: "Welcome to Dig8opia — Your Intelligence Journey Starts Now",
+        subject: "Welcome to Mougle — Your Intelligence Journey Starts Now",
         html: wrapTemplate(cardWrap(`
           <p style="color:#e5e7eb;font-size:16px;margin:0 0 8px;font-weight:600;">Welcome, ${displayName}!</p>
           <p style="color:#9ca3af;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            You've joined Dig8opia — the world's first Hybrid Intelligence Network where humans and AI collaborate to create verified knowledge.
+            You've joined Mougle — the world's first Hybrid Intelligence Network where humans and AI collaborate to create verified knowledge.
           </p>
           <div style="text-align:left;margin:20px 0;">
             <p style="color:#e5e7eb;font-size:13px;margin:0 0 12px;font-weight:600;">Here's what you can do:</p>
@@ -158,12 +158,12 @@ export class EmailService {
       const result = await client.emails.send({
         from: getSender("verify", fromEmail),
         to,
-        subject: "Your Dig8opia Account is Verified!",
+        subject: "Your Mougle Account is Verified!",
         html: wrapTemplate(cardWrap(`
           <div style="font-size:48px;margin-bottom:16px;">&#x2705;</div>
           <p style="color:#e5e7eb;font-size:16px;margin:0 0 8px;font-weight:600;">Account Verified, ${displayName}!</p>
           <p style="color:#9ca3af;font-size:13px;margin:0 0 20px;line-height:1.6;">
-            Your email has been verified and your Dig8opia account is now fully active.
+            Your email has been verified and your Mougle account is now fully active.
             You can now access all platform features.
           </p>
           <a href="${baseUrl()}" style="display:inline-block;background:linear-gradient(135deg,#4f7df9,#8b5cf6);color:#fff;font-size:14px;font-weight:600;padding:12px 32px;border-radius:10px;text-decoration:none;">Go to Dashboard</a>
@@ -224,7 +224,7 @@ export class EmailService {
       const result = await client.emails.send({
         from: getSender("billing", fromEmail),
         to,
-        subject: `Invoice ${invoice.invoiceId} — Dig8opia`,
+        subject: `Invoice ${invoice.invoiceId} — Mougle`,
         html: wrapTemplate(cardWrap(`
           <p style="color:#e5e7eb;font-size:16px;margin:0 0 8px;font-weight:600;">Invoice</p>
           <p style="color:#9ca3af;font-size:13px;margin:0 0 20px;">Hi ${displayName}, here's your invoice for ${invoice.period}.</p>
@@ -251,7 +251,7 @@ export class EmailService {
       const result = await client.emails.send({
         from: getSender("notify", fromEmail),
         to,
-        subject: `Policy Update: ${policy.title} — Dig8opia`,
+        subject: `Policy Update: ${policy.title} — Mougle`,
         html: wrapTemplate(cardWrap(`
           <div style="font-size:48px;margin-bottom:16px;">&#x1F4DC;</div>
           <p style="color:#e5e7eb;font-size:16px;margin:0 0 8px;font-weight:600;">Policy Update</p>
@@ -278,7 +278,7 @@ export class EmailService {
       const result = await client.emails.send({
         from: getSender("admin", fromEmail),
         to,
-        subject: `[${alert.severity.toUpperCase()}] ${alert.title} — Dig8opia Admin`,
+        subject: `[${alert.severity.toUpperCase()}] ${alert.title} — Mougle Admin`,
         html: wrapTemplate(cardWrap(`
           <div style="background:${severityColor};display:inline-block;padding:4px 12px;border-radius:6px;margin-bottom:16px;">
             <span style="color:#fff;font-size:11px;font-weight:700;text-transform:uppercase;">${alert.severity}</span>
@@ -302,7 +302,7 @@ export class EmailService {
       const result = await client.emails.send({
         from: getSender("verify", fromEmail),
         to,
-        subject: "Reset your Dig8opia password",
+        subject: "Reset your Mougle password",
         html: wrapTemplate(cardWrap(`
           <p style="color:#e5e7eb;font-size:15px;margin:0 0 8px;">Hi ${displayName},</p>
           <p style="color:#9ca3af;font-size:13px;margin:0 0 24px;">We received a request to reset your password. Click the button below to choose a new one:</p>

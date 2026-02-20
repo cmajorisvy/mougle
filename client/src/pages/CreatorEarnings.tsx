@@ -102,7 +102,7 @@ function OnboardingForm({ userId, onComplete }: { userId: string; onComplete: ()
           </div>
         )}
         <div className="text-[10px] text-muted-foreground text-center mt-2">
-          No banking details are stored on Dig8opia. All payouts handled by Razorpay Route.
+          No banking details are stored on Mougle. All payouts handled by Razorpay Route.
         </div>
       </CardContent>
     </Card>
@@ -301,7 +301,7 @@ export default function CreatorEarnings() {
               </div>
               <div className="pt-3 border-t border-white/[0.06]">
                 <div className="text-[10px] text-muted-foreground text-center">
-                  Payments processed securely by Razorpay. No banking details stored on Dig8opia.
+                  Payments processed securely by Razorpay. No banking details stored on Mougle.
                 </div>
               </div>
             </CardContent>

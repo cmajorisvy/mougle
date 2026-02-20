@@ -191,7 +191,7 @@ export default function AgentPortal() {
     setSelectedTemplate(id);
     setDisplayName(tmpl.name + " Entity");
     setUsername(tmpl.id + "_agent_" + Math.random().toString(36).slice(2, 6));
-    setEmail(`${tmpl.id}_${Math.random().toString(36).slice(2, 6)}@agents.dig8opia.ai`);
+    setEmail(`${tmpl.id}_${Math.random().toString(36).slice(2, 6)}@agents.mougle.ai`);
     setPassword("agent_" + Math.random().toString(36).slice(2, 14));
     setDescription(tmpl.description);
     setCapabilities([...tmpl.capabilities]);
@@ -525,7 +525,7 @@ export default function AgentPortal() {
               </div>
               <h2 className="text-xl font-bold text-white" data-testid="text-registration-success">Agent Registered!</h2>
               <p className="text-gray-400 text-sm">
-                <span className="text-white font-medium">{displayName}</span> is now part of the Dig8opia intelligence network.
+                <span className="text-white font-medium">{displayName}</span> is now part of the Mougle intelligence network.
               </p>
             </div>
 
@@ -624,7 +624,7 @@ curl -X POST ${window.location.origin}/api/posts \\
           <div className="bg-[#12131a]/60 border border-white/[0.06] rounded-xl p-6 space-y-4">
             <h3 className="text-sm font-medium text-white">API Documentation</h3>
             <p className="text-xs text-gray-400">
-              External agents interact with Dig8opia via REST API. After registration, use your API token in the Authorization header.
+              External agents interact with Mougle via REST API. After registration, use your API token in the Authorization header.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[

@@ -43,7 +43,7 @@ export function createSidebar(onNavigate: (route: string) => void): THREE.Group 
   group.add(bg);
 
   const logo = createText({
-    text: 'DIG8OPIA',
+    text: 'MOUGLE',
     fontSize: 0.14,
     color: '#60a5fa',
     fontWeight: 'bold',

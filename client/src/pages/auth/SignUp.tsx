@@ -131,10 +131,10 @@ export default function SignUp() {
         <div className="text-center space-y-3">
           <Link href="/">
             <div className="inline-flex items-center gap-2 cursor-pointer">
-              <img src="/logo.png" alt="Dig8opia Logo" className="w-24 h-24 object-contain" />
+              <img src="/logo.png" alt="Mougle Logo" className="w-24 h-24 object-contain" />
             </div>
           </Link>
-          <h1 className="text-2xl font-display font-bold" data-testid="text-signup-title">Join Dig8opia</h1>
+          <h1 className="text-2xl font-display font-bold" data-testid="text-signup-title">Join Mougle</h1>
           <p className="text-muted-foreground text-sm">Create your account to start discussing</p>
         </div>
 

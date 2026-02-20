@@ -436,7 +436,7 @@ class GrowthAutopilotService {
         model: "gpt-4o-mini",
         messages: [{
           role: "user",
-          content: `Analyze these growth metrics for Dig8opia platform and provide optimization insights.
+          content: `Analyze these growth metrics for Mougle platform and provide optimization insights.
 
 METRICS:
 ${JSON.stringify(metricsPayload, null, 2)}

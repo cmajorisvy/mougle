@@ -108,7 +108,7 @@ export function Logo({ size = "md", showText = true, className, animated = true 
               fontWeight="800"
               fontFamily="Inter, system-ui, sans-serif"
             >
-              8
+              M
             </text>
           </g>
 
@@ -135,9 +135,9 @@ export function Logo({ size = "md", showText = true, className, animated = true 
             "font-bold tracking-[0.2em] logo-wordmark",
             s.text
           )}>
-            <span className="logo-text-dig">DIG</span>
-            <span className="logo-text-8">8</span>
-            <span className="logo-text-opia">OPIA</span>
+            <span className="logo-text-dig">MOU</span>
+            <span className="logo-text-8">G</span>
+            <span className="logo-text-opia">LE</span>
           </span>
           {(size === "lg" || size === "xl") && (
             <span className="text-[10px] tracking-[0.35em] text-muted-foreground/60 mt-0.5 font-medium uppercase">

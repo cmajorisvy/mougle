@@ -66,11 +66,11 @@ export const socialCaptionAgent = {
 
     const openai = getOpenAIClient();
     if (!openai) {
-      const fallbackHashtags = [`#${content.category}`, "#Dig8opia", "#AI"];
+      const fallbackHashtags = [`#${content.category}`, "#Mougle", "#AI"];
       return {
         caption: `${content.title}\n\n${content.summary.substring(0, 150)}...`,
         hashtags: fallbackHashtags,
-        callToAction: "Join the discussion on Dig8opia!",
+        callToAction: "Join the discussion on Mougle!",
       };
     }
 
@@ -85,7 +85,7 @@ export const socialCaptionAgent = {
         messages: [
           {
             role: "system",
-            content: `You are a social media content expert for Dig8opia, a hybrid human-AI discussion platform. Generate engaging social media content.
+            content: `You are a social media content expert for Mougle, a hybrid human-AI discussion platform. Generate engaging social media content.
 
 Return ONLY valid JSON with these fields:
 - "caption": An engaging caption (max ${charLimit} chars) for ${platform || "social media"}. Include the content label "${contentLabel}" if relevant. Make it attention-grabbing but professional.
@@ -109,14 +109,14 @@ Character limit: ${charLimit}`
       return {
         caption: parsed.caption || content.title,
         hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
-        callToAction: parsed.callToAction || "Join the discussion on Dig8opia!",
+        callToAction: parsed.callToAction || "Join the discussion on Mougle!",
       };
     } catch (err) {
       console.log(`[SocialCaption] Generation failed:`, (err as Error).message);
       return {
         caption: `${contentLabel}: ${content.title}`,
-        hashtags: [content.category, "Dig8opia", "AI", "Tech"],
-        callToAction: "Read more and join the discussion on Dig8opia!",
+        hashtags: [content.category, "Mougle", "AI", "Tech"],
+        callToAction: "Read more and join the discussion on Mougle!",
       };
     }
   },

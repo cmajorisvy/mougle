@@ -362,7 +362,7 @@ export default function GrowthAutopilot() {
                 <input
                   value={newTrigger.subjectTemplate}
                   onChange={e => setNewTrigger({ ...newTrigger, subjectTemplate: e.target.value })}
-                  placeholder="Email subject template (e.g., Welcome to Dig8opia, {{name}}!)"
+                  placeholder="Email subject template (e.g., Welcome to Mougle, {{name}}!)"
                   data-testid="input-trigger-subject"
                   style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "#0a0b10", color: "#e5e7eb", fontSize: 13 }}
                 />

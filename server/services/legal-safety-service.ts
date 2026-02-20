@@ -12,47 +12,47 @@ const RISK_CATEGORIES: Record<string, {
 }> = {
   healthcare: {
     level: "critical",
-    disclaimer: "This application is NOT a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of a qualified healthcare provider. The creator of this application is solely responsible for its medical-related content and functionality. This app has NOT been reviewed or approved by any medical regulatory authority. Dig8opia provides technology infrastructure only.",
+    disclaimer: "This application is NOT a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of a qualified healthcare provider. The creator of this application is solely responsible for its medical-related content and functionality. This app has NOT been reviewed or approved by any medical regulatory authority. Mougle provides technology infrastructure only.",
     regulatoryTags: ["HIPAA", "DPDP", "Medical Devices Act"],
   },
   finance: {
     level: "high",
-    disclaimer: "This application does NOT constitute financial advice, investment recommendation, or banking service. Any financial decisions made using this app are at your own risk. The creator is responsible for compliance with applicable financial regulations. Dig8opia is a technology platform and does not provide financial services.",
+    disclaimer: "This application does NOT constitute financial advice, investment recommendation, or banking service. Any financial decisions made using this app are at your own risk. The creator is responsible for compliance with applicable financial regulations. Mougle is a technology platform and does not provide financial services.",
     regulatoryTags: ["RBI", "SEBI", "PCI-DSS", "DPDP"],
   },
   legal: {
     level: "high",
-    disclaimer: "This application does NOT provide legal advice and should not be relied upon as a substitute for professional legal counsel. The creator is responsible for accuracy of legal information. Dig8opia provides technology infrastructure only and does not practice law.",
+    disclaimer: "This application does NOT provide legal advice and should not be relied upon as a substitute for professional legal counsel. The creator is responsible for accuracy of legal information. Mougle provides technology infrastructure only and does not practice law.",
     regulatoryTags: ["Bar Council", "DPDP"],
   },
   education: {
     level: "medium",
-    disclaimer: "This educational application is created by an independent publisher. Educational content accuracy and appropriateness are the sole responsibility of the creator. This app may collect student data — the creator is responsible for compliance with applicable education data protection laws. Dig8opia provides infrastructure only.",
+    disclaimer: "This educational application is created by an independent publisher. Educational content accuracy and appropriateness are the sole responsibility of the creator. This app may collect student data — the creator is responsible for compliance with applicable education data protection laws. Mougle provides infrastructure only.",
     regulatoryTags: ["FERPA", "COPPA", "DPDP"],
   },
   ecommerce: {
     level: "medium",
-    disclaimer: "This marketplace/e-commerce application is operated by an independent creator. All transactions, product quality, delivery, and customer service are the responsibility of the creator/seller. Dig8opia provides technology infrastructure and payment processing only, and is not a party to transactions between buyers and sellers.",
+    disclaimer: "This marketplace/e-commerce application is operated by an independent creator. All transactions, product quality, delivery, and customer service are the responsibility of the creator/seller. Mougle provides technology infrastructure and payment processing only, and is not a party to transactions between buyers and sellers.",
     regulatoryTags: ["Consumer Protection Act", "E-Commerce Rules", "PCI-DSS"],
   },
   "real-estate": {
     level: "medium",
-    disclaimer: "Property listings and real estate information in this application are provided by the creator. Dig8opia does not verify property details, ownership, or legality. Users should conduct independent verification before making property-related decisions.",
+    disclaimer: "Property listings and real estate information in this application are provided by the creator. Mougle does not verify property details, ownership, or legality. Users should conduct independent verification before making property-related decisions.",
     regulatoryTags: ["RERA", "DPDP"],
   },
   "ai-automation": {
     level: "high",
-    disclaimer: "This application uses artificial intelligence which may produce inaccurate, biased, or inappropriate outputs. AI-generated content should not be relied upon for critical decisions without human review. The creator is responsible for AI behavior, training data, and output quality. Dig8opia provides AI infrastructure only.",
+    disclaimer: "This application uses artificial intelligence which may produce inaccurate, biased, or inappropriate outputs. AI-generated content should not be relied upon for critical decisions without human review. The creator is responsible for AI behavior, training data, and output quality. Mougle provides AI infrastructure only.",
     regulatoryTags: ["AI Act", "DPDP", "IT Act"],
   },
   social: {
     level: "medium",
-    disclaimer: "This social application is operated by an independent creator who is responsible for content moderation, user safety, and data handling. Users should exercise caution when sharing personal information. Dig8opia provides technology infrastructure only.",
+    disclaimer: "This social application is operated by an independent creator who is responsible for content moderation, user safety, and data handling. Users should exercise caution when sharing personal information. Mougle provides technology infrastructure only.",
     regulatoryTags: ["IT Act", "DPDP", "COPPA"],
   },
   general: {
     level: "low",
-    disclaimer: "This application is published and operated by an independent creator on Dig8opia Labs. Dig8opia provides the technology infrastructure only and does not operate, endorse, or assume responsibility for this application's functionality, content, or data handling.",
+    disclaimer: "This application is published and operated by an independent creator on Mougle Labs. Mougle provides the technology infrastructure only and does not operate, endorse, or assume responsibility for this application's functionality, content, or data handling.",
     regulatoryTags: ["DPDP"],
   },
 };

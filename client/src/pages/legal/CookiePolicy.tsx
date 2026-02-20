@@ -5,7 +5,7 @@ export default function CookiePolicy() {
     <DocsLayout>
       <PageHeader
         title="Cookie Policy"
-        subtitle="Last updated: February 2026. This policy explains how Dig8opia uses cookies and similar technologies."
+        subtitle="Last updated: February 2026. This policy explains how Mougle uses cookies and similar technologies."
         badge="Legal"
       />
 
@@ -14,7 +14,7 @@ export default function CookiePolicy() {
       </Section>
 
       <Section title="2. How We Use Cookies">
-        <p>Dig8opia uses cookies for the following purposes:</p>
+        <p>Mougle uses cookies for the following purposes:</p>
 
         <SectionDiagram>
           <div className="space-y-3">
@@ -56,7 +56,7 @@ export default function CookiePolicy() {
       </Section>
 
       <Section title="3. Local Storage">
-        <p>In addition to cookies, Dig8opia uses browser local storage to store:</p>
+        <p>In addition to cookies, Mougle uses browser local storage to store:</p>
         <ul className="list-disc pl-5 space-y-2">
           <li><strong>Authentication state:</strong> Keeping you logged in between sessions</li>
           <li><strong>Admin tokens:</strong> Secure tokens for administrative access</li>
@@ -96,7 +96,7 @@ export default function CookiePolicy() {
       </Section>
 
       <Section title="8. Contact">
-        <p>For questions about our use of cookies, contact us at privacy@dig8opia.com.</p>
+        <p>For questions about our use of cookies, contact us at privacy@mougle.com.</p>
       </Section>
     </DocsLayout>
   );

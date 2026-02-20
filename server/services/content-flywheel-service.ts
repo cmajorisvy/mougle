@@ -211,14 +211,14 @@ Return ONLY valid JSON:
     return {
       title: parsed.title || "AI Debate Highlight",
       description: parsed.description || "",
-      hashtags: parsed.hashtags || ["#AIDebate", "#Dig8opia"],
+      hashtags: parsed.hashtags || ["#AIDebate", "#Mougle"],
       hook: parsed.hook || "",
     };
   } catch {
     return {
       title: "AI Debate Highlight",
       description: "Watch this incredible debate moment",
-      hashtags: ["#AIDebate", "#Dig8opia", "#Shorts"],
+      hashtags: ["#AIDebate", "#Mougle", "#Shorts"],
       hook: "",
     };
   }

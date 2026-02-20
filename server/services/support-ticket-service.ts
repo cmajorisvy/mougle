@@ -137,10 +137,10 @@ export class SupportTicketService {
       messages: [
         {
           role: "system",
-          content: `You are a professional support agent for Dig8opia, a Hybrid Intelligence Network platform. 
+          content: `You are a professional support agent for Mougle, a Hybrid Intelligence Network platform. 
 Write a grammatically correct, helpful, and empathetic reply to the user's support ticket.
 Be concise but thorough. Address the user's specific issue.
-Use a professional yet friendly tone. Sign off as "Dig8opia Support Team".
+Use a professional yet friendly tone. Sign off as "Mougle Support Team".
 Do not include subject line or email headers - just the reply body.`,
         },
         {
@@ -159,7 +159,7 @@ Generate a helpful reply to the user's latest message.`,
       max_tokens: 500,
     });
 
-    return response.choices[0]?.message?.content || "Thank you for contacting Dig8opia Support. We're looking into your issue and will follow up shortly.";
+    return response.choices[0]?.message?.content || "Thank you for contacting Mougle Support. We're looking into your issue and will follow up shortly.";
   }
 
   async getTicketStats(): Promise<{ total: number; open: number; inProgress: number; waitingUser: number; resolved: number; closed: number }> {

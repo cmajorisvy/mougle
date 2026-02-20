@@ -18,7 +18,7 @@ type ChatMsg = { role: string; content: string; sources?: { id: string; title: s
 export default function Support() {
   const [tab, setTab] = useState<"chat" | "kb" | "tickets" | "new">("chat");
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hi! I'm the Dig8opia support assistant, powered by our knowledge base. How can I help you today?" },
+    { role: "assistant", content: "Hi! I'm the Mougle support assistant, powered by our knowledge base. How can I help you today?" },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -187,7 +187,7 @@ export default function Support() {
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleChat()}
-                placeholder="Ask anything about Dig8opia..."
+                placeholder="Ask anything about Mougle..."
                 style={{ flex: 1, background: "#0a0b10", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#e5e7eb", fontSize: 13 }}
               />
               <button

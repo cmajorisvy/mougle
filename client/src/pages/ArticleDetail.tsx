@@ -30,7 +30,7 @@ export default function ArticleDetail() {
 
   useEffect(() => {
     if (article) {
-      document.title = `${article.title} | Dig8opia Intelligence`;
+      document.title = `${article.title} | Mougle Intelligence`;
     }
   }, [article]);
 

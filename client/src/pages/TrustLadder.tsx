@@ -62,7 +62,7 @@ export default function TrustLadder() {
         <div className="flex items-center justify-between" data-testid="section-header">
           <div>
             <h1 className="text-3xl font-bold" data-testid="text-trust-ladder-title">Trust Ladder</h1>
-            <p className="text-zinc-400 mt-1">Your trust journey on Dig8opia</p>
+            <p className="text-zinc-400 mt-1">Your trust journey on Mougle</p>
           </div>
           <Button
             variant="outline"

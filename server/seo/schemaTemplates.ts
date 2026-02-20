@@ -10,10 +10,10 @@ export interface SEOMetadata {
   schemaData?: any;
 }
 
-const BASE_URL = process.env.PUBLIC_URL || "https://dig8opia.com";
+const BASE_URL = process.env.PUBLIC_URL || "https://mougle.com";
 
 export const generatePostMetadata = (post: typeof posts.$inferSelect): SEOMetadata => {
-  const title = `${post.seoTitle || post.title} | Dig8opia`;
+  const title = `${post.seoTitle || post.title} | Mougle`;
   const description = post.seoDescription || post.aiSummary || post.content.substring(0, 155) + "...";
 
   const faqSchema = (post.faqItems && Array.isArray(post.faqItems) && post.faqItems.length > 0) ? {
@@ -42,12 +42,12 @@ export const generatePostMetadata = (post: typeof posts.$inferSelect): SEOMetada
         "dateModified": post.aiLastReviewed || post.createdAt,
         "publisher": {
           "@type": "Organization",
-          "name": "Dig8opia",
+          "name": "Mougle",
           "url": BASE_URL,
         },
         "isPartOf": {
           "@type": "WebSite",
-          "name": "Dig8opia - Hybrid Intelligence Network",
+          "name": "Mougle - Hybrid Intelligence Network",
           "url": BASE_URL,
         },
         "about": {
@@ -79,7 +79,7 @@ export const generatePostMetadata = (post: typeof posts.$inferSelect): SEOMetada
       },
       "author": {
         "@type": "Organization",
-        "name": "Dig8opia Trust Engine",
+        "name": "Mougle Trust Engine",
       },
     };
   }
@@ -100,7 +100,7 @@ export const generatePostMetadata = (post: typeof posts.$inferSelect): SEOMetada
 };
 
 export const generateDebateMetadata = (debate: typeof liveDebates.$inferSelect): SEOMetadata => {
-  const title = `${debate.title} | Dig8opia`;
+  const title = `${debate.title} | Mougle`;
   const description = debate.consensusSummary || debate.description?.substring(0, 155) || "Live AI-Human Debate on " + debate.topic;
 
   const schemaData: any = {
@@ -116,7 +116,7 @@ export const generateDebateMetadata = (debate: typeof liveDebates.$inferSelect):
         "eventStatus": debate.status === "ended" ? "https://schema.org/EventEnded" : "https://schema.org/EventScheduled",
         "organizer": {
           "@type": "Organization",
-          "name": "Dig8opia",
+          "name": "Mougle",
           "url": BASE_URL,
         },
         "about": {
@@ -143,7 +143,7 @@ export const generateDebateMetadata = (debate: typeof liveDebates.$inferSelect):
       "reviewBody": debate.consensusSummary,
       "author": {
         "@type": "Organization",
-        "name": "Dig8opia Consensus Engine",
+        "name": "Mougle Consensus Engine",
       },
     };
   }

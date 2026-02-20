@@ -109,7 +109,7 @@ function requireAdmin(req: any, res: any, next: any) {
 const DEV_USER = {
   id: "dev-user-001",
   username: "dev_tester",
-  email: "dev@dig8opia.local",
+  email: "dev@mougle.local",
   role: "creator" as const,
 };
 
@@ -974,7 +974,7 @@ export async function registerRoutes(
       const seedHash = await bcrypt.hash("demo123", 10);
       const agent1 = await storage.createUser({
         username: "nexus_ai",
-        email: "nexus@dig8opia.ai",
+        email: "nexus@mougle.ai",
         password: seedHash,
         displayName: "Nexus Prime",
         avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Nexus",
@@ -987,7 +987,7 @@ export async function registerRoutes(
         emailVerified: true,
         profileCompleted: true,
         agentModel: "GPT-4 Turbo",
-        agentApiEndpoint: "https://api.dig8opia.ai/nexus",
+        agentApiEndpoint: "https://api.mougle.ai/nexus",
         agentDescription: "Multi-domain analysis agent with expertise in AI research papers and patent analysis.",
         agentType: "analyzer",
         capabilities: ["write", "analyze", "publish"],
@@ -1014,7 +1014,7 @@ export async function registerRoutes(
 
       const agent2 = await storage.createUser({
         username: "econbot",
-        email: "econ@dig8opia.ai",
+        email: "econ@mougle.ai",
         password: seedHash,
         displayName: "EconBot",
         avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Econ",
@@ -1027,7 +1027,7 @@ export async function registerRoutes(
         emailVerified: true,
         profileCompleted: true,
         agentModel: "Claude 3.5",
-        agentApiEndpoint: "https://api.dig8opia.ai/econbot",
+        agentApiEndpoint: "https://api.mougle.ai/econbot",
         agentDescription: "Economic data analysis and policy recommendation engine.",
         agentType: "analyzer",
         capabilities: ["analyze", "publish"],
@@ -1206,16 +1206,16 @@ export async function registerRoutes(
       const participants = await storage.getDebateParticipants(id);
       const currentIds = new Set(participants.map(p => p.userId));
 
-      let femaleAgent = agents.find(a => a.displayName === "Dig8opia Female Agent");
-      let maleAgent = agents.find(a => a.displayName === "Dig8opia Male Agent");
+      let femaleAgent = agents.find(a => a.displayName === "Mougle Female Agent");
+      let maleAgent = agents.find(a => a.displayName === "Mougle Male Agent");
 
       if (!femaleAgent) {
         femaleAgent = await storage.createUser({
-          username: "dig8opia_female",
+          username: "mougle_female",
           password: await bcrypt.hash("agent_studio_internal", 10),
-          displayName: "Dig8opia Female Agent",
-          email: `dig8opia_female@dig8opia.ai`,
-          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dig8opiaFemale&style=circle&hair=long&hairColor=purple&skin=light",
+          displayName: "Mougle Female Agent",
+          email: `mougle_female@mougle.ai`,
+          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=MougleFemale&style=circle&hair=long&hairColor=purple&skin=light",
           role: "agent",
           agentType: "debater",
           reputation: 500,
@@ -1227,11 +1227,11 @@ export async function registerRoutes(
       }
       if (!maleAgent) {
         maleAgent = await storage.createUser({
-          username: "dig8opia_male",
+          username: "mougle_male",
           password: await bcrypt.hash("agent_studio_internal", 10),
-          displayName: "Dig8opia Male Agent",
-          email: `dig8opia_male@dig8opia.ai`,
-          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dig8opiaMale&style=circle&hair=shortHairDreads01&hairColor=black&skin=brown",
+          displayName: "Mougle Male Agent",
+          email: `mougle_male@mougle.ai`,
+          avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=MougleMale&style=circle&hair=shortHairDreads01&hairColor=black&skin=brown",
           role: "agent",
           agentType: "debater",
           reputation: 500,
@@ -3278,9 +3278,9 @@ Keep under 200 words.`
 
   const EXTERNAL_DISTRIBUTION_DISCLAIMER = `EXTERNAL DISTRIBUTION RESPONSIBILITY ACKNOWLEDGMENT
 
-By exporting this application from Dig8opia, I ("Creator") acknowledge and agree:
+By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
-1. INFRASTRUCTURE PROVIDER ONLY: Dig8opia acts solely as an infrastructure and development platform. Dig8opia has no responsibility for the distribution, marketing, or operation of exported applications outside the platform.
+1. INFRASTRUCTURE PROVIDER ONLY: Mougle acts solely as an infrastructure and development platform. Mougle has no responsibility for the distribution, marketing, or operation of exported applications outside the platform.
 
 2. CREATOR RESPONSIBILITY: I am solely responsible for:
    - Publishing and distributing the exported app on any external platform (Google Play, Apple App Store, web hosting, etc.)
@@ -3289,11 +3289,11 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
    - Ensuring the app meets all legal, regulatory, and content requirements of the target platform
    - Providing end-user support and handling user data in compliance with applicable privacy laws
 
-3. NO LIABILITY: Dig8opia shall not be liable for any issues arising from external distribution, including but not limited to: app rejection, store policy violations, user complaints, data breaches, or revenue disputes.
+3. NO LIABILITY: Mougle shall not be liable for any issues arising from external distribution, including but not limited to: app rejection, store policy violations, user complaints, data breaches, or revenue disputes.
 
-4. INDEMNIFICATION: I agree to indemnify and hold Dig8opia harmless from any claims, damages, or losses arising from my distribution and operation of the exported application.
+4. INDEMNIFICATION: I agree to indemnify and hold Mougle harmless from any claims, damages, or losses arising from my distribution and operation of the exported application.
 
-5. NO GUARANTEES: Dig8opia makes no guarantees about the exported app's compatibility, performance, or acceptance on any external platform.`;
+5. NO GUARANTEES: Mougle makes no guarantees about the exported app's compatibility, performance, or acceptance on any external platform.`;
 
   const exportConfirmSchema = z.object({
     appName: z.string().min(1),
@@ -3357,9 +3357,9 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
             { platform: "AWS", guide: "Deploy using S3 + CloudFront or Elastic Beanstalk" },
             { platform: "Self-hosted", guide: "Use Docker or PM2 on any Linux server" },
           ],
-          note: "External store fees (Google Play, Apple App Store) are your responsibility. Dig8opia does not calculate or include third-party distribution costs.",
+          note: "External store fees (Google Play, Apple App Store) are your responsibility. Mougle does not calculate or include third-party distribution costs.",
         },
-        legalNotice: "By downloading this package, you confirm that external distribution is entirely your responsibility. Dig8opia acts as infrastructure provider only.",
+        legalNotice: "By downloading this package, you confirm that external distribution is entirely your responsibility. Mougle acts as infrastructure provider only.",
       });
     } catch (err) { handleServiceError(res, err); }
   });
@@ -5937,7 +5937,7 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
       if (!content) return res.status(400).json({ error: "Content required" });
       const message = await supportTicketService.addMessage(req.params.id, {
         senderType: "admin",
-        senderName: "Dig8opia Support",
+        senderName: "Mougle Support",
         content,
       });
       res.json(message);
@@ -5969,9 +5969,9 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
   app.post("/api/admin/support/demo-seed", requireAdmin, async (_req, res) => {
     try {
       const demoUsers = [
-        { userId: "demo-user-001", userEmail: "demo1@dig8opia.test", userName: "Alice Explorer", subject: "Cannot access AI agents", description: "I signed up for Pro plan but I still can't create AI agents. My dashboard shows the free plan features only.", category: "billing", priority: "high" },
-        { userId: "demo-user-002", userEmail: "demo2@dig8opia.test", userName: "Bob Creator", subject: "Labs app publish error", description: "When I try to publish my app from Labs, I get a 500 error. I've tried clearing cache and restarting but the issue persists.", category: "technical", priority: "medium" },
-        { userId: "demo-user-003", userEmail: "demo3@dig8opia.test", userName: "Carol Researcher", subject: "Feature request: Export debate transcripts", description: "It would be great if we could export debate transcripts as PDF or markdown. This would help for academic research purposes.", category: "feature_request", priority: "low" },
+        { userId: "demo-user-001", userEmail: "demo1@mougle.test", userName: "Alice Explorer", subject: "Cannot access AI agents", description: "I signed up for Pro plan but I still can't create AI agents. My dashboard shows the free plan features only.", category: "billing", priority: "high" },
+        { userId: "demo-user-002", userEmail: "demo2@mougle.test", userName: "Bob Creator", subject: "Labs app publish error", description: "When I try to publish my app from Labs, I get a 500 error. I've tried clearing cache and restarting but the issue persists.", category: "technical", priority: "medium" },
+        { userId: "demo-user-003", userEmail: "demo3@mougle.test", userName: "Carol Researcher", subject: "Feature request: Export debate transcripts", description: "It would be great if we could export debate transcripts as PDF or markdown. This would help for academic research purposes.", category: "feature_request", priority: "low" },
       ];
       const ticketResults = [];
       for (const u of demoUsers) {
@@ -5980,7 +5980,7 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
       }
 
       const emailResults: { template: string; status: string; messageId?: string }[] = [];
-      const testEmail = "demo1@dig8opia.test";
+      const testEmail = "demo1@mougle.test";
       const testName = "Alice Explorer";
       const templates = [
         { name: "welcome", fn: () => emailSvc.sendWelcomeEmail(testEmail, testName) },
@@ -6157,7 +6157,7 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
           }); break;
         case "admin_alert":
           result = await emailSvc.sendAdminAlert(to, {
-            title: "Test Alert", severity: "medium", message: "This is a test admin alert from Dig8opia.", actionUrl: "/admin/debug",
+            title: "Test Alert", severity: "medium", message: "This is a test admin alert from Mougle.", actionUrl: "/admin/debug",
           }); break;
         case "password_reset":
           result = await emailSvc.sendPasswordResetEmail(to, "demo-reset-token-123", displayName); break;

@@ -65,7 +65,7 @@ export default function ResetPassword() {
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-            Dig8opia
+            Mougle
           </h1>
           <p className="text-gray-500 text-sm mt-1">Hybrid Intelligence Network</p>
         </div>

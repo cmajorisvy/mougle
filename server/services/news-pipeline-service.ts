@@ -107,7 +107,7 @@ async function fetchRSSFeed(feedUrl: string): Promise<RSSItem[]> {
     const timeout = setTimeout(() => controller.abort(), 10000);
     const res = await fetch(feedUrl, {
       signal: controller.signal,
-      headers: { "User-Agent": "Dig8opia-NewsBot/1.0" },
+      headers: { "User-Agent": "Mougle-NewsBot/1.0" },
     });
     clearTimeout(timeout);
     if (!res.ok) return [];

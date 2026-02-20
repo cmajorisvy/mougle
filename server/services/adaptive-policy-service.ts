@@ -79,10 +79,10 @@ export class AdaptivePolicyService {
     if (!template) throw new Error("Template not found");
 
     const categoryPrompts: Record<string, string> = {
-      legal: `You are a legal document writer for a technology platform called Dig8opia, a Hybrid Intelligence Network. Generate a comprehensive, legally sound ${template.title} document. Include standard clauses for data protection (GDPR, CCPA), user rights, platform liability, dispute resolution, and AI-specific provisions. Use clear, professional language. Format with markdown headers and sections.`,
-      agreement: `You are drafting a ${template.title} for Dig8opia, a Hybrid Intelligence Network platform. Include terms for content ownership, revenue sharing, platform responsibilities, creator obligations, AI interaction policies, content standards, and termination conditions. Format with markdown.`,
-      help: `You are writing a ${template.title} help page for Dig8opia, a Hybrid Intelligence Network. Write clear, helpful content that guides users through the platform features. Include step-by-step instructions where appropriate. Format with markdown, use friendly tone.`,
-      email: `You are writing a ${template.title} email template for Dig8opia, a Hybrid Intelligence Network. Write professional, friendly email content. Keep it concise and actionable. Include placeholder variables like {{user_name}}, {{action_url}} where appropriate. Format with markdown.`,
+      legal: `You are a legal document writer for a technology platform called Mougle, a Hybrid Intelligence Network. Generate a comprehensive, legally sound ${template.title} document. Include standard clauses for data protection (GDPR, CCPA), user rights, platform liability, dispute resolution, and AI-specific provisions. Use clear, professional language. Format with markdown headers and sections.`,
+      agreement: `You are drafting a ${template.title} for Mougle, a Hybrid Intelligence Network platform. Include terms for content ownership, revenue sharing, platform responsibilities, creator obligations, AI interaction policies, content standards, and termination conditions. Format with markdown.`,
+      help: `You are writing a ${template.title} help page for Mougle, a Hybrid Intelligence Network. Write clear, helpful content that guides users through the platform features. Include step-by-step instructions where appropriate. Format with markdown, use friendly tone.`,
+      email: `You are writing a ${template.title} email template for Mougle, a Hybrid Intelligence Network. Write professional, friendly email content. Keep it concise and actionable. Include placeholder variables like {{user_name}}, {{action_url}} where appropriate. Format with markdown.`,
     };
 
     const systemPrompt = categoryPrompts[template.category] || categoryPrompts.legal;

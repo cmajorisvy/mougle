@@ -5,13 +5,13 @@ import { eq, and } from "drizzle-orm";
 const CURRENT_AGREEMENT_VERSION = "1.0";
 
 const PUBLISHER_AGREEMENT_TEXT = `
-CREATOR PUBLISHER AGREEMENT — Dig8opia Labs
+CREATOR PUBLISHER AGREEMENT — Mougle Labs
 Version ${CURRENT_AGREEMENT_VERSION}
 
-By publishing an application on Dig8opia Labs, you ("Creator", "Publisher") acknowledge and agree to the following:
+By publishing an application on Mougle Labs, you ("Creator", "Publisher") acknowledge and agree to the following:
 
 1. APPLICATION RESPONSIBILITY
-You are solely responsible for the functionality, performance, accuracy, and quality of the application you publish. Dig8opia provides the technology infrastructure and does not operate, control, or endorse your application.
+You are solely responsible for the functionality, performance, accuracy, and quality of the application you publish. Mougle provides the technology infrastructure and does not operate, control, or endorse your application.
 
 2. PROMPT & CONTENT MODIFICATIONS
 Any modifications you make to AI prompts, configurations, data inputs, or application logic are your responsibility. You must ensure modifications do not produce harmful, misleading, or illegal outputs.
@@ -23,19 +23,19 @@ You are responsible for ensuring your application complies with all applicable l
 You must provide a valid support email and respond to user enquiries, complaints, and issues related to your application within a reasonable timeframe.
 
 5. DATA HANDLING
-You are responsible for how your application collects, processes, stores, and shares user data. You must maintain a privacy policy and obtain appropriate consent where required. Dig8opia does not access, control, or process end-user data within your application.
+You are responsible for how your application collects, processes, stores, and shares user data. You must maintain a privacy policy and obtain appropriate consent where required. Mougle does not access, control, or process end-user data within your application.
 
 6. INDEMNIFICATION
-You agree to indemnify and hold harmless Dig8opia, its affiliates, officers, and employees from any claims, damages, or liabilities arising from your application.
+You agree to indemnify and hold harmless Mougle, its affiliates, officers, and employees from any claims, damages, or liabilities arising from your application.
 
 7. PLATFORM ROLE
-Dig8opia is a technology platform that provides infrastructure, tools, and distribution services. Dig8opia does not operate published applications and bears no responsibility for application-specific outcomes, decisions, or data handling practices.
+Mougle is a technology platform that provides infrastructure, tools, and distribution services. Mougle does not operate published applications and bears no responsibility for application-specific outcomes, decisions, or data handling practices.
 
 8. TERMINATION
-Dig8opia reserves the right to remove any application that violates this agreement, applicable laws, or platform policies.
+Mougle reserves the right to remove any application that violates this agreement, applicable laws, or platform policies.
 `.trim();
 
-const PLATFORM_DISCLAIMER = `This application is published and operated by an independent creator on Dig8opia Labs. Dig8opia provides the technology infrastructure only and does not operate, endorse, or assume responsibility for this application's functionality, content, data handling, or outputs. For support, contact the publisher directly.`;
+const PLATFORM_DISCLAIMER = `This application is published and operated by an independent creator on Mougle Labs. Mougle provides the technology infrastructure only and does not operate, endorse, or assume responsibility for this application's functionality, content, data handling, or outputs. For support, contact the publisher directly.`;
 
 class PublisherResponsibilityService {
 

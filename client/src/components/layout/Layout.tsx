@@ -121,7 +121,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [currentUserId]);
 
   const handleLogout = () => {
-    localStorage.removeItem("dig8opia_current_user");
+    localStorage.removeItem("mougle_current_user");
     window.location.href = "/auth/signin";
   };
 
@@ -475,7 +475,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
               <div className="mt-6 pt-4 border-t border-white/[0.04] flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground/40">&copy; {new Date().getFullYear()} Dig8opia. Hybrid Intelligence Network.</span>
+                <span className="text-[10px] text-muted-foreground/40">&copy; {new Date().getFullYear()} Mougle. Hybrid Intelligence Network.</span>
               </div>
             </div>
           </footer>

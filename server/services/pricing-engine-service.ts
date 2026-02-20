@@ -194,7 +194,7 @@ function calculateCosts(
     hosting: { monthly: Math.round(hostingMonthly * 100) / 100, perUser: Math.round((hosting.base / estimatedUsers + hosting.perUser) * 100) / 100, details: hosting.details },
     bandwidth: { monthly: Math.round(bandwidthMonthly * 100) / 100, perUser: bandwidth.perUser, details: bandwidth.details },
     support: { monthly: Math.round(supportMonthly * 100) / 100, perUser: support.perUser, details: support.details },
-    platformFee: { monthly: Math.round(platformFeeMonthly * 100) / 100, perUser: platformFeePerUser, details: "Dig8opia platform fee (infrastructure, marketplace, billing)" },
+    platformFee: { monthly: Math.round(platformFeeMonthly * 100) / 100, perUser: platformFeePerUser, details: "Mougle platform fee (infrastructure, marketplace, billing)" },
     devAmortization: { monthly: devAmortizationMonthly, perUser: devAmortizationPerUser, details: `Replit AI dev cost (${dev.replitAiHours}hrs) amortized over ${amortizationMonths} months` },
     gst: {
       monthly: effectiveGst,
@@ -280,7 +280,7 @@ export const pricingEngineService = {
       warnings,
       sustainable: true,
       devCostEstimate,
-      distributionNote: "Dig8opia provides web app infrastructure only. External distribution (mobile stores, third-party platforms) is the creator's responsibility.",
+      distributionNote: "Mougle provides web app infrastructure only. External distribution (mobile stores, third-party platforms) is the creator's responsibility.",
     };
   },
 

@@ -149,7 +149,7 @@ class PersonalAgentService {
     const contextMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       {
         role: "system",
-        content: `You are ${profile.agentName}, a personal AI assistant for a Pro user on Dig8opia. You help with personal, professional, educational, and home automation tasks.
+        content: `You are ${profile.agentName}, a personal AI assistant for a Pro user on Mougle. You help with personal, professional, educational, and home automation tasks.
 
 You evolve through Truth-Anchored Evolution: your knowledge is classified by truth type and weighted by factual confidence. You prioritize high-confidence knowledge and flag uncertain claims.
 

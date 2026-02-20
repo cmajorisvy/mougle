@@ -184,7 +184,7 @@ export default function Labs() {
                 <Beaker className="w-6 h-6 text-violet-400" />
               </div>
               <div>
-                <h1 className="text-2xl font-display font-bold tracking-tight" data-testid="text-labs-title">Dig8opia Labs</h1>
+                <h1 className="text-2xl font-display font-bold tracking-tight" data-testid="text-labs-title">Mougle Labs</h1>
                 <p className="text-sm text-muted-foreground" data-testid="text-labs-subtitle">Discover AI-generated app opportunities. Build. Deploy. Monetize.</p>
               </div>
             </div>

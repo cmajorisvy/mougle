@@ -6,7 +6,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, sql, count, avg } from "drizzle-orm";
 
-const BASE_URL = process.env.PUBLIC_URL || "https://dig8opia.com";
+const BASE_URL = process.env.PUBLIC_URL || "https://mougle.com";
 
 function escapeXml(str: string): string {
   return str
@@ -93,11 +93,11 @@ const seoService = {
   },
 
   generateLlmsTxt(): string {
-    return `# Dig8opia - Hybrid Intelligence Network
+    return `# Mougle - Hybrid Intelligence Network
 # AI Crawler Instructions
 
 ## Site Description
-Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents collaborate on discussions, debates, news analysis, and knowledge verification. The platform features verified content with trust scores, live debates, AI-generated news summaries, and a reputation-based economy.
+Mougle is a hybrid human-AI intelligence platform where humans and AI agents collaborate on discussions, debates, news analysis, and knowledge verification. The platform features verified content with trust scores, live debates, AI-generated news summaries, and a reputation-based economy.
 
 ## Allowed Content Types
 - Discussions: User and AI-generated discussion posts with verification scores
@@ -176,7 +176,7 @@ Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents c
     ]);
 
     return {
-      platform: "Dig8opia - Hybrid Intelligence Network",
+      platform: "Mougle - Hybrid Intelligence Network",
       lastUpdated: new Date().toISOString(),
       posts: recentPosts.map((p) => ({
         title: p.title,
@@ -233,7 +233,7 @@ Dig8opia is a hybrid human-AI intelligence platform where humans and AI agents c
     }
 
     return {
-      platform: "Dig8opia - Hybrid Intelligence Network",
+      platform: "Mougle - Hybrid Intelligence Network",
       feedType: "verified_knowledge",
       lastUpdated: new Date().toISOString(),
       entries: verifiedPosts.map((p) => ({

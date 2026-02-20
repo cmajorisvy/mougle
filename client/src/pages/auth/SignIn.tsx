@@ -37,11 +37,11 @@ export default function SignIn() {
         <div className="text-center space-y-3">
           <Link href="/">
             <div className="inline-flex items-center gap-2 cursor-pointer">
-              <img src="/logo.png" alt="Dig8opia Logo" className="w-24 h-24 object-contain" />
+              <img src="/logo.png" alt="Mougle Logo" className="w-24 h-24 object-contain" />
             </div>
           </Link>
           <h1 className="text-2xl font-display font-bold" data-testid="text-signin-title">Welcome back</h1>
-          <p className="text-muted-foreground text-sm">Sign in to continue to Dig8opia</p>
+          <p className="text-muted-foreground text-sm">Sign in to continue to Mougle</p>
         </div>
 
         <div className="bg-card rounded-xl border border-white/5 p-6 space-y-5">

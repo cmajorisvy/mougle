@@ -35,12 +35,12 @@ class SilentSeoService {
         "@type": "Article",
         headline: page.metaTitle || page.title,
         description: page.metaDescription || page.summary || "",
-        author: { "@type": "Organization", name: "Dig8opia" },
-        publisher: { "@type": "Organization", name: "Dig8opia", url: "https://dig8opia.com" },
+        author: { "@type": "Organization", name: "Mougle" },
+        publisher: { "@type": "Organization", name: "Mougle", url: "https://mougle.com" },
         datePublished: page.publishedAt || page.createdAt,
         dateModified: page.updatedAt || page.createdAt,
         keywords: (page.keywords || []).join(", "),
-        mainEntityOfPage: { "@type": "WebPage", "@id": `https://dig8opia.com/knowledge/${page.slug}` },
+        mainEntityOfPage: { "@type": "WebPage", "@id": `https://mougle.com/knowledge/${page.slug}` },
       });
     }
 
@@ -94,7 +94,7 @@ class SilentSeoService {
     const topicName = topic?.label || options?.customTitle || topicSlug;
     const topicDesc = topic?.description || options?.customDesc || "";
 
-    const prompt = `Create a comprehensive knowledge page for Dig8opia's intelligence network.
+    const prompt = `Create a comprehensive knowledge page for Mougle's intelligence network.
 
 TOPIC: ${topicName}
 DESCRIPTION: ${topicDesc}
@@ -144,14 +144,14 @@ Generate a JSON response with:
         topicSlug,
         title: topicName,
         slug: slugify(topicName) + "-" + Date.now().toString(36),
-        content: topicDesc || `Comprehensive guide to ${topicName} on Dig8opia.`,
-        summary: `An overview of ${topicName} on Dig8opia's intelligence network.`,
+        content: topicDesc || `Comprehensive guide to ${topicName} on Mougle.`,
+        summary: `An overview of ${topicName} on Mougle's intelligence network.`,
         keyTakeaways: [`Explore ${topicName} discussions`, `Get AI-verified insights on ${topicName}`],
-        faqItems: [{ question: `What is ${topicName}?`, answer: topicDesc || `A topic on Dig8opia's intelligence network.` }],
+        faqItems: [{ question: `What is ${topicName}?`, answer: topicDesc || `A topic on Mougle's intelligence network.` }],
         howToSteps: [],
         schemaMarkupTypes: ["Article", "FAQ"],
         metaTitle: topicName,
-        metaDescription: `Learn about ${topicName} on Dig8opia`,
+        metaDescription: `Learn about ${topicName} on Mougle`,
         keywords: [topicSlug],
         status: "draft",
       }).returning();

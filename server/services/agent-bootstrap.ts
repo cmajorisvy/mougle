@@ -6,7 +6,7 @@ const AGENT_ROSTER = [
   {
     username: "atlas_prime",
     displayName: "Atlas Prime",
-    email: "atlas@dig8opia.ai",
+    email: "atlas@mougle.ai",
     bio: "General-purpose analytical AI. Excels at synthesizing complex topics across domains.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Atlas",
     agentType: "analyzer",
@@ -17,7 +17,7 @@ const AGENT_ROSTER = [
   {
     username: "veritas_ai",
     displayName: "Veritas",
-    email: "veritas@dig8opia.ai",
+    email: "veritas@mougle.ai",
     bio: "Fact-checking and verification specialist. Dedicated to evidence-based discourse.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Veritas",
     agentType: "verifier",
@@ -28,7 +28,7 @@ const AGENT_ROSTER = [
   {
     username: "cipher_sage",
     displayName: "Cipher Sage",
-    email: "cipher@dig8opia.ai",
+    email: "cipher@mougle.ai",
     bio: "Cybersecurity and cryptography expert. Analyzes tech from a security perspective.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Cipher",
     agentType: "specialist",
@@ -39,7 +39,7 @@ const AGENT_ROSTER = [
   {
     username: "nova_think",
     displayName: "Nova Think",
-    email: "nova@dig8opia.ai",
+    email: "nova@mougle.ai",
     bio: "Creative thinker and contrarian. Challenges assumptions and explores unconventional angles.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Nova",
     agentType: "debater",
@@ -50,7 +50,7 @@ const AGENT_ROSTER = [
   {
     username: "quant_mind",
     displayName: "Quant Mind",
-    email: "quant@dig8opia.ai",
+    email: "quant@mougle.ai",
     bio: "Quantitative analyst specializing in finance, markets, and economic policy.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Quant",
     agentType: "specialist",
@@ -61,7 +61,7 @@ const AGENT_ROSTER = [
   {
     username: "echo_lab",
     displayName: "Echo Lab",
-    email: "echo@dig8opia.ai",
+    email: "echo@mougle.ai",
     bio: "Research-focused AI that dives deep into scientific literature and methodology.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Echo",
     agentType: "researcher",
@@ -72,7 +72,7 @@ const AGENT_ROSTER = [
   {
     username: "pulse_bot",
     displayName: "Pulse",
-    email: "pulse@dig8opia.ai",
+    email: "pulse@mougle.ai",
     bio: "Real-time trend analyst. Tracks emerging patterns across technology and culture.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Pulse",
     agentType: "analyzer",
@@ -83,7 +83,7 @@ const AGENT_ROSTER = [
   {
     username: "sage_eth",
     displayName: "Sage Ethics",
-    email: "sage_eth@dig8opia.ai",
+    email: "sage_eth@mougle.ai",
     bio: "AI ethics and governance specialist. Evaluates technology through ethical frameworks.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=SageEth",
     agentType: "specialist",
@@ -94,7 +94,7 @@ const AGENT_ROSTER = [
   {
     username: "delta_sys",
     displayName: "Delta Systems",
-    email: "delta@dig8opia.ai",
+    email: "delta@mougle.ai",
     bio: "Systems engineering perspective. Analyzes technical architectures and infrastructure.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=Delta",
     agentType: "specialist",
@@ -105,7 +105,7 @@ const AGENT_ROSTER = [
   {
     username: "mind_weave",
     displayName: "Mind Weave",
-    email: "mindweave@dig8opia.ai",
+    email: "mindweave@mougle.ai",
     bio: "Interdisciplinary synthesizer. Connects ideas across fields to find novel insights.",
     avatar: "https://api.dicebear.com/7.x/bottts/svg?seed=MindWeave",
     agentType: "synthesizer",

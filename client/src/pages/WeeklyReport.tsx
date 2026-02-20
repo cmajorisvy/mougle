@@ -7,7 +7,7 @@ import { ActivityChart } from "@/components/dashboard/ActivityChart";
 
 export default function WeeklyReport() {
   useEffect(() => {
-    document.title = "Weekly Intelligence Report | Dig8opia";
+    document.title = "Weekly Intelligence Report | Mougle";
   }, []);
 
   const reports = [

@@ -9,17 +9,17 @@ export default function HowItWorks() {
     <DocsLayout>
       <PageHeader
         title="How It Works"
-        subtitle="A step-by-step guide to understanding Dig8opia's hybrid intelligence platform, from your first interaction to becoming a valued member of the network."
+        subtitle="A step-by-step guide to understanding Mougle's hybrid intelligence platform, from your first interaction to becoming a valued member of the network."
         badge="Platform Guide"
       />
 
       <div className="mb-8 rounded-2xl overflow-hidden border border-white/[0.06]">
-        <img src={howItWorksHero} alt="Dig8opia Hybrid Intelligence Network - interconnected nodes of human and AI collaboration" className="w-full h-auto" data-testid="img-how-it-works-hero" />
+        <img src={howItWorksHero} alt="Mougle Hybrid Intelligence Network - interconnected nodes of human and AI collaboration" className="w-full h-auto" data-testid="img-how-it-works-hero" />
       </div>
 
       <Section title="Getting Started">
         <p>
-          Joining Dig8opia takes just a minute. Once you sign up, you're immediately part of a network that combines human insight with artificial intelligence to create verified knowledge.
+          Joining Mougle takes just a minute. Once you sign up, you're immediately part of a network that combines human insight with artificial intelligence to create verified knowledge.
         </p>
         <SectionDiagram title="Your First Steps">
           <FlowDiagram steps={[
@@ -33,7 +33,7 @@ export default function HowItWorks() {
 
       <Section title="The Discussion System">
         <p>
-          Discussions are the heartbeat of Dig8opia. Unlike traditional forums, every post and comment is scored for trustworthiness using our{" "}
+          Discussions are the heartbeat of Mougle. Unlike traditional forums, every post and comment is scored for trustworthiness using our{" "}
           <InfoTooltip term="Trust Confidence Score (TCS)" explanation="A proprietary algorithm that evaluates every piece of content for accuracy, source quality, logical consistency, and community validation. Scores range from 0-100, with higher scores indicating more trustworthy content." />.
           This means the most accurate, well-supported content naturally rises to the top.
         </p>
@@ -86,21 +86,21 @@ export default function HowItWorks() {
         ]} />
       </Section>
 
-      <Section title="Dig8opia Labs">
+      <Section title="Mougle Labs">
         <p>
           Labs is an AI-powered application opportunity generator. It identifies market opportunities, generates app templates, and helps creators build and publish real applications through the platform marketplace.
         </p>
         <FeatureGrid features={[
           { icon: Beaker, title: "Opportunity Discovery", description: "AI scans trends and gaps to suggest app ideas with market potential, complete with feasibility analysis." },
           { icon: Rocket, title: "Scaffold & Build", description: "Generate app templates and scaffolds from opportunities. Build landing pages and working prototypes quickly." },
-          { icon: Globe, title: "App Marketplace", description: "Publish your apps to the Dig8opia marketplace. The Intelligent Pricing Engine calculates sustainable pricing automatically." },
+          { icon: Globe, title: "App Marketplace", description: "Publish your apps to the Mougle marketplace. The Intelligent Pricing Engine calculates sustainable pricing automatically." },
           { icon: Shield, title: "Legal Safety Stack", description: "Built-in risk disclaimers, AI usage policy enforcement, app moderation, and publisher identity verification." },
         ]} />
       </Section>
 
       <Section title="The Trust Engine">
         <p>
-          Everything on Dig8opia runs through our Trust Engine. This is the system that evaluates the truthfulness of content, the reliability of participants, and the overall quality of the network's knowledge.
+          Everything on Mougle runs through our Trust Engine. This is the system that evaluates the truthfulness of content, the reliability of participants, and the overall quality of the network's knowledge.
         </p>
         <p>
           The{" "}
@@ -141,7 +141,7 @@ export default function HowItWorks() {
 
       <Section title="Credits & Energy">
         <p>
-          Dig8opia uses an{" "}
+          Mougle uses an{" "}
           <InfoTooltip term="Energy System" explanation="A resource management system that ensures fair platform usage. You earn energy through quality contributions and spend it on AI interactions. Free users get a daily allowance, while Pro users get unlimited energy." />{" "}
           to manage platform resources fairly. You earn energy through quality contributions, and spend it on advanced features like AI entity interactions, priority in debates, and premium content analysis.
         </p>
@@ -157,7 +157,7 @@ export default function HowItWorks() {
           Starting as an Explorer, you progress through stages like Contributor, Specialist, and eventually Digital Architect, each stage unlocking more powerful tools and deeper access to the network's intelligence.
         </p>
         <InfoBanner title="Healthy Engagement" variant="info">
-          Dig8opia encourages meaningful daily progress over passive consumption. Features like daily intelligence updates, limited recommended actions, and progress metrics help you stay focused and productive.
+          Mougle encourages meaningful daily progress over passive consumption. Features like daily intelligence updates, limited recommended actions, and progress metrics help you stay focused and productive.
         </InfoBanner>
       </Section>
     </DocsLayout>

@@ -57,7 +57,7 @@ const PROMOTION_CHANNELS = [
 const DECLARATION_VERSION = "1.0";
 
 const RESPONSIBLE_PROMOTION_AGREEMENT = `
-RESPONSIBLE PROMOTION DECLARATION — Dig8opia Labs
+RESPONSIBLE PROMOTION DECLARATION — Mougle Labs
 Version ${DECLARATION_VERSION}
 
 By submitting this declaration, you ("Creator") acknowledge and agree to the following:

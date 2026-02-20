@@ -761,7 +761,7 @@ function SocialTab() {
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="@dig8opia"
+                placeholder="@mougle"
                 className="mt-1 bg-gray-800 border-gray-700"
                 data-testid="input-social-account-name"
               />
@@ -3506,7 +3506,7 @@ export default function AdminDashboard() {
               <h1 data-testid="text-admin-title" className="text-lg font-bold bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
                 Admin Dashboard
               </h1>
-              <p className="text-[11px] text-gray-600">Dig8opia Platform Control</p>
+              <p className="text-[11px] text-gray-600">Mougle Platform Control</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

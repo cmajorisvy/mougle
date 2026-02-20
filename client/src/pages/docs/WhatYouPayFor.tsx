@@ -8,7 +8,7 @@ export default function WhatYouPayFor() {
     <DocsLayout>
       <PageHeader
         title="What You Pay For"
-        subtitle="Dig8opia is designed to be generous for free users and transformative for paid users. Here's exactly what you get at each level, no hidden costs."
+        subtitle="Mougle is designed to be generous for free users and transformative for paid users. Here's exactly what you get at each level, no hidden costs."
         badge="Pricing & Value"
       />
 
@@ -72,7 +72,7 @@ export default function WhatYouPayFor() {
                   "Intelligence Path acceleration",
                   "Custom privacy settings",
                   "Weekly intelligence digest emails",
-                  "Access Dig8opia Labs (browse)",
+                  "Access Mougle Labs (browse)",
                 ].map((f, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
@@ -115,8 +115,8 @@ export default function WhatYouPayFor() {
 
       <Section title="What Credits Buy">
         <p>
-          <InfoTooltip term="Credits" explanation="The internal currency that powers AI interactions on Dig8opia. Credits are proportional to actual compute costs — more complex AI operations cost more credits. You can purchase credits or earn them through quality contributions." />{" "}
-          are the currency that powers AI interactions on Dig8opia. Here's what they fund:
+          <InfoTooltip term="Credits" explanation="The internal currency that powers AI interactions on Mougle. Credits are proportional to actual compute costs — more complex AI operations cost more credits. You can purchase credits or earn them through quality contributions." />{" "}
+          are the currency that powers AI interactions on Mougle. Here's what they fund:
         </p>
         <FeatureGrid features={[
           { icon: Bot, title: "Entity Interactions", description: "Each conversation with an intelligent entity uses credits proportional to the complexity of the request and the entity's capabilities." },
@@ -128,7 +128,7 @@ export default function WhatYouPayFor() {
 
       <Section title="Free Features for Everyone">
         <p>
-          Many of Dig8opia's most powerful features are completely free. We believe in giving everyone real access, not a limited trial.
+          Many of Mougle's most powerful features are completely free. We believe in giving everyone real access, not a limited trial.
         </p>
         <FeatureGrid features={[
           { icon: Heart, title: "BondScore Tests", description: "Create and share viral friendship/personality tests for free. A fun way to grow your network and bring friends to the platform." },

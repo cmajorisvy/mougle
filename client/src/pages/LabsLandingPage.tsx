@@ -74,7 +74,7 @@ export default function LabsLandingPage() {
         <Link href="/">
           <div className="flex items-center gap-2 cursor-pointer" data-testid="link-landing-logo">
             <Sparkles className="w-5 h-5 text-primary" />
-            <span className="font-display font-bold text-sm">Dig8opia</span>
+            <span className="font-display font-bold text-sm">Mougle</span>
           </div>
         </Link>
         <div className="flex items-center gap-3">
@@ -83,7 +83,7 @@ export default function LabsLandingPage() {
           </Button>
           <Link href="/auth/signup">
             <Button size="sm" className="bg-primary hover:bg-primary/90" data-testid="link-landing-signup">
-              Join Dig8opia <ArrowRight className="w-4 h-4 ml-1" />
+              Join Mougle <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </Link>
         </div>
@@ -92,7 +92,7 @@ export default function LabsLandingPage() {
       <div className="max-w-4xl mx-auto px-4 py-16 space-y-12">
         <div className="text-center space-y-6">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm">
-            <Rocket className="w-4 h-4" /> Built with Dig8opia Labs
+            <Rocket className="w-4 h-4" /> Built with Mougle Labs
           </div>
 
           <h1 className="text-4xl md:text-5xl font-display font-bold leading-tight" data-testid="text-landing-headline">
@@ -169,14 +169,14 @@ export default function LabsLandingPage() {
 
         <Card className="glass-card rounded-2xl p-8 border-primary/20 bg-gradient-to-r from-primary/5 to-violet-500/5 text-center" data-testid="section-cta-bottom">
           <h2 className="text-2xl font-bold mb-3">Ready to get started?</h2>
-          <p className="text-muted-foreground mb-6">Join Dig8opia to discover, build, and monetize intelligent applications</p>
+          <p className="text-muted-foreground mb-6">Join Mougle to discover, build, and monetize intelligent applications</p>
           <div className="flex items-center justify-center gap-4">
             <Button size="lg" className="bg-primary hover:bg-primary/90" onClick={handleGetStarted} data-testid="button-landing-cta-bottom">
               {page.ctaText} <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
             <Link href="/auth/signup">
               <Button size="lg" variant="outline" data-testid="link-landing-join">
-                <Users className="w-5 h-5 mr-2" /> Join Dig8opia
+                <Users className="w-5 h-5 mr-2" /> Join Mougle
               </Button>
             </Link>
           </div>
@@ -184,7 +184,7 @@ export default function LabsLandingPage() {
 
         <footer className="text-center text-xs text-muted-foreground/50 pt-8 border-t border-white/[0.06]">
           <p>
-            Built on <Link href="/"><span className="text-primary hover:underline cursor-pointer" data-testid="link-landing-platform">Dig8opia</span></Link> — The Hybrid Intelligence Network
+            Built on <Link href="/"><span className="text-primary hover:underline cursor-pointer" data-testid="link-landing-platform">Mougle</span></Link> — The Hybrid Intelligence Network
           </p>
           {page.referralCode && (
             <p className="mt-2">Referral: {page.referralCode}</p>

@@ -440,7 +440,7 @@ class LabsService {
     const opp = await this.getOpportunity(opportunityId);
     if (!opp) throw new Error("Opportunity not found");
     return {
-      name: `dig8opia-${opp.industry.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${opp.category.toLowerCase()}`,
+      name: `mougle-${opp.industry.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${opp.category.toLowerCase()}`,
       description: opp.solution,
       techStack: opp.developmentSpec.techStack,
       features: opp.developmentSpec.features,
@@ -454,8 +454,8 @@ class LabsService {
   private generateScaffoldFiles(opp: LabsOpportunity): Record<string, string> {
     const appName = `${opp.industry} ${opp.category} App`;
     return {
-      "README.md": `# ${appName}\n\n${opp.solution}\n\n## Features\n${opp.developmentSpec.features.map(f => `- ${f}`).join('\n')}\n\n## Tech Stack\n${opp.developmentSpec.techStack.map(t => `- ${t}`).join('\n')}\n\n## Legal\n${opp.legalDisclaimers.map(d => `- ${d}`).join('\n')}\n\nBuilt with Dig8opia Labs`,
-      "package.json": JSON.stringify({ name: `dig8opia-${opp.category.toLowerCase()}`, version: "1.0.0", private: true, scripts: { dev: "vite", build: "vite build" } }, null, 2),
+      "README.md": `# ${appName}\n\n${opp.solution}\n\n## Features\n${opp.developmentSpec.features.map(f => `- ${f}`).join('\n')}\n\n## Tech Stack\n${opp.developmentSpec.techStack.map(t => `- ${t}`).join('\n')}\n\n## Legal\n${opp.legalDisclaimers.map(d => `- ${d}`).join('\n')}\n\nBuilt with Mougle Labs`,
+      "package.json": JSON.stringify({ name: `mougle-${opp.category.toLowerCase()}`, version: "1.0.0", private: true, scripts: { dev: "vite", build: "vite build" } }, null, 2),
     };
   }
 
