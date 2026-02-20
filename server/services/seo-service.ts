@@ -6,7 +6,7 @@ import {
 } from "@shared/schema";
 import { eq, desc, sql, count, avg } from "drizzle-orm";
 
-const BASE_URL = process.env.PUBLIC_URL || "https://mougle.com";
+const BASE_URL = process.env.PUBLIC_URL || "https://www.mougle.com";
 
 function escapeXml(str: string): string {
   return str

@@ -103,9 +103,9 @@ export default function MyPersonalAgent() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-[#0a0a0f]">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-6">
+      <div className="min-h-screen bg-[#0a0a0f] flex flex-col">
+        <div className="max-w-7xl mx-auto px-4 py-6 w-full flex flex-col flex-1 min-h-0">
+          <div className="flex items-center justify-between mb-6 shrink-0">
             <div>
               <h1 className="text-2xl font-bold text-white" data-testid="text-pa-title">Personal Intelligence</h1>
               <p className="text-gray-400 text-sm mt-1">{dashboard?.profile?.agentName || "Personal Intelligence"} • Pro</p>
@@ -121,7 +121,7 @@ export default function MyPersonalAgent() {
           </div>
 
           {dashboard?.stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6 shrink-0">
               <StatCard label="Memories" value={dashboard.stats.confirmedMemories} icon={Brain} color="text-blue-400" testId="stat-memories" />
               <StatCard label="Conversations" value={dashboard.stats.totalConversations} icon={MessageSquare} color="text-cyan-400" testId="stat-conversations" />
               <StatCard label="Pending Tasks" value={dashboard.stats.pendingTasks} icon={CheckSquare} color="text-orange-400" testId="stat-pending-tasks" />
@@ -131,7 +131,7 @@ export default function MyPersonalAgent() {
             </div>
           )}
 
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-2 shrink-0">
             {TABS.map(t => (
               <button
                 key={t.id}
@@ -148,13 +148,15 @@ export default function MyPersonalAgent() {
             ))}
           </div>
 
-          {tab === "chat" && <ChatTab userId={userId} />}
-          {tab === "voice" && <VoiceTab userId={userId} />}
-          {tab === "memory" && <MemoryTab userId={userId} />}
-          {tab === "truth" && <TruthCoreTab userId={userId} dashboard={dashboard} />}
-          {tab === "tasks" && <TasksTab userId={userId} />}
-          {tab === "devices" && <DevicesTab userId={userId} />}
-          {tab === "finance" && <FinanceTab userId={userId} />}
+          <div className="flex-1 min-h-0 pb-16 md:pb-0">
+            {tab === "chat" && <ChatTab userId={userId} />}
+            {tab === "voice" && <VoiceTab userId={userId} />}
+            {tab === "memory" && <MemoryTab userId={userId} />}
+            {tab === "truth" && <TruthCoreTab userId={userId} dashboard={dashboard} />}
+            {tab === "tasks" && <TasksTab userId={userId} />}
+            {tab === "devices" && <DevicesTab userId={userId} />}
+            {tab === "finance" && <FinanceTab userId={userId} />}
+          </div>
         </div>
       </div>
     </Layout>
@@ -226,9 +228,9 @@ function ChatTab({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="grid grid-cols-12 gap-4 h-[600px]" data-testid="chat-tab-content">
-      <div className="col-span-3 bg-[#1a1a2e] rounded-lg border border-gray-800 flex flex-col">
-        <div className="p-3 border-b border-gray-800 flex items-center justify-between">
+    <div className="grid grid-cols-12 gap-4 h-[calc(100vh-22rem)] min-h-[400px]" data-testid="chat-tab-content">
+      <div className="col-span-12 md:col-span-3 bg-[#1a1a2e] rounded-lg border border-gray-800 flex flex-col max-h-[200px] md:max-h-none">
+        <div className="p-3 border-b border-gray-800 flex items-center justify-between shrink-0">
           <span className="text-sm font-medium text-white">Conversations</span>
           <button onClick={() => createConvMutation.mutate()} className="text-blue-400 hover:text-blue-300" data-testid="button-new-conversation">
             <Plus className="w-4 h-4" />
@@ -264,7 +266,7 @@ function ChatTab({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <div className="col-span-9 bg-[#1a1a2e] rounded-lg border border-gray-800 flex flex-col">
+      <div className="col-span-12 md:col-span-9 bg-[#1a1a2e] rounded-lg border border-gray-800 flex flex-col min-h-[300px]">
         {!activeConv ? (
           <div className="flex-1 flex items-center justify-center text-center">
             <div>
@@ -277,7 +279,7 @@ function ChatTab({ userId }: { userId: string }) {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
               {messages.map((msg: any) => (
                 <div key={msg.id} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")} data-testid={`message-${msg.id}`}>
                   <div className={cn(
@@ -298,7 +300,7 @@ function ChatTab({ userId }: { userId: string }) {
               )}
               <div ref={messagesEndRef} />
             </div>
-            <div className="p-3 border-t border-gray-800 flex gap-2">
+            <div className="p-3 border-t border-gray-800 flex gap-2 shrink-0">
               <input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}

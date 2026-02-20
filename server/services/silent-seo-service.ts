@@ -36,11 +36,11 @@ class SilentSeoService {
         headline: page.metaTitle || page.title,
         description: page.metaDescription || page.summary || "",
         author: { "@type": "Organization", name: "Mougle" },
-        publisher: { "@type": "Organization", name: "Mougle", url: "https://mougle.com" },
+        publisher: { "@type": "Organization", name: "Mougle", url: "https://www.mougle.com" },
         datePublished: page.publishedAt || page.createdAt,
         dateModified: page.updatedAt || page.createdAt,
         keywords: (page.keywords || []).join(", "),
-        mainEntityOfPage: { "@type": "WebPage", "@id": `https://mougle.com/knowledge/${page.slug}` },
+        mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.mougle.com/knowledge/${page.slug}` },
       });
     }
 

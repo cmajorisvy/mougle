@@ -66,7 +66,7 @@ function getSender(type: keyof typeof SENDER_LABELS, fromEmail?: string): string
 }
 
 function baseUrl(): string {
-  return "https://mougle.com";
+  return "https://www.mougle.com";
 }
 
 function wrapTemplate(content: string): string {

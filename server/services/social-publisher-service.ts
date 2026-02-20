@@ -12,7 +12,7 @@ const PLATFORM_POST_URLS: Record<string, (text: string, url: string) => string> 
 function getBaseUrl(): string {
   return process.env.REPLIT_DOMAINS?.split(",")[0]
     ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-    : "https://mougle.com";
+    : "https://www.mougle.com";
 }
 
 async function publishToplatform(post: SocialPost): Promise<{ success: boolean; postUrl?: string; error?: string }> {

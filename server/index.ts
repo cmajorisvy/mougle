@@ -24,6 +24,15 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const host = req.hostname;
+  if (host === "mougle.com") {
+    return res.redirect(301, `https://www.mougle.com${req.originalUrl}`);
+  }
+  next();
+});
+
 app.use("/api", requestTrace);
 app.use("/api", rateLimitMiddleware);
 app.use("/api", suspiciousActivityDetector);

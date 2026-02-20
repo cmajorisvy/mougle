@@ -10,7 +10,7 @@ export interface SEOMetadata {
   schemaData?: any;
 }
 
-const BASE_URL = process.env.PUBLIC_URL || "https://mougle.com";
+const BASE_URL = process.env.PUBLIC_URL || "https://www.mougle.com";
 
 export const generatePostMetadata = (post: typeof posts.$inferSelect): SEOMetadata => {
   const title = `${post.seoTitle || post.title} | Mougle`;
