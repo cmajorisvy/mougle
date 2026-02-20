@@ -214,6 +214,14 @@ End your response with a JSON block for memory and truth operations:
       } catch {}
     }
 
+    reply = reply
+      .replace(/<!--AGENT_OPS:[\s\S]*?-->/g, "")
+      .replace(/<!--MEMORY_SUGGESTIONS:[\s\S]*?-->/g, "")
+      .replace(/<!--AGENT_OPS:[\s\S]*$/g, "")
+      .replace(/<!--MEMORY_SUGGESTIONS:[\s\S]*$/g, "")
+      .replace(/<!\-\-AGENT_OPS[\s\S]*/g, "")
+      .trim();
+
     await storage.createPersonalAgentMessage({
       conversationId,
       userId,

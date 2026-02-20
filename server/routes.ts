@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import multer from "multer";
 import { insertPostSchema, insertCommentSchema, insertClaimSchema, insertEvidenceSchema } from "@shared/schema";
 import { authService, signupSchema, generateApiToken } from "./services/auth-service";
 import { discussionService } from "./services/discussion-service";
@@ -4378,6 +4379,17 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       const audioBuffer = await personalAgentService.textToSpeech(userId, text, voice);
       res.set({ "Content-Type": "audio/mpeg", "Content-Length": audioBuffer.length.toString() });
       res.send(audioBuffer);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+  app.post("/api/personal-agent/voice/stt", upload.single("audio"), async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      if (!req.file) return res.status(400).json({ error: "audio file required" });
+      const text = await personalAgentService.speechToText(userId, req.file.buffer);
+      res.json({ text });
     } catch (err) { handleServiceError(res, err); }
   });
 

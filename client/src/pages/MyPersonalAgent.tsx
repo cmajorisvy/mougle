@@ -320,17 +320,51 @@ function ChatTab({ userId }: { userId: string }) {
   );
 }
 
+const VOICE_OPTIONS = [
+  { id: "nova", label: "Nova", gender: "Female", description: "Warm & friendly" },
+  { id: "shimmer", label: "Shimmer", gender: "Female", description: "Soft & expressive" },
+  { id: "alloy", label: "Alloy", gender: "Neutral", description: "Balanced & clear" },
+  { id: "echo", label: "Echo", gender: "Male", description: "Smooth & natural" },
+  { id: "onyx", label: "Onyx", gender: "Male", description: "Deep & authoritative" },
+  { id: "fable", label: "Fable", gender: "Male", description: "Warm & narrative" },
+];
+
 function VoiceTab({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
-  const [text, setText] = useState("");
+  const [chatText, setChatText] = useState("");
+  const [ttsText, setTtsText] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [activeConv, setActiveConv] = useState<string | null>(null);
+  const [voiceChatMessages, setVoiceChatMessages] = useState<{ role: string; content: string }[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pendingMessageRef = useRef<string | null>(null);
+
+  const { data: dashboard } = useQuery({
+    queryKey: ["pa-dashboard", userId],
+    queryFn: () => fetchPA("/dashboard", userId),
+  });
+
+  const currentVoice = dashboard?.profile?.voicePreference || "alloy";
+
+  const voiceUpdateMutation = useMutation({
+    mutationFn: (voice: string) => fetchPA("/profile", userId, {
+      method: "PATCH",
+      body: JSON.stringify({ voicePreference: voice }),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
+    },
+  });
 
   const ttsMutation = useMutation({
-    mutationFn: async (inputText: string) => {
+    mutationFn: async ({ inputText, voice }: { inputText: string; voice: string }) => {
       const res = await fetch("/api/personal-agent/voice/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-user-id": userId },
-        body: JSON.stringify({ text: inputText }),
+        body: JSON.stringify({ text: inputText, voice }),
       });
       if (!res.ok) throw new Error("TTS failed");
       return res.blob();
@@ -340,52 +374,234 @@ function VoiceTab({ userId }: { userId: string }) {
       const audio = new Audio(url);
       setIsPlaying(true);
       audio.play();
-      audio.onended = () => setIsPlaying(false);
+      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
       queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
     },
   });
 
+  const sendMessageToConv = (convId: string, msg: string) => {
+    setVoiceChatMessages(prev => [...prev, { role: "user", content: msg }]);
+    chatMutation.mutate({ convId, msg });
+  };
+
+  const chatMutation = useMutation({
+    mutationFn: ({ convId, msg }: { convId: string; msg: string }) =>
+      fetchPA("/chat", userId, { method: "POST", body: JSON.stringify({ conversationId: convId, message: msg }) }),
+    onSuccess: (result) => {
+      setVoiceChatMessages(prev => [...prev, { role: "assistant", content: result.reply }]);
+      queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
+      ttsMutation.mutate({ inputText: result.reply, voice: currentVoice });
+    },
+  });
+
+  const createConvMutation = useMutation({
+    mutationFn: () => fetchPA("/conversations", userId, { method: "POST", body: JSON.stringify({ title: "Voice Chat" }) }),
+    onSuccess: (conv) => {
+      queryClient.invalidateQueries({ queryKey: ["pa-conversations"] });
+      setActiveConv(conv.id);
+      setVoiceChatMessages([]);
+      if (pendingMessageRef.current) {
+        const msg = pendingMessageRef.current;
+        pendingMessageRef.current = null;
+        sendMessageToConv(conv.id, msg);
+      }
+    },
+  });
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [voiceChatMessages]);
+
+  const startRecording = async () => {
+    if (!activeConv) {
+      pendingMessageRef.current = "__RECORDING__";
+      createConvMutation.mutate();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+
+        try {
+          const res = await fetch("/api/personal-agent/voice/stt", {
+            method: "POST",
+            headers: { "x-user-id": userId },
+            body: formData,
+          });
+          if (res.ok) {
+            const { text: transcribedText } = await res.json();
+            if (transcribedText && activeConv) {
+              sendMessageToConv(activeConv, transcribedText);
+            }
+          }
+        } catch (err) {
+          console.error("STT failed:", err);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Microphone access denied:", err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const handleTextSend = () => {
+    if (!chatText.trim()) return;
+    const msg = chatText;
+    setChatText("");
+    if (!activeConv) {
+      pendingMessageRef.current = msg;
+      createConvMutation.mutate();
+      return;
+    }
+    sendMessageToConv(activeConv, msg);
+  };
+
   return (
-    <div className="max-w-2xl mx-auto" data-testid="voice-tab-content">
-      <div className="bg-[#1a1a2e] rounded-lg border border-gray-800 p-6">
-        <div className="text-center mb-6">
-          <div className={cn(
-            "w-24 h-24 rounded-full mx-auto flex items-center justify-center mb-4 transition-all",
-            isPlaying ? "bg-blue-600 animate-pulse" : "bg-[#252545]"
-          )}>
-            {isPlaying ? <Volume2 className="w-10 h-10 text-white" /> : <Mic className="w-10 h-10 text-gray-400" />}
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-1">Voice Interface</h3>
-          <p className="text-gray-400 text-sm">Type text below and hear your intelligence speak</p>
+    <div className="max-w-3xl mx-auto space-y-4" data-testid="voice-tab-content">
+      <div className="bg-[#1a1a2e] rounded-lg border border-gray-800 p-4">
+        <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+          <Settings className="w-4 h-4 text-gray-400" /> Voice Preference
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {VOICE_OPTIONS.map(v => (
+            <button
+              key={v.id}
+              onClick={() => voiceUpdateMutation.mutate(v.id)}
+              data-testid={`voice-option-${v.id}`}
+              className={cn(
+                "p-3 rounded-lg border text-left transition-all",
+                currentVoice === v.id
+                  ? "border-blue-500 bg-blue-900/30"
+                  : "border-gray-700 bg-[#0a0a0f] hover:border-gray-500"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-white">{v.label}</span>
+                <Badge variant="outline" className={cn("text-xs", v.gender === "Female" ? "text-pink-400 border-pink-800" : v.gender === "Male" ? "text-blue-400 border-blue-800" : "text-gray-400 border-gray-700")}>
+                  {v.gender}
+                </Badge>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">{v.description}</p>
+              {currentVoice === v.id && <Check className="w-3 h-3 text-blue-400 mt-1" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-[#1a1a2e] rounded-lg border border-gray-800 flex flex-col" style={{ height: "calc(100vh - 34rem)", minHeight: "300px" }}>
+        <div className="p-3 border-b border-gray-800 flex items-center justify-between shrink-0">
+          <span className="text-sm font-medium text-white">Voice Chat</span>
+          {!activeConv && (
+            <Button size="sm" variant="outline" onClick={() => createConvMutation.mutate()} data-testid="button-start-voice-chat">
+              <Plus className="w-3 h-3 mr-1" /> Start Voice Session
+            </Button>
+          )}
         </div>
 
-        <div className="space-y-4">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Enter text for your agent to speak..."
-            rows={4}
-            className="w-full bg-[#0a0a0f] border border-gray-700 rounded-lg px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-            data-testid="input-voice-text"
+        {!activeConv ? (
+          <div className="flex-1 flex items-center justify-center text-center p-6">
+            <div>
+              <Mic className="w-16 h-16 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 mb-1">Start a voice session to chat with your intelligence</p>
+              <p className="text-gray-500 text-xs">You can type or use your microphone</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+              {voiceChatMessages.map((msg, i) => (
+                <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+                  <div className={cn(
+                    "max-w-[75%] rounded-lg px-4 py-2 text-sm",
+                    msg.role === "user" ? "bg-blue-600 text-white" : "bg-[#252545] text-gray-200"
+                  )}>
+                    {msg.role === "assistant" && <Volume2 className="w-3 h-3 inline mr-1 text-blue-400" />}
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {(chatMutation.isPending || ttsMutation.isPending) && (
+                <div className="flex justify-start">
+                  <div className="bg-[#252545] rounded-lg px-4 py-2 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                    <span className="text-xs text-gray-400">{ttsMutation.isPending ? "Speaking..." : "Thinking..."}</span>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <div className="p-3 border-t border-gray-800 flex gap-2 shrink-0">
+              <button
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onMouseLeave={() => isRecording && stopRecording()}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                disabled={chatMutation.isPending || isPlaying}
+                data-testid="button-voice-record"
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  isRecording ? "bg-red-600 text-white animate-pulse" : "bg-[#252545] text-gray-400 hover:text-white hover:bg-[#353565]"
+                )}
+              >
+                <Mic className="w-5 h-5" />
+              </button>
+              <input
+                value={chatText}
+                onChange={(e) => setChatText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleTextSend()}
+                placeholder="Type or hold mic to speak..."
+                className="flex-1 bg-[#0a0a0f] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                data-testid="input-voice-text"
+              />
+              <Button onClick={handleTextSend} disabled={!chatText.trim() || chatMutation.isPending} size="sm" data-testid="button-voice-send">
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="bg-[#1a1a2e] rounded-lg border border-gray-800 p-3">
+        <h4 className="text-xs font-medium text-gray-400 mb-2">Quick Text-to-Speech</h4>
+        <div className="flex gap-2">
+          <input
+            value={ttsText}
+            onChange={(e) => setTtsText(e.target.value)}
+            placeholder="Type anything to hear it spoken..."
+            className="flex-1 bg-[#0a0a0f] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            data-testid="input-quick-tts"
           />
           <Button
-            onClick={() => ttsMutation.mutate(text)}
-            disabled={!text.trim() || ttsMutation.isPending || isPlaying}
-            className="w-full"
+            onClick={() => ttsMutation.mutate({ inputText: ttsText, voice: currentVoice })}
+            disabled={!ttsText.trim() || ttsMutation.isPending || isPlaying}
+            size="sm"
             data-testid="button-speak"
           >
-            {ttsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-            {isPlaying ? "Speaking..." : "Speak"}
+            {isPlaying ? <Volume2 className="w-4 h-4 animate-pulse" /> : <Play className="w-4 h-4" />}
           </Button>
-        </div>
-
-        <div className="mt-6 p-4 bg-[#0a0a0f] rounded-lg border border-gray-800">
-          <h4 className="text-sm font-medium text-white mb-2">Voice Features</h4>
-          <ul className="text-xs text-gray-400 space-y-1">
-            <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-400" /> Text-to-Speech with natural voice</li>
-            <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-400" /> Multiple voice options (change in settings)</li>
-            <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-400" /> Daily voice usage tracking</li>
-          </ul>
         </div>
       </div>
     </div>
