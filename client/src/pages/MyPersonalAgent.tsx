@@ -14,11 +14,10 @@ import {
   Calendar, Bell, Edit2, MoreVertical, Play
 } from "lucide-react";
 
-type Tab = "chat" | "voice" | "memory" | "truth" | "tasks" | "devices" | "finance";
+type Tab = "chat" | "memory" | "truth" | "tasks" | "devices" | "finance";
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: "chat", label: "Interaction", icon: MessageSquare },
-  { id: "voice", label: "Voice", icon: Mic },
   { id: "memory", label: "Memory", icon: Brain },
   { id: "truth", label: "Truth Core", icon: Shield },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
@@ -150,7 +149,6 @@ export default function MyPersonalAgent() {
 
           <div className="flex-1 min-h-0 pb-16 md:pb-0">
             {tab === "chat" && <ChatTab userId={userId} />}
-            {tab === "voice" && <VoiceTab userId={userId} />}
             {tab === "memory" && <MemoryTab userId={userId} />}
             {tab === "truth" && <TruthCoreTab userId={userId} dashboard={dashboard} />}
             {tab === "tasks" && <TasksTab userId={userId} />}
@@ -179,7 +177,31 @@ function ChatTab({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
   const [activeConv, setActiveConv] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const pendingRecordRef = useRef(false);
+
+  const { data: dashboard } = useQuery({
+    queryKey: ["pa-dashboard", userId],
+    queryFn: () => fetchPA("/dashboard", userId),
+  });
+
+  const currentVoice = dashboard?.profile?.voicePreference || "alloy";
+
+  const voicePrefMutation = useMutation({
+    mutationFn: (voice: string) => fetchPA("/profile", userId, {
+      method: "PATCH",
+      body: JSON.stringify({ voicePreference: voice }),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
+    },
+  });
 
   const { data: conversations = [] } = useQuery({
     queryKey: ["pa-conversations", userId],
@@ -197,14 +219,40 @@ function ChatTab({ userId }: { userId: string }) {
     onSuccess: (conv) => {
       queryClient.invalidateQueries({ queryKey: ["pa-conversations"] });
       setActiveConv(conv.id);
+      if (pendingRecordRef.current) {
+        pendingRecordRef.current = false;
+        setTimeout(() => startRecordingImpl(), 100);
+      }
+    },
+  });
+
+  const ttsMutation = useMutation({
+    mutationFn: async ({ inputText, voice }: { inputText: string; voice: string }) => {
+      const res = await fetch("/api/personal-agent/voice/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": userId },
+        body: JSON.stringify({ text: inputText, voice }),
+      });
+      if (!res.ok) throw new Error("TTS failed");
+      return res.blob();
+    },
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      setIsPlaying(true);
+      audio.play();
+      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
     },
   });
 
   const chatMutation = useMutation({
     mutationFn: (msg: string) => fetchPA("/chat", userId, { method: "POST", body: JSON.stringify({ conversationId: activeConv, message: msg }) }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["pa-messages", activeConv] });
       queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
+      if (voiceMode && result.reply) {
+        ttsMutation.mutate({ inputText: result.reply, voice: currentVoice });
+      }
     },
   });
 
@@ -225,6 +273,66 @@ function ChatTab({ userId }: { userId: string }) {
     const msg = message;
     setMessage("");
     chatMutation.mutate(msg);
+  };
+
+  const startRecording = async () => {
+    if (!activeConv) {
+      pendingRecordRef.current = true;
+      createConvMutation.mutate();
+      return;
+    }
+    startRecordingImpl();
+  };
+
+  const startRecordingImpl = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+        setTranscribing(true);
+
+        try {
+          const res = await fetch("/api/personal-agent/voice/stt", {
+            method: "POST",
+            headers: { "x-user-id": userId },
+            body: formData,
+          });
+          if (res.ok) {
+            const { text: transcribedText } = await res.json();
+            if (transcribedText && activeConv) {
+              chatMutation.mutate(transcribedText);
+            }
+          }
+        } catch (err) {
+          console.error("STT failed:", err);
+        } finally {
+          setTranscribing(false);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Microphone access denied:", err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
   };
 
   return (
@@ -286,32 +394,113 @@ function ChatTab({ userId }: { userId: string }) {
                     "max-w-[75%] rounded-lg px-4 py-2 text-sm",
                     msg.role === "user" ? "bg-blue-600 text-white" : "bg-[#252545] text-gray-200"
                   )}>
+                    {msg.role === "assistant" && voiceMode && (
+                      <button
+                        onClick={() => ttsMutation.mutate({ inputText: msg.content, voice: currentVoice })}
+                        className="inline-flex mr-1 text-blue-400 hover:text-blue-300"
+                        data-testid={`button-replay-${msg.id}`}
+                      >
+                        <Volume2 className="w-3 h-3" />
+                      </button>
+                    )}
                     {msg.content}
                     <div className="text-xs mt-1 opacity-50">{new Date(msg.createdAt).toLocaleTimeString()}</div>
                   </div>
                 </div>
               ))}
-              {chatMutation.isPending && (
+              {(chatMutation.isPending || transcribing) && (
                 <div className="flex justify-start">
-                  <div className="bg-[#252545] rounded-lg px-4 py-2">
+                  <div className="bg-[#252545] rounded-lg px-4 py-2 flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                    <span className="text-xs text-gray-400">{transcribing ? "Transcribing..." : "Thinking..."}</span>
+                  </div>
+                </div>
+              )}
+              {isPlaying && (
+                <div className="flex justify-start">
+                  <div className="bg-[#252545] rounded-lg px-4 py-2 flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-blue-400 animate-pulse" />
+                    <span className="text-xs text-gray-400">Speaking...</span>
                   </div>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
-            <div className="p-3 border-t border-gray-800 flex gap-2 shrink-0">
-              <input
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder="Type a message..."
-                className="flex-1 bg-[#0a0a0f] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                data-testid="input-chat-message"
-              />
-              <Button onClick={handleSend} disabled={!message.trim() || chatMutation.isPending} size="sm" data-testid="button-send-message">
-                <Send className="w-4 h-4" />
-              </Button>
+            <div className="p-3 border-t border-gray-800 shrink-0">
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={() => setVoiceMode(!voiceMode)}
+                  data-testid="button-toggle-voice"
+                  title={voiceMode ? "Voice mode on — responses will be spoken" : "Voice mode off — tap to enable"}
+                  className={cn(
+                    "p-2 rounded-lg transition-all shrink-0",
+                    voiceMode
+                      ? "bg-blue-600/20 text-blue-400 border border-blue-600/50"
+                      : "bg-[#252545] text-gray-500 hover:text-gray-300 border border-transparent"
+                  )}
+                >
+                  <Volume2 className="w-4 h-4" />
+                </button>
+
+                {voiceMode && (
+                  <button
+                    onMouseDown={startRecording}
+                    onMouseUp={stopRecording}
+                    onMouseLeave={() => isRecording && stopRecording()}
+                    onTouchStart={startRecording}
+                    onTouchEnd={stopRecording}
+                    disabled={chatMutation.isPending || isPlaying || transcribing}
+                    data-testid="button-voice-record"
+                    title="Hold to record"
+                    className={cn(
+                      "p-2 rounded-lg transition-all shrink-0",
+                      isRecording
+                        ? "bg-red-600 text-white animate-pulse"
+                        : "bg-[#252545] text-gray-400 hover:text-white hover:bg-[#353565]"
+                    )}
+                  >
+                    <Mic className="w-4 h-4" />
+                  </button>
+                )}
+
+                <input
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                  placeholder={voiceMode ? "Type or hold mic to speak..." : "Type a message..."}
+                  className="flex-1 bg-[#0a0a0f] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  data-testid="input-chat-message"
+                />
+                <Button onClick={handleSend} disabled={!message.trim() || chatMutation.isPending} size="sm" data-testid="button-send-message">
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+              {voiceMode && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-gray-500">Voice:</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {VOICE_OPTIONS.map(v => (
+                      <button
+                        key={v.id}
+                        onClick={() => voicePrefMutation.mutate(v.id)}
+                        disabled={voicePrefMutation.isPending}
+                        data-testid={`voice-pick-${v.id}`}
+                        className={cn(
+                          "px-2 py-0.5 rounded text-xs transition-all",
+                          currentVoice === v.id
+                            ? "bg-blue-600 text-white"
+                            : "bg-[#0a0a0f] text-gray-400 hover:text-white border border-gray-700"
+                        )}
+                      >
+                        {v.label}
+                      </button>
+                    ))}
+                  </div>
+                  {isRecording && (
+                    <span className="text-xs text-red-400 animate-pulse ml-auto">Recording...</span>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -328,285 +517,6 @@ const VOICE_OPTIONS = [
   { id: "onyx", label: "Onyx", gender: "Male", description: "Deep & authoritative" },
   { id: "fable", label: "Fable", gender: "Male", description: "Warm & narrative" },
 ];
-
-function VoiceTab({ userId }: { userId: string }) {
-  const queryClient = useQueryClient();
-  const [chatText, setChatText] = useState("");
-  const [ttsText, setTtsText] = useState("");
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [activeConv, setActiveConv] = useState<string | null>(null);
-  const [voiceChatMessages, setVoiceChatMessages] = useState<{ role: string; content: string }[]>([]);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pendingMessageRef = useRef<string | null>(null);
-
-  const { data: dashboard } = useQuery({
-    queryKey: ["pa-dashboard", userId],
-    queryFn: () => fetchPA("/dashboard", userId),
-  });
-
-  const currentVoice = dashboard?.profile?.voicePreference || "alloy";
-
-  const voiceUpdateMutation = useMutation({
-    mutationFn: (voice: string) => fetchPA("/profile", userId, {
-      method: "PATCH",
-      body: JSON.stringify({ voicePreference: voice }),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
-    },
-  });
-
-  const ttsMutation = useMutation({
-    mutationFn: async ({ inputText, voice }: { inputText: string; voice: string }) => {
-      const res = await fetch("/api/personal-agent/voice/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
-        body: JSON.stringify({ text: inputText, voice }),
-      });
-      if (!res.ok) throw new Error("TTS failed");
-      return res.blob();
-    },
-    onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      setIsPlaying(true);
-      audio.play();
-      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
-      queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
-    },
-  });
-
-  const sendMessageToConv = (convId: string, msg: string) => {
-    setVoiceChatMessages(prev => [...prev, { role: "user", content: msg }]);
-    chatMutation.mutate({ convId, msg });
-  };
-
-  const chatMutation = useMutation({
-    mutationFn: ({ convId, msg }: { convId: string; msg: string }) =>
-      fetchPA("/chat", userId, { method: "POST", body: JSON.stringify({ conversationId: convId, message: msg }) }),
-    onSuccess: (result) => {
-      setVoiceChatMessages(prev => [...prev, { role: "assistant", content: result.reply }]);
-      queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
-      ttsMutation.mutate({ inputText: result.reply, voice: currentVoice });
-    },
-  });
-
-  const createConvMutation = useMutation({
-    mutationFn: () => fetchPA("/conversations", userId, { method: "POST", body: JSON.stringify({ title: "Voice Chat" }) }),
-    onSuccess: (conv) => {
-      queryClient.invalidateQueries({ queryKey: ["pa-conversations"] });
-      setActiveConv(conv.id);
-      setVoiceChatMessages([]);
-      if (pendingMessageRef.current) {
-        const msg = pendingMessageRef.current;
-        pendingMessageRef.current = null;
-        sendMessageToConv(conv.id, msg);
-      }
-    },
-  });
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [voiceChatMessages]);
-
-  const startRecording = async () => {
-    if (!activeConv) {
-      pendingMessageRef.current = "__RECORDING__";
-      createConvMutation.mutate();
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const formData = new FormData();
-        formData.append("audio", audioBlob, "recording.webm");
-
-        try {
-          const res = await fetch("/api/personal-agent/voice/stt", {
-            method: "POST",
-            headers: { "x-user-id": userId },
-            body: formData,
-          });
-          if (res.ok) {
-            const { text: transcribedText } = await res.json();
-            if (transcribedText && activeConv) {
-              sendMessageToConv(activeConv, transcribedText);
-            }
-          }
-        } catch (err) {
-          console.error("STT failed:", err);
-        }
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Microphone access denied:", err);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const handleTextSend = () => {
-    if (!chatText.trim()) return;
-    const msg = chatText;
-    setChatText("");
-    if (!activeConv) {
-      pendingMessageRef.current = msg;
-      createConvMutation.mutate();
-      return;
-    }
-    sendMessageToConv(activeConv, msg);
-  };
-
-  return (
-    <div className="max-w-3xl mx-auto space-y-4" data-testid="voice-tab-content">
-      <div className="bg-[#1a1a2e] rounded-lg border border-gray-800 p-4">
-        <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-          <Settings className="w-4 h-4 text-gray-400" /> Voice Preference
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {VOICE_OPTIONS.map(v => (
-            <button
-              key={v.id}
-              onClick={() => voiceUpdateMutation.mutate(v.id)}
-              data-testid={`voice-option-${v.id}`}
-              className={cn(
-                "p-3 rounded-lg border text-left transition-all",
-                currentVoice === v.id
-                  ? "border-blue-500 bg-blue-900/30"
-                  : "border-gray-700 bg-[#0a0a0f] hover:border-gray-500"
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-white">{v.label}</span>
-                <Badge variant="outline" className={cn("text-xs", v.gender === "Female" ? "text-pink-400 border-pink-800" : v.gender === "Male" ? "text-blue-400 border-blue-800" : "text-gray-400 border-gray-700")}>
-                  {v.gender}
-                </Badge>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">{v.description}</p>
-              {currentVoice === v.id && <Check className="w-3 h-3 text-blue-400 mt-1" />}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-[#1a1a2e] rounded-lg border border-gray-800 flex flex-col" style={{ height: "calc(100vh - 34rem)", minHeight: "300px" }}>
-        <div className="p-3 border-b border-gray-800 flex items-center justify-between shrink-0">
-          <span className="text-sm font-medium text-white">Voice Chat</span>
-          {!activeConv && (
-            <Button size="sm" variant="outline" onClick={() => createConvMutation.mutate()} data-testid="button-start-voice-chat">
-              <Plus className="w-3 h-3 mr-1" /> Start Voice Session
-            </Button>
-          )}
-        </div>
-
-        {!activeConv ? (
-          <div className="flex-1 flex items-center justify-center text-center p-6">
-            <div>
-              <Mic className="w-16 h-16 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 mb-1">Start a voice session to chat with your intelligence</p>
-              <p className="text-gray-500 text-xs">You can type or use your microphone</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-              {voiceChatMessages.map((msg, i) => (
-                <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
-                  <div className={cn(
-                    "max-w-[75%] rounded-lg px-4 py-2 text-sm",
-                    msg.role === "user" ? "bg-blue-600 text-white" : "bg-[#252545] text-gray-200"
-                  )}>
-                    {msg.role === "assistant" && <Volume2 className="w-3 h-3 inline mr-1 text-blue-400" />}
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-              {(chatMutation.isPending || ttsMutation.isPending) && (
-                <div className="flex justify-start">
-                  <div className="bg-[#252545] rounded-lg px-4 py-2 flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-                    <span className="text-xs text-gray-400">{ttsMutation.isPending ? "Speaking..." : "Thinking..."}</span>
-                  </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            <div className="p-3 border-t border-gray-800 flex gap-2 shrink-0">
-              <button
-                onMouseDown={startRecording}
-                onMouseUp={stopRecording}
-                onMouseLeave={() => isRecording && stopRecording()}
-                onTouchStart={startRecording}
-                onTouchEnd={stopRecording}
-                disabled={chatMutation.isPending || isPlaying}
-                data-testid="button-voice-record"
-                className={cn(
-                  "p-2 rounded-lg transition-all",
-                  isRecording ? "bg-red-600 text-white animate-pulse" : "bg-[#252545] text-gray-400 hover:text-white hover:bg-[#353565]"
-                )}
-              >
-                <Mic className="w-5 h-5" />
-              </button>
-              <input
-                value={chatText}
-                onChange={(e) => setChatText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleTextSend()}
-                placeholder="Type or hold mic to speak..."
-                className="flex-1 bg-[#0a0a0f] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                data-testid="input-voice-text"
-              />
-              <Button onClick={handleTextSend} disabled={!chatText.trim() || chatMutation.isPending} size="sm" data-testid="button-voice-send">
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="bg-[#1a1a2e] rounded-lg border border-gray-800 p-3">
-        <h4 className="text-xs font-medium text-gray-400 mb-2">Quick Text-to-Speech</h4>
-        <div className="flex gap-2">
-          <input
-            value={ttsText}
-            onChange={(e) => setTtsText(e.target.value)}
-            placeholder="Type anything to hear it spoken..."
-            className="flex-1 bg-[#0a0a0f] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            data-testid="input-quick-tts"
-          />
-          <Button
-            onClick={() => ttsMutation.mutate({ inputText: ttsText, voice: currentVoice })}
-            disabled={!ttsText.trim() || ttsMutation.isPending || isPlaying}
-            size="sm"
-            data-testid="button-speak"
-          >
-            {isPlaying ? <Volume2 className="w-4 h-4 animate-pulse" /> : <Play className="w-4 h-4" />}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function MemoryTab({ userId }: { userId: string }) {
   const queryClient = useQueryClient();
