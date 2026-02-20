@@ -38,6 +38,9 @@ import AgentBuilder from "@/pages/AgentBuilder";
 import LiveStudio from "@/pages/LiveStudio";
 import MyAgents from "@/pages/MyAgents";
 import AgentMarketplace from "@/pages/AgentMarketplace";
+import AgentAppStore from "@/pages/AgentAppStore";
+import AgentDetail from "@/pages/AgentDetail";
+import CreatorDashboard from "@/pages/CreatorDashboard";
 
 function Router() {
   return (
@@ -62,6 +65,9 @@ function Router() {
       <Route path="/agent-builder" component={AgentBuilder} />
       <Route path="/my-agents" component={MyAgents} />
       <Route path="/agent-marketplace" component={AgentMarketplace} />
+      <Route path="/agent-store" component={AgentAppStore} />
+      <Route path="/agent-store/:id" component={AgentDetail} />
+      <Route path="/creator-dashboard" component={CreatorDashboard} />
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />

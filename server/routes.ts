@@ -29,6 +29,7 @@ import {
   marketplaceListings as marketplaceListings_table,
   agentPurchases as agentPurchases_table,
   transactions as transactions_table,
+  agentReviews as agentReviews_table,
 } from "@shared/schema";
 import { eq, desc, asc, sql } from "drizzle-orm";
 import * as debateOrchestrator from "./services/debate-orchestrator";
@@ -2727,6 +2728,267 @@ Keep under 200 words.`
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       res.json(await storage.getAgentUsageLogs(req.params.id, limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AGENT APP STORE ROUTES ----
+
+  const { agentRunnerService } = await import("./services/agent-runner-service");
+
+  app.get("/api/store/rankings", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const listings = await storage.getStoreRankings(limit);
+      const enriched = await Promise.all(listings.map(async (l) => {
+        const agent = await storage.getUserAgent(l.agentId);
+        const seller = await storage.getUser(l.sellerId);
+        return { ...l, agent, sellerName: seller?.displayName, qualityScore: agent ? agentRunnerService.computeQualityScore(l) : 0 };
+      }));
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/store/featured", async (req, res) => {
+    try {
+      const listings = await storage.getFeaturedListings();
+      const enriched = await Promise.all(listings.map(async (l) => {
+        const agent = await storage.getUserAgent(l.agentId);
+        const seller = await storage.getUser(l.sellerId);
+        return { ...l, agent, sellerName: seller?.displayName };
+      }));
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/store/trending", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const listings = await storage.getTrendingListings(limit);
+      const enriched = await Promise.all(listings.map(async (l) => {
+        const agent = await storage.getUserAgent(l.agentId);
+        const seller = await storage.getUser(l.sellerId);
+        return { ...l, agent, sellerName: seller?.displayName };
+      }));
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/store/search", async (req, res) => {
+    try {
+      const query = (req.query.q as string) || "";
+      const category = req.query.category as string | undefined;
+      if (!query) return res.json([]);
+      const listings = await storage.searchListings(query, category);
+      const enriched = await Promise.all(listings.map(async (l) => {
+        const agent = await storage.getUserAgent(l.agentId);
+        const seller = await storage.getUser(l.sellerId);
+        return { ...l, agent, sellerName: seller?.displayName };
+      }));
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AGENT REVIEWS ----
+
+  app.get("/api/store/reviews/:listingId", async (req, res) => {
+    try {
+      const reviews = await storage.getReviewsByListing(req.params.listingId);
+      const enriched = await Promise.all(reviews.map(async (r) => {
+        const reviewer = await storage.getUser(r.reviewerId);
+        return { ...r, reviewerName: reviewer?.displayName, reviewerAvatar: reviewer?.avatar };
+      }));
+      res.json(enriched);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/store/reviews", async (req, res) => {
+    try {
+      const { agentId, listingId, reviewerId, rating, title, content } = req.body;
+      if (!agentId || !listingId || !reviewerId || !rating) {
+        return res.status(400).json({ error: "agentId, listingId, reviewerId, and rating required" });
+      }
+      if (rating < 1 || rating > 5) return res.status(400).json({ error: "Rating must be 1-5" });
+      const hasPurchased = await storage.hasUserPurchasedAgent(reviewerId, agentId);
+      if (!hasPurchased) return res.status(403).json({ error: "Must purchase agent before reviewing" });
+
+      const review = await db.transaction(async (tx) => {
+        const [created] = await tx.insert(agentReviews_table).values({ agentId, listingId, reviewerId, rating, title, content }).returning();
+
+        const allReviews = await tx.select().from(agentReviews_table).where(eq(agentReviews_table.listingId, listingId));
+        const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+        const reviewCount = allReviews.length;
+
+        await tx.update(marketplaceListings_table)
+          .set({ averageRating: avgRating, reviewCount })
+          .where(eq(marketplaceListings_table.id, listingId));
+
+        const [agent] = await tx.select().from(userAgents_table).where(eq(userAgents_table.id, agentId));
+        if (agent) {
+          const trustScore = agentRunnerService.computeTrustScore({ ...agent, rating: avgRating, ratingCount: reviewCount });
+          await tx.update(userAgents_table)
+            .set({ rating: avgRating, ratingCount: reviewCount, trustScore })
+            .where(eq(userAgents_table.id, agentId));
+        }
+
+        return created;
+      });
+
+      res.json(review);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AGENT VERSIONS ----
+
+  app.get("/api/user-agents/:id/versions", async (req, res) => {
+    try {
+      res.json(await storage.getAgentVersions(req.params.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/user-agents/:id/versions", async (req, res) => {
+    try {
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      const { version, changelog, publisherId } = req.body;
+      if (!version || !publisherId) return res.status(400).json({ error: "version and publisherId required" });
+      if (agent.ownerId !== publisherId) return res.status(403).json({ error: "Not authorized" });
+      const agentVersion = await storage.createAgentVersion({
+        agentId: req.params.id,
+        version,
+        changelog,
+        systemPrompt: agent.systemPrompt,
+        model: agent.model,
+        temperature: agent.temperature,
+        skills: agent.skills,
+        publishedBy: publisherId,
+      });
+      await storage.updateUserAgent(req.params.id, { version, changelog });
+      res.json(agentVersion);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AGENT RUNNER (Cost-Controlled AI Execution) ----
+
+  app.post("/api/agent-runner/run", async (req, res) => {
+    try {
+      const { agentId, message, callerId } = req.body;
+      if (!agentId || !message || !callerId) return res.status(400).json({ error: "agentId, message, and callerId required" });
+      const result = await agentRunnerService.runAgent(agentId, message, callerId);
+      res.json(result);
+    } catch (err: any) {
+      if (err.message?.includes("Insufficient credits") || err.message?.includes("paused")) {
+        return res.status(402).json({ error: err.message });
+      }
+      handleServiceError(res, err);
+    }
+  });
+
+  app.post("/api/agent-runner/demo", async (req, res) => {
+    try {
+      const { agentId, message } = req.body;
+      if (!agentId || !message) return res.status(400).json({ error: "agentId and message required" });
+      const result = await agentRunnerService.runDemoInteraction(agentId, message);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agent-runner/estimate", async (req, res) => {
+    try {
+      const model = (req.query.model as string) || "gpt-4o";
+      const actionType = (req.query.action as string) || "chat";
+      res.json({ credits: agentRunnerService.estimateCost(model, actionType), model, actionType });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agent-runner/estimate-training", async (req, res) => {
+    try {
+      const { sourceCount, totalChars } = req.body;
+      res.json(agentRunnerService.estimateTrainingCost(sourceCount || 1, totalChars || 1000));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- COST CONTROL & CREATOR ANALYTICS ----
+
+  app.get("/api/agent-costs/:ownerId", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const logs = await storage.getAgentCostLogs(req.params.ownerId, limit);
+      const totalSpent = logs.reduce((sum, l) => sum + l.creditsCharged, 0);
+      const byModel: Record<string, number> = {};
+      const byAction: Record<string, number> = {};
+      logs.forEach(l => {
+        byModel[l.model || "unknown"] = (byModel[l.model || "unknown"] || 0) + l.creditsCharged;
+        byAction[l.actionType] = (byAction[l.actionType] || 0) + l.creditsCharged;
+      });
+      res.json({ totalSpent, byModel, byAction, logs });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/creator-analytics/:userId", async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const agents = await storage.getUserAgentsByOwner(userId);
+      const sales = await storage.getAgentPurchasesBySeller(userId);
+      const costLogs = await storage.getAgentCostLogs(userId, 200);
+
+      const totalAgents = agents.length;
+      const activeAgents = agents.filter(a => a.status === "active").length;
+      const pausedAgents = agents.filter(a => a.status === "paused").length;
+      const totalUsage = agents.reduce((sum, a) => sum + a.totalUsageCount, 0);
+      const totalEarnings = sales.reduce((sum, s) => sum + s.sellerEarnings, 0);
+      const totalCosts = costLogs.reduce((sum, l) => sum + l.creditsCharged, 0);
+      const netRevenue = totalEarnings - totalCosts;
+      const avgRating = agents.length > 0
+        ? agents.reduce((sum, a) => sum + a.rating, 0) / agents.filter(a => a.ratingCount > 0).length || 0
+        : 0;
+      const totalReviews = agents.reduce((sum, a) => sum + a.ratingCount, 0);
+      const totalSales = sales.length;
+
+      const agentStats = agents.map(a => ({
+        id: a.id,
+        name: a.name,
+        status: a.status,
+        usage: a.totalUsageCount,
+        earned: a.totalCreditsEarned,
+        rating: a.rating,
+        reviews: a.ratingCount,
+        trustScore: a.trustScore,
+        version: a.version,
+      }));
+
+      const recentSales = sales.slice(0, 20).map(s => ({
+        id: s.id,
+        creditsPaid: s.creditsPaid,
+        sellerEarnings: s.sellerEarnings,
+        platformFee: s.platformFee,
+        createdAt: s.createdAt,
+      }));
+
+      res.json({
+        totalAgents, activeAgents, pausedAgents,
+        totalUsage, totalEarnings, totalCosts, netRevenue,
+        avgRating, totalReviews, totalSales,
+        agentStats, recentSales,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/agent-cost-analytics", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const allAgents = await db.select().from(userAgents_table);
+      const totalAgents = allAgents.length;
+      const activeAgents = allAgents.filter(a => a.status === "active").length;
+      const pausedAgents = allAgents.filter(a => a.status === "paused").length;
+      const totalUsage = allAgents.reduce((sum, a) => sum + a.totalUsageCount, 0);
+      const totalEarned = allAgents.reduce((sum, a) => sum + a.totalCreditsEarned, 0);
+      const avgTrustScore = totalAgents > 0 ? allAgents.reduce((sum, a) => sum + a.trustScore, 0) / totalAgents : 0;
+
+      res.json({
+        totalAgents, activeAgents, pausedAgents,
+        totalUsage, totalEarned, avgTrustScore: Math.round(avgTrustScore),
+        creditCosts: agentRunnerService.CREDIT_COSTS,
+      });
     } catch (err) { handleServiceError(res, err); }
   });
 

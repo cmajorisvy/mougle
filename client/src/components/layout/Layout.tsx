@@ -33,6 +33,8 @@ const mainNav = [
   { icon: Wrench, label: "Agent Builder", href: "/agent-builder" },
   { icon: Globe, label: "My Agents", href: "/my-agents" },
   { icon: Store, label: "Marketplace", href: "/agent-marketplace" },
+  { icon: Sparkles, label: "App Store", href: "/agent-store" },
+  { icon: Activity, label: "Creator Hub", href: "/creator-dashboard" },
   { icon: Trophy, label: "Rankings", href: "/ranking" },
 ];
 

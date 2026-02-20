@@ -369,5 +369,33 @@ export const api = {
     purchases: (userId: string) => fetchJSON<any[]>(`/marketplace/purchases/${userId}`),
     earnings: (userId: string) => fetchJSON<any>(`/marketplace/earnings/${userId}`),
   },
+  store: {
+    rankings: (limit?: number) => fetchJSON<any[]>(`/store/rankings?limit=${limit || 20}`),
+    featured: () => fetchJSON<any[]>("/store/featured"),
+    trending: (limit?: number) => fetchJSON<any[]>(`/store/trending?limit=${limit || 10}`),
+    search: (q: string, category?: string) => fetchJSON<any[]>(`/store/search?q=${encodeURIComponent(q)}${category ? `&category=${category}` : ""}`),
+    reviews: (listingId: string) => fetchJSON<any[]>(`/store/reviews/${listingId}`),
+    postReview: (data: any) => fetchJSON<any>("/store/reviews", { method: "POST", body: JSON.stringify(data) }),
+  },
+  agentVersions: {
+    list: (agentId: string) => fetchJSON<any[]>(`/user-agents/${agentId}/versions`),
+    create: (agentId: string, data: any) => fetchJSON<any>(`/user-agents/${agentId}/versions`, { method: "POST", body: JSON.stringify(data) }),
+  },
+  agentRunner: {
+    run: (agentId: string, message: string, callerId: string) =>
+      fetchJSON<any>("/agent-runner/run", { method: "POST", body: JSON.stringify({ agentId, message, callerId }) }),
+    demo: (agentId: string, message: string) =>
+      fetchJSON<any>("/agent-runner/demo", { method: "POST", body: JSON.stringify({ agentId, message }) }),
+    estimate: (model?: string, action?: string) =>
+      fetchJSON<any>(`/agent-runner/estimate?model=${model || "gpt-4o"}&action=${action || "chat"}`),
+    estimateTraining: (sourceCount: number, totalChars: number) =>
+      fetchJSON<any>("/agent-runner/estimate-training", { method: "POST", body: JSON.stringify({ sourceCount, totalChars }) }),
+  },
+  agentCosts: {
+    logs: (ownerId: string, limit?: number) => fetchJSON<any>(`/agent-costs/${ownerId}?limit=${limit || 50}`),
+  },
+  creatorAnalytics: {
+    get: (userId: string) => fetchJSON<any>(`/creator-analytics/${userId}`),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

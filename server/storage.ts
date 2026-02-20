@@ -87,6 +87,10 @@ import {
   subscriptionPlans, userSubscriptions, creditPackages, creditPurchases, invoices, creditUsageLog,
   moderationLogs,
   userAgents, agentKnowledgeSources, marketplaceListings, agentPurchases, agentUsageLogs,
+  agentReviews, agentVersions, agentCostLogs,
+  type AgentReview, type InsertAgentReview,
+  type AgentVersion, type InsertAgentVersion,
+  type AgentCostLog, type InsertAgentCostLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -433,6 +437,22 @@ export interface IStorage {
 
   createAgentUsageLog(log: InsertAgentUsageLog): Promise<AgentUsageLog>;
   getAgentUsageLogs(agentId: string, limit?: number): Promise<AgentUsageLog[]>;
+
+  createAgentReview(review: InsertAgentReview): Promise<AgentReview>;
+  getAgentReviews(agentId: string): Promise<AgentReview[]>;
+  getReviewsByListing(listingId: string): Promise<AgentReview[]>;
+
+  createAgentVersion(version: InsertAgentVersion): Promise<AgentVersion>;
+  getAgentVersions(agentId: string): Promise<AgentVersion[]>;
+
+  createAgentCostLog(log: InsertAgentCostLog): Promise<AgentCostLog>;
+  getAgentCostLogs(ownerId: string, limit?: number): Promise<AgentCostLog[]>;
+  getAgentCostLogsByAgent(agentId: string, limit?: number): Promise<AgentCostLog[]>;
+
+  getStoreRankings(limit?: number): Promise<MarketplaceListing[]>;
+  getFeaturedListings(): Promise<MarketplaceListing[]>;
+  getTrendingListings(limit?: number): Promise<MarketplaceListing[]>;
+  searchListings(query: string, category?: string): Promise<MarketplaceListing[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -1969,6 +1989,80 @@ export class DatabaseStorage implements IStorage {
 
   async getAgentUsageLogs(agentId: string, limit = 50): Promise<AgentUsageLog[]> {
     return db.select().from(agentUsageLogs).where(eq(agentUsageLogs.agentId, agentId)).orderBy(desc(agentUsageLogs.createdAt)).limit(limit);
+  }
+
+  async createAgentReview(review: InsertAgentReview): Promise<AgentReview> {
+    const [created] = await db.insert(agentReviews).values(review).returning();
+    return created;
+  }
+
+  async getAgentReviews(agentId: string): Promise<AgentReview[]> {
+    return db.select().from(agentReviews).where(eq(agentReviews.agentId, agentId)).orderBy(desc(agentReviews.createdAt));
+  }
+
+  async getReviewsByListing(listingId: string): Promise<AgentReview[]> {
+    return db.select().from(agentReviews).where(eq(agentReviews.listingId, listingId)).orderBy(desc(agentReviews.createdAt));
+  }
+
+  async createAgentVersion(version: InsertAgentVersion): Promise<AgentVersion> {
+    const [created] = await db.insert(agentVersions).values(version).returning();
+    return created;
+  }
+
+  async getAgentVersions(agentId: string): Promise<AgentVersion[]> {
+    return db.select().from(agentVersions).where(eq(agentVersions.agentId, agentId)).orderBy(desc(agentVersions.createdAt));
+  }
+
+  async createAgentCostLog(log: InsertAgentCostLog): Promise<AgentCostLog> {
+    const [created] = await db.insert(agentCostLogs).values(log).returning();
+    return created;
+  }
+
+  async getAgentCostLogs(ownerId: string, limit = 50): Promise<AgentCostLog[]> {
+    return db.select().from(agentCostLogs).where(eq(agentCostLogs.ownerId, ownerId)).orderBy(desc(agentCostLogs.createdAt)).limit(limit);
+  }
+
+  async getAgentCostLogsByAgent(agentId: string, limit = 50): Promise<AgentCostLog[]> {
+    return db.select().from(agentCostLogs).where(eq(agentCostLogs.agentId, agentId)).orderBy(desc(agentCostLogs.createdAt)).limit(limit);
+  }
+
+  async getStoreRankings(limit = 20): Promise<MarketplaceListing[]> {
+    return db.select().from(marketplaceListings)
+      .where(eq(marketplaceListings.status, "active"))
+      .orderBy(sql`(${marketplaceListings.totalSales} * 0.4 + ${marketplaceListings.averageRating} * 20 * 0.3 + ${marketplaceListings.reviewCount} * 0.3) DESC`)
+      .limit(limit);
+  }
+
+  async getFeaturedListings(): Promise<MarketplaceListing[]> {
+    return db.select().from(marketplaceListings)
+      .where(and(eq(marketplaceListings.status, "active"), eq(marketplaceListings.featured, true)))
+      .orderBy(desc(marketplaceListings.totalSales));
+  }
+
+  async getTrendingListings(limit = 10): Promise<MarketplaceListing[]> {
+    return db.select().from(marketplaceListings)
+      .where(eq(marketplaceListings.status, "active"))
+      .orderBy(desc(marketplaceListings.totalSales))
+      .limit(limit);
+  }
+
+  async searchListings(query: string, category?: string): Promise<MarketplaceListing[]> {
+    const searchPattern = `%${query.toLowerCase()}%`;
+    if (category) {
+      return db.select().from(marketplaceListings).where(
+        and(
+          eq(marketplaceListings.status, "active"),
+          eq(marketplaceListings.category, category),
+          sql`(LOWER(${marketplaceListings.title}) LIKE ${searchPattern} OR LOWER(${marketplaceListings.description}) LIKE ${searchPattern})`
+        )
+      ).orderBy(desc(marketplaceListings.totalSales));
+    }
+    return db.select().from(marketplaceListings).where(
+      and(
+        eq(marketplaceListings.status, "active"),
+        sql`(LOWER(${marketplaceListings.title}) LIKE ${searchPattern} OR LOWER(${marketplaceListings.description}) LIKE ${searchPattern})`
+      )
+    ).orderBy(desc(marketplaceListings.totalSales));
   }
 }
 

@@ -1278,11 +1278,52 @@ export const agentUsageLogs = pgTable("agent_usage_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertUserAgentSchema = createInsertSchema(userAgents).omit({ id: true, createdAt: true, updatedAt: true, totalUsageCount: true, totalCreditsEarned: true, rating: true, ratingCount: true });
+export const agentReviews = pgTable("agent_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  listingId: varchar("listing_id").notNull(),
+  reviewerId: varchar("reviewer_id").notNull(),
+  rating: integer("rating").notNull(),
+  title: text("title"),
+  content: text("content"),
+  helpful: integer("helpful").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentVersions = pgTable("agent_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  version: text("version").notNull(),
+  changelog: text("changelog"),
+  systemPrompt: text("system_prompt"),
+  model: text("model"),
+  temperature: real("temperature"),
+  skills: text("skills").array(),
+  publishedBy: varchar("published_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentCostLogs = pgTable("agent_cost_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  actionType: text("action_type").notNull(),
+  creditsCharged: integer("credits_charged").notNull(),
+  tokensUsed: integer("tokens_used"),
+  model: text("model"),
+  status: text("status").notNull().default("completed"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserAgentSchema = createInsertSchema(userAgents).omit({ id: true, createdAt: true, updatedAt: true, totalUsageCount: true, totalCreditsEarned: true, rating: true, ratingCount: true, trustScore: true, qualityScore: true, weeklyUsageCount: true, monthlyUsageCount: true });
 export const insertAgentKnowledgeSourceSchema = createInsertSchema(agentKnowledgeSources).omit({ id: true, createdAt: true, processedAt: true });
-export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({ id: true, createdAt: true, updatedAt: true, totalSales: true, totalRevenue: true });
+export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({ id: true, createdAt: true, updatedAt: true, totalSales: true, totalRevenue: true, averageRating: true, reviewCount: true });
 export const insertAgentPurchaseSchema = createInsertSchema(agentPurchases).omit({ id: true, createdAt: true });
 export const insertAgentUsageLogSchema = createInsertSchema(agentUsageLogs).omit({ id: true, createdAt: true });
+export const insertAgentReviewSchema = createInsertSchema(agentReviews).omit({ id: true, createdAt: true, helpful: true });
+export const insertAgentVersionSchema = createInsertSchema(agentVersions).omit({ id: true, createdAt: true });
+export const insertAgentCostLogSchema = createInsertSchema(agentCostLogs).omit({ id: true, createdAt: true });
 
 export type UserAgent = typeof userAgents.$inferSelect;
 export type InsertUserAgent = z.infer<typeof insertUserAgentSchema>;
@@ -1294,5 +1335,11 @@ export type AgentPurchase = typeof agentPurchases.$inferSelect;
 export type InsertAgentPurchase = z.infer<typeof insertAgentPurchaseSchema>;
 export type AgentUsageLog = typeof agentUsageLogs.$inferSelect;
 export type InsertAgentUsageLog = z.infer<typeof insertAgentUsageLogSchema>;
+export type AgentReview = typeof agentReviews.$inferSelect;
+export type InsertAgentReview = z.infer<typeof insertAgentReviewSchema>;
+export type AgentVersion = typeof agentVersions.$inferSelect;
+export type InsertAgentVersion = z.infer<typeof insertAgentVersionSchema>;
+export type AgentCostLog = typeof agentCostLogs.$inferSelect;
+export type InsertAgentCostLog = z.infer<typeof insertAgentCostLogSchema>;
 
 export * from "./models/chat";
