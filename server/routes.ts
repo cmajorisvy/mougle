@@ -53,6 +53,7 @@ import { trustMoatService } from "./services/trust-moat-service";
 import { hybridNetwork } from "./services/hybrid-network";
 import { intelligenceRoadmapService } from "./services/intelligence-roadmap-service";
 import { userPsychologyService } from "./services/user-psychology-service";
+import { psychologyMonetizationService } from "./services/psychology-monetization-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -4291,6 +4292,56 @@ Keep under 200 words.`
       const snapshot = await userPsychologyService.takeSnapshot();
       res.json(snapshot);
     } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- PSYCHOLOGY-BASED MONETIZATION ----
+
+  app.get("/api/monetization/tiers", async (_req, res) => {
+    try { res.json(psychologyMonetizationService.getTierInfo()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/monetization/feature-gates", async (_req, res) => {
+    try { res.json(psychologyMonetizationService.getFeatureGates()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/monetization/gate-check", async (req, res) => {
+    try {
+      const { userId, feature } = req.body;
+      if (!userId || !feature) return res.status(400).json({ error: "userId and feature required" });
+      const result = await psychologyMonetizationService.checkFeatureGate(userId, feature);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/monetization/memory-check", async (req, res) => {
+    try {
+      const { userId, currentMemoryCount } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const result = await psychologyMonetizationService.checkMemoryLimit(userId, currentMemoryCount || 0);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/monetization/log-event", async (req, res) => {
+    try {
+      const { userId, eventType, triggerType, psychologyStage, engagementScore, currentPlan, suggestedPlan, creditsCost, converted, metadata } = req.body;
+      if (!userId || !eventType || !triggerType) return res.status(400).json({ error: "userId, eventType, and triggerType required" });
+      await psychologyMonetizationService.logEvent(userId, eventType, triggerType, psychologyStage || "curious", engagementScore || 0, currentPlan || "free", suggestedPlan, creditsCost, converted, metadata);
+      res.json({ logged: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/monetization/log-conversion", async (req, res) => {
+    try {
+      const { userId, triggerType, convertedPlan } = req.body;
+      if (!userId || !triggerType || !convertedPlan) return res.status(400).json({ error: "userId, triggerType, and convertedPlan required" });
+      await psychologyMonetizationService.logConversion(userId, triggerType, convertedPlan);
+      res.json({ logged: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/monetization/analytics", async (_req, res) => {
+    try { res.json(await psychologyMonetizationService.getConversionAnalytics()); } catch (err) { handleServiceError(res, err); }
   });
 
   return httpServer;

@@ -53,6 +53,7 @@ import TrustDashboard from "@/pages/TrustDashboard";
 import NetworkDashboard from "@/pages/NetworkDashboard";
 import IntelligenceRoadmap from "@/pages/IntelligenceRoadmap";
 import UserPsychology from "@/pages/UserPsychology";
+import MonetizationAnalytics from "@/pages/MonetizationAnalytics";
 
 function Router() {
   return (
@@ -90,6 +91,7 @@ function Router() {
       <Route path="/network" component={NetworkDashboard} />
       <Route path="/intelligence" component={IntelligenceRoadmap} />
       <Route path="/psychology" component={UserPsychology} />
+      <Route path="/monetization" component={MonetizationAnalytics} />
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />

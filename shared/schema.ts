@@ -2129,4 +2129,25 @@ export type InsertUserPsychologyProfile = z.infer<typeof insertUserPsychologyPro
 export type PsychologySnapshot = typeof psychologySnapshots.$inferSelect;
 export type InsertPsychologySnapshot = z.infer<typeof insertPsychologySnapshotSchema>;
 
+// ---- PSYCHOLOGY-BASED MONETIZATION ----
+
+export const monetizationEvents = pgTable("monetization_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  eventType: text("event_type").notNull(), // prompt_shown, prompt_clicked, conversion, credit_spend, feature_blocked
+  triggerType: text("trigger_type").notNull(), // memory_limit, advanced_reasoning, voice_access, agent_training, marketplace_publish
+  psychologyStage: text("psychology_stage").notNull(), // stage at time of event
+  engagementScore: real("engagement_score").notNull().default(0),
+  currentPlan: text("current_plan").notNull().default("free"),
+  suggestedPlan: text("suggested_plan"),
+  creditsCost: integer("credits_cost"),
+  converted: boolean("converted").notNull().default(false),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMonetizationEventSchema = createInsertSchema(monetizationEvents).omit({ id: true, createdAt: true });
+export type MonetizationEvent = typeof monetizationEvents.$inferSelect;
+export type InsertMonetizationEvent = z.infer<typeof insertMonetizationEventSchema>;
+
 export * from "./models/chat";
