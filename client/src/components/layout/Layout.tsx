@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Swords, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker, RefreshCw
+  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker, RefreshCw, Infinity
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -49,6 +49,7 @@ const mainNav = [
   { icon: Beaker, label: "Labs", href: "/labs", group: "Labs" },
   { icon: Store, label: "Labs App Store", href: "/labs/apps", group: "Labs" },
   { icon: RefreshCw, label: "Labs Flywheel", href: "/labs/flywheel", group: "Labs" },
+  { icon: Infinity, label: "Super-Loop", href: "/super-loop", group: "Labs" },
   // Trust & Privacy
   { icon: Shield, label: "Privacy Center", href: "/privacy-center", group: "Trust & Privacy" },
   { icon: ShieldCheck, label: "Trust Moat", href: "/trust-moat", group: "Trust & Privacy" },

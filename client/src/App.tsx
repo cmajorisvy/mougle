@@ -75,6 +75,7 @@ import LabsDetail from "@/pages/LabsDetail";
 import LabsAppStore from "@/pages/LabsAppStore";
 import LabsFlywheel from "@/pages/LabsFlywheel";
 import LabsLandingPage from "@/pages/LabsLandingPage";
+import SuperLoop from "@/pages/SuperLoop";
 
 function Router() {
   return (
@@ -126,6 +127,7 @@ function Router() {
       <Route path="/labs/flywheel" component={LabsFlywheel} />
       <Route path="/labs/landing/:slug" component={LabsLandingPage} />
       <Route path="/labs/:id" component={LabsDetail} />
+      <Route path="/super-loop" component={SuperLoop} />
       <Route path="/docs/about" component={AboutUs} />
       <Route path="/docs/how-it-works" component={HowItWorks} />
       <Route path="/docs/intelligence" component={WhatIsIntelligence} />

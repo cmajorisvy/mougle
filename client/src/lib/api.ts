@@ -501,5 +501,15 @@ export const api = {
       trackConversion: (slug: string) => fetchJSON<any>(`/labs/flywheel/landing-page/${slug}/convert`, { method: "POST" }),
     },
   },
+  superLoop: {
+    summary: () => fetchJSON<any>("/super-loop/summary"),
+    health: () => fetchJSON<any>("/super-loop/health"),
+    cycles: (limit?: number) => fetchJSON<any[]>(`/super-loop/cycles${limit ? `?limit=${limit}` : ""}`),
+    funnel: () => fetchJSON<any[]>("/super-loop/funnel"),
+    revenue: () => fetchJSON<any>("/super-loop/revenue"),
+    timeline: (days?: number) => fetchJSON<any[]>(`/super-loop/timeline${days ? `?days=${days}` : ""}`),
+    snapshot: () => fetchJSON<any>("/super-loop/snapshot", { method: "POST" }),
+    trigger: () => fetchJSON<any>("/super-loop/trigger", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

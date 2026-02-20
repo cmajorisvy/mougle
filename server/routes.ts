@@ -57,6 +57,7 @@ import { psychologyMonetizationService } from "./services/psychology-monetizatio
 import { riskManagementService } from "./services/risk-management-service";
 import { labsService } from "./services/labs-service";
 import { labsFlywheelService } from "./services/labs-flywheel-service";
+import { superLoopService } from "./services/super-loop-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -4832,6 +4833,64 @@ Keep under 200 words.`
     try {
       await labsFlywheelService.trackConversion(req.params.slug);
       res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/super-loop/summary", async (_req, res) => {
+    try {
+      const summary = await superLoopService.getSummary();
+      res.json(summary);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/super-loop/health", async (_req, res) => {
+    try {
+      const health = await superLoopService.getHealth();
+      res.json(health);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/super-loop/cycles", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const cycles = await superLoopService.getCycles(limit);
+      res.json(cycles);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/super-loop/funnel", async (_req, res) => {
+    try {
+      const funnel = await superLoopService.getCycleFunnel();
+      res.json(funnel);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/super-loop/revenue", async (_req, res) => {
+    try {
+      const revenue = await superLoopService.getRevenueAttribution();
+      res.json(revenue);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/super-loop/timeline", async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 14;
+      const timeline = await superLoopService.getTimeline(days);
+      res.json(timeline);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/super-loop/snapshot", async (_req, res) => {
+    try {
+      const snapshot = await superLoopService.captureSnapshot();
+      res.json(snapshot);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/super-loop/trigger", async (_req, res) => {
+    try {
+      const result = await superLoopService.triggerLoopScan();
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 

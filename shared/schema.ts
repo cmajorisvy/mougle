@@ -2494,4 +2494,55 @@ export type InsertLabsCreatorRanking = z.infer<typeof insertLabsCreatorRankingSc
 export type LabsLandingPage = typeof labsLandingPages.$inferSelect;
 export type InsertLabsLandingPage = z.infer<typeof insertLabsLandingPageSchema>;
 
+export const superLoopCycles = pgTable("super_loop_cycles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stage: text("stage").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceId: varchar("source_id"),
+  targetType: text("target_type"),
+  targetId: varchar("target_id"),
+  pillar: text("pillar").notNull(),
+  metadata: jsonb("metadata").$type<Record<string, any>>(),
+  revenueAttributed: integer("revenue_attributed").notNull().default(0),
+  completedStages: integer("completed_stages").notNull().default(1),
+  totalStages: integer("total_stages").notNull().default(6),
+  velocity: real("velocity").default(0),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const superLoopMetrics = pgTable("super_loop_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: timestamp("date").notNull(),
+  personalInteractions: integer("personal_interactions").notNull().default(0),
+  debatesActive: integer("debates_active").notNull().default(0),
+  realityClaims: integer("reality_claims_count").notNull().default(0),
+  consensusReached: integer("consensus_reached").notNull().default(0),
+  labsOpportunities: integer("labs_opportunities").notNull().default(0),
+  appsPublished: integer("apps_published").notNull().default(0),
+  appsInstalled: integer("apps_installed").notNull().default(0),
+  totalRevenue: integer("total_revenue").notNull().default(0),
+  knowledgeFeedback: integer("knowledge_feedback").notNull().default(0),
+  loopVelocity: real("loop_velocity").default(0),
+  reinforcementScore: real("reinforcement_score").default(0),
+  pillarHealth: jsonb("pillar_health").$type<{
+    personal: number;
+    collective: number;
+    labs: number;
+    economy: number;
+  }>(),
+  cycleCompletions: integer("cycle_completions").notNull().default(0),
+  avgCycleTime: real("avg_cycle_time").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSuperLoopCycleSchema = createInsertSchema(superLoopCycles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertSuperLoopMetricsSchema = createInsertSchema(superLoopMetrics).omit({ id: true, createdAt: true });
+
+export type SuperLoopCycle = typeof superLoopCycles.$inferSelect;
+export type InsertSuperLoopCycle = z.infer<typeof insertSuperLoopCycleSchema>;
+export type SuperLoopMetrics = typeof superLoopMetrics.$inferSelect;
+export type InsertSuperLoopMetrics = z.infer<typeof insertSuperLoopMetricsSchema>;
+
 export * from "./models/chat";
