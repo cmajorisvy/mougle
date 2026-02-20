@@ -11,7 +11,8 @@ import {
   Shield, ArrowLeft, Loader2, Activity, Brain,
   DollarSign, Users, Settings, Terminal, TrendingUp,
   TrendingDown, AlertTriangle, Eye, Zap, BarChart3,
-  Clock, Cpu, RefreshCw
+  Clock, Cpu, RefreshCw, OctagonX, CheckCircle2,
+  ShieldAlert, ShieldCheck, Ban, Bell
 } from "lucide-react";
 
 function useAdminAuth() {
@@ -28,7 +29,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "ai" | "economics" | "journey" | "config";
+type Tab = "overview" | "ai" | "economics" | "journey" | "config" | "panic";
 
 export default function FounderDebugConsole() {
   const { isAuthenticated, isLoading: authLoading } = useAdminAuth();
@@ -44,6 +45,7 @@ export default function FounderDebugConsole() {
     { id: "economics", label: "Economics", icon: DollarSign },
     { id: "journey", label: "User Journey", icon: Users },
     { id: "config", label: "Controls", icon: Settings },
+    { id: "panic", label: "Panic Button", icon: OctagonX },
   ];
 
   return (
@@ -84,6 +86,7 @@ export default function FounderDebugConsole() {
         {activeTab === "economics" && <EconomicsTab />}
         {activeTab === "journey" && <JourneyTab />}
         {activeTab === "config" && <ConfigTab />}
+        {activeTab === "panic" && <PanicButtonTab />}
       </div>
     </div>
   );
@@ -533,6 +536,218 @@ function ConfigTab() {
             type="number"
             onChange={(val: number) => updateMutation.mutate({ marginConfig: { alertBelowPercent: val } })}
             testId="input-alert-margin"
+          />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function PanicButtonTab() {
+  const { data: status, isLoading } = useQuery({
+    queryKey: ["panic-button-status"],
+    queryFn: () => api.admin.panicButton.status(),
+    refetchInterval: 10000,
+  });
+  const { data: modes } = useQuery({
+    queryKey: ["panic-button-modes"],
+    queryFn: () => api.admin.panicButton.modes(),
+  });
+  const { data: alerts, refetch: refetchAlerts } = useQuery({
+    queryKey: ["panic-button-alerts"],
+    queryFn: () => api.admin.panicButton.alerts({ limit: 20 }),
+    refetchInterval: 15000,
+  });
+  const { data: thresholds } = useQuery({
+    queryKey: ["panic-button-thresholds"],
+    queryFn: () => api.admin.panicButton.thresholds(),
+  });
+
+  const setModeMutation = useMutation({
+    mutationFn: (mode: string) => api.admin.panicButton.setMode(mode),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["panic-button-status"] });
+      queryClient.invalidateQueries({ queryKey: ["panic-button-alerts"] });
+    },
+  });
+
+  const ackMutation = useMutation({
+    mutationFn: (id: string) => api.admin.panicButton.acknowledgeAlert(id),
+    onSuccess: () => refetchAlerts(),
+  });
+
+  const thresholdMutation = useMutation({
+    mutationFn: (updates: any) => api.admin.panicButton.updateThresholds(updates),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["panic-button-thresholds"] }),
+  });
+
+  if (isLoading) return <LoadingSkeleton />;
+
+  const modeColors: Record<string, string> = {
+    NORMAL: "border-emerald-500/50 bg-emerald-500/10",
+    SAFE_MODE: "border-yellow-500/50 bg-yellow-500/10",
+    ECONOMY_PROTECTION: "border-orange-500/50 bg-orange-500/10",
+    EMERGENCY_FREEZE: "border-red-500/50 bg-red-500/10",
+  };
+  const modeTextColors: Record<string, string> = {
+    NORMAL: "text-emerald-400",
+    SAFE_MODE: "text-yellow-400",
+    ECONOMY_PROTECTION: "text-orange-400",
+    EMERGENCY_FREEZE: "text-red-400",
+  };
+  const modeIcons: Record<string, any> = {
+    NORMAL: ShieldCheck,
+    SAFE_MODE: ShieldAlert,
+    ECONOMY_PROTECTION: Shield,
+    EMERGENCY_FREEZE: Ban,
+  };
+
+  const currentMode = status?.mode || "NORMAL";
+
+  return (
+    <div className="space-y-6" data-testid="section-panic">
+      <h2 className="text-xl font-bold">Founder Panic Button</h2>
+
+      <Card className={`p-6 border-2 ${modeColors[currentMode]} bg-zinc-900/50`} data-testid="card-current-mode">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {(() => { const ModeIcon = modeIcons[currentMode]; return <ModeIcon className={`w-10 h-10 ${modeTextColors[currentMode]}`} />; })()}
+            <div>
+              <div className="text-xs text-zinc-500 uppercase tracking-wider">Current Platform Mode</div>
+              <div className={`text-2xl font-bold ${modeTextColors[currentMode]}`} data-testid="text-current-mode">
+                {status?.policy?.label || currentMode}
+              </div>
+              <div className="text-sm text-zinc-400 mt-1">{status?.policy?.description}</div>
+            </div>
+          </div>
+          <div className="text-right text-sm text-zinc-500">
+            <div>AI: <span className={status?.policy?.aiAllowed ? "text-emerald-400" : "text-red-400"}>{status?.policy?.aiAllowed ? "Allowed" : "Blocked"}</span></div>
+            <div>Agents: <span className={status?.policy?.agentsAllowed ? "text-emerald-400" : "text-red-400"}>{status?.policy?.agentsAllowed ? "Allowed" : "Blocked"}</span></div>
+            <div>Publishing: <span className={status?.policy?.publishingAllowed ? "text-emerald-400" : "text-red-400"}>{status?.policy?.publishingAllowed ? "Allowed" : "Blocked"}</span></div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3" data-testid="section-mode-buttons">
+        {modes?.map((mode: any) => {
+          const isActive = mode.mode === currentMode;
+          const ModeIcon = modeIcons[mode.mode] || Shield;
+          return (
+            <button
+              key={mode.mode}
+              onClick={() => { if (!isActive) setModeMutation.mutate(mode.mode); }}
+              disabled={isActive || setModeMutation.isPending}
+              data-testid={`button-mode-${mode.mode.toLowerCase()}`}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${
+                isActive
+                  ? `${modeColors[mode.mode]} ring-2 ring-offset-2 ring-offset-zinc-950 ${mode.mode === "NORMAL" ? "ring-emerald-500" : mode.mode === "SAFE_MODE" ? "ring-yellow-500" : mode.mode === "ECONOMY_PROTECTION" ? "ring-orange-500" : "ring-red-500"}`
+                  : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 cursor-pointer"
+              } ${setModeMutation.isPending ? "opacity-50" : ""}`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <ModeIcon className={`w-5 h-5 ${isActive ? modeTextColors[mode.mode] : "text-zinc-500"}`} />
+                <span className={`font-semibold text-sm ${isActive ? modeTextColors[mode.mode] : "text-zinc-300"}`}>{mode.label}</span>
+              </div>
+              <p className="text-xs text-zinc-500">{mode.description}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard
+          title="AI Cost Today"
+          value={`$${status?.health?.aiCostToday?.toFixed(4) || "0.0000"}`}
+          subtitle={status?.alerts?.aiCostWarning ? "WARNING: Near threshold" : "Within limits"}
+          icon={Brain}
+          color={status?.alerts?.aiCostWarning ? "yellow" : "green"}
+          testId="stat-panic-ai-cost"
+        />
+        <StatCard
+          title="Margin"
+          value={`${status?.health?.margin?.toFixed(1) || "0"}%`}
+          subtitle={status?.alerts?.marginWarning ? "WARNING: Below threshold" : "Healthy"}
+          icon={BarChart3}
+          color={status?.alerts?.marginWarning ? "red" : "green"}
+          testId="stat-panic-margin"
+        />
+        <StatCard
+          title="AI Requests"
+          value={String(status?.health?.aiRequests || 0)}
+          subtitle={status?.alerts?.activityWarning ? "WARNING: High activity" : "Normal"}
+          icon={Activity}
+          color={status?.alerts?.activityWarning ? "yellow" : "blue"}
+          testId="stat-panic-requests"
+        />
+      </div>
+
+      <Card className="bg-zinc-900/50 border-zinc-800 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-zinc-400 flex items-center gap-2">
+            <Bell className="w-4 h-4" /> Platform Alerts
+          </h3>
+          <Button variant="outline" size="sm" onClick={() => refetchAlerts()} data-testid="button-refresh-alerts">
+            <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+          </Button>
+        </div>
+        <div className="space-y-2 max-h-64 overflow-y-auto" data-testid="section-alerts">
+          {alerts && alerts.length > 0 ? alerts.map((alert: any) => {
+            const severityColors: Record<string, string> = {
+              critical: "bg-red-500/20 text-red-400 border-red-500/30",
+              warning: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+              info: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+            };
+            return (
+              <div key={alert.id} className="flex items-start justify-between py-2 border-b border-zinc-800/30" data-testid={`alert-${alert.id}`}>
+                <div className="flex items-start gap-3 flex-1">
+                  <Badge className={`text-xs ${severityColors[alert.severity] || severityColors.info}`}>{alert.severity}</Badge>
+                  <div>
+                    <div className="text-sm text-zinc-300">{alert.message}</div>
+                    <div className="text-xs text-zinc-500 mt-1">{new Date(alert.createdAt).toLocaleString()}</div>
+                  </div>
+                </div>
+                {!alert.acknowledged && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => ackMutation.mutate(alert.id)}
+                    className="text-xs text-zinc-400 hover:text-emerald-400"
+                    data-testid={`ack-alert-${alert.id}`}
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Ack
+                  </Button>
+                )}
+              </div>
+            );
+          }) : <p className="text-zinc-500 text-sm text-center py-4">No active alerts</p>}
+        </div>
+      </Card>
+
+      <Card className="bg-zinc-900/50 border-zinc-800 p-5">
+        <h3 className="text-sm font-semibold text-zinc-400 mb-4 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" /> Alert Thresholds
+        </h3>
+        <div className="space-y-4" data-testid="section-thresholds">
+          <ConfigRow
+            label="AI Cost Spike Threshold (USD)"
+            value={thresholds?.aiCostSpikeUsd}
+            type="number"
+            onChange={(val: number) => thresholdMutation.mutate({ aiCostSpikeUsd: val })}
+            testId="input-threshold-cost"
+          />
+          <ConfigRow
+            label="Agent Activity / Minute"
+            value={thresholds?.agentActivityPerMinute}
+            type="number"
+            onChange={(val: number) => thresholdMutation.mutate({ agentActivityPerMinute: val })}
+            testId="input-threshold-activity"
+          />
+          <ConfigRow
+            label="Margin Drop Alert %"
+            value={thresholds?.marginDropPercent}
+            type="number"
+            onChange={(val: number) => thresholdMutation.mutate({ marginDropPercent: val })}
+            testId="input-threshold-margin"
           />
         </div>
       </Card>

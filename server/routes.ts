@@ -73,6 +73,7 @@ import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
 import { intelligenceStackAnalytics } from "./services/intelligence-stack-analytics";
 import { founderDebugService } from "./services/founder-debug-service";
+import { panicButtonService } from "./services/panic-button-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -120,6 +121,16 @@ function resolveUser(req: any, res: any, next: any) {
   return res.status(401).json({ message: "Authentication required" });
 }
 
+function requireSystemMode(actionType: "ai" | "agent" | "publishing") {
+  return (req: any, res: any, next: any) => {
+    const check = panicButtonService.checkAction(actionType);
+    if (!check.allowed) {
+      return res.status(503).json({ message: check.reason, mode: check.mode, blocked: true });
+    }
+    next();
+  };
+}
+
 function handleServiceError(res: any, err: any) {
   if (err && typeof err === "object" && "status" in err) {
     return res.status(err.status).json({ message: err.message });
@@ -132,6 +143,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // Initialize panic button system
+  panicButtonService.initialize().catch(err => console.error("[PanicButton] Init error:", err));
 
   // ---- AUTH ----
   app.post("/api/auth/signup", async (req, res) => {
@@ -147,7 +161,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/agents/register", async (req, res) => {
+  app.post("/api/agents/register", requireSystemMode("agent"), async (req, res) => {
     try {
       const data = {
         ...req.body,
@@ -3288,7 +3302,7 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     res.json({ disclaimer: EXTERNAL_DISTRIBUTION_DISCLAIMER });
   });
 
-  app.post("/api/app-export/confirm", resolveUser, async (req: any, res) => {
+  app.post("/api/app-export/confirm", requireSystemMode("publishing"), resolveUser, async (req: any, res) => {
     try {
       const parsed = exportConfirmSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
@@ -4307,7 +4321,7 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/personal-agent/chat", async (req, res) => {
+  app.post("/api/personal-agent/chat", requireSystemMode("ai"), async (req, res) => {
     try {
       const userId = await requireProUser(req, res);
       if (!userId) return;
@@ -5550,6 +5564,68 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     try {
       const result = await superLoopService.triggerLoopScan();
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ── Panic Button System ──
+
+  app.get("/api/panic-button/status", requireAdmin, async (_req, res) => {
+    try {
+      res.json(panicButtonService.getStatus());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/panic-button/modes", requireAdmin, async (_req, res) => {
+    try {
+      res.json(panicButtonService.getAllModes());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/panic-button/set-mode", requireAdmin, async (req, res) => {
+    try {
+      const { mode } = z.object({ mode: z.enum(["NORMAL", "SAFE_MODE", "ECONOMY_PROTECTION", "EMERGENCY_FREEZE"]) }).parse(req.body);
+      const result = await panicButtonService.setMode(mode, "admin");
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/panic-button/alerts", requireAdmin, async (req, res) => {
+    try {
+      const limit = req.query.limit ? Number(req.query.limit) : 50;
+      const includeAcknowledged = req.query.all === "true";
+      const alerts = await panicButtonService.getAlerts(limit, includeAcknowledged);
+      res.json(alerts);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/panic-button/alerts/:id/acknowledge", requireAdmin, async (req, res) => {
+    try {
+      const alert = await panicButtonService.acknowledgeAlert(req.params.id, "admin");
+      if (!alert) return res.status(404).json({ message: "Alert not found" });
+      res.json(alert);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/panic-button/thresholds", requireAdmin, async (_req, res) => {
+    try {
+      res.json(panicButtonService.getThresholds());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/panic-button/thresholds", requireAdmin, async (req, res) => {
+    try {
+      const updated = await panicButtonService.updateThresholds(req.body);
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/panic-button/check/:action", async (req, res) => {
+    try {
+      const actionType = req.params.action as "ai" | "agent" | "publishing";
+      if (!["ai", "agent", "publishing"].includes(actionType)) {
+        return res.status(400).json({ message: "Invalid action type" });
+      }
+      res.json(panicButtonService.checkAction(actionType));
     } catch (err) { handleServiceError(res, err); }
   });
 

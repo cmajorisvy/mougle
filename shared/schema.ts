@@ -2785,4 +2785,33 @@ export const insertAppExportSchema = createInsertSchema(appExports).omit({ id: t
 export type AppExport = typeof appExports.$inferSelect;
 export type InsertAppExport = z.infer<typeof insertAppExportSchema>;
 
+export const systemSettings = pgTable("system_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedBy: varchar("updated_by"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({ id: true, updatedAt: true });
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
+
+export const platformAlerts = pgTable("platform_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(),
+  severity: text("severity").notNull().default("warning"),
+  message: text("message").notNull(),
+  details: jsonb("details"),
+  acknowledged: boolean("acknowledged").notNull().default(false),
+  acknowledgedBy: varchar("acknowledged_by"),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  autoTriggered: boolean("auto_triggered").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlatformAlertSchema = createInsertSchema(platformAlerts).omit({ id: true, createdAt: true });
+export type PlatformAlert = typeof platformAlerts.$inferSelect;
+export type InsertPlatformAlert = z.infer<typeof insertPlatformAlertSchema>;
+
 export * from "./models/chat";

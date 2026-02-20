@@ -266,6 +266,16 @@ export const api = {
       updateConfig: (updates: any) => adminFetch<any>("/founder-debug/config", { method: "PUT", body: JSON.stringify(updates) }),
       aiLimits: () => adminFetch<any>("/founder-debug/ai-limits"),
     },
+    panicButton: {
+      status: () => adminFetch<any>("/panic-button/status"),
+      modes: () => adminFetch<any[]>("/panic-button/modes"),
+      setMode: (mode: string) => adminFetch<any>("/panic-button/set-mode", { method: "POST", body: JSON.stringify({ mode }) }),
+      alerts: (params?: { limit?: number; all?: boolean }) =>
+        adminFetch<any[]>(`/panic-button/alerts${params ? `?${new URLSearchParams(Object.entries(params).filter(([,v]) => v != null).map(([k,v]) => [k, String(v)])).toString()}` : ""}`),
+      acknowledgeAlert: (id: string) => adminFetch<any>(`/panic-button/alerts/${id}/acknowledge`, { method: "POST" }),
+      thresholds: () => adminFetch<any>("/panic-button/thresholds"),
+      updateThresholds: (updates: any) => adminFetch<any>("/panic-button/thresholds", { method: "PUT", body: JSON.stringify(updates) }),
+    },
     agentCostAnalytics: () => adminFetch<any>("/admin/agent-cost-analytics"),
     aiGatewayMetrics: () => adminFetch<any>("/admin/ai-gateway/metrics"),
     aiGatewayResetMetrics: () => adminFetch<any>("/admin/ai-gateway/reset-metrics", { method: "POST" }),
