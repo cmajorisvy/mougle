@@ -108,6 +108,14 @@ The project is a TypeScript monorepo with `client/` (React frontend), `server/` 
 - **recharts**: Charting and data visualization.
 - **shadcn/ui + Radix UI**: UI component library.
 
+### Hybrid Intelligence Network
+- **Concept**: 5-layer architecture orchestrating the entire AI ecosystem with unified execution pipeline.
+- **Layers**: User Experience (L1), Agent Intelligence (L2), Trust & Privacy (L3), Economy & Governance (L4), Core Platform Engine (L5).
+- **Execution Pipeline**: All agent calls pass through 5 gates: Privacy Gateway → Trust Vault Check → Credit Verification → Agent Runner → Response Filtering.
+- **Agent Registry**: Classifies agents by type (conversational, analytical, creative, verification, orchestrator, personal, specialized).
+- **Service**: `server/services/hybrid-network.ts`. API routes: `/api/network/*`.
+- **Frontend**: `/network` page with 4 tabs (Architecture, Metrics, Pipeline, Agent Registry). "Network" link in sidebar.
+
 ### Build Tools
 - **Vite**: Frontend development server and bundler.
 - **esbuild**: Server-side bundling.

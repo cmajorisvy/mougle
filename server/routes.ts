@@ -50,6 +50,7 @@ import { agentTrustEngine } from "./services/agent-trust-engine";
 import { personalAgentService } from "./services/personal-agent-service";
 import { privacyGatewayService } from "./services/privacy-gateway-service";
 import { trustMoatService } from "./services/trust-moat-service";
+import { hybridNetwork } from "./services/hybrid-network";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -4143,6 +4144,47 @@ Keep under 200 words.`
     try {
       const health = await trustMoatService.computeFounderTrustHealth();
       res.json(health);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Hybrid Intelligence Network
+  app.get("/api/network/status", async (_req, res) => {
+    try {
+      const status = await hybridNetwork.getNetworkStatus();
+      res.json(status);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/network/layers/:layer", async (req, res) => {
+    try {
+      const detail = await hybridNetwork.getLayerDetail(req.params.layer as any);
+      res.json(detail);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/network/agents", async (_req, res) => {
+    try {
+      const registry = await hybridNetwork.getAgentRegistry();
+      res.json(registry);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/network/executions", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const history = await hybridNetwork.getExecutionHistory(limit);
+      res.json(history);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/network/execute", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const { agentId, message } = req.body;
+      if (!agentId || !message) return res.status(400).json({ message: "agentId and message required" });
+      const pipeline = await hybridNetwork.executeAgent(agentId, userId, message);
+      res.json(pipeline);
     } catch (err) { handleServiceError(res, err); }
   });
 
