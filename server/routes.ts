@@ -48,6 +48,7 @@ import { seedIndustryData } from "./services/industry-seed";
 import { industries, industryCategories, agentRoles as agentRolesTable, knowledgePacks, agentSkillNodes, agentSpecializations, agentCertifications, agentTrustProfiles, agentTrustEvents, agentTrustHistory } from "@shared/schema";
 import { agentTrustEngine } from "./services/agent-trust-engine";
 import { personalAgentService } from "./services/personal-agent-service";
+import { privacyGatewayService } from "./services/privacy-gateway-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -3859,6 +3860,166 @@ Keep under 200 words.`
       const limit = await personalAgentService.checkDailyLimit(userId, "message");
       const voiceLimit = await personalAgentService.checkDailyLimit(userId, "voice");
       res.json({ messages: limit, voice: voiceLimit });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ============ Privacy Framework Routes ============
+  function getPrivacyUserId(req: any, res: any): string | null {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) { res.status(401).json({ error: "Authentication required" }); return null; }
+    return userId;
+  }
+
+  app.get("/api/privacy/dashboard", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const dashboard = await privacyGatewayService.getDashboard(userId);
+      res.json(dashboard);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/privacy/vaults", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const vaults = await privacyGatewayService.getVaultsByOwner(userId);
+      res.json(vaults.map(v => ({ ...v, vaultKey: undefined })));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/privacy/vaults", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const { agentId, privacyMode } = req.body;
+      if (!agentId) return res.status(400).json({ error: "agentId required" });
+      const vault = await privacyGatewayService.initializeVault(userId, agentId, privacyMode || "personal");
+      res.json({ ...vault, vaultKey: undefined });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/privacy/vaults/:id/mode", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const { mode } = req.body;
+      if (!mode) return res.status(400).json({ error: "mode required" });
+      const vault = await privacyGatewayService.setPrivacyMode(req.params.id, userId, mode);
+      res.json({ ...vault, vaultKey: undefined });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/privacy/vaults/:id/restrictions", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const vault = await privacyGatewayService.updateRestrictions(req.params.id, userId, req.body);
+      res.json({ ...vault, vaultKey: undefined });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/privacy/vaults/:id", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const vault = await privacyGatewayService.getVault(req.params.id);
+      if (!vault || vault.ownerId !== userId) return res.status(403).json({ error: "Not authorized" });
+      await storage.deletePrivacyVault(req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/privacy/validate-access", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const { agentId, resourceType, action } = req.body;
+      if (!agentId) return res.status(400).json({ error: "agentId required" });
+      const result = await privacyGatewayService.validateAccess({
+        agentId,
+        requesterId: userId,
+        requesterType: "user",
+        resourceType: resourceType || "memory",
+        action: action || "read",
+      });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/privacy/access-logs", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await privacyGatewayService.getAccessLogs(userId, limit);
+      res.json(logs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/privacy/vaults/:id/access-logs", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const vault = await privacyGatewayService.getVault(req.params.id);
+      if (!vault || vault.ownerId !== userId) return res.status(403).json({ error: "Not authorized" });
+      const logs = await privacyGatewayService.getVaultAccessLogs(req.params.id);
+      res.json(logs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/privacy/violations", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const vaultId = req.query.vaultId as string | undefined;
+      const violations = await privacyGatewayService.getViolations(vaultId);
+      res.json(violations);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/privacy/violations/:id/resolve", async (req, res) => {
+    try {
+      const userId = getPrivacyUserId(req, res);
+      if (!userId) return;
+      const { actionTaken } = req.body;
+      const resolved = await privacyGatewayService.resolveViolation(req.params.id, actionTaken || "acknowledged");
+      res.json(resolved);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/privacy/founder/monitoring", async (req, res) => {
+    try {
+      const monitoring = await privacyGatewayService.getFounderMonitoring();
+      res.json(monitoring);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/privacy/gateway-rules", async (req, res) => {
+    try {
+      const rules = await storage.getPrivacyGatewayRules();
+      res.json(rules);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/privacy/gateway-rules", async (req, res) => {
+    try {
+      const rule = await privacyGatewayService.addGatewayRule(req.body);
+      res.json(rule);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/privacy/gateway-rules/:id", async (req, res) => {
+    try {
+      const rule = await privacyGatewayService.updateGatewayRule(req.params.id, req.body);
+      res.json(rule);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/privacy/gateway-rules/:id", async (req, res) => {
+    try {
+      await privacyGatewayService.deleteGatewayRule(req.params.id);
+      res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
 

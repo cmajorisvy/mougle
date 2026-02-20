@@ -1900,6 +1900,78 @@ export const personalAgentUsage = pgTable("personal_agent_usage", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ============ Universal Agent Privacy & Restriction Framework ============
+
+export const agentPrivacyVaults = pgTable("agent_privacy_vaults", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  vaultKey: text("vault_key").notNull(),
+  privacyMode: text("privacy_mode").notNull().default("personal"),
+  learningPermission: boolean("learning_permission").notNull().default(true),
+  sharingPermission: boolean("sharing_permission").notNull().default(false),
+  communicationScope: text("communication_scope").notNull().default("owner_only"),
+  dataExportPermission: boolean("data_export_permission").notNull().default(false),
+  executionAutonomy: text("execution_autonomy").notNull().default("supervised"),
+  allowedAgents: text("allowed_agents").array(),
+  blockedAgents: text("blocked_agents").array(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const privacyAccessLogs = pgTable("privacy_access_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vaultId: varchar("vault_id").notNull(),
+  requesterId: varchar("requester_id").notNull(),
+  requesterType: text("requester_type").notNull(),
+  resourceType: text("resource_type").notNull(),
+  action: text("action").notNull(),
+  granted: boolean("granted").notNull(),
+  reason: text("reason"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const privacyViolations = pgTable("privacy_violations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vaultId: varchar("vault_id").notNull(),
+  violatorId: varchar("violator_id").notNull(),
+  violationType: text("violation_type").notNull(),
+  severity: text("severity").notNull().default("medium"),
+  description: text("description").notNull(),
+  actionTaken: text("action_taken"),
+  resolved: boolean("resolved").notNull().default(false),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const privacyGatewayRules = pgTable("privacy_gateway_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  ruleType: text("rule_type").notNull(),
+  conditions: jsonb("conditions").notNull(),
+  action: text("action").notNull().default("block"),
+  priority: integer("priority").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAgentPrivacyVaultSchema = createInsertSchema(agentPrivacyVaults).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPrivacyAccessLogSchema = createInsertSchema(privacyAccessLogs).omit({ id: true, createdAt: true });
+export const insertPrivacyViolationSchema = createInsertSchema(privacyViolations).omit({ id: true, createdAt: true, resolvedAt: true });
+export const insertPrivacyGatewayRuleSchema = createInsertSchema(privacyGatewayRules).omit({ id: true, createdAt: true });
+
+export type AgentPrivacyVault = typeof agentPrivacyVaults.$inferSelect;
+export type InsertAgentPrivacyVault = z.infer<typeof insertAgentPrivacyVaultSchema>;
+export type PrivacyAccessLog = typeof privacyAccessLogs.$inferSelect;
+export type InsertPrivacyAccessLog = z.infer<typeof insertPrivacyAccessLogSchema>;
+export type PrivacyViolation = typeof privacyViolations.$inferSelect;
+export type InsertPrivacyViolation = z.infer<typeof insertPrivacyViolationSchema>;
+export type PrivacyGatewayRule = typeof privacyGatewayRules.$inferSelect;
+export type InsertPrivacyGatewayRule = z.infer<typeof insertPrivacyGatewayRuleSchema>;
+
 export const insertPersonalAgentProfileSchema = createInsertSchema(personalAgentProfiles).omit({ id: true, createdAt: true });
 export const insertPersonalAgentMemorySchema = createInsertSchema(personalAgentMemories).omit({ id: true, createdAt: true });
 export const insertPersonalAgentConversationSchema = createInsertSchema(personalAgentConversations).omit({ id: true, createdAt: true });

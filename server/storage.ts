@@ -121,6 +121,11 @@ import {
   personalAgentProfiles, personalAgentMemories, personalAgentConversations,
   personalAgentMessages, personalAgentTasks, personalAgentDevices,
   personalAgentFinance, personalAgentUsage,
+  type AgentPrivacyVault, type InsertAgentPrivacyVault,
+  type PrivacyAccessLog, type InsertPrivacyAccessLog,
+  type PrivacyViolation, type InsertPrivacyViolation,
+  type PrivacyGatewayRule, type InsertPrivacyGatewayRule,
+  agentPrivacyVaults, privacyAccessLogs, privacyViolations, privacyGatewayRules,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -544,6 +549,28 @@ export interface IStorage {
 
   createFlywheelOutcome(data: InsertFlywheelOptimizationOutcome): Promise<FlywheelOptimizationOutcome>;
   getFlywheelOutcomes(limit?: number): Promise<FlywheelOptimizationOutcome[]>;
+
+  // Privacy Framework
+  createPrivacyVault(data: InsertAgentPrivacyVault): Promise<AgentPrivacyVault>;
+  getPrivacyVault(id: string): Promise<AgentPrivacyVault | undefined>;
+  getPrivacyVaultByAgent(agentId: string): Promise<AgentPrivacyVault | undefined>;
+  getPrivacyVaultsByOwner(ownerId: string): Promise<AgentPrivacyVault[]>;
+  updatePrivacyVault(id: string, data: Partial<AgentPrivacyVault>): Promise<AgentPrivacyVault>;
+  deletePrivacyVault(id: string): Promise<void>;
+
+  createPrivacyAccessLog(data: InsertPrivacyAccessLog): Promise<PrivacyAccessLog>;
+  getPrivacyAccessLogs(vaultId: string, limit?: number): Promise<PrivacyAccessLog[]>;
+  getPrivacyAccessLogsByOwner(ownerId: string, limit?: number): Promise<PrivacyAccessLog[]>;
+
+  createPrivacyViolation(data: InsertPrivacyViolation): Promise<PrivacyViolation>;
+  getPrivacyViolations(vaultId?: string, limit?: number): Promise<PrivacyViolation[]>;
+  getUnresolvedViolations(): Promise<PrivacyViolation[]>;
+  resolvePrivacyViolation(id: string, actionTaken: string): Promise<PrivacyViolation>;
+
+  createPrivacyGatewayRule(data: InsertPrivacyGatewayRule): Promise<PrivacyGatewayRule>;
+  getPrivacyGatewayRules(): Promise<PrivacyGatewayRule[]>;
+  updatePrivacyGatewayRule(id: string, data: Partial<PrivacyGatewayRule>): Promise<PrivacyGatewayRule>;
+  deletePrivacyGatewayRule(id: string): Promise<void>;
 }
 
 function computeRank(reputation: number): string {
@@ -2520,6 +2547,78 @@ export class DatabaseStorage implements IStorage {
     await this.deleteAllPersonalAgentFinance(userId);
     await db.delete(personalAgentUsage).where(eq(personalAgentUsage.userId, userId));
     await this.deletePersonalAgentProfile(userId);
+  }
+
+  // Privacy Framework
+  async createPrivacyVault(data: InsertAgentPrivacyVault): Promise<AgentPrivacyVault> {
+    const [vault] = await db.insert(agentPrivacyVaults).values(data).returning();
+    return vault;
+  }
+  async getPrivacyVault(id: string): Promise<AgentPrivacyVault | undefined> {
+    const [vault] = await db.select().from(agentPrivacyVaults).where(eq(agentPrivacyVaults.id, id));
+    return vault;
+  }
+  async getPrivacyVaultByAgent(agentId: string): Promise<AgentPrivacyVault | undefined> {
+    const [vault] = await db.select().from(agentPrivacyVaults).where(eq(agentPrivacyVaults.agentId, agentId));
+    return vault;
+  }
+  async getPrivacyVaultsByOwner(ownerId: string): Promise<AgentPrivacyVault[]> {
+    return db.select().from(agentPrivacyVaults).where(eq(agentPrivacyVaults.ownerId, ownerId)).orderBy(desc(agentPrivacyVaults.createdAt));
+  }
+  async updatePrivacyVault(id: string, data: Partial<AgentPrivacyVault>): Promise<AgentPrivacyVault> {
+    const [updated] = await db.update(agentPrivacyVaults).set({ ...data, updatedAt: new Date() }).where(eq(agentPrivacyVaults.id, id)).returning();
+    return updated;
+  }
+  async deletePrivacyVault(id: string): Promise<void> {
+    await db.delete(agentPrivacyVaults).where(eq(agentPrivacyVaults.id, id));
+  }
+
+  async createPrivacyAccessLog(data: InsertPrivacyAccessLog): Promise<PrivacyAccessLog> {
+    const [log] = await db.insert(privacyAccessLogs).values(data).returning();
+    return log;
+  }
+  async getPrivacyAccessLogs(vaultId: string, limit = 100): Promise<PrivacyAccessLog[]> {
+    return db.select().from(privacyAccessLogs).where(eq(privacyAccessLogs.vaultId, vaultId)).orderBy(desc(privacyAccessLogs.createdAt)).limit(limit);
+  }
+  async getPrivacyAccessLogsByOwner(ownerId: string, limit = 100): Promise<PrivacyAccessLog[]> {
+    const vaults = await this.getPrivacyVaultsByOwner(ownerId);
+    const vaultIds = vaults.map(v => v.id);
+    if (vaultIds.length === 0) return [];
+    const { inArray } = await import("drizzle-orm");
+    return db.select().from(privacyAccessLogs).where(inArray(privacyAccessLogs.vaultId, vaultIds)).orderBy(desc(privacyAccessLogs.createdAt)).limit(limit);
+  }
+
+  async createPrivacyViolation(data: InsertPrivacyViolation): Promise<PrivacyViolation> {
+    const [violation] = await db.insert(privacyViolations).values(data).returning();
+    return violation;
+  }
+  async getPrivacyViolations(vaultId?: string, limit = 50): Promise<PrivacyViolation[]> {
+    if (vaultId) {
+      return db.select().from(privacyViolations).where(eq(privacyViolations.vaultId, vaultId)).orderBy(desc(privacyViolations.createdAt)).limit(limit);
+    }
+    return db.select().from(privacyViolations).orderBy(desc(privacyViolations.createdAt)).limit(limit);
+  }
+  async getUnresolvedViolations(): Promise<PrivacyViolation[]> {
+    return db.select().from(privacyViolations).where(eq(privacyViolations.resolved, false)).orderBy(desc(privacyViolations.createdAt));
+  }
+  async resolvePrivacyViolation(id: string, actionTaken: string): Promise<PrivacyViolation> {
+    const [resolved] = await db.update(privacyViolations).set({ resolved: true, actionTaken, resolvedAt: new Date() }).where(eq(privacyViolations.id, id)).returning();
+    return resolved;
+  }
+
+  async createPrivacyGatewayRule(data: InsertPrivacyGatewayRule): Promise<PrivacyGatewayRule> {
+    const [rule] = await db.insert(privacyGatewayRules).values(data).returning();
+    return rule;
+  }
+  async getPrivacyGatewayRules(): Promise<PrivacyGatewayRule[]> {
+    return db.select().from(privacyGatewayRules).where(eq(privacyGatewayRules.isActive, true)).orderBy(desc(privacyGatewayRules.priority));
+  }
+  async updatePrivacyGatewayRule(id: string, data: Partial<PrivacyGatewayRule>): Promise<PrivacyGatewayRule> {
+    const [updated] = await db.update(privacyGatewayRules).set(data).where(eq(privacyGatewayRules.id, id)).returning();
+    return updated;
+  }
+  async deletePrivacyGatewayRule(id: string): Promise<void> {
+    await db.delete(privacyGatewayRules).where(eq(privacyGatewayRules.id, id));
   }
 }
 

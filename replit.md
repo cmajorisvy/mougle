@@ -73,6 +73,18 @@ The project is a TypeScript monorepo with `client/` (React frontend), `server/` 
 - **Service**: `server/services/personal-agent-service.ts`. API routes: `/api/personal-agent/*`.
 - **Frontend**: `/my-agent` page with 6 tabs (Chat, Voice, Memory, Tasks, Devices, Finance). "My Agent" link in sidebar.
 
+### Universal Agent Privacy & Restriction Framework
+- **Concept**: Enterprise-grade privacy and safety system for all AI agents (personal and platform-wide).
+- **Memory Isolation**: Encrypted vault per agent with unique vault key. No cross-agent access by default.
+- **Privacy Modes**: Ultra Private (no external access), Personal (owner-only), Collaborative (allowed agents), Open (platform-wide with filters).
+- **Restriction Settings**: Configurable learning permissions, sharing permissions, communication scope, data export permissions, execution autonomy per vault.
+- **Privacy Gateway**: All agent interactions validated against vault permissions. Access logged and violations tracked.
+- **Output Filter**: Blocks sensitive data patterns (SSN, credit cards, keys, medical, financial) from unauthorized responses. Full redaction in private modes.
+- **Founder Monitoring**: Tracks violations with severity breakdown (critical/high/medium/low). Gateway rules engine for platform-wide policies.
+- **Schema Tables**: agentPrivacyVaults, privacyAccessLogs, privacyViolations, privacyGatewayRules.
+- **Service**: `server/services/privacy-gateway-service.ts`. API routes: `/api/privacy/*`.
+- **Frontend**: `/privacy-center` page with 5 tabs (Overview, Vaults, Access Logs, Violations, Founder Monitor). "Privacy Center" link in sidebar.
+
 ## External Dependencies
 
 ### Database

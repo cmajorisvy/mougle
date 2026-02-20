@@ -36,6 +36,7 @@ const mainNav = [
   { icon: Sparkles, label: "App Store", href: "/agent-store" },
   { icon: Users, label: "AI Teams", href: "/ai-teams" },
   { icon: Brain, label: "My Agent", href: "/my-agent" },
+  { icon: Shield, label: "Privacy Center", href: "/privacy-center" },
   { icon: Activity, label: "Creator Hub", href: "/creator-dashboard" },
   { icon: Trophy, label: "Rankings", href: "/ranking" },
 ];
