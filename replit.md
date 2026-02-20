@@ -60,6 +60,8 @@ PostgreSQL is used as the primary data store, managed with Drizzle ORM and `driz
 - shadcn/ui
 - Radix UI
 
+- **Unified Communication & Support System**: Centralized email and customer support infrastructure. Resend API integration with multiple sender identities (verify@, notify@, billing@, support@, noreply@, admin@). Email templates for welcome, verification, account verified, purchase confirmation, invoice, policy notification, admin alerts. All emails include Dig8opia logo, HTML layout, digital signature, and do-not-reply footer. Support ticket system with statuses OPEN, IN_PROGRESS, WAITING_USER, RESOLVED, CLOSED. AI reply assistant for founder (confirmation required before sending). Chat assistant on /support page. Admin ticket management with email test tool. Service at `server/services/email-service.ts` and `server/services/support-ticket-service.ts`. Pages at `/support` and `/admin/support`. API: `/api/support/*`, `/api/admin/support/*`, `/api/admin/email/test`. Schema: `support_tickets`, `ticket_messages` tables.
+
 ### Build Tools
 - Vite (frontend)
 - esbuild (server-side bundling)

@@ -625,5 +625,29 @@ export const api = {
     detectUpdates: () => adminFetch<any>("/admin/policy/detect-updates", { method: "POST" }),
     publicPolicy: (slug: string) => fetchJSON<any>(`/policy/${slug}`),
   },
+  support: {
+    createTicket: (data: { subject: string; description: string; category?: string; priority?: string }) =>
+      fetchJSON<any>("/support/tickets", { method: "POST", body: JSON.stringify(data) }),
+    getTickets: () => fetchJSON<any[]>("/support/tickets"),
+    getTicket: (id: string) => fetchJSON<any>(`/support/tickets/${id}`),
+    getMessages: (id: string) => fetchJSON<any[]>(`/support/tickets/${id}/messages`),
+    addMessage: (id: string, content: string) =>
+      fetchJSON<any>(`/support/tickets/${id}/messages`, { method: "POST", body: JSON.stringify({ content }) }),
+    chat: (message: string) => fetchJSON<{ reply: string }>("/support/chat", { method: "POST", body: JSON.stringify({ message }) }),
+  },
+  adminSupport: {
+    getTickets: (status?: string) => adminFetch<any[]>(`/admin/support/tickets${status ? `?status=${status}` : ""}`),
+    getStats: () => adminFetch<any>("/admin/support/stats"),
+    getTicket: (id: string) => adminFetch<any>(`/admin/support/tickets/${id}`),
+    getMessages: (id: string) => adminFetch<any[]>(`/admin/support/tickets/${id}/messages`),
+    reply: (id: string, content: string) =>
+      adminFetch<any>(`/admin/support/tickets/${id}/reply`, { method: "POST", body: JSON.stringify({ content }) }),
+    updateStatus: (id: string, status: string) =>
+      adminFetch<any>(`/admin/support/tickets/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
+    generateAiReply: (id: string) => adminFetch<{ reply: string }>(`/admin/support/tickets/${id}/ai-reply`, { method: "POST" }),
+    testEmail: (type: string, to: string, displayName: string) =>
+      adminFetch<any>("/admin/email/test", { method: "POST", body: JSON.stringify({ type, to, displayName }) }),
+    seedDemo: () => adminFetch<any>("/admin/support/demo-seed", { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

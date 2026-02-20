@@ -5846,5 +5846,243 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ SUPPORT TICKET SYSTEM ============
+  const { supportTicketService } = await import("./services/support-ticket-service");
+  const { emailService: emailSvc } = await import("./services/email-service");
+
+  app.post("/api/support/tickets", resolveUser, async (req: any, res) => {
+    try {
+      const { subject, description, category, priority } = req.body;
+      if (!subject || !description) return res.status(400).json({ error: "Subject and description required" });
+      const ticket = await supportTicketService.createTicket({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userName: req.user.username || req.user.displayName || "User",
+        subject, description, category, priority,
+      });
+      res.json(ticket);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/support/tickets", resolveUser, async (req: any, res) => {
+    try {
+      const tickets = await supportTicketService.getTicketsByUser(req.user.id);
+      res.json(tickets);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/support/tickets/:id", resolveUser, async (req: any, res) => {
+    try {
+      const ticket = await supportTicketService.getTicketById(req.params.id);
+      if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+      if (ticket.userId !== req.user.id && req.user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+      res.json(ticket);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/support/tickets/:id/messages", resolveUser, async (req: any, res) => {
+    try {
+      const ticket = await supportTicketService.getTicketById(req.params.id);
+      if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+      if (ticket.userId !== req.user.id && req.user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+      const messages = await supportTicketService.getTicketMessages(req.params.id);
+      res.json(messages);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/support/tickets/:id/messages", resolveUser, async (req: any, res) => {
+    try {
+      const { content } = req.body;
+      if (!content) return res.status(400).json({ error: "Content required" });
+      const ticket = await supportTicketService.getTicketById(req.params.id);
+      if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+      if (ticket.userId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+      const message = await supportTicketService.addMessage(req.params.id, {
+        senderType: "user",
+        senderName: req.user.username || "User",
+        content,
+      });
+      res.json(message);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Admin ticket management
+  app.get("/api/admin/support/tickets", requireAdmin, async (req, res) => {
+    try {
+      const tickets = await supportTicketService.getAllTickets({ status: req.query.status as string });
+      res.json(tickets);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/support/stats", requireAdmin, async (_req, res) => {
+    try {
+      res.json(await supportTicketService.getTicketStats());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/support/tickets/:id", requireAdmin, async (req, res) => {
+    try {
+      const ticket = await supportTicketService.getTicketById(req.params.id);
+      if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+      res.json(ticket);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/support/tickets/:id/messages", requireAdmin, async (req, res) => {
+    try {
+      res.json(await supportTicketService.getTicketMessages(req.params.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/support/tickets/:id/reply", requireAdmin, async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content) return res.status(400).json({ error: "Content required" });
+      const message = await supportTicketService.addMessage(req.params.id, {
+        senderType: "admin",
+        senderName: "Dig8opia Support",
+        content,
+      });
+      res.json(message);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/support/tickets/:id/status", requireAdmin, async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!status) return res.status(400).json({ error: "Status required" });
+      const ticket = await supportTicketService.updateStatus(req.params.id, status);
+      res.json(ticket);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/support/tickets/:id/ai-reply", requireAdmin, async (req, res) => {
+    try {
+      const reply = await supportTicketService.generateAiReply(req.params.id);
+      res.json({ reply });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Demo users and email test flow
+  app.post("/api/admin/support/demo-seed", requireAdmin, async (_req, res) => {
+    try {
+      const demoUsers = [
+        { userId: "demo-user-001", userEmail: "demo1@dig8opia.test", userName: "Alice Explorer", subject: "Cannot access AI agents", description: "I signed up for Pro plan but I still can't create AI agents. My dashboard shows the free plan features only.", category: "billing", priority: "high" },
+        { userId: "demo-user-002", userEmail: "demo2@dig8opia.test", userName: "Bob Creator", subject: "Labs app publish error", description: "When I try to publish my app from Labs, I get a 500 error. I've tried clearing cache and restarting but the issue persists.", category: "technical", priority: "medium" },
+        { userId: "demo-user-003", userEmail: "demo3@dig8opia.test", userName: "Carol Researcher", subject: "Feature request: Export debate transcripts", description: "It would be great if we could export debate transcripts as PDF or markdown. This would help for academic research purposes.", category: "feature_request", priority: "low" },
+      ];
+      const ticketResults = [];
+      for (const u of demoUsers) {
+        const ticket = await supportTicketService.createTicket(u);
+        ticketResults.push({ ticketId: ticket.id, user: u.userName, subject: u.subject });
+      }
+
+      const emailResults: { template: string; status: string; messageId?: string }[] = [];
+      const testEmail = "demo1@dig8opia.test";
+      const testName = "Alice Explorer";
+      const templates = [
+        { name: "welcome", fn: () => emailSvc.sendWelcomeEmail(testEmail, testName) },
+        { name: "verification", fn: () => emailSvc.sendVerificationEmail(testEmail, "123456", testName) },
+        { name: "account_verified", fn: () => emailSvc.sendAccountVerifiedEmail(testEmail, testName) },
+        { name: "purchase", fn: () => emailSvc.sendPurchaseConfirmation(testEmail, testName, { plan: "Pro", amount: "$19.99", transactionId: "TXN-DEMO-001", date: new Date().toLocaleDateString() }) },
+        { name: "invoice", fn: () => emailSvc.sendInvoiceEmail(testEmail, testName, { invoiceId: "INV-DEMO-001", amount: "$19.99", period: "Jan 2026", items: [{ name: "Pro Plan", amount: "$19.99" }] }) },
+        { name: "policy", fn: () => emailSvc.sendPolicyNotification(testEmail, testName, { title: "Privacy Policy", summary: "Updated data retention.", effectiveDate: "March 1, 2026" }) },
+        { name: "admin_alert", fn: () => emailSvc.sendAdminAlert(testEmail, { title: "Test Alert", severity: "medium", message: "Demo alert." }) },
+        { name: "password_reset", fn: () => emailSvc.sendPasswordResetEmail(testEmail, "demo-reset-token", testName) },
+        { name: "ticket_reply", fn: () => emailSvc.sendSupportTicketReply(testEmail, testName, { ticketId: "DEMO", subject: "Test", replyContent: "Demo reply." }) },
+        { name: "ticket_created", fn: () => emailSvc.sendTicketCreatedNotification(testEmail, testName, { ticketId: "DEMO", subject: "Test" }) },
+      ];
+      for (const t of templates) {
+        try {
+          const r = await t.fn();
+          emailResults.push({ template: t.name, status: "sent", messageId: r?.data?.id });
+        } catch (e: any) {
+          emailResults.push({ template: t.name, status: `failed: ${e.message}` });
+        }
+      }
+
+      res.json({
+        success: true,
+        tickets: ticketResults,
+        emailTests: emailResults,
+        message: "3 demo users with tickets created, all 10 email templates tested",
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Chat assistant endpoint
+  app.post("/api/support/chat", async (req, res) => {
+    try {
+      const { message } = req.body;
+      if (!message) return res.status(400).json({ error: "Message required" });
+
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      });
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are a helpful support assistant for Dig8opia, a Hybrid Intelligence Network platform. Help users with questions about the platform features, account issues, billing, and technical problems. Be concise, friendly, and professional. If you cannot resolve the issue, suggest the user create a support ticket for further assistance. Key features: Trust scoring, AI agents, reputation system, Labs app creation, creator tools, debates, and knowledge verification.`,
+          },
+          { role: "user", content: message },
+        ],
+        temperature: 0.7,
+        max_tokens: 300,
+      });
+      res.json({ reply: response.choices[0]?.message?.content || "I'm here to help! Could you tell me more about your issue?" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Email testing endpoint (admin only)
+  app.post("/api/admin/email/test", requireAdmin, async (req, res) => {
+    try {
+      const { type, to, displayName } = req.body;
+      if (!to || !displayName) return res.status(400).json({ error: "to and displayName required" });
+      let result;
+      switch (type) {
+        case "welcome":
+          result = await emailSvc.sendWelcomeEmail(to, displayName); break;
+        case "verification":
+          result = await emailSvc.sendVerificationEmail(to, "123456", displayName); break;
+        case "account_verified":
+          result = await emailSvc.sendAccountVerifiedEmail(to, displayName); break;
+        case "purchase":
+          result = await emailSvc.sendPurchaseConfirmation(to, displayName, {
+            plan: "Pro", amount: "$19.99", transactionId: "TXN-DEMO-001", date: new Date().toLocaleDateString(),
+          }); break;
+        case "invoice":
+          result = await emailSvc.sendInvoiceEmail(to, displayName, {
+            invoiceId: "INV-DEMO-001", amount: "$19.99", period: "Jan 2026",
+            items: [{ name: "Pro Plan (Monthly)", amount: "$19.99" }],
+          }); break;
+        case "policy":
+          result = await emailSvc.sendPolicyNotification(to, displayName, {
+            title: "Privacy Policy", summary: "Updated data retention and GDPR sections.", effectiveDate: "March 1, 2026",
+          }); break;
+        case "admin_alert":
+          result = await emailSvc.sendAdminAlert(to, {
+            title: "Test Alert", severity: "medium", message: "This is a test admin alert from Dig8opia.", actionUrl: "/admin/debug",
+          }); break;
+        case "password_reset":
+          result = await emailSvc.sendPasswordResetEmail(to, "demo-reset-token-123", displayName); break;
+        case "ticket_reply":
+          result = await emailSvc.sendSupportTicketReply(to, displayName, {
+            ticketId: "DEMO-001", subject: "Test Support Ticket", replyContent: "Thank you for reaching out. We've looked into your issue and it has been resolved.",
+          }); break;
+        case "ticket_created":
+          result = await emailSvc.sendTicketCreatedNotification(to, displayName, {
+            ticketId: "DEMO-001", subject: "Test Support Ticket",
+          }); break;
+        default:
+          return res.status(400).json({ error: "Invalid type. Use: welcome, verification, account_verified, purchase, invoice, policy, admin_alert, password_reset, ticket_reply, ticket_created" });
+      }
+      res.json({ success: true, result });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

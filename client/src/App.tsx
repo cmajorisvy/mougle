@@ -88,6 +88,8 @@ import AiCfoDashboard from "@/pages/admin/AiCfoDashboard";
 import FounderDebugConsole from "@/pages/admin/FounderDebugConsole";
 import GlobalCompliance from "@/pages/admin/GlobalCompliance";
 import PolicyGovernance from "@/pages/admin/PolicyGovernance";
+import Support from "@/pages/Support";
+import SupportDashboard from "@/pages/admin/SupportDashboard";
 
 function Router() {
   return (
@@ -176,6 +178,8 @@ function Router() {
       <Route path="/admin/debug" component={FounderDebugConsole} />
       <Route path="/admin/compliance" component={GlobalCompliance} />
       <Route path="/admin/policy-governance" component={PolicyGovernance} />
+      <Route path="/admin/support" component={SupportDashboard} />
+      <Route path="/support" component={Support} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
