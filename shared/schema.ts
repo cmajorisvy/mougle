@@ -2814,4 +2814,74 @@ export const insertPlatformAlertSchema = createInsertSchema(platformAlerts).omit
 export type PlatformAlert = typeof platformAlerts.$inferSelect;
 export type InsertPlatformAlert = z.infer<typeof insertPlatformAlertSchema>;
 
+export const complianceRules = pgTable("compliance_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: text("country_code").notNull(),
+  countryName: text("country_name").notNull(),
+  category: text("category").notNull(),
+  ruleKey: text("rule_key").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  sourceUrl: text("source_url"),
+  aiSummary: text("ai_summary"),
+  affectedModules: text("affected_modules").array(),
+  featureFlags: jsonb("feature_flags").$type<Record<string, boolean>>(),
+  status: text("status").notNull().default("pending_approval"),
+  severity: text("severity").notNull().default("medium"),
+  approvedBy: varchar("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  effectiveDate: timestamp("effective_date"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertComplianceRuleSchema = createInsertSchema(complianceRules).omit({ id: true, createdAt: true, updatedAt: true });
+export type ComplianceRule = typeof complianceRules.$inferSelect;
+export type InsertComplianceRule = z.infer<typeof insertComplianceRuleSchema>;
+
+export const complianceAuditLog = pgTable("compliance_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  action: text("action").notNull(),
+  ruleId: varchar("rule_id"),
+  countryCode: text("country_code"),
+  performedBy: varchar("performed_by"),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertComplianceAuditSchema = createInsertSchema(complianceAuditLog).omit({ id: true, createdAt: true });
+export type ComplianceAudit = typeof complianceAuditLog.$inferSelect;
+export type InsertComplianceAudit = z.infer<typeof insertComplianceAuditSchema>;
+
+export const complianceNotifications = pgTable("compliance_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  countryCode: text("country_code"),
+  ruleId: varchar("rule_id"),
+  targetAudience: text("target_audience").notNull().default("founder"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertComplianceNotificationSchema = createInsertSchema(complianceNotifications).omit({ id: true, createdAt: true });
+export type ComplianceNotification = typeof complianceNotifications.$inferSelect;
+export type InsertComplianceNotification = z.infer<typeof insertComplianceNotificationSchema>;
+
+export const ecoEfficiencyMetrics = pgTable("eco_efficiency_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  metricType: text("metric_type").notNull(),
+  value: real("value").notNull(),
+  unit: text("unit").notNull(),
+  savings: real("savings"),
+  recommendation: text("recommendation"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEcoEfficiencySchema = createInsertSchema(ecoEfficiencyMetrics).omit({ id: true, createdAt: true });
+export type EcoEfficiencyMetric = typeof ecoEfficiencyMetrics.$inferSelect;
+export type InsertEcoEfficiencyMetric = z.infer<typeof insertEcoEfficiencySchema>;
+
 export * from "./models/chat";
