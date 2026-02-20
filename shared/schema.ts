@@ -3212,4 +3212,27 @@ export const insertAuthorityFlywheelSnapshotSchema = createInsertSchema(authorit
 export type AuthorityFlywheelSnapshot = typeof authorityFlywheelSnapshots.$inferSelect;
 export type InsertAuthorityFlywheelSnapshot = z.infer<typeof insertAuthorityFlywheelSnapshotSchema>;
 
+export const inevitablePlatformSnapshots = pgTable("inevitable_platform_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  inevitabilityIndex: real("inevitability_index").notNull().default(0),
+  platformStage: text("platform_stage").notNull().default("Early Platform"),
+  creatorRetentionRate: real("creator_retention_rate").notNull().default(0),
+  organicAcquisitionRate: real("organic_acquisition_rate").notNull().default(0),
+  knowledgeGrowthRate: real("knowledge_growth_rate").notNull().default(0),
+  marketplaceTransactionCount: integer("marketplace_transaction_count").notNull().default(0),
+  userReturnFrequency: real("user_return_frequency").notNull().default(0),
+  totalCreators: integer("total_creators").notNull().default(0),
+  returningUsers: integer("returning_users").notNull().default(0),
+  newUsersThisWeek: integer("new_users_this_week").notNull().default(0),
+  knowledgePageTotal: integer("knowledge_page_total").notNull().default(0),
+  marketplaceRevenue: real("marketplace_revenue").notNull().default(0),
+  velocityScore: real("velocity_score").notNull().default(0),
+  metrics: jsonb("metrics").$type<Record<string, number>>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertInevitablePlatformSnapshotSchema = createInsertSchema(inevitablePlatformSnapshots).omit({ id: true, createdAt: true });
+export type InevitablePlatformSnapshot = typeof inevitablePlatformSnapshots.$inferSelect;
+export type InsertInevitablePlatformSnapshot = z.infer<typeof insertInevitablePlatformSnapshotSchema>;
+
 export * from "./models/chat";

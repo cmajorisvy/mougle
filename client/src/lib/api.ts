@@ -667,6 +667,11 @@ export const api = {
     extractSolution: (ticketId: string) => adminFetch<any>(`/admin/kb/extract/${ticketId}`, { method: "POST" }),
     generateArticle: (solutionIds: string[]) => adminFetch<any>("/admin/kb/generate-article", { method: "POST", body: JSON.stringify({ solutionIds }) }),
   },
+  adminInevitablePlatform: {
+    getAnalysis: () => adminFetch<any>("/admin/inevitable-platform"),
+    captureSnapshot: () => adminFetch<any>("/admin/inevitable-platform/snapshot", { method: "POST" }),
+    getHistory: (limit = 30) => adminFetch<any[]>(`/admin/inevitable-platform/history?limit=${limit}`),
+  },
   adminAuthorityFlywheel: {
     getAnalysis: () => adminFetch<any>("/admin/authority-flywheel"),
     captureSnapshot: () => adminFetch<any>("/admin/authority-flywheel/snapshot", { method: "POST" }),

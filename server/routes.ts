@@ -6217,6 +6217,24 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ INEVITABLE PLATFORM MONITOR ============
+  const { inevitablePlatformService } = await import("./services/inevitable-platform-service");
+
+  app.get("/api/admin/inevitable-platform", requireAdmin, async (_req, res) => {
+    try { res.json(await inevitablePlatformService.getFullAnalysis()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/inevitable-platform/snapshot", requireAdmin, async (_req, res) => {
+    try { res.json(await inevitablePlatformService.captureSnapshot()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/inevitable-platform/history", requireAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 30;
+      res.json(await inevitablePlatformService.getHistory(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ AUTHORITY FLYWHEEL ============
   const { authorityFlywheelService } = await import("./services/authority-flywheel-service");
 

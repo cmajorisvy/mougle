@@ -98,6 +98,7 @@ import BuildQueueDashboard from "@/pages/admin/BuildQueueDashboard";
 import MarketingEngine from "@/pages/admin/MarketingEngine";
 import SilentSeoDashboard from "@/pages/admin/SilentSeoDashboard";
 import AuthorityFlywheel from "@/pages/admin/AuthorityFlywheel";
+import InevitablePlatformMonitor from "@/pages/admin/InevitablePlatformMonitor";
 import MyBuilds from "@/pages/MyBuilds";
 
 function Router() {
@@ -196,6 +197,7 @@ function Router() {
       <Route path="/admin/marketing" component={MarketingEngine} />
       <Route path="/admin/seo" component={SilentSeoDashboard} />
       <Route path="/admin/authority-flywheel" component={AuthorityFlywheel} />
+      <Route path="/admin/inevitable-platform" component={InevitablePlatformMonitor} />
       <Route path="/my-builds" component={MyBuilds} />
       <Route path="/support" component={Support} />
       <Route path="/admin" component={AdminDashboard} />
