@@ -1529,6 +1529,97 @@ export const insertAgentReviewSchema = createInsertSchema(agentReviews).omit({ i
 export const insertAgentVersionSchema = createInsertSchema(agentVersions).omit({ id: true, createdAt: true });
 export const insertAgentCostLogSchema = createInsertSchema(agentCostLogs).omit({ id: true, createdAt: true });
 
+// ---- Autonomous Agent Collaboration (Teams) ----
+
+export const agentTeams = pgTable("agent_teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  taskDescription: text("task_description").notNull(),
+  status: text("status").notNull().default("forming"),
+  coordinatorId: varchar("coordinator_id"),
+  maxAgents: integer("max_agents").notNull().default(6),
+  maxRounds: integer("max_rounds").notNull().default(5),
+  currentRound: integer("current_round").notNull().default(0),
+  totalCreditsSpent: integer("total_credits_spent").notNull().default(0),
+  totalCreditsRewarded: integer("total_credits_rewarded").notNull().default(0),
+  qualityScore: real("quality_score"),
+  validationStatus: text("validation_status").default("pending"),
+  finalOutput: text("final_output"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const teamMembers = pgTable("team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull(),
+  agentId: varchar("agent_id").notNull(),
+  role: text("role").notNull(),
+  selectionScore: real("selection_score").notNull().default(0),
+  creditsEarned: integer("credits_earned").notNull().default(0),
+  tasksCompleted: integer("tasks_completed").notNull().default(0),
+  performanceRating: real("performance_rating"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+export const teamTasks = pgTable("team_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull(),
+  parentTaskId: varchar("parent_task_id"),
+  assignedAgentId: varchar("assigned_agent_id"),
+  title: text("title").notNull(),
+  description: text("description"),
+  taskType: text("task_type").notNull(),
+  status: text("status").notNull().default("pending"),
+  priority: integer("priority").notNull().default(0),
+  round: integer("round").notNull().default(1),
+  result: text("result"),
+  confidence: real("confidence"),
+  rewardValue: integer("reward_value").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const teamMessages = pgTable("team_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull(),
+  taskId: varchar("task_id"),
+  senderId: varchar("sender_id").notNull(),
+  recipientId: varchar("recipient_id"),
+  messageType: text("message_type").notNull(),
+  content: text("content").notNull(),
+  structuredData: jsonb("structured_data"),
+  round: integer("round").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const teamWorkspaces = pgTable("team_workspaces", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull(),
+  key: text("key").notNull(),
+  value: text("value"),
+  metadata: jsonb("metadata"),
+  contributorId: varchar("contributor_id"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAgentTeamSchema = createInsertSchema(agentTeams).omit({ id: true, createdAt: true, completedAt: true });
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, joinedAt: true });
+export const insertTeamTaskSchema = createInsertSchema(teamTasks).omit({ id: true, createdAt: true, completedAt: true });
+export const insertTeamMessageSchema = createInsertSchema(teamMessages).omit({ id: true, createdAt: true });
+export const insertTeamWorkspaceSchema = createInsertSchema(teamWorkspaces).omit({ id: true, updatedAt: true });
+
+export type AgentTeam = typeof agentTeams.$inferSelect;
+export type InsertAgentTeam = z.infer<typeof insertAgentTeamSchema>;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+export type TeamTask = typeof teamTasks.$inferSelect;
+export type InsertTeamTask = z.infer<typeof insertTeamTaskSchema>;
+export type TeamMessage = typeof teamMessages.$inferSelect;
+export type InsertTeamMessage = z.infer<typeof insertTeamMessageSchema>;
+export type TeamWorkspace = typeof teamWorkspaces.$inferSelect;
+export type InsertTeamWorkspace = z.infer<typeof insertTeamWorkspaceSchema>;
+
 export type UserAgent = typeof userAgents.$inferSelect;
 export type InsertUserAgent = z.infer<typeof insertUserAgentSchema>;
 export type AgentKnowledgeSource = typeof agentKnowledgeSources.$inferSelect;

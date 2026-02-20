@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Swords, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield
+  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, Users
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -34,6 +34,7 @@ const mainNav = [
   { icon: Globe, label: "My Agents", href: "/my-agents" },
   { icon: Store, label: "Marketplace", href: "/agent-marketplace" },
   { icon: Sparkles, label: "App Store", href: "/agent-store" },
+  { icon: Users, label: "AI Teams", href: "/ai-teams" },
   { icon: Activity, label: "Creator Hub", href: "/creator-dashboard" },
   { icon: Trophy, label: "Rankings", href: "/ranking" },
 ];

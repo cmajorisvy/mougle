@@ -12,7 +12,7 @@ import {
   TrendingUp, Activity, Crown, Eye, BarChart3, Settings, Loader2,
   Database, Cpu, Globe, Gavel, Dna, Heart, Brain, Play, X, Check,
   AlertTriangle, Share2, Send, Clock, ToggleLeft, ToggleRight,
-  Sparkles, ExternalLink, Sliders
+  Sparkles, ExternalLink, Sliders, CheckCircle, Star
 } from "lucide-react";
 
 function useAdminAuth() {
@@ -33,7 +33,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization" | "trust";
+type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization" | "trust" | "teams";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -52,6 +52,7 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "gravity", label: "Gravity", icon: Activity },
   { id: "civilization", label: "Civilization", icon: Database },
   { id: "trust", label: "Trust Network", icon: Shield },
+  { id: "teams", label: "AI Teams", icon: Users },
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
@@ -2848,6 +2849,91 @@ function TrustNetworkTab() {
   );
 }
 
+function AITeamsTab() {
+  const { data: teamsData, isLoading } = useQuery({
+    queryKey: ["admin-teams"],
+    queryFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch("/api/admin/teams/analytics", { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to fetch team analytics");
+      return res.json();
+    },
+  });
+
+  if (isLoading) return <LoadingSpinner />;
+
+  const analytics = teamsData?.analytics || {};
+  const teams = teamsData?.teams || [];
+
+  const roleColors: Record<string, string> = {
+    coordinator: "text-yellow-400",
+    researcher: "text-blue-400",
+    analyst: "text-cyan-400",
+    validator: "text-green-400",
+    summarizer: "text-purple-400",
+    debater: "text-red-400",
+  };
+
+  const statusColors: Record<string, string> = {
+    forming: "bg-yellow-500/20 text-yellow-400",
+    active: "bg-blue-500/20 text-blue-400",
+    completed: "bg-green-500/20 text-green-400",
+    needs_review: "bg-orange-500/20 text-orange-400",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 mb-6">
+        <Users className="w-5 h-5 text-cyan-400" /> <h2 className="text-xl font-bold text-white">AI Teams Analytics</h2>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={Users} label="Total Teams" value={analytics.totalTeams || 0} color="bg-cyan-500/10 text-cyan-400" />
+        <StatCard icon={Activity} label="Active Teams" value={analytics.activeTeams || 0} color="bg-blue-500/10 text-blue-400" />
+        <StatCard icon={CheckCircle} label="Completed" value={analytics.completedTeams || 0} color="bg-green-500/10 text-green-400" />
+        <StatCard icon={Star} label="Avg Quality" value={analytics.avgQualityScore ? Number(analytics.avgQualityScore).toFixed(1) + "%" : "N/A"} color="bg-purple-500/10 text-purple-400" />
+      </div>
+
+      {analytics.roleDistribution && (
+        <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Role Distribution</h3>
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+            {Object.entries(analytics.roleDistribution).map(([role, count]) => (
+              <div key={role} className="text-center p-2 rounded-lg bg-gray-800/40">
+                <p className={`text-lg font-bold ${roleColors[role] || "text-white"}`}>{String(count)}</p>
+                <p className="text-xs text-gray-500 capitalize">{role}s</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+        <h3 className="text-sm font-semibold text-gray-300 mb-4">All Teams</h3>
+        {teams.length === 0 ? (
+          <p className="text-xs text-gray-500 text-center py-4">No teams created yet</p>
+        ) : (
+          <div className="space-y-3">
+            {teams.map((team: any) => (
+              <div key={team.id} className="p-4 rounded-xl bg-gray-800/40 border border-gray-700/30">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-white text-sm">{team.teamName || team.name}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[team.status] || "text-gray-400"}`}>{team.status}</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-2 line-clamp-2">{team.taskDescription || team.objective}</p>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <span>{team.memberCount || 0} members</span>
+                  {team.qualityScore && <span>Quality: {Number(team.qualityScore).toFixed(1)}%</span>}
+                  {team.creditsRewarded && <span>Credits: {team.creditsRewarded}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function LoadingSpinner() {
   return (
     <div className="flex items-center justify-center py-12">
@@ -2894,6 +2980,7 @@ export default function AdminDashboard() {
     gravity: NetworkGravityTab,
     civilization: CivilizationMetricsTab,
     trust: TrustNetworkTab,
+    teams: AITeamsTab,
     systems: SystemsTab,
   }[activeTab];
 

@@ -11,6 +11,7 @@ import { agentOrchestrator } from "./services/agent-orchestrator";
 import { economyService } from "./services/economy-service";
 import { agentLearningService } from "./services/agent-learning-service";
 import { collaborationService } from "./services/agent-collaboration-service";
+import { teamOrchestrationService } from "./services/team-orchestration-service";
 import { governanceService } from "./services/governance-service";
 import { civilizationService } from "./services/civilization-service";
 import { evolutionService } from "./services/evolution-service";
@@ -3341,6 +3342,63 @@ Keep under 200 words.`
         costPerModel: aiGateway.COST_PER_MODEL,
         actionCosts: aiGateway.ACTION_COSTS,
       });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AUTONOMOUS AGENT COLLABORATION (TEAMS) ----
+
+  app.get("/api/teams", async (_req, res) => {
+    try {
+      const teams = await teamOrchestrationService.getTeamsOverview();
+      res.json(teams);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/teams/analytics/overview", async (_req, res) => {
+    try {
+      const analytics = await teamOrchestrationService.getTeamAnalytics();
+      res.json(analytics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/teams/create", async (req, res) => {
+    try {
+      const { taskDescription, taskType } = req.body;
+      if (!taskDescription) return res.status(400).json({ error: "taskDescription required" });
+      const team = await teamOrchestrationService.runFullCollaboration(taskDescription, taskType || "research");
+      if (!team) return res.status(400).json({ error: "Could not form team - not enough agents or limit reached" });
+      res.json(team);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/teams/:id", async (req, res) => {
+    try {
+      const details = await teamOrchestrationService.getTeamDetails(req.params.id);
+      if (!details) return res.status(404).json({ error: "Team not found" });
+      res.json(details);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/teams/:id/messages", async (req, res) => {
+    try {
+      const messages = await storage.getTeamMessages(req.params.id);
+      res.json(messages);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/teams/:id/workspace", async (req, res) => {
+    try {
+      const entries = await storage.getWorkspaceEntries(req.params.id);
+      res.json(entries);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/teams/analytics", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const analytics = await teamOrchestrationService.getTeamAnalytics();
+      const teams = await teamOrchestrationService.getTeamsOverview();
+      res.json({ analytics, teams });
     } catch (err) { handleServiceError(res, err); }
   });
 

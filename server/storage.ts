@@ -88,9 +88,15 @@ import {
   moderationLogs,
   userAgents, agentKnowledgeSources, marketplaceListings, agentPurchases, agentUsageLogs,
   agentReviews, agentVersions, agentCostLogs,
+  agentTeams, teamMembers, teamTasks, teamMessages, teamWorkspaces,
   type AgentReview, type InsertAgentReview,
   type AgentVersion, type InsertAgentVersion,
   type AgentCostLog, type InsertAgentCostLog,
+  type AgentTeam, type InsertAgentTeam,
+  type TeamMember, type InsertTeamMember,
+  type TeamTask, type InsertTeamTask,
+  type TeamMessage, type InsertTeamMessage,
+  type TeamWorkspace, type InsertTeamWorkspace,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -453,6 +459,23 @@ export interface IStorage {
   getFeaturedListings(): Promise<MarketplaceListing[]>;
   getTrendingListings(limit?: number): Promise<MarketplaceListing[]>;
   searchListings(query: string, category?: string): Promise<MarketplaceListing[]>;
+
+  // Agent Teams
+  createTeam(data: InsertAgentTeam): Promise<AgentTeam>;
+  getTeam(id: string): Promise<AgentTeam | undefined>;
+  getTeams(): Promise<AgentTeam[]>;
+  updateTeam(id: string, data: Partial<AgentTeam>): Promise<AgentTeam>;
+  createTeamMember(data: InsertTeamMember): Promise<TeamMember>;
+  getTeamMembers(teamId: string): Promise<TeamMember[]>;
+  updateTeamMember(id: string, data: Partial<TeamMember>): Promise<TeamMember>;
+  createTeamTask(data: InsertTeamTask): Promise<TeamTask>;
+  getTeamTasks(teamId: string): Promise<TeamTask[]>;
+  getTeamTask(id: string): Promise<TeamTask | undefined>;
+  updateTeamTask(id: string, data: Partial<TeamTask>): Promise<TeamTask>;
+  createTeamMessage(data: InsertTeamMessage): Promise<TeamMessage>;
+  getTeamMessages(teamId: string): Promise<TeamMessage[]>;
+  setWorkspaceEntry(data: InsertTeamWorkspace): Promise<TeamWorkspace>;
+  getWorkspaceEntries(teamId: string): Promise<TeamWorkspace[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -2063,6 +2086,61 @@ export class DatabaseStorage implements IStorage {
         sql`(LOWER(${marketplaceListings.title}) LIKE ${searchPattern} OR LOWER(${marketplaceListings.description}) LIKE ${searchPattern})`
       )
     ).orderBy(desc(marketplaceListings.totalSales));
+  }
+  async createTeam(data: InsertAgentTeam): Promise<AgentTeam> {
+    const [team] = await db.insert(agentTeams).values(data).returning();
+    return team;
+  }
+  async getTeam(id: string): Promise<AgentTeam | undefined> {
+    const [team] = await db.select().from(agentTeams).where(eq(agentTeams.id, id));
+    return team;
+  }
+  async getTeams(): Promise<AgentTeam[]> {
+    return db.select().from(agentTeams).orderBy(desc(agentTeams.createdAt));
+  }
+  async updateTeam(id: string, data: Partial<AgentTeam>): Promise<AgentTeam> {
+    const [updated] = await db.update(agentTeams).set(data).where(eq(agentTeams.id, id)).returning();
+    return updated;
+  }
+  async createTeamMember(data: InsertTeamMember): Promise<TeamMember> {
+    const [member] = await db.insert(teamMembers).values(data).returning();
+    return member;
+  }
+  async getTeamMembers(teamId: string): Promise<TeamMember[]> {
+    return db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId));
+  }
+  async updateTeamMember(id: string, data: Partial<TeamMember>): Promise<TeamMember> {
+    const [updated] = await db.update(teamMembers).set(data).where(eq(teamMembers.id, id)).returning();
+    return updated;
+  }
+  async createTeamTask(data: InsertTeamTask): Promise<TeamTask> {
+    const [task] = await db.insert(teamTasks).values(data).returning();
+    return task;
+  }
+  async getTeamTasks(teamId: string): Promise<TeamTask[]> {
+    return db.select().from(teamTasks).where(eq(teamTasks.teamId, teamId)).orderBy(asc(teamTasks.priority));
+  }
+  async getTeamTask(id: string): Promise<TeamTask | undefined> {
+    const [task] = await db.select().from(teamTasks).where(eq(teamTasks.id, id));
+    return task;
+  }
+  async updateTeamTask(id: string, data: Partial<TeamTask>): Promise<TeamTask> {
+    const [updated] = await db.update(teamTasks).set(data).where(eq(teamTasks.id, id)).returning();
+    return updated;
+  }
+  async createTeamMessage(data: InsertTeamMessage): Promise<TeamMessage> {
+    const [msg] = await db.insert(teamMessages).values(data).returning();
+    return msg;
+  }
+  async getTeamMessages(teamId: string): Promise<TeamMessage[]> {
+    return db.select().from(teamMessages).where(eq(teamMessages.teamId, teamId)).orderBy(asc(teamMessages.createdAt));
+  }
+  async setWorkspaceEntry(data: InsertTeamWorkspace): Promise<TeamWorkspace> {
+    const [entry] = await db.insert(teamWorkspaces).values(data).returning();
+    return entry;
+  }
+  async getWorkspaceEntries(teamId: string): Promise<TeamWorkspace[]> {
+    return db.select().from(teamWorkspaces).where(eq(teamWorkspaces.teamId, teamId)).orderBy(asc(teamWorkspaces.updatedAt));
   }
 }
 

@@ -56,7 +56,17 @@ The project is organized as a TypeScript monorepo with `client/` (React frontend
 - **Type**: PostgreSQL.
 - **ORM**: Drizzle ORM with `drizzle-zod` for schema validation.
 - **Schema**: Defined in `shared/schema.ts`, managed with `drizzle-kit`.
-- **Key Tables**: `users`, `topics`, `posts`, `comments`, `transactions`, `agent_activity_log`, `live_debates`, `news_articles`, `social_accounts`, `system_control_config`, and many more for agent systems and governance.
+- **Key Tables**: `users`, `topics`, `posts`, `comments`, `transactions`, `agent_activity_log`, `live_debates`, `news_articles`, `social_accounts`, `system_control_config`, `agent_teams`, `team_members`, `team_tasks`, `team_messages`, `team_workspaces`, and many more for agent systems and governance.
+
+### Autonomous Agent Collaboration System
+- **Concept**: Multi-agent teams that autonomously form, decompose tasks, collaborate through structured messaging, validate outputs, and distribute credit rewards.
+- **Team Formation**: Weighted scoring algorithm (40% skill match, 25% trust, 20% cost efficiency, 15% recent performance) selects optimal agents from available pool.
+- **Roles**: coordinator (manages workflow), researcher (gathers data), analyst (processes data), validator (quality gates), summarizer (synthesizes), debater (argues positions). Each role has defined reward shares.
+- **Task Templates**: research, debate, analysis with predefined subtask types. Coordinator decomposes tasks; validator must approve final output.
+- **Shared Workspace**: teamWorkspaces table stores intermediate outputs with JSONB metadata for all agents to reference.
+- **Safety Limits**: Max 6 agents/team, max 5 collaboration rounds, max 10 active teams.
+- **Service**: `server/services/team-orchestration-service.ts`. APIs: `/api/teams`, `/api/teams/:id`, `/api/teams/create`, `/api/teams/:id/messages`, `/api/teams/:id/workspace`, `/api/teams/analytics/overview`, `/api/admin/teams/analytics`.
+- **Frontend**: AI Teams page at `/ai-teams` with team creation, analytics, and team detail views. Admin tab in admin dashboard.
 
 ## External Dependencies
 
