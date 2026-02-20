@@ -104,6 +104,12 @@ import {
   type CreditSink, type InsertCreditSink,
   type CivilizationHealthSnapshot, type InsertCivilizationHealthSnapshot,
   agentComputeBudgets, agentVisibilityScores, policyRules, policyViolations, creditSinks, civilizationHealthSnapshots,
+  type PlatformEvent, type InsertPlatformEvent,
+  type FlywheelAgent, type InsertFlywheelAgent,
+  type FlywheelRecommendation, type InsertFlywheelRecommendation,
+  type FlywheelAutomationConfig, type InsertFlywheelAutomationConfig,
+  type FlywheelOptimizationOutcome, type InsertFlywheelOptimizationOutcome,
+  platformEvents, flywheelAgents, flywheelRecommendations, flywheelAutomationConfig, flywheelOptimizationOutcomes,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -506,6 +512,27 @@ export interface IStorage {
   createHealthSnapshot(data: InsertCivilizationHealthSnapshot): Promise<CivilizationHealthSnapshot>;
   getHealthSnapshots(limit?: number): Promise<CivilizationHealthSnapshot[]>;
   getLatestHealthSnapshot(): Promise<CivilizationHealthSnapshot | undefined>;
+
+  createPlatformEvent(data: InsertPlatformEvent): Promise<PlatformEvent>;
+  getPlatformEvents(limit?: number): Promise<PlatformEvent[]>;
+  getPlatformEventsByType(eventType: string, limit?: number): Promise<PlatformEvent[]>;
+  getPlatformEventsSince(since: Date): Promise<PlatformEvent[]>;
+  getPlatformEventCounts(): Promise<{ eventType: string; count: number }[]>;
+
+  createFlywheelAgent(data: InsertFlywheelAgent): Promise<FlywheelAgent>;
+  getFlywheelAgents(): Promise<FlywheelAgent[]>;
+  getFlywheelAgentByType(agentType: string): Promise<FlywheelAgent | undefined>;
+  updateFlywheelAgent(id: string, data: Partial<FlywheelAgent>): Promise<FlywheelAgent>;
+
+  createFlywheelRecommendation(data: InsertFlywheelRecommendation): Promise<FlywheelRecommendation>;
+  getFlywheelRecommendations(status?: string): Promise<FlywheelRecommendation[]>;
+  updateFlywheelRecommendation(id: string, data: Partial<FlywheelRecommendation>): Promise<FlywheelRecommendation>;
+
+  getFlywheelAutomationConfig(): Promise<FlywheelAutomationConfig | undefined>;
+  upsertFlywheelAutomationConfig(data: Partial<FlywheelAutomationConfig>): Promise<FlywheelAutomationConfig>;
+
+  createFlywheelOutcome(data: InsertFlywheelOptimizationOutcome): Promise<FlywheelOptimizationOutcome>;
+  getFlywheelOutcomes(limit?: number): Promise<FlywheelOptimizationOutcome[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -2262,6 +2289,80 @@ export class DatabaseStorage implements IStorage {
   async getLatestHealthSnapshot(): Promise<CivilizationHealthSnapshot | undefined> {
     const [snapshot] = await db.select().from(civilizationHealthSnapshots).orderBy(desc(civilizationHealthSnapshots.createdAt)).limit(1);
     return snapshot;
+  }
+
+  async createPlatformEvent(data: InsertPlatformEvent): Promise<PlatformEvent> {
+    const [event] = await db.insert(platformEvents).values(data).returning();
+    return event;
+  }
+  async getPlatformEvents(limit = 100): Promise<PlatformEvent[]> {
+    return db.select().from(platformEvents).orderBy(desc(platformEvents.createdAt)).limit(limit);
+  }
+  async getPlatformEventsByType(eventType: string, limit = 50): Promise<PlatformEvent[]> {
+    return db.select().from(platformEvents).where(eq(platformEvents.eventType, eventType)).orderBy(desc(platformEvents.createdAt)).limit(limit);
+  }
+  async getPlatformEventsSince(since: Date): Promise<PlatformEvent[]> {
+    return db.select().from(platformEvents).where(gte(platformEvents.createdAt, since)).orderBy(desc(platformEvents.createdAt));
+  }
+  async getPlatformEventCounts(): Promise<{ eventType: string; count: number }[]> {
+    const results = await db.select({
+      eventType: platformEvents.eventType,
+      count: sql<number>`count(*)::int`,
+    }).from(platformEvents).groupBy(platformEvents.eventType);
+    return results;
+  }
+
+  async createFlywheelAgent(data: InsertFlywheelAgent): Promise<FlywheelAgent> {
+    const [agent] = await db.insert(flywheelAgents).values(data).returning();
+    return agent;
+  }
+  async getFlywheelAgents(): Promise<FlywheelAgent[]> {
+    return db.select().from(flywheelAgents).orderBy(asc(flywheelAgents.agentType));
+  }
+  async getFlywheelAgentByType(agentType: string): Promise<FlywheelAgent | undefined> {
+    const [agent] = await db.select().from(flywheelAgents).where(eq(flywheelAgents.agentType, agentType));
+    return agent;
+  }
+  async updateFlywheelAgent(id: string, data: Partial<FlywheelAgent>): Promise<FlywheelAgent> {
+    const [updated] = await db.update(flywheelAgents).set(data).where(eq(flywheelAgents.id, id)).returning();
+    return updated;
+  }
+
+  async createFlywheelRecommendation(data: InsertFlywheelRecommendation): Promise<FlywheelRecommendation> {
+    const [rec] = await db.insert(flywheelRecommendations).values(data).returning();
+    return rec;
+  }
+  async getFlywheelRecommendations(status?: string): Promise<FlywheelRecommendation[]> {
+    if (status) {
+      return db.select().from(flywheelRecommendations).where(eq(flywheelRecommendations.status, status)).orderBy(desc(flywheelRecommendations.createdAt));
+    }
+    return db.select().from(flywheelRecommendations).orderBy(desc(flywheelRecommendations.createdAt)).limit(100);
+  }
+  async updateFlywheelRecommendation(id: string, data: Partial<FlywheelRecommendation>): Promise<FlywheelRecommendation> {
+    const [updated] = await db.update(flywheelRecommendations).set(data).where(eq(flywheelRecommendations.id, id)).returning();
+    return updated;
+  }
+
+  async getFlywheelAutomationConfig(): Promise<FlywheelAutomationConfig | undefined> {
+    const [config] = await db.select().from(flywheelAutomationConfig).limit(1);
+    return config;
+  }
+  async upsertFlywheelAutomationConfig(data: Partial<FlywheelAutomationConfig>): Promise<FlywheelAutomationConfig> {
+    const existing = await this.getFlywheelAutomationConfig();
+    if (existing) {
+      const [updated] = await db.update(flywheelAutomationConfig).set({ ...data, lastUpdated: new Date() }).where(eq(flywheelAutomationConfig.id, existing.id)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(flywheelAutomationConfig).values({ mode: data.mode || "manual", safeActions: data.safeActions || [], thresholds: data.thresholds || {} }).returning();
+    return created;
+  }
+
+  async createFlywheelOutcome(data: InsertFlywheelOptimizationOutcome): Promise<FlywheelOptimizationOutcome> {
+    const [outcome] = await db.insert(flywheelOptimizationOutcomes).values(data).returning();
+    return outcome;
+  }
+  async getFlywheelOutcomes(limit = 50): Promise<FlywheelOptimizationOutcome[]> {
+    return db.select().from(flywheelOptimizationOutcomes).orderBy(desc(flywheelOptimizationOutcomes.createdAt)).limit(limit);
   }
 }
 

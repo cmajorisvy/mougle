@@ -33,7 +33,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization" | "trust" | "teams" | "stability";
+type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization" | "trust" | "teams" | "stability" | "autonomous";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -54,6 +54,7 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "trust", label: "Trust Network", icon: Shield },
   { id: "teams", label: "AI Teams", icon: Users },
   { id: "stability", label: "Stability", icon: Heart },
+  { id: "autonomous", label: "Autonomous", icon: Cpu },
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
@@ -3164,6 +3165,245 @@ function StabilityTab() {
   );
 }
 
+function AutonomousControlTab() {
+  const token = localStorage.getItem("admin_token");
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["admin-flywheel-overview"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/flywheel/overview", { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    refetchInterval: 15000,
+  });
+
+  const runCycleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/admin/flywheel/run", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-flywheel-overview"] }); },
+  });
+
+  const updateModeMutation = useMutation({
+    mutationFn: async (mode: string) => {
+      const res = await fetch("/api/admin/flywheel/config", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-flywheel-overview"] }); },
+  });
+
+  const applyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/flywheel/recommendations/${id}/apply`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-flywheel-overview"] }); },
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/flywheel/recommendations/${id}/dismiss`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-flywheel-overview"] }); },
+  });
+
+  if (isLoading) return <LoadingSpinner />;
+  if (isError) return (
+    <div className="text-center py-12">
+      <AlertTriangle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+      <p className="text-sm text-gray-400">Failed to load flywheel data. Please try again.</p>
+    </div>
+  );
+
+  const mode = data?.mode || "manual";
+  const stats = data?.stats || {};
+  const agents = data?.agents || [];
+  const pendingRecs = data?.pendingRecommendations || [];
+  const outcomes = data?.outcomes || [];
+  const eventCounts = data?.eventCounts || [];
+
+  const modeColors: Record<string, string> = {
+    manual: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+    assisted: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    autopilot: "bg-green-500/20 text-green-400 border-green-500/30",
+  };
+
+  const severityColors: Record<string, string> = {
+    low: "bg-gray-500/20 text-gray-400",
+    medium: "bg-yellow-500/20 text-yellow-400",
+    high: "bg-orange-500/20 text-orange-400",
+    critical: "bg-red-500/20 text-red-400",
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 data-testid="text-autonomous-title" className="text-lg font-semibold text-white">Autonomous Platform Flywheel</h2>
+          <p className="text-sm text-gray-500">AI-driven platform optimization with founder control</p>
+        </div>
+        <Button
+          data-testid="button-run-cycle"
+          size="sm"
+          onClick={() => runCycleMutation.mutate()}
+          disabled={runCycleMutation.isPending}
+          className="bg-purple-600/20 text-purple-300 border border-purple-500/20 hover:bg-purple-600/30"
+        >
+          {runCycleMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+          Run Analysis Cycle
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-sm text-gray-400">Automation Mode:</span>
+        {["manual", "assisted", "autopilot"].map(m => (
+          <button
+            key={m}
+            data-testid={`button-mode-${m}`}
+            onClick={() => updateModeMutation.mutate(m)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+              mode === m ? modeColors[m] : "bg-gray-800/40 text-gray-600 border-gray-700/30 hover:text-gray-400"
+            }`}
+          >
+            {m === "manual" && <Sliders className="w-3 h-3 inline mr-1" />}
+            {m === "assisted" && <Eye className="w-3 h-3 inline mr-1" />}
+            {m === "autopilot" && <Cpu className="w-3 h-3 inline mr-1" />}
+            {m.charAt(0).toUpperCase() + m.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard icon={BarChart3} label="Total Recommendations" value={stats.totalRecommendations || 0} color="bg-purple-500/20 text-purple-400" />
+        <StatCard icon={Clock} label="Pending" value={stats.pending || 0} color="bg-yellow-500/20 text-yellow-400" />
+        <StatCard icon={CheckCircle} label="Applied" value={stats.applied || 0} color="bg-green-500/20 text-green-400" />
+        <StatCard icon={TrendingUp} label="Success Rate" value={`${stats.successRate || 0}%`} color="bg-blue-500/20 text-blue-400" />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+            <Bot className="w-4 h-4 text-purple-400" /> Intelligence Agents
+          </h3>
+          <div className="space-y-2">
+            {agents.length === 0 ? (
+              <p className="text-xs text-gray-600">No agents initialized yet</p>
+            ) : agents.map((agent: any) => (
+              <div key={agent.id} data-testid={`card-flywheel-agent-${agent.agentType}`} className="flex items-center justify-between p-2 bg-gray-800/40 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${agent.active ? "bg-green-400" : "bg-gray-600"}`} />
+                  <span className="text-xs text-gray-300">{agent.name}</span>
+                </div>
+                <span className="text-[10px] text-gray-600">
+                  {agent.lastRunAt ? new Date(agent.lastRunAt).toLocaleString() : "Never run"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+          <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+            <Activity className="w-4 h-4 text-blue-400" /> Event Volume
+          </h3>
+          <div className="space-y-2">
+            {eventCounts.length === 0 ? (
+              <p className="text-xs text-gray-600">No events logged yet</p>
+            ) : eventCounts.map((ec: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-2 bg-gray-800/40 rounded-lg">
+                <span className="text-xs text-gray-300">{ec.eventType}</span>
+                <span className="text-xs font-mono text-purple-400">{ec.count}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-yellow-400" /> Pending Recommendations ({pendingRecs.length})
+        </h3>
+        <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+          {pendingRecs.length === 0 ? (
+            <p className="text-xs text-gray-600">No pending recommendations. Run an analysis cycle to generate insights.</p>
+          ) : pendingRecs.map((rec: any) => (
+            <div key={rec.id} data-testid={`card-recommendation-${rec.id}`} className="p-3 bg-gray-800/40 rounded-lg border border-gray-700/30">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${severityColors[rec.severity] || severityColors.medium}`}>
+                      {rec.severity}
+                    </span>
+                    <span className="text-[10px] text-gray-600">{rec.agentType?.replace(/_/g, " ")}</span>
+                    <span className="text-[10px] text-gray-700">Priority: {rec.priority}</span>
+                  </div>
+                  <h4 className="text-sm text-white font-medium">{rec.title}</h4>
+                  {rec.rationale && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{rec.rationale}</p>}
+                </div>
+                <div className="flex gap-1 ml-3 flex-shrink-0">
+                  <button
+                    data-testid={`button-apply-${rec.id}`}
+                    onClick={() => applyMutation.mutate(rec.id)}
+                    className="p-1.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
+                    title="Apply"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    data-testid={`button-dismiss-${rec.id}`}
+                    onClick={() => dismissMutation.mutate(rec.id)}
+                    className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                    title="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-4">
+        <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+          <Database className="w-4 h-4 text-green-400" /> Learning Memory ({outcomes.length} outcomes)
+        </h3>
+        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+          {outcomes.length === 0 ? (
+            <p className="text-xs text-gray-600">No optimization outcomes recorded yet</p>
+          ) : outcomes.map((o: any) => (
+            <div key={o.id} data-testid={`card-outcome-${o.id}`} className="flex items-center justify-between p-2 bg-gray-800/40 rounded-lg">
+              <div className="flex items-center gap-2">
+                {o.success ? <CheckCircle className="w-3.5 h-3.5 text-green-400" /> : <X className="w-3.5 h-3.5 text-red-400" />}
+                <span className="text-xs text-gray-300">{o.actionTaken}</span>
+              </div>
+              <span className="text-[10px] text-gray-600">{o.createdAt ? new Date(o.createdAt).toLocaleString() : ""}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function LoadingSpinner() {
   return (
     <div className="flex items-center justify-center py-12">
@@ -3212,6 +3452,7 @@ export default function AdminDashboard() {
     trust: TrustNetworkTab,
     teams: AITeamsTab,
     stability: StabilityTab,
+    autonomous: AutonomousControlTab,
     systems: SystemsTab,
   }[activeTab];
 

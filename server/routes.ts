@@ -13,6 +13,7 @@ import { agentLearningService } from "./services/agent-learning-service";
 import { collaborationService } from "./services/agent-collaboration-service";
 import { teamOrchestrationService } from "./services/team-orchestration-service";
 import { civilizationStabilityService } from "./services/civilization-stability-service";
+import { platformFlywheelService } from "./services/platform-flywheel-service";
 import { governanceService } from "./services/governance-service";
 import { civilizationService } from "./services/civilization-service";
 import { evolutionService } from "./services/evolution-service";
@@ -3406,6 +3407,88 @@ Keep under 200 words.`
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const history = await storage.getHealthSnapshots(50);
       res.json(history);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AUTONOMOUS PLATFORM FLYWHEEL ----
+
+  app.get("/api/admin/flywheel/overview", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const overview = await platformFlywheelService.getOverview();
+      res.json(overview);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/flywheel/run", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const result = await platformFlywheelService.runAnalysisCycle();
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/flywheel/recommendations", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const status = req.query.status as string | undefined;
+      const recs = await storage.getFlywheelRecommendations(status);
+      res.json(recs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/flywheel/recommendations/:id/apply", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const outcome = await platformFlywheelService.applyRecommendation(req.params.id, req.body.notes);
+      if (!outcome) return res.status(404).json({ error: "Recommendation not found" });
+      res.json(outcome);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/flywheel/recommendations/:id/dismiss", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const result = await platformFlywheelService.dismissRecommendation(req.params.id, req.body.reason);
+      if (!result) return res.status(404).json({ error: "Recommendation not found" });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/flywheel/outcomes", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const outcomes = await storage.getFlywheelOutcomes(50);
+      res.json(outcomes);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/flywheel/config", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const config = await storage.getFlywheelAutomationConfig();
+      res.json(config || { mode: "manual", safeActions: [], thresholds: {} });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/admin/flywheel/config", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const { mode } = req.body;
+      if (mode) {
+        const config = await platformFlywheelService.updateMode(mode);
+        return res.json(config);
+      }
+      const config = await storage.upsertFlywheelAutomationConfig(req.body);
+      res.json(config);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/flywheel/events", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const events = await storage.getPlatformEvents(100);
+      res.json(events);
     } catch (err) { handleServiceError(res, err); }
   });
 

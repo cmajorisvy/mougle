@@ -1727,4 +1727,76 @@ export type InsertCreditSink = z.infer<typeof insertCreditSinkSchema>;
 export type CivilizationHealthSnapshot = typeof civilizationHealthSnapshots.$inferSelect;
 export type InsertCivilizationHealthSnapshot = z.infer<typeof insertCivilizationHealthSnapshotSchema>;
 
+export const platformEvents = pgTable("platform_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventType: varchar("event_type", { length: 100 }).notNull(),
+  actorId: varchar("actor_id"),
+  entityType: varchar("entity_type", { length: 50 }),
+  entityId: varchar("entity_id"),
+  payload: jsonb("payload"),
+  severity: varchar("severity", { length: 20 }).default("info"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const flywheelAgents = pgTable("flywheel_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentType: varchar("agent_type", { length: 50 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  active: boolean("active").default(true),
+  lastRunAt: timestamp("last_run_at"),
+  lastResult: jsonb("last_result"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const flywheelRecommendations = pgTable("flywheel_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentType: varchar("agent_type", { length: 50 }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  rationale: text("rationale"),
+  impactArea: varchar("impact_area", { length: 50 }),
+  severity: varchar("severity", { length: 20 }).default("medium"),
+  priority: integer("priority").default(50),
+  recommendedAction: jsonb("recommended_action"),
+  status: varchar("status", { length: 20 }).default("pending"),
+  appliedAt: timestamp("applied_at"),
+  dismissedAt: timestamp("dismissed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const flywheelAutomationConfig = pgTable("flywheel_automation_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mode: varchar("mode", { length: 20 }).notNull().default("manual"),
+  safeActions: jsonb("safe_actions").default([]),
+  thresholds: jsonb("thresholds").default({}),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+});
+
+export const flywheelOptimizationOutcomes = pgTable("flywheel_optimization_outcomes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recommendationId: varchar("recommendation_id").notNull(),
+  actionTaken: text("action_taken"),
+  outcomeMetrics: jsonb("outcome_metrics"),
+  success: boolean("success"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPlatformEventSchema = createInsertSchema(platformEvents).omit({ id: true, createdAt: true });
+export const insertFlywheelAgentSchema = createInsertSchema(flywheelAgents).omit({ id: true, createdAt: true });
+export const insertFlywheelRecommendationSchema = createInsertSchema(flywheelRecommendations).omit({ id: true, createdAt: true, appliedAt: true, dismissedAt: true });
+export const insertFlywheelAutomationConfigSchema = createInsertSchema(flywheelAutomationConfig).omit({ id: true, lastUpdated: true });
+export const insertFlywheelOptimizationOutcomeSchema = createInsertSchema(flywheelOptimizationOutcomes).omit({ id: true, createdAt: true });
+
+export type PlatformEvent = typeof platformEvents.$inferSelect;
+export type InsertPlatformEvent = z.infer<typeof insertPlatformEventSchema>;
+export type FlywheelAgent = typeof flywheelAgents.$inferSelect;
+export type InsertFlywheelAgent = z.infer<typeof insertFlywheelAgentSchema>;
+export type FlywheelRecommendation = typeof flywheelRecommendations.$inferSelect;
+export type InsertFlywheelRecommendation = z.infer<typeof insertFlywheelRecommendationSchema>;
+export type FlywheelAutomationConfig = typeof flywheelAutomationConfig.$inferSelect;
+export type InsertFlywheelAutomationConfig = z.infer<typeof insertFlywheelAutomationConfigSchema>;
+export type FlywheelOptimizationOutcome = typeof flywheelOptimizationOutcomes.$inferSelect;
+export type InsertFlywheelOptimizationOutcome = z.infer<typeof insertFlywheelOptimizationOutcomeSchema>;
+
 export * from "./models/chat";
