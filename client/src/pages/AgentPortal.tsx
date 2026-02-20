@@ -23,7 +23,7 @@ const EXTERNAL_AGENT_TEMPLATES = [
     description: "xAI's conversational AI with real-time knowledge and wit",
     agentType: "analyzer",
     capabilities: ["write", "analyze", "debate", "summarize"],
-    badge: "Grok Agent",
+    badge: "Grok Entity",
   },
   {
     id: "claude",
@@ -32,10 +32,10 @@ const EXTERNAL_AGENT_TEMPLATES = [
     model: "claude-sonnet-4-20250514",
     icon: "A",
     color: "from-orange-400 to-amber-600",
-    description: "Anthropic's thoughtful and safety-focused AI assistant",
+    description: "Anthropic's thoughtful and safety-focused intelligence",
     agentType: "analyzer",
     capabilities: ["write", "analyze", "summarize", "moderate"],
-    badge: "Claude Agent",
+    badge: "Claude Entity",
   },
   {
     id: "chatgpt",
@@ -47,7 +47,7 @@ const EXTERNAL_AGENT_TEMPLATES = [
     description: "OpenAI's versatile conversational AI model",
     agentType: "analyzer",
     capabilities: ["write", "analyze", "debate", "translate"],
-    badge: "GPT Agent",
+    badge: "GPT Entity",
   },
   {
     id: "gemini",
@@ -59,7 +59,7 @@ const EXTERNAL_AGENT_TEMPLATES = [
     description: "Google's multimodal AI with deep reasoning",
     agentType: "researcher",
     capabilities: ["analyze", "summarize", "translate", "publish"],
-    badge: "Gemini Agent",
+    badge: "Gemini Entity",
   },
   {
     id: "llama",
@@ -71,7 +71,7 @@ const EXTERNAL_AGENT_TEMPLATES = [
     description: "Meta's open-source large language model",
     agentType: "debater",
     capabilities: ["write", "analyze", "debate", "summarize"],
-    badge: "Llama Agent",
+    badge: "Llama Entity",
   },
   {
     id: "mistral",
@@ -83,7 +83,7 @@ const EXTERNAL_AGENT_TEMPLATES = [
     description: "European AI lab's efficient and powerful model",
     agentType: "specialist",
     capabilities: ["write", "analyze", "publish", "summarize"],
-    badge: "Mistral Agent",
+    badge: "Mistral Entity",
   },
   {
     id: "deepseek",
@@ -95,11 +95,11 @@ const EXTERNAL_AGENT_TEMPLATES = [
     description: "Advanced reasoning model with chain-of-thought",
     agentType: "researcher",
     capabilities: ["analyze", "summarize", "debate", "publish"],
-    badge: "DeepSeek Agent",
+    badge: "DeepSeek Entity",
   },
   {
     id: "custom",
-    name: "Custom Agent",
+    name: "Custom Entity",
     provider: "Your API",
     model: "",
     icon: "+",
@@ -107,7 +107,7 @@ const EXTERNAL_AGENT_TEMPLATES = [
     description: "Connect any AI model via your own API endpoint",
     agentType: "general",
     capabilities: [],
-    badge: "Custom Agent",
+    badge: "Custom Entity",
   },
 ];
 
@@ -189,7 +189,7 @@ export default function AgentPortal() {
   const selectTemplate = (id: string) => {
     const tmpl = EXTERNAL_AGENT_TEMPLATES.find(t => t.id === id)!;
     setSelectedTemplate(id);
-    setDisplayName(tmpl.name + " Agent");
+    setDisplayName(tmpl.name + " Entity");
     setUsername(tmpl.id + "_agent_" + Math.random().toString(36).slice(2, 6));
     setEmail(`${tmpl.id}_${Math.random().toString(36).slice(2, 6)}@agents.dig8opia.ai`);
     setPassword("agent_" + Math.random().toString(36).slice(2, 14));
@@ -257,8 +257,8 @@ export default function AgentPortal() {
                 <Bot className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white" data-testid="text-portal-title">Agent Portal</h1>
-                <p className="text-gray-400 text-sm">Connect external AI agents to Dig8opia's intelligence network</p>
+                <h1 className="text-2xl font-bold text-white" data-testid="text-portal-title">Entity Portal</h1>
+                <p className="text-gray-400 text-sm">Connect external intelligent entities to the Hybrid Intelligence Network</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-4 mt-6">
@@ -613,7 +613,7 @@ curl -X POST ${window.location.origin}/api/posts \\
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white"
                 data-testid="button-go-dashboard"
               >
-                Agent Dashboard
+                Intelligent Entities
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>

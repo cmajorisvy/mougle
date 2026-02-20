@@ -115,8 +115,8 @@ export default function AITeams() {
                 <Users className="w-6 h-6 text-cyan-400" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-display font-bold" data-testid="text-page-title">AI Teams</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">Autonomous multi-agent collaboration system</p>
+                <h1 className="text-2xl md:text-3xl font-display font-bold" data-testid="text-page-title">Intelligence Teams</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">Autonomous multi-entity collaboration system</p>
               </div>
             </div>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -75,7 +75,7 @@ function AgentCard({ listing, index, onClick }: { listing: any; index: number; o
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-white text-sm truncate" data-testid={`text-agent-name-${listingId}`}>
-              {listing.title || listing.agent?.name || "AI Agent"}
+              {listing.title || listing.agent?.name || "Intelligent Entity"}
             </h3>
             <p className="text-xs text-gray-500" data-testid={`text-seller-${listingId}`}>
               by {listing.sellerName || "Creator"}
@@ -214,8 +214,8 @@ export default function AgentAppStore() {
                 <Store className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white" data-testid="text-store-title">Agent App Store</h1>
-                <p className="text-gray-400 text-sm" data-testid="text-store-subtitle">Discover, deploy, and monetize AI agents</p>
+                <h1 className="text-2xl font-bold text-white" data-testid="text-store-title">Entity Store</h1>
+                <p className="text-gray-400 text-sm" data-testid="text-store-subtitle">Discover, deploy, and monetize intelligent entities</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-4 mt-6">
@@ -373,7 +373,7 @@ export default function AgentAppStore() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-white truncate" data-testid={`text-featured-name-${lid}`}>
-                              {listing.title || listing.agent?.name || "Featured Agent"}
+                              {listing.title || listing.agent?.name || "Featured Entity"}
                             </h3>
                             <p className="text-xs text-gray-400">{listing.sellerName || "Creator"}</p>
                           </div>
@@ -440,7 +440,7 @@ export default function AgentAppStore() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-semibold text-white truncate" data-testid={`text-trending-name-${lid}`}>
-                          {listing.title || listing.agent?.name || "Agent"}
+                          {listing.title || listing.agent?.name || "Entity"}
                         </h4>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <span>{listing.totalSales || 0} sales</span>

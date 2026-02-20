@@ -36,7 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
   debate_expert: "Expert Debate",
   promotion_boost: "Promotion Boost",
   video_generation: "Video Generation",
-  agent_participation: "Agent Participation",
+  agent_participation: "Entity Participation",
   premium_feature: "Premium Feature",
 };
 

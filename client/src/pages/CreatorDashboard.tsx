@@ -16,13 +16,13 @@ type Tab = "overview" | "agents" | "sales" | "costs";
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
-  { id: "agents", label: "Agents", icon: Bot },
+  { id: "agents", label: "Entities", icon: Bot },
   { id: "sales", label: "Sales", icon: CreditCard },
   { id: "costs", label: "Cost Control", icon: Calculator },
 ];
 
 const CREDIT_COSTS: { action: string; credits: number; description: string }[] = [
-  { action: "chat", credits: 1, description: "Single chat message" },
+  { action: "interaction", credits: 1, description: "Single interaction message" },
   { action: "research", credits: 3, description: "Research task" },
   { action: "analysis", credits: 5, description: "Deep analysis" },
   { action: "coding", credits: 4, description: "Code generation" },
@@ -34,7 +34,7 @@ const CREDIT_COSTS: { action: string; credits: number; description: string }[] =
 export default function CreatorDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [estimateModel, setEstimateModel] = useState("gpt-4o");
-  const [estimateAction, setEstimateAction] = useState("chat");
+  const [estimateAction, setEstimateAction] = useState("interaction");
 
   const currentUserId = getCurrentUserId();
 
@@ -86,13 +86,13 @@ export default function CreatorDashboard() {
                 <BarChart3 className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white" data-testid="text-dashboard-title">Creator Dashboard</h1>
-                <p className="text-gray-400 text-sm" data-testid="text-dashboard-subtitle">Analytics, performance & cost control for your agents</p>
+                <h1 className="text-2xl font-bold text-white" data-testid="text-dashboard-title">Creator Hub</h1>
+                <p className="text-gray-400 text-sm" data-testid="text-dashboard-subtitle">Analytics, performance & cost control for your intelligent entities</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-6">
-              <StatMini icon={Bot} label="Total Agents" value={stats.totalAgents} testId="stat-total-agents" />
+              <StatMini icon={Bot} label="Total Entities" value={stats.totalAgents} testId="stat-total-agents" />
               <StatMini icon={Play} label="Active" value={stats.activeAgents} color="text-green-400" testId="stat-active-agents" />
               <StatMini icon={Pause} label="Paused" value={stats.pausedAgents} color="text-yellow-400" testId="stat-paused-agents" />
               <StatMini icon={Users} label="Total Usage" value={stats.totalUsage} testId="stat-total-usage" />
@@ -191,7 +191,7 @@ function OverviewTab({ stats }: { stats: any }) {
         <div className="p-5 rounded-xl bg-[#141422]/80 border border-white/[0.06]" data-testid="card-agent-distribution">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <Bot className="w-4 h-4 text-blue-400" />
-            Agent Distribution
+            Entity Distribution
           </h3>
           <div className="space-y-4">
             <div>
@@ -226,7 +226,7 @@ function OverviewTab({ stats }: { stats: any }) {
         <div className="p-5 rounded-xl bg-[#141422]/80 border border-white/[0.06]" data-testid="card-top-agents">
           <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
             <Star className="w-4 h-4 text-amber-400" />
-            Top Performing Agents
+            Top Performing Entities
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {stats.agentStats.slice(0, 3).map((agent: any, i: number) => (
@@ -236,7 +236,7 @@ function OverviewTab({ stats }: { stats: any }) {
                     <Bot className="w-4 h-4 text-white" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-semibold text-white truncate">{agent.name || "Agent"}</div>
+                    <div className="text-xs font-semibold text-white truncate">{agent.name || "Entity"}</div>
                     <div className="text-[10px] text-gray-500">{agent.usageCount || 0} uses</div>
                   </div>
                 </div>
@@ -295,7 +295,7 @@ function AgentsTab({ agents }: { agents: any[] }) {
           <table className="w-full text-sm" data-testid="table-agents">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400">Agent</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400">Entity</th>
                 <th className="text-center px-3 py-3 text-xs font-semibold text-gray-400">Status</th>
                 <th className="text-right px-3 py-3 text-xs font-semibold text-gray-400">Usage</th>
                 <th className="text-right px-3 py-3 text-xs font-semibold text-gray-400">Earnings</th>
@@ -309,7 +309,7 @@ function AgentsTab({ agents }: { agents: any[] }) {
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-gray-500">
                     <Bot className="w-8 h-8 mx-auto mb-2 text-gray-600" />
-                    <p>No agents yet. Create your first agent to see performance data.</p>
+                    <p>No entities yet. Create your first entity to see performance data.</p>
                   </td>
                 </tr>
               ) : (
@@ -320,7 +320,7 @@ function AgentsTab({ agents }: { agents: any[] }) {
                         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
                           <Bot className="w-3.5 h-3.5 text-white" />
                         </div>
-                        <span className="text-white font-medium text-xs truncate max-w-[140px]" data-testid={`text-agent-name-${i}`}>{agent.name || "Unnamed Agent"}</span>
+                        <span className="text-white font-medium text-xs truncate max-w-[140px]" data-testid={`text-agent-name-${i}`}>{agent.name || "Unnamed Entity"}</span>
                       </div>
                     </td>
                     <td className="px-3 py-3 text-center">
@@ -395,7 +395,7 @@ function SalesTab({ sales, totalSales, totalEarnings }: { sales: any[]; totalSal
                   <CreditCard className="w-4 h-4 text-purple-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-white truncate" data-testid={`text-sale-agent-${i}`}>{sale.agentName || "Agent Sale"}</div>
+                  <div className="text-xs font-medium text-white truncate" data-testid={`text-sale-agent-${i}`}>{sale.agentName || "Entity Sale"}</div>
                   <div className="text-[10px] text-gray-500" data-testid={`text-sale-buyer-${i}`}>Buyer: {sale.buyerName || sale.buyerId || "Anonymous"}</div>
                 </div>
                 <div className="text-right flex-shrink-0 space-y-0.5">
@@ -424,7 +424,7 @@ function CostsTab({ costs, costsLoading, estimate, estimateModel, estimateAction
   setEstimateModel: (v: string) => void; setEstimateAction: (v: string) => void;
 }) {
   const models = ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo", "claude-3-opus", "claude-3-sonnet"];
-  const actions = ["chat", "research", "analysis", "coding", "debate", "training", "image"];
+  const actions = ["interaction", "research", "analysis", "coding", "debate", "training", "image"];
 
   return (
     <div className="space-y-6" data-testid="tab-content-costs">

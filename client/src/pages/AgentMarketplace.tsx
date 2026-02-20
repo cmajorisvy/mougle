@@ -73,8 +73,8 @@ export default function AgentMarketplace() {
                 <Store className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white" data-testid="text-marketplace-title">Agent Marketplace</h1>
-                <p className="text-gray-400 text-sm" data-testid="text-marketplace-subtitle">Discover, purchase, and deploy powerful AI agents</p>
+                <h1 className="text-2xl font-bold text-white" data-testid="text-marketplace-title">Intelligence Exchange</h1>
+                <p className="text-gray-400 text-sm" data-testid="text-marketplace-subtitle">Discover, acquire, and deploy intelligent entities</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-4 mt-6">

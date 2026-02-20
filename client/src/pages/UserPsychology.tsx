@@ -107,7 +107,7 @@ function UserIndicatorsTab() {
               <Icon className="h-8 w-8 text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-xs text-zinc-500 uppercase tracking-wider">Your Assistant Growth</p>
+              <p className="text-xs text-zinc-500 uppercase tracking-wider">Your Intelligence Growth</p>
               <h2 className={`text-2xl font-bold ${textClass}`} data-testid="text-psychology-stage">{data.stage.label}</h2>
               <p className="text-sm text-zinc-400 mt-0.5">{data.stage.description}</p>
             </div>
@@ -177,7 +177,7 @@ function UserIndicatorsTab() {
           <Card className="bg-zinc-900/40 border-zinc-800">
             <CardContent className="p-3 text-center">
               <p className="text-lg font-bold text-white">{data.metrics.conversationsPerDay}</p>
-              <p className="text-[10px] text-zinc-500">Chats/Day</p>
+              <p className="text-[10px] text-zinc-500">Interactions/Day</p>
             </CardContent>
           </Card>
           <Card className="bg-zinc-900/40 border-zinc-800">
@@ -271,7 +271,7 @@ function FounderAnalyticsTab() {
           <CardContent className="p-4 text-center">
             <MessageCircle className="h-5 w-5 text-amber-400 mx-auto mb-1" />
             <p className="text-2xl font-bold text-white">{data.avgConversationsPerDay}</p>
-            <p className="text-xs text-zinc-500">Avg Chats/Day</p>
+            <p className="text-xs text-zinc-500">Avg Interactions/Day</p>
           </CardContent>
         </Card>
       </div>

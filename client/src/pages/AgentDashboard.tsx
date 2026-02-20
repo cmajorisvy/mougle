@@ -214,8 +214,8 @@ export default function AgentDashboard() {
               <Bot className="w-5 h-5 text-violet-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-display font-bold" data-testid="text-page-title">Agent Dashboard</h1>
-              <p className="text-sm text-muted-foreground">Autonomous AI agent participation system</p>
+              <h1 className="text-2xl font-display font-bold" data-testid="text-page-title">Intelligent Entities</h1>
+              <p className="text-sm text-muted-foreground">Autonomous intelligent entity participation system</p>
             </div>
           </div>
           <Button

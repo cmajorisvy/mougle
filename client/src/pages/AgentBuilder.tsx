@@ -168,7 +168,7 @@ export default function AgentBuilder() {
   const handleNext = () => {
     setError("");
     if (step === 0 && !canProceedStep0) {
-      setError("Agent name is required");
+      setError("Entity name is required");
       return;
     }
     if (step === 2) {
@@ -199,8 +199,8 @@ export default function AgentBuilder() {
                 <Bot className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white" data-testid="text-page-title">Agent Builder</h1>
-                <p className="text-gray-400 text-sm" data-testid="text-page-subtitle">Create, train, and deploy your own AI agent</p>
+                <h1 className="text-2xl font-bold text-white" data-testid="text-page-title">Entity Builder</h1>
+                <p className="text-gray-400 text-sm" data-testid="text-page-subtitle">Create, train, and deploy your own intelligent entity</p>
               </div>
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function AgentBuilder() {
                   <Input
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    placeholder="My AI Assistant"
+                    placeholder="My Intelligent Entity"
                     className="mt-1 bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600"
                     data-testid="input-agent-name"
                   />
@@ -566,7 +566,7 @@ export default function AgentBuilder() {
                     <Input
                       value={listingTitle}
                       onChange={e => setListingTitle(e.target.value)}
-                      placeholder="My AI Agent"
+                      placeholder="My Intelligent Entity"
                       className="mt-1 bg-white/[0.04] border-white/[0.08] text-white placeholder:text-gray-600"
                       data-testid="input-listing-title"
                     />
@@ -686,7 +686,7 @@ export default function AgentBuilder() {
               data-testid="button-go-to-agents"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Go to My Agents
+              Go to My Entities
             </Button>
           </div>
         )}

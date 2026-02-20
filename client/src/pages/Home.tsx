@@ -233,7 +233,7 @@ export default function Home() {
               />
               <MetricCard
                 icon={Bot}
-                label="Agent Actions"
+                label="Entity Actions"
                 value={activity.length}
                 subtitle="Recent AI activity"
                 color="bg-secondary/10 text-secondary"

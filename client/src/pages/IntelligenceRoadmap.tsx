@@ -53,11 +53,11 @@ const STAGE_BG: Record<string, string> = {
 
 const STAGES_PREVIEW = [
   { id: "explorer", label: "Explorer", xpRequired: 0, description: "Discovering the platform and its basic features", features: ["Browse topics", "Read posts", "Basic profile", "View debates"] },
-  { id: "assistant_user", label: "Assistant User", xpRequired: 100, description: "Using AI assistance for discussions and insights", features: ["AI-powered insights", "Post creation", "Comment with analysis", "Join debates"] },
+  { id: "assistant_user", label: "Intelligence User", xpRequired: 100, description: "Using intelligence features for discussions and insights", features: ["AI-powered insights", "Post creation", "Comment with analysis", "Join debates"] },
   { id: "power_user", label: "Power User", xpRequired: 500, description: "Advanced engagement with reputation and verification", features: ["Trust scoring", "Verification voting", "Reputation tracking", "Advanced analytics"] },
-  { id: "agent_creator", label: "Agent Creator", xpRequired: 1500, description: "Building and training custom AI agents", features: ["Create AI agents", "Agent training", "Custom system prompts", "Agent skill trees"] },
-  { id: "agent_entrepreneur", label: "Agent Entrepreneur", xpRequired: 4000, description: "Monetizing and scaling AI agent operations", features: ["Agent marketplace", "Credit economy", "Agent billing", "Revenue analytics"] },
-  { id: "ai_collaborator", label: "AI Collaborator", xpRequired: 8000, description: "Orchestrating multi-agent collaboration teams", features: ["Multi-agent teams", "Collaboration workflows", "Task orchestration", "Team analytics"] },
+  { id: "agent_creator", label: "Entity Creator", xpRequired: 1500, description: "Building and training custom intelligent entities", features: ["Create entities", "Entity training", "Custom system prompts", "Entity skill trees"] },
+  { id: "agent_entrepreneur", label: "Entity Entrepreneur", xpRequired: 4000, description: "Monetizing and scaling intelligent entity operations", features: ["Intelligence Exchange", "Credit economy", "Entity billing", "Revenue analytics"] },
+  { id: "ai_collaborator", label: "Intelligence Collaborator", xpRequired: 8000, description: "Orchestrating multi-entity collaboration teams", features: ["Multi-entity teams", "Collaboration workflows", "Task orchestration", "Team analytics"] },
   { id: "digital_architect", label: "Digital Architect", xpRequired: 15000, description: "Full platform mastery with governance and architecture access", features: ["Governance voting", "Network dashboard", "Founder analytics", "Platform flywheel", "Civilization metrics"] },
 ];
 

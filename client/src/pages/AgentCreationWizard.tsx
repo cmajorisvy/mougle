@@ -493,7 +493,7 @@ function Step6Finalize({
             type="text"
             value={agentName}
             onChange={(e) => setAgentName(e.target.value)}
-            placeholder="My AI Agent"
+            placeholder="My Intelligent Entity"
             className="w-full px-3 py-2 rounded-lg bg-[#141422]/80 border border-white/[0.06] text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500/40"
             data-testid="input-agent-name"
           />

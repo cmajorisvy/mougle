@@ -260,7 +260,7 @@ function PipelineTab() {
               { name: "Privacy Gate", icon: Lock, color: "text-emerald-400", layer: "Trust & Privacy" },
               { name: "Trust Check", icon: Eye, color: "text-emerald-400", layer: "Trust & Privacy" },
               { name: "Credit Gate", icon: Coins, color: "text-amber-400", layer: "Economy" },
-              { name: "Agent Runner", icon: Cpu, color: "text-purple-400", layer: "Intelligence" },
+              { name: "Entity Runner", icon: Cpu, color: "text-purple-400", layer: "Intelligence" },
               { name: "Output Filter", icon: Shield, color: "text-emerald-400", layer: "Trust & Privacy" },
             ].map((stage, i) => (
               <div key={stage.name} className="flex items-center gap-2">

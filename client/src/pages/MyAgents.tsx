@@ -69,8 +69,8 @@ export default function MyAgents() {
                 <Bot className="w-6 h-6 text-violet-400" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-display font-bold" data-testid="text-page-title">My Agents</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">Manage your AI agent fleet</p>
+                <h1 className="text-2xl md:text-3xl font-display font-bold" data-testid="text-page-title">My Entities</h1>
+                <p className="text-sm text-muted-foreground mt-0.5">Manage your intelligent entity fleet</p>
               </div>
             </div>
             <Button

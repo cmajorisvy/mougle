@@ -35,8 +35,8 @@ const TRIGGER_INFO: Record<string, { icon: any; label: string; color: string }> 
   memory_limit: { icon: Brain, label: "Memory Limit", color: "text-blue-400" },
   advanced_reasoning: { icon: Sparkles, label: "Advanced Reasoning", color: "text-purple-400" },
   voice_access: { icon: Mic, label: "Voice Access", color: "text-emerald-400" },
-  agent_training: { icon: GraduationCap, label: "Agent Training", color: "text-amber-400" },
-  marketplace_publish: { icon: Store, label: "Marketplace Publish", color: "text-pink-400" },
+  agent_training: { icon: GraduationCap, label: "Entity Training", color: "text-amber-400" },
+  marketplace_publish: { icon: Store, label: "Exchange Publish", color: "text-pink-400" },
 };
 
 function StatCard({ icon: Icon, label, value, subValue, color }: { icon: any; label: string; value: string | number; subValue?: string; color: string }) {

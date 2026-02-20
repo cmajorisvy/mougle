@@ -17,7 +17,7 @@ import {
 type Tab = "chat" | "voice" | "memory" | "truth" | "tasks" | "devices" | "finance";
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
-  { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "chat", label: "Interaction", icon: MessageSquare },
   { id: "voice", label: "Voice", icon: Mic },
   { id: "memory", label: "Memory", icon: Brain },
   { id: "truth", label: "Truth Core", icon: Shield },
@@ -68,7 +68,7 @@ export default function MyPersonalAgent() {
           <div className="text-center max-w-md mx-auto p-8">
             <Lock className="w-16 h-16 text-gray-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Sign In Required</h2>
-            <p className="text-gray-400 mb-6">Please sign in to access your Personal AI Agent.</p>
+            <p className="text-gray-400 mb-6">Please sign in to access your Personal Intelligence.</p>
             <Button onClick={() => window.location.href = "/auth/signin"} data-testid="button-signin">Sign In</Button>
           </div>
         </div>
@@ -83,7 +83,7 @@ export default function MyPersonalAgent() {
           <div className="text-center max-w-md mx-auto p-8">
             <Star className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Pro Feature</h2>
-            <p className="text-gray-400 mb-6">Personal AI Agent is available exclusively for Pro users. Upgrade to unlock your personal AI assistant.</p>
+            <p className="text-gray-400 mb-6">Personal Intelligence is available exclusively for Pro users. Upgrade to unlock your personal intelligence layer.</p>
             <Button onClick={() => window.location.href = "/billing"} className="bg-yellow-600 hover:bg-yellow-700" data-testid="button-upgrade">Upgrade to Pro</Button>
           </div>
         </div>
@@ -107,8 +107,8 @@ export default function MyPersonalAgent() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-white" data-testid="text-pa-title">My Personal Agent</h1>
-              <p className="text-gray-400 text-sm mt-1">{dashboard?.profile?.agentName || "AI Assistant"} • Pro</p>
+              <h1 className="text-2xl font-bold text-white" data-testid="text-pa-title">Personal Intelligence</h1>
+              <p className="text-gray-400 text-sm mt-1">{dashboard?.profile?.agentName || "Personal Intelligence"} • Pro</p>
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="text-green-400 border-green-800" data-testid="badge-messages-remaining">
@@ -191,7 +191,7 @@ function ChatTab({ userId }: { userId: string }) {
   });
 
   const createConvMutation = useMutation({
-    mutationFn: () => fetchPA("/conversations", userId, { method: "POST", body: JSON.stringify({ title: "New Chat" }) }),
+    mutationFn: () => fetchPA("/conversations", userId, { method: "POST", body: JSON.stringify({ title: "New Interaction" }) }),
     onSuccess: (conv) => {
       queryClient.invalidateQueries({ queryKey: ["pa-conversations"] });
       setActiveConv(conv.id);
@@ -271,7 +271,7 @@ function ChatTab({ userId }: { userId: string }) {
               <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-400 mb-2">Select or start a conversation</p>
               <Button size="sm" onClick={() => createConvMutation.mutate()} data-testid="button-start-chat">
-                <Plus className="w-4 h-4 mr-1" /> New Chat
+                <Plus className="w-4 h-4 mr-1" /> New Interaction
               </Button>
             </div>
           </div>
@@ -353,8 +353,8 @@ function VoiceTab({ userId }: { userId: string }) {
           )}>
             {isPlaying ? <Volume2 className="w-10 h-10 text-white" /> : <Mic className="w-10 h-10 text-gray-400" />}
           </div>
-          <h3 className="text-lg font-semibold text-white mb-1">Voice Assistant</h3>
-          <p className="text-gray-400 text-sm">Type text below and hear your AI assistant speak</p>
+          <h3 className="text-lg font-semibold text-white mb-1">Voice Interface</h3>
+          <p className="text-gray-400 text-sm">Type text below and hear your intelligence speak</p>
         </div>
 
         <div className="space-y-4">
@@ -481,7 +481,7 @@ function MemoryTab({ userId }: { userId: string }) {
           <div className="text-center py-12 bg-[#1a1a2e] rounded-lg border border-gray-800">
             <Brain className="w-10 h-10 text-gray-600 mx-auto mb-2" />
             <p className="text-gray-400 text-sm">No memories stored yet</p>
-            <p className="text-gray-500 text-xs mt-1">Chat with your agent or add memories manually</p>
+            <p className="text-gray-500 text-xs mt-1">Interact with your intelligence or add memories manually</p>
           </div>
         ) : (
           memories.map((mem: any) => {

@@ -42,7 +42,7 @@ const mainNav = [
   { icon: Globe, label: "My Entities", href: "/my-agents", group: "Agent Ecosystem" },
   { icon: Store, label: "Intelligence Exchange", href: "/agent-marketplace", group: "Agent Ecosystem" },
   { icon: Sparkles, label: "Entity Store", href: "/agent-store", group: "Agent Ecosystem" },
-  { icon: Users, label: "AI Teams", href: "/ai-teams", group: "Agent Ecosystem" },
+  { icon: Users, label: "Intelligence Teams", href: "/ai-teams", group: "Agent Ecosystem" },
   { icon: Activity, label: "Creator Hub", href: "/creator-dashboard", group: "Agent Ecosystem" },
   // Trust & Privacy
   { icon: Shield, label: "Privacy Center", href: "/privacy-center", group: "Trust & Privacy" },
@@ -136,7 +136,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60" />
           <Input 
             data-testid="input-search"
-            placeholder="Search discussions, news, agents..." 
+            placeholder="Search discussions, news, entities..." 
             className="pl-9 h-8 text-sm bg-white/[0.04] border-white/[0.06] rounded-lg focus:border-primary/40 focus:bg-white/[0.06] transition-all placeholder:text-muted-foreground/40"
           />
         </div>
