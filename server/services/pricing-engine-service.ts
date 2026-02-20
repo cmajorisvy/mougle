@@ -31,15 +31,6 @@ interface DevCostEstimate {
   monthlyAmortized: number;
 }
 
-interface PlatformPricing {
-  platform: string;
-  minimumPrice: number;
-  recommendedPrice: number;
-  platformFeePercent: number;
-  effectiveCreatorShare: number;
-  details: string;
-}
-
 const GST_RATE = 0.18;
 
 const REPLIT_COST_PER_AI_HOUR = 25;
@@ -51,12 +42,6 @@ const DEV_HOURS_BY_COMPLEXITY: Record<string, number> = {
   moderate: 80,
   heavy: 150,
   intensive: 300,
-};
-
-const PLATFORM_FEES: Record<string, { feePercent: number; additionalCost: number; details: string }> = {
-  web: { feePercent: 0, additionalCost: 0, details: "Direct web distribution — no store commission" },
-  android: { feePercent: 15, additionalCost: 2083, details: "Google Play 15% (first ₹10L/yr), ₹2,083/mo dev account amortized" },
-  ios: { feePercent: 30, additionalCost: 8333, details: "Apple App Store 30% commission, ₹8,333/mo dev program amortized" },
 };
 
 const AI_COST_MAP: Record<string, { perUser: number; details: string }> = {
@@ -235,34 +220,6 @@ function calculatePricing(costs: CostBreakdown, targetMargin: number) {
   };
 }
 
-function calculatePlatformPricing(costs: CostBreakdown, targetMargin: number, estimatedUsers: number): PlatformPricing[] {
-  return Object.entries(PLATFORM_FEES).map(([platform, fee]) => {
-    const additionalPerUser = fee.additionalCost > 0
-      ? Math.round((fee.additionalCost / estimatedUsers) * 100) / 100
-      : 0;
-    const adjustedCostPerUser = costs.totalPerUser + additionalPerUser;
-
-    const effectiveMarginTarget = fee.feePercent > 0
-      ? 1 - ((1 - targetMargin) * (1 - fee.feePercent / 100))
-      : targetMargin;
-
-    const minimumPrice = Math.ceil(adjustedCostPerUser / (1 - effectiveMarginTarget));
-    const recommendedPrice = Math.ceil(minimumPrice * 1.2);
-
-    const creatorSharePercent = 100 - fee.feePercent;
-    const effectiveCreatorShare = Math.round(recommendedPrice * (creatorSharePercent / 100));
-
-    return {
-      platform: platform.charAt(0).toUpperCase() + platform.slice(1),
-      minimumPrice: Math.max(minimumPrice, 1),
-      recommendedPrice: Math.max(recommendedPrice, 2),
-      platformFeePercent: fee.feePercent,
-      effectiveCreatorShare,
-      details: fee.details,
-    };
-  });
-}
-
 export const pricingEngineService = {
   async analyzeApp(params: {
     creatorId: string;
@@ -283,7 +240,6 @@ export const pricingEngineService = {
     const analysis = analyzePrompt(params.appPrompt);
     const costs = calculateCosts(analysis, estimatedUsers, params.devHours, params.gstItcEnabled || false, params.amortizationMonths || 12);
     const { minimumPrice, recommendedPrice } = calculatePricing(costs, targetMargin);
-    const platformPricing = calculatePlatformPricing(costs, targetMargin, estimatedUsers);
     const devCostEstimate = estimateDevCost(analysis, params.devHours, params.gstItcEnabled || false, params.amortizationMonths || 12);
 
     const warnings: string[] = [];
@@ -324,7 +280,7 @@ export const pricingEngineService = {
       warnings,
       sustainable: true,
       devCostEstimate,
-      platformPricing,
+      distributionNote: "Dig8opia provides web app infrastructure only. External distribution (mobile stores, third-party platforms) is the creator's responsibility.",
     };
   },
 
@@ -373,8 +329,7 @@ export const pricingEngineService = {
     const analysis = analyzePrompt(prompt);
     const costs = calculateCosts(analysis, estimatedUsers, devHours, gstItcEnabled, amortizationMonths);
     const { minimumPrice, recommendedPrice } = calculatePricing(costs, targetMargin);
-    const platformPricing = calculatePlatformPricing(costs, targetMargin, estimatedUsers);
     const devCostEstimate = estimateDevCost(analysis, devHours, gstItcEnabled, amortizationMonths);
-    return { analysis, costs, minimumPrice, recommendedPrice, platformPricing, devCostEstimate };
+    return { analysis, costs, minimumPrice, recommendedPrice, devCostEstimate };
   },
 };

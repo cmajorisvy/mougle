@@ -13,7 +13,7 @@ import {
   Calculator, Cpu, Server, Wifi, HeadphonesIcon, IndianRupee,
   TrendingUp, AlertTriangle, CheckCircle2, XCircle, Sparkles,
   BarChart3, Shield, ArrowRight, Loader2, Code, Receipt,
-  Globe, Smartphone, Apple, Monitor
+  Globe, Package, FileCheck, ExternalLink, Download
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -54,15 +54,6 @@ interface DevCostEstimate {
   monthlyAmortized: number;
 }
 
-interface PlatformPricingItem {
-  platform: string;
-  minimumPrice: number;
-  recommendedPrice: number;
-  platformFeePercent: number;
-  effectiveCreatorShare: number;
-  details: string;
-}
-
 interface AnalysisResult {
   id: string;
   analysis: {
@@ -80,7 +71,26 @@ interface AnalysisResult {
   warnings: string[];
   sustainable: boolean;
   devCostEstimate: DevCostEstimate;
-  platformPricing: PlatformPricingItem[];
+  distributionNote: string;
+}
+
+interface ExportConfirmResult {
+  exportId: string;
+  status: string;
+  message: string;
+}
+
+interface ExportPackageResult {
+  exportId: string;
+  appName: string;
+  status: string;
+  package: {
+    type: string;
+    includes: string[];
+    deploymentOptions: { platform: string; guide: string }[];
+    note: string;
+  };
+  legalNotice: string;
 }
 
 interface ValidationResult {
@@ -133,17 +143,6 @@ const barColors: Record<string, string> = {
   gst: "bg-orange-500",
 };
 
-const platformIcons: Record<string, typeof Globe> = {
-  Web: Globe,
-  Android: Smartphone,
-  Ios: Monitor,
-};
-
-const platformColors: Record<string, string> = {
-  Web: "from-blue-600 to-blue-400",
-  Android: "from-emerald-600 to-emerald-400",
-  Ios: "from-zinc-500 to-zinc-300",
-};
 
 export default function PricingEngine() {
   const [appPrompt, setAppPrompt] = useState("");
@@ -156,6 +155,10 @@ export default function PricingEngine() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [customPrice, setCustomPrice] = useState("");
   const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [exportConfirmed, setExportConfirmed] = useState(false);
+  const [exportResult, setExportResult] = useState<ExportPackageResult | null>(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [disclaimerChecked, setDisclaimerChecked] = useState(false);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -175,6 +178,10 @@ export default function PricingEngine() {
       setResult(data);
       setCustomPrice("");
       setValidation(null);
+      setExportConfirmed(false);
+      setExportResult(null);
+      setShowDisclaimer(false);
+      setDisclaimerChecked(false);
     },
   });
 
@@ -188,6 +195,26 @@ export default function PricingEngine() {
     },
     onSuccess: (data: ValidationResult) => {
       setValidation(data);
+    },
+  });
+
+  const exportConfirmMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/app-export/confirm", {
+        creatorId: getCurrentUserId() || "anonymous",
+        appName: appName || "Untitled App",
+        analysisId: result?.id,
+        distributionAcknowledged: true,
+        legalDisclaimerAccepted: true,
+      });
+      return res.json();
+    },
+    onSuccess: async (data: ExportConfirmResult) => {
+      setExportConfirmed(true);
+      const res = await apiRequest("POST", "/api/app-export/generate", { exportId: data.exportId });
+      const pkg = await res.json();
+      setExportResult(pkg);
+      setShowDisclaimer(false);
     },
   });
 
@@ -450,47 +477,149 @@ export default function PricingEngine() {
               </div>
             </Card>
 
-            <Card className="glass-card rounded-xl p-6" data-testid="section-platform-pricing">
-              <div className="flex items-center gap-2 mb-5">
-                <Globe className="w-5 h-5 text-zinc-400" />
-                <h2 className="text-lg font-semibold">Platform-Specific Pricing</h2>
+            <Card className="glass-card rounded-xl p-6" data-testid="section-distribution">
+              <div className="flex items-center gap-2 mb-4">
+                <Globe className="w-5 h-5 text-blue-400" />
+                <h2 className="text-lg font-semibold">External Distribution Responsibility</h2>
+                <Badge className="bg-blue-500/20 text-blue-400 text-[10px] ml-auto">Infrastructure Only</Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(result.platformPricing || []).map((pp) => {
-                  const Icon = platformIcons[pp.platform] || Globe;
-                  const colors = platformColors[pp.platform] || "from-zinc-600 to-zinc-400";
-                  return (
-                    <Card key={pp.platform} className="glass-card rounded-xl p-5 border-zinc-700/50" data-testid={`platform-${pp.platform.toLowerCase()}`}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center", colors)}>
-                          <Icon className="w-4 h-4 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-semibold">{pp.platform}</h3>
-                          {pp.platformFeePercent > 0 && (
-                            <p className="text-[10px] text-zinc-500">{pp.platformFeePercent}% store fee</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-xs text-zinc-500">Minimum</span>
-                          <span className="text-sm font-mono font-bold text-emerald-400" data-testid={`platform-min-${pp.platform.toLowerCase()}`}>₹{pp.minimumPrice}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-xs text-zinc-500">Recommended</span>
-                          <span className="text-sm font-mono font-bold text-primary" data-testid={`platform-rec-${pp.platform.toLowerCase()}`}>₹{pp.recommendedPrice}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-xs text-zinc-500">Creator Gets</span>
-                          <span className="text-sm font-mono font-semibold">₹{pp.effectiveCreatorShare}</span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-zinc-600 mt-2">{pp.details}</p>
-                    </Card>
-                  );
-                })}
+              <div className="bg-zinc-900/60 rounded-lg p-4 border border-zinc-700/50 mb-4">
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  {result.distributionNote || "Dig8opia provides web app infrastructure only. External distribution (mobile stores, third-party platforms) is the creator's responsibility."}
+                </p>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-zinc-900/40 rounded-lg p-3 border border-zinc-800" data-testid="dist-platform-provided">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-4 h-4 text-emerald-400" />
+                    <span className="text-sm font-medium text-emerald-300">What Dig8opia Provides</span>
+                  </div>
+                  <ul className="space-y-1 text-xs text-zinc-400">
+                    <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Web app hosting and infrastructure</li>
+                    <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Pricing analysis and sustainability checks</li>
+                    <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Exportable web app packages</li>
+                    <li className="flex items-start gap-1.5"><CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /> Marketplace listing on Dig8opia</li>
+                  </ul>
+                </div>
+                <div className="bg-zinc-900/40 rounded-lg p-3 border border-zinc-800" data-testid="dist-creator-responsible">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileCheck className="w-4 h-4 text-amber-400" />
+                    <span className="text-sm font-medium text-amber-300">Creator Responsibility</span>
+                  </div>
+                  <ul className="space-y-1 text-xs text-zinc-400">
+                    <li className="flex items-start gap-1.5"><ArrowRight className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" /> Publishing to external platforms (Play Store, App Store, etc.)</li>
+                    <li className="flex items-start gap-1.5"><ArrowRight className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" /> Store commissions and developer account fees</li>
+                    <li className="flex items-start gap-1.5"><ArrowRight className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" /> Compliance with platform policies and regulations</li>
+                    <li className="flex items-start gap-1.5"><ArrowRight className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" /> End-user support and data privacy compliance</li>
+                  </ul>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="glass-card rounded-xl p-6" data-testid="section-export">
+              <div className="flex items-center gap-2 mb-4">
+                <Download className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-lg font-semibold">Export Web App Package</h2>
+              </div>
+
+              {!exportConfirmed && !showDisclaimer && (
+                <div className="space-y-3">
+                  <p className="text-sm text-zinc-400">
+                    Export your web app package for independent deployment. You must acknowledge the external distribution responsibility before exporting.
+                  </p>
+                  <Button
+                    onClick={() => { setShowDisclaimer(true); setDisclaimerChecked(false); }}
+                    className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500"
+                    data-testid="button-start-export"
+                  >
+                    <Package className="w-4 h-4 mr-2" /> Begin Export Process
+                  </Button>
+                </div>
+              )}
+
+              {showDisclaimer && !exportConfirmed && (
+                <div className="space-y-4">
+                  <div className="bg-zinc-900/80 rounded-lg p-4 border border-amber-500/30 max-h-48 overflow-y-auto text-xs text-zinc-400 leading-relaxed whitespace-pre-line" data-testid="text-disclaimer">
+                    {`EXTERNAL DISTRIBUTION RESPONSIBILITY ACKNOWLEDGMENT
+
+By exporting this application from Dig8opia, I ("Creator") acknowledge and agree:
+
+1. INFRASTRUCTURE PROVIDER ONLY: Dig8opia acts solely as an infrastructure and development platform.
+
+2. CREATOR RESPONSIBILITY: I am solely responsible for publishing, distributing, and operating the exported app on any external platform.
+
+3. NO LIABILITY: Dig8opia shall not be liable for any issues arising from external distribution.
+
+4. INDEMNIFICATION: I agree to indemnify and hold Dig8opia harmless from any claims arising from my distribution of the exported application.
+
+5. NO GUARANTEES: Dig8opia makes no guarantees about the exported app's compatibility or acceptance on any external platform.`}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={disclaimerChecked}
+                      onCheckedChange={setDisclaimerChecked}
+                      data-testid="switch-disclaimer-accept"
+                    />
+                    <label className="text-sm text-zinc-300">
+                      I acknowledge and accept the External Distribution Responsibility terms
+                    </label>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => exportConfirmMutation.mutate()}
+                      disabled={!disclaimerChecked || exportConfirmMutation.isPending}
+                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500"
+                      data-testid="button-confirm-export"
+                    >
+                      {exportConfirmMutation.isPending ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing...</>
+                      ) : (
+                        <><FileCheck className="w-4 h-4 mr-2" /> Confirm & Export</>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowDisclaimer(false)}
+                      className="border-zinc-700"
+                      data-testid="button-cancel-export"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {exportResult && (
+                <div className="space-y-4" data-testid="section-export-result">
+                  <div className="flex items-center gap-2 text-emerald-400">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span className="font-semibold">Export Package Ready</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {exportResult.package.includes.map((item) => (
+                      <div key={item} className="bg-zinc-900/60 rounded-lg p-2 text-xs text-zinc-300 flex items-center gap-2" data-testid={`export-include-${item}`}>
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                        {item.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-zinc-500 uppercase font-medium">Deployment Options</p>
+                    {exportResult.package.deploymentOptions.map((opt) => (
+                      <div key={opt.platform} className="flex items-center justify-between bg-zinc-900/40 rounded-lg p-2 border border-zinc-800" data-testid={`deploy-option-${opt.platform.toLowerCase()}`}>
+                        <div className="flex items-center gap-2">
+                          <ExternalLink className="w-3 h-3 text-cyan-400" />
+                          <span className="text-sm font-medium">{opt.platform}</span>
+                        </div>
+                        <span className="text-xs text-zinc-500">{opt.guide}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-zinc-600 bg-zinc-900/40 rounded p-2">
+                    {exportResult.package.note}
+                  </p>
+                </div>
+              )}
             </Card>
 
             <Card className="glass-card rounded-xl p-6 space-y-4" data-testid="section-detected-profile">
@@ -617,6 +746,7 @@ export default function PricingEngine() {
 
             <div className="text-center text-xs text-zinc-600 pb-4" data-testid="section-footer">
               Pricing includes Replit AI development cost amortization + 18% Indian GST.
+              Dig8opia is an infrastructure provider only. External distribution responsibility lies with the creator.
               Creators keep 70% of revenue through Razorpay Route split.
             </div>
           </>

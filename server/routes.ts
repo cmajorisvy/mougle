@@ -33,6 +33,7 @@ import {
   agentPurchases as agentPurchases_table,
   transactions as transactions_table,
   agentReviews as agentReviews_table,
+  appExports as appExports_table,
 } from "@shared/schema";
 import { eq, desc, asc, sql } from "drizzle-orm";
 import * as debateOrchestrator from "./services/debate-orchestrator";
@@ -3229,6 +3230,104 @@ Keep under 200 words.`
         parsed.data.amortizationMonths
       );
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  const EXTERNAL_DISTRIBUTION_DISCLAIMER = `EXTERNAL DISTRIBUTION RESPONSIBILITY ACKNOWLEDGMENT
+
+By exporting this application from Dig8opia, I ("Creator") acknowledge and agree:
+
+1. INFRASTRUCTURE PROVIDER ONLY: Dig8opia acts solely as an infrastructure and development platform. Dig8opia has no responsibility for the distribution, marketing, or operation of exported applications outside the platform.
+
+2. CREATOR RESPONSIBILITY: I am solely responsible for:
+   - Publishing and distributing the exported app on any external platform (Google Play, Apple App Store, web hosting, etc.)
+   - Compliance with all applicable store policies, guidelines, and fee structures
+   - Paying any store commissions, developer account fees, or distribution costs
+   - Ensuring the app meets all legal, regulatory, and content requirements of the target platform
+   - Providing end-user support and handling user data in compliance with applicable privacy laws
+
+3. NO LIABILITY: Dig8opia shall not be liable for any issues arising from external distribution, including but not limited to: app rejection, store policy violations, user complaints, data breaches, or revenue disputes.
+
+4. INDEMNIFICATION: I agree to indemnify and hold Dig8opia harmless from any claims, damages, or losses arising from my distribution and operation of the exported application.
+
+5. NO GUARANTEES: Dig8opia makes no guarantees about the exported app's compatibility, performance, or acceptance on any external platform.`;
+
+  const exportConfirmSchema = z.object({
+    creatorId: z.string().min(1),
+    appName: z.string().min(1),
+    analysisId: z.string().optional(),
+    distributionAcknowledged: z.literal(true, { errorMap: () => ({ message: "You must acknowledge the external distribution responsibility" }) }),
+    legalDisclaimerAccepted: z.literal(true, { errorMap: () => ({ message: "You must accept the legal disclaimer" }) }),
+  });
+
+  app.get("/api/app-export/disclaimer", async (_req, res) => {
+    res.json({ disclaimer: EXTERNAL_DISTRIBUTION_DISCLAIMER });
+  });
+
+  app.post("/api/app-export/confirm", async (req, res) => {
+    try {
+      const parsed = exportConfirmSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+
+      const [exported] = await db.insert(appExports_table).values({
+        creatorId: parsed.data.creatorId,
+        appName: parsed.data.appName,
+        analysisId: parsed.data.analysisId || null,
+        exportType: "web_package",
+        distributionAcknowledged: true,
+        legalDisclaimerAccepted: true,
+        acknowledgmentText: EXTERNAL_DISTRIBUTION_DISCLAIMER,
+        status: "confirmed",
+      }).returning();
+
+      res.json({
+        exportId: exported.id,
+        status: "confirmed",
+        message: "Distribution responsibility acknowledged. You may now generate your export package.",
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/app-export/generate", async (req, res) => {
+    try {
+      const { exportId } = z.object({ exportId: z.string().min(1) }).parse(req.body);
+
+      const [record] = await db.select().from(appExports_table).where(eq(appExports_table.id, exportId));
+      if (!record) return res.status(404).json({ error: "Export record not found" });
+      if (!record.distributionAcknowledged || !record.legalDisclaimerAccepted) {
+        return res.status(403).json({ error: "Creator must acknowledge distribution responsibility before exporting" });
+      }
+
+      await db.update(appExports_table)
+        .set({ status: "exported", exportedAt: new Date() })
+        .where(eq(appExports_table.id, exportId));
+
+      res.json({
+        exportId: record.id,
+        appName: record.appName,
+        status: "exported",
+        package: {
+          type: "web_package",
+          includes: ["source_code", "build_config", "deployment_guide", "environment_template"],
+          deploymentOptions: [
+            { platform: "Vercel", guide: "Deploy via Vercel CLI or Git integration" },
+            { platform: "Netlify", guide: "Deploy via Netlify CLI or drag-and-drop" },
+            { platform: "AWS", guide: "Deploy using S3 + CloudFront or Elastic Beanstalk" },
+            { platform: "Self-hosted", guide: "Use Docker or PM2 on any Linux server" },
+          ],
+          note: "External store fees (Google Play, Apple App Store) are your responsibility. Dig8opia does not calculate or include third-party distribution costs.",
+        },
+        legalNotice: "By downloading this package, you confirm that external distribution is entirely your responsibility. Dig8opia acts as infrastructure provider only.",
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/app-export/history/:creatorId", async (req, res) => {
+    try {
+      const exports = await db.select().from(appExports_table)
+        .where(eq(appExports_table.creatorId, req.params.creatorId))
+        .orderBy(desc(appExports_table.createdAt));
+      res.json(exports);
     } catch (err) { handleServiceError(res, err); }
   });
 

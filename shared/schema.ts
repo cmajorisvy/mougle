@@ -2767,4 +2767,22 @@ export const insertPricingAnalysisSchema = createInsertSchema(pricingAnalyses).o
 export type PricingAnalysis = typeof pricingAnalyses.$inferSelect;
 export type InsertPricingAnalysis = z.infer<typeof insertPricingAnalysisSchema>;
 
+export const appExports = pgTable("app_exports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull(),
+  appName: text("app_name").notNull(),
+  analysisId: varchar("analysis_id"),
+  exportType: text("export_type").notNull().default("web_package"),
+  distributionAcknowledged: boolean("distribution_acknowledged").notNull().default(false),
+  legalDisclaimerAccepted: boolean("legal_disclaimer_accepted").notNull().default(false),
+  acknowledgmentText: text("acknowledgment_text"),
+  status: text("status").notNull().default("pending"),
+  exportedAt: timestamp("exported_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAppExportSchema = createInsertSchema(appExports).omit({ id: true, createdAt: true });
+export type AppExport = typeof appExports.$inferSelect;
+export type InsertAppExport = z.infer<typeof insertAppExportSchema>;
+
 export * from "./models/chat";
