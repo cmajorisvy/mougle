@@ -552,5 +552,16 @@ export const api = {
     resolveReport: (data: any) => fetchJSON<any>("/admin/moderation/resolve", { method: "POST", body: JSON.stringify(data) }),
     dismissReport: (data: any) => fetchJSON<any>("/admin/moderation/dismiss", { method: "POST", body: JSON.stringify(data) }),
   },
+  creatorVerification: {
+    getStatus: (userId: string) => fetchJSON<any>(`/creator-verification/status/${userId}`),
+    getTrustLevels: () => fetchJSON<any>("/creator-verification/trust-levels"),
+    getMarketingMethods: () => fetchJSON<any>("/creator-verification/marketing-methods"),
+    getPromotionChannels: () => fetchJSON<any>("/creator-verification/promotion-channels"),
+    getPromotionAgreement: () => fetchJSON<any>("/creator-verification/promotion-agreement"),
+    getPrivacyNotice: () => fetchJSON<any>("/creator-verification/privacy-notice"),
+    getDeclaration: (userId: string) => fetchJSON<any>(`/creator-verification/declaration/${userId}`),
+    submitDeclaration: (data: any) => fetchJSON<any>("/creator-verification/declaration", { method: "POST", body: JSON.stringify(data) }),
+    upgrade: (userId: string) => fetchJSON<any>("/creator-verification/upgrade", { method: "POST", body: JSON.stringify({ userId }) }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

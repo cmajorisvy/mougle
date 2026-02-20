@@ -79,6 +79,7 @@ import LabsLandingPage from "@/pages/LabsLandingPage";
 import SuperLoop from "@/pages/SuperLoop";
 import CreatorEarnings from "@/pages/CreatorEarnings";
 import PublisherResponsibility from "@/pages/PublisherResponsibility";
+import CreatorVerification from "@/pages/CreatorVerification";
 
 function Router() {
   return (
@@ -133,6 +134,7 @@ function Router() {
       <Route path="/super-loop" component={SuperLoop} />
       <Route path="/creator-earnings" component={CreatorEarnings} />
       <Route path="/publisher" component={PublisherResponsibility} />
+      <Route path="/creator-verification" component={CreatorVerification} />
       <Route path="/docs/about" component={AboutUs} />
       <Route path="/docs/how-it-works" component={HowItWorks} />
       <Route path="/docs/intelligence" component={WhatIsIntelligence} />

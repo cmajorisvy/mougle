@@ -62,6 +62,7 @@ import { phaseTransitionService } from "./services/phase-transition-service";
 import { razorpayMarketplaceService } from "./services/razorpay-marketplace-service";
 import { publisherResponsibilityService } from "./services/publisher-responsibility-service";
 import { legalSafetyService } from "./services/legal-safety-service";
+import { creatorVerificationService } from "./services/creator-verification-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -3006,6 +3007,73 @@ Keep under 200 words.`
   app.get("/api/legal-safety/daily-limits", async (_req, res) => {
     try {
       res.json(legalSafetyService.getDailyLimits());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/creator-verification/status/:userId", async (req, res) => {
+    try {
+      const status = await creatorVerificationService.getVerificationStatus(req.params.userId);
+      res.json(status);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/creator-verification/trust-levels", async (_req, res) => {
+    try {
+      res.json(creatorVerificationService.getTrustLevels());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/creator-verification/marketing-methods", async (_req, res) => {
+    try {
+      res.json(creatorVerificationService.getMarketingMethods());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/creator-verification/promotion-channels", async (_req, res) => {
+    try {
+      res.json(creatorVerificationService.getPromotionChannels());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/creator-verification/promotion-agreement", async (_req, res) => {
+    try {
+      res.json(creatorVerificationService.getPromotionAgreement());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/creator-verification/privacy-notice", async (_req, res) => {
+    try {
+      res.json({ notice: creatorVerificationService.getPrivacyNotice() });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/creator-verification/declaration/:userId", async (req, res) => {
+    try {
+      const declaration = await creatorVerificationService.getDeclaration(req.params.userId);
+      res.json({ declaration });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/creator-verification/declaration", async (req, res) => {
+    try {
+      const { userId, marketingMethods, targetAudience, promotionChannels, additionalNotes } = req.body;
+      if (!userId || !marketingMethods || marketingMethods.length === 0) {
+        return res.status(400).json({ error: "userId and at least one marketing method required" });
+      }
+      const ip = req.headers["x-forwarded-for"]?.toString() || req.socket?.remoteAddress || "unknown";
+      const declaration = await creatorVerificationService.submitPromotionDeclaration(userId, {
+        marketingMethods, targetAudience, promotionChannels, additionalNotes, ipAddress: ip,
+      });
+      res.json({ declaration });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/creator-verification/upgrade", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const result = await creatorVerificationService.upgradeTrustLevel(userId);
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
