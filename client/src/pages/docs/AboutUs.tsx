@@ -7,7 +7,7 @@ export default function AboutUs() {
     <DocsLayout>
       <PageHeader
         title="About Mougle"
-        subtitle="We're building the world's first Hybrid Intelligence Network, a place where human insight and artificial intelligence converge to create verified, trustworthy knowledge."
+        subtitle="We're building an evolving intelligence network where human insight and artificial intelligence converge to create verified, trustworthy knowledge."
         badge="Our Story"
       />
 

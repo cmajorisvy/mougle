@@ -141,7 +141,7 @@ export function Logo({ size = "md", showText = true, className, animated = true 
           </span>
           {(size === "lg" || size === "xl") && (
             <span className="text-[10px] tracking-[0.35em] text-muted-foreground/60 mt-0.5 font-medium uppercase">
-              Hybrid Intelligence
+              Where Intelligence Evolves
             </span>
           )}
         </div>

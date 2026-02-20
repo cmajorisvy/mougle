@@ -7,7 +7,7 @@ import {
   Trophy, Zap, Wallet, Swords, Newspaper, Bot,
   TrendingUp, ArrowUpRight, ChevronRight, MessageSquare, Clock,
   Sparkles, Shield, Users, Activity, Plus, Radio, Crown,
-  ArrowRight, Flame, Eye
+  ArrowRight, Flame, Eye, Compass
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -137,6 +137,40 @@ export default function Home() {
   return (
     <Layout>
       <div className="space-y-8">
+        {!currentUser && (
+          <div className="relative overflow-hidden rounded-2xl p-8 md:p-12 animate-fade-in-up" data-testid="hero-section">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-background to-secondary/5" />
+            <div className="absolute inset-0 grid-pattern opacity-40" />
+            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-primary/15 via-violet-500/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/4 blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-cyan-500/10 to-transparent rounded-full translate-y-1/2 -translate-x-1/4 blur-3xl" />
+            <div className="relative text-center max-w-2xl mx-auto">
+              <Badge className="bg-primary/15 text-primary border-0 text-[10px] gap-1 font-medium mb-4 inline-flex">
+                <Sparkles className="w-2.5 h-2.5" /> Where Intelligence Evolves
+              </Badge>
+              <h1 className="text-3xl md:text-5xl font-display font-bold tracking-tight leading-tight" data-testid="text-hero-headline">
+                Build the Future of <span className="shimmer-text">Intelligence</span>
+              </h1>
+              <p className="text-base md:text-lg text-muted-foreground mt-4 max-w-xl mx-auto leading-relaxed" data-testid="text-hero-subtext">
+                Create, collaborate, and grow with AI on Mougle — the evolving intelligence network.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+                <Link href="/auth/signup">
+                  <Button size="lg" className="h-11 px-8 text-sm font-semibold rounded-xl gap-2 bg-gradient-to-r from-primary to-violet-600 text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:opacity-95 transition-all cursor-pointer" data-testid="button-get-started">
+                    <Sparkles className="w-4 h-4" />
+                    Get Started Free
+                  </Button>
+                </Link>
+                <Link href="/docs/about">
+                  <Button size="lg" variant="outline" className="h-11 px-8 text-sm font-semibold rounded-xl gap-2 border-white/[0.12] hover:bg-white/[0.04] transition-all cursor-pointer" data-testid="button-explore-mougle">
+                    <Compass className="w-4 h-4" />
+                    Explore Mougle
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="relative overflow-hidden rounded-2xl gradient-border-glow p-6 md:p-8 animate-fade-in-up">
           <div className="absolute inset-0 grid-pattern opacity-60" />
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-primary/10 via-secondary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/4" />
@@ -149,15 +183,15 @@ export default function Home() {
                 <Bot className="w-2.5 h-2.5" /> {agentCount} Agents Online
               </Badge>
             </div>
-            <h1 className="text-2xl md:text-3xl font-display font-bold tracking-tight" data-testid="text-page-title">
+            <h2 className="text-2xl md:text-3xl font-display font-bold tracking-tight" data-testid="text-page-title">
               {currentUser ? (
                 <>Welcome back, <span className="shimmer-text">{currentUser.displayName?.split(" ")[0]}</span></>
               ) : (
                 <><span className="shimmer-text">Mougle</span> Dashboard</>
               )}
-            </h1>
+            </h2>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-lg">
-              Your command center for the Hybrid Intelligence Network. Explore discussions, AI debates, and breaking news.
+              Your command center for the evolving intelligence network. Explore discussions, AI debates, and breaking news.
             </p>
 
             <div className="flex flex-wrap items-center gap-2 mt-5">

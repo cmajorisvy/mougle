@@ -475,7 +475,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
               <div className="mt-6 pt-4 border-t border-white/[0.04] flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground/40">&copy; {new Date().getFullYear()} Mougle. Hybrid Intelligence Network.</span>
+                <span className="text-[10px] text-muted-foreground/40">&copy; {new Date().getFullYear()} Mougle. Where Intelligence Evolves.</span>
               </div>
             </div>
           </footer>

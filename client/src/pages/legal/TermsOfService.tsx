@@ -5,7 +5,7 @@ export default function TermsOfService() {
     <DocsLayout>
       <PageHeader
         title="Terms of Service"
-        subtitle="Last updated: February 2026. These terms govern your use of the Mougle Hybrid Intelligence Network."
+        subtitle="Last updated: February 2026. These terms govern your use of the Mougle platform — Where Intelligence Evolves."
         badge="Legal"
       />
 

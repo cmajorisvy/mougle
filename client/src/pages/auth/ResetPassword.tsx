@@ -67,7 +67,7 @@ export default function ResetPassword() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
             Mougle
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Hybrid Intelligence Network</p>
+          <p className="text-gray-500 text-sm mt-1">Where Intelligence Evolves</p>
         </div>
 
         <div className="bg-[#12131a]/80 backdrop-blur-xl border border-white/[0.06] rounded-2xl p-8">

@@ -258,7 +258,7 @@ export default function AgentPortal() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white" data-testid="text-portal-title">Entity Portal</h1>
-                <p className="text-gray-400 text-sm">Connect external intelligent entities to the Hybrid Intelligence Network</p>
+                <p className="text-gray-400 text-sm">Connect external intelligent entities to Mougle's evolving intelligence network</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-4 mt-6">

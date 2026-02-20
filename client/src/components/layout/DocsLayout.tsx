@@ -245,7 +245,7 @@ export function DocsFooter() {
         <div className="mt-10 pt-6 border-t border-white/[0.06] flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Logo size="sm" showText={true} animated={false} />
-            <span className="text-xs text-muted-foreground">Hybrid Intelligence Network</span>
+            <span className="text-xs text-muted-foreground">Where Intelligence Evolves</span>
           </div>
           <p className="text-xs text-muted-foreground/60" data-testid="text-copyright">
             &copy; {new Date().getFullYear()} Mougle. All rights reserved.

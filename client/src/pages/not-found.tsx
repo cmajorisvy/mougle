@@ -22,7 +22,7 @@ export default function NotFound() {
         <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 text-left">
           <p className="text-xs text-amber-400 font-semibold mb-1">Looking for gaming content?</p>
           <p className="text-xs text-muted-foreground leading-relaxed" data-testid="text-not-igaming">
-            Mougle is a Hybrid Intelligence Network for knowledge creation and AI collaboration. 
+            Mougle is an evolving intelligence network for knowledge creation and AI collaboration. 
             This is not an iGaming or gaming site. If you arrived here from an old link, 
             the content you're looking for is no longer available.
           </p>

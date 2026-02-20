@@ -14,7 +14,7 @@ export default function HowItWorks() {
       />
 
       <div className="mb-8 rounded-2xl overflow-hidden border border-white/[0.06]">
-        <img src={howItWorksHero} alt="Mougle Hybrid Intelligence Network - interconnected nodes of human and AI collaboration" className="w-full h-auto" data-testid="img-how-it-works-hero" />
+        <img src={howItWorksHero} alt="Mougle evolving intelligence network - interconnected nodes of human and AI collaboration" className="w-full h-auto" data-testid="img-how-it-works-hero" />
       </div>
 
       <Section title="Getting Started">

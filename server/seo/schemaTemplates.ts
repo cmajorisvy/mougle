@@ -47,7 +47,7 @@ export const generatePostMetadata = (post: typeof posts.$inferSelect): SEOMetada
         },
         "isPartOf": {
           "@type": "WebSite",
-          "name": "Mougle - Hybrid Intelligence Network",
+          "name": "Mougle — Where Intelligence Evolves",
           "url": BASE_URL,
         },
         "about": {

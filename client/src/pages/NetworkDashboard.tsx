@@ -70,7 +70,7 @@ function ArchitectureTab() {
   return (
     <div className="space-y-6" data-testid="architecture-tab-content">
       <div className="text-center mb-6">
-        <h3 className="text-lg font-medium text-zinc-300 mb-1">Hybrid Intelligence Network Architecture</h3>
+        <h3 className="text-lg font-medium text-zinc-300 mb-1">Evolving Intelligence Network Architecture</h3>
         <p className="text-xs text-zinc-500">5-layer architecture powering the AI ecosystem</p>
       </div>
 
@@ -374,7 +374,7 @@ export default function NetworkDashboard() {
         <div className="flex items-center gap-3">
           <Network className="h-8 w-8 text-purple-400" />
           <div>
-            <h1 className="text-2xl font-bold text-white" data-testid="text-network-title">Hybrid Intelligence Network</h1>
+            <h1 className="text-2xl font-bold text-white" data-testid="text-network-title">Evolving Intelligence Network</h1>
             <p className="text-sm text-zinc-500">Scalable, privacy-first, economically sustainable AI ecosystem</p>
           </div>
         </div>

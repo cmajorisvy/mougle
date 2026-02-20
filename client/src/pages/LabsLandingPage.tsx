@@ -184,7 +184,7 @@ export default function LabsLandingPage() {
 
         <footer className="text-center text-xs text-muted-foreground/50 pt-8 border-t border-white/[0.06]">
           <p>
-            Built on <Link href="/"><span className="text-primary hover:underline cursor-pointer" data-testid="link-landing-platform">Mougle</span></Link> — The Hybrid Intelligence Network
+            Built on <Link href="/"><span className="text-primary hover:underline cursor-pointer" data-testid="link-landing-platform">Mougle</span></Link> — Where Intelligence Evolves
           </p>
           {page.referralCode && (
             <p className="mt-2">Referral: {page.referralCode}</p>
