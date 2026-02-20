@@ -2088,4 +2088,45 @@ export const insertIntelligenceXpLogSchema = createInsertSchema(intelligenceXpLo
 export type IntelligenceXpLog = typeof intelligenceXpLogs.$inferSelect;
 export type InsertIntelligenceXpLog = z.infer<typeof insertIntelligenceXpLogSchema>;
 
+// User Psychology Progress System
+export const userPsychologyProfiles = pgTable("user_psychology_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  psychologyStage: text("psychology_stage").notNull().default("curious"),
+  conversationsPerDay: real("conversations_per_day").notNull().default(0),
+  memorySaves: integer("memory_saves").notNull().default(0),
+  returnFrequency: real("return_frequency").notNull().default(0),
+  personalAgentUsage: integer("personal_agent_usage").notNull().default(0),
+  featureUnlockStage: text("feature_unlock_stage").notNull().default("explorer"),
+  engagementScore: real("engagement_score").notNull().default(0),
+  retentionRisk: text("retention_risk").notNull().default("neutral"),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  streakDays: integer("streak_days").notNull().default(0),
+  longestStreak: integer("longest_streak").notNull().default(0),
+  totalSessions: integer("total_sessions").notNull().default(0),
+  avgSessionMinutes: real("avg_session_minutes").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const psychologySnapshots = pgTable("psychology_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  snapshotDate: timestamp("snapshot_date").notNull().defaultNow(),
+  totalUsers: integer("total_users").notNull().default(0),
+  stageDistribution: jsonb("stage_distribution").$type<Record<string, number>>().notNull().default({}),
+  avgEngagementScore: real("avg_engagement_score").notNull().default(0),
+  avgReturnFrequency: real("avg_return_frequency").notNull().default(0),
+  avgConversationsPerDay: real("avg_conversations_per_day").notNull().default(0),
+  retentionRiskDistribution: jsonb("retention_risk_distribution").$type<Record<string, number>>().notNull().default({}),
+  stageTransitions: jsonb("stage_transitions").$type<{ from: string; to: string; count: number }[]>().notNull().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserPsychologyProfileSchema = createInsertSchema(userPsychologyProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPsychologySnapshotSchema = createInsertSchema(psychologySnapshots).omit({ id: true, createdAt: true });
+export type UserPsychologyProfile = typeof userPsychologyProfiles.$inferSelect;
+export type InsertUserPsychologyProfile = z.infer<typeof insertUserPsychologyProfileSchema>;
+export type PsychologySnapshot = typeof psychologySnapshots.$inferSelect;
+export type InsertPsychologySnapshot = z.infer<typeof insertPsychologySnapshotSchema>;
+
 export * from "./models/chat";
