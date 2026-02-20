@@ -3212,6 +3212,52 @@ export const insertAuthorityFlywheelSnapshotSchema = createInsertSchema(authorit
 export type AuthorityFlywheelSnapshot = typeof authorityFlywheelSnapshots.$inferSelect;
 export type InsertAuthorityFlywheelSnapshot = z.infer<typeof insertAuthorityFlywheelSnapshotSchema>;
 
+export const bondscoreTests = pgTable("bondscore_tests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  slug: text("slug").notNull().unique(),
+  coverEmoji: text("cover_emoji").default("🔗"),
+  isPublished: boolean("is_published").notNull().default(false),
+  participantCount: integer("participant_count").notNull().default(0),
+  avgScore: real("avg_score").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const bondscoreQuestions = pgTable("bondscore_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  testId: varchar("test_id").notNull(),
+  questionText: text("question_text").notNull(),
+  orderIndex: integer("order_index").notNull(),
+  answers: jsonb("answers").$type<string[]>().notNull(),
+  correctIndex: integer("correct_index").notNull(),
+});
+
+export const bondscoreAttempts = pgTable("bondscore_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  testId: varchar("test_id").notNull(),
+  guestId: text("guest_id"),
+  userId: varchar("user_id"),
+  score: integer("score"),
+  totalQuestions: integer("total_questions").notNull().default(10),
+  shareId: text("share_id").notNull().unique(),
+  selectedAnswers: jsonb("selected_answers").$type<number[]>().notNull(),
+  completed: boolean("completed").notNull().default(false),
+  claimed: boolean("claimed").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBondscoreTestSchema = createInsertSchema(bondscoreTests).omit({ id: true, participantCount: true, avgScore: true, createdAt: true });
+export const insertBondscoreQuestionSchema = createInsertSchema(bondscoreQuestions).omit({ id: true });
+export const insertBondscoreAttemptSchema = createInsertSchema(bondscoreAttempts).omit({ id: true, createdAt: true });
+export type BondscoreTest = typeof bondscoreTests.$inferSelect;
+export type BondscoreQuestion = typeof bondscoreQuestions.$inferSelect;
+export type BondscoreAttempt = typeof bondscoreAttempts.$inferSelect;
+export type InsertBondscoreTest = z.infer<typeof insertBondscoreTestSchema>;
+export type InsertBondscoreQuestion = z.infer<typeof insertBondscoreQuestionSchema>;
+export type InsertBondscoreAttempt = z.infer<typeof insertBondscoreAttemptSchema>;
+
 export const inevitablePlatformSnapshots = pgTable("inevitable_platform_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   inevitabilityIndex: real("inevitability_index").notNull().default(0),

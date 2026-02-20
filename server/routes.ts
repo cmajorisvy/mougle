@@ -6217,6 +6217,75 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ VIRAL BONDSCORE ============
+  const { bondscoreService } = await import("./services/bondscore-service");
+
+  app.post("/api/bondscore/create", async (req, res) => {
+    try {
+      const { creatorId, title, description, coverEmoji, questions } = req.body;
+      if (!creatorId || !title || !questions) return res.status(400).json({ message: "creatorId, title, and questions required" });
+      const test = await bondscoreService.createTest(creatorId, { title, description, coverEmoji, questions });
+      res.status(201).json(test);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/bondscore/test/:slug", async (req, res) => {
+    try {
+      const test = await bondscoreService.getTestBySlug(req.params.slug);
+      if (!test) return res.status(404).json({ message: "Test not found" });
+      res.json(test);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/bondscore/submit", async (req, res) => {
+    try {
+      const { testId, guestId, selectedAnswers } = req.body;
+      if (!testId || !guestId || !selectedAnswers) return res.status(400).json({ message: "testId, guestId, and selectedAnswers required" });
+      const result = await bondscoreService.submitAttempt(testId, { guestId, selectedAnswers });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/bondscore/claim", async (req, res) => {
+    try {
+      const { shareId, userId } = req.body;
+      if (!shareId || !userId) return res.status(400).json({ message: "shareId and userId required" });
+      const result = await bondscoreService.claimAttempt(shareId, userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/bondscore/result/:shareId", async (req, res) => {
+    try {
+      const userId = req.query.userId as string | undefined;
+      const result = await bondscoreService.getResult(req.params.shareId, userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/bondscore/my-tests/:userId", async (req, res) => {
+    try {
+      res.json(await bondscoreService.getMyTests(req.params.userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/bondscore/dashboard/:userId", async (req, res) => {
+    try {
+      res.json(await bondscoreService.getDashboardStats(req.params.userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/bondscore/ai-generate", async (req, res) => {
+    try {
+      const questions = await bondscoreService.generateAIQuestions(req.body.topic);
+      res.json({ questions });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/bondscore/stats", requireAdmin, async (_req, res) => {
+    try { res.json(await bondscoreService.getAdminStats()); } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ INEVITABLE PLATFORM MONITOR ============
   const { inevitablePlatformService } = await import("./services/inevitable-platform-service");
 

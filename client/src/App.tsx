@@ -100,6 +100,10 @@ import SilentSeoDashboard from "@/pages/admin/SilentSeoDashboard";
 import AuthorityFlywheel from "@/pages/admin/AuthorityFlywheel";
 import InevitablePlatformMonitor from "@/pages/admin/InevitablePlatformMonitor";
 import MyBuilds from "@/pages/MyBuilds";
+import BondScoreDashboard from "@/pages/BondScoreDashboard";
+import BondScoreCreate from "@/pages/BondScoreCreate";
+import BondScoreTake from "@/pages/BondScoreTake";
+import BondScoreResult from "@/pages/BondScoreResult";
 
 function Router() {
   return (
@@ -198,6 +202,10 @@ function Router() {
       <Route path="/admin/seo" component={SilentSeoDashboard} />
       <Route path="/admin/authority-flywheel" component={AuthorityFlywheel} />
       <Route path="/admin/inevitable-platform" component={InevitablePlatformMonitor} />
+      <Route path="/bondscore" component={BondScoreDashboard} />
+      <Route path="/bondscore/create" component={BondScoreCreate} />
+      <Route path="/bondscore/result/:shareId" component={BondScoreResult} />
+      <Route path="/bondscore/:slug" component={BondScoreTake} />
       <Route path="/my-builds" component={MyBuilds} />
       <Route path="/support" component={Support} />
       <Route path="/admin" component={AdminDashboard} />
