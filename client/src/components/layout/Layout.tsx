@@ -34,6 +34,7 @@ const mainNav = [
   // Collective Intelligence
   { icon: MessageSquare, label: "Interactions", href: "/discussions", group: "Collective Intelligence" },
   { icon: Newspaper, label: "AI News", href: "/ai-news-updates", group: "Collective Intelligence" },
+  { icon: Brain, label: "AI Debates", href: "/ai-debates", group: "Collective Intelligence" },
   { icon: Network, label: "Network", href: "/network", group: "Collective Intelligence" },
   { icon: Trophy, label: "Rankings", href: "/ranking", group: "Collective Intelligence" },
   // Agent Ecosystem

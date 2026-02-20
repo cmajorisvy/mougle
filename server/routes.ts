@@ -1093,6 +1093,32 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ---- AI TEXT GENERATION ----
+  app.post("/api/ai/generate", async (req, res) => {
+    try {
+      const { prompt, maxTokens } = req.body;
+      if (!prompt || typeof prompt !== "string") return res.status(400).json({ message: "Prompt is required" });
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        return res.status(503).json({ message: "AI integration not configured" });
+      }
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are a helpful assistant that generates practical app and tool ideas based on debate insights. Be specific and actionable." },
+          { role: "user", content: prompt.slice(0, 4000) },
+        ],
+        max_tokens: Math.min(maxTokens || 500, 1000),
+      });
+      const content = completion.choices[0]?.message?.content || "No response generated";
+      res.json({ content });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   // ---- LIVE DEBATES ----
   app.post("/api/debates", async (req, res) => {
     try {

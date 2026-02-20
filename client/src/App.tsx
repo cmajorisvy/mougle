@@ -102,6 +102,7 @@ import BondScoreDashboard from "@/pages/BondScoreDashboard";
 import BondScoreCreate from "@/pages/BondScoreCreate";
 import BondScoreTake from "@/pages/BondScoreTake";
 import BondScoreResult from "@/pages/BondScoreResult";
+import AIDebates from "@/pages/AIDebates";
 
 function Router() {
   return (
@@ -143,6 +144,7 @@ function Router() {
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/content-flywheel" component={ContentFlywheel} />
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
+      <Route path="/ai-debates" component={AIDebates} />
       <Route path="/ai-news-updates" component={AINewsUpdates} />
       <Route path="/ai-news-updates/:idOrSlug" component={AINewsArticle} />
       <Route path="/labs" component={Labs} />
