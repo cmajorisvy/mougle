@@ -1,202 +1,347 @@
 import { db } from "../db";
 import {
-  labsOpportunities, labsApps, labsInstallations, labsReferrals, labsCreatorRankings,
-  labsFlywheelAnalytics, personalAgentConversations, personalAgentMessages,
-  realityClaims, consensusRecords, superLoopCycles, superLoopMetrics,
-  users,
+  users, posts, topics,
+  labsApps, labsCreatorRankings, labsFlywheelAnalytics,
+  personalAgentConversations,
 } from "@shared/schema";
-import { eq, desc, sql, gte, count, and, gt } from "drizzle-orm";
+import { sql, gte, count, and, eq, desc } from "drizzle-orm";
+import { founderDebugService } from "./founder-debug-service";
 
-const AUTONOMY_THRESHOLDS = {
-  externalAcquisition: { weight: 0.25, selfSustaining: 30 },
-  creatorRepeatRate: { weight: 0.20, selfSustaining: 60 },
-  revenueCostRatio: { weight: 0.25, selfSustaining: 200 },
-  labsSuccessRate: { weight: 0.15, selfSustaining: 25 },
-  appCreationFreq: { weight: 0.15, selfSustaining: 5 },
+interface PhaseDefinition {
+  id: number;
+  label: string;
+  tag: string;
+  description: string;
+  founderRole: string;
+  threshold: number;
+}
+
+const PHASES: PhaseDefinition[] = [
+  {
+    id: 1,
+    label: "Tool Stage",
+    tag: "tool",
+    description: "Platform is founder-driven. Users treat it as a tool — value comes from features you build.",
+    founderRole: "Product builder. Ship features, acquire users manually, seed content.",
+    threshold: 0,
+  },
+  {
+    id: 2,
+    label: "Ecosystem Stage",
+    tag: "ecosystem",
+    description: "Creators produce value for other users. Network effects emerging — growth partially organic.",
+    founderRole: "Ecosystem gardener. Nurture creator incentives, moderate lightly, optimize retention.",
+    threshold: 40,
+  },
+  {
+    id: 3,
+    label: "Network Organism",
+    tag: "organism",
+    description: "Platform is self-sustaining. Users, creators, and AI generate growth without founder intervention.",
+    founderRole: "Governance architect. Set rules, manage economy, protect ecosystem health.",
+    threshold: 75,
+  },
+];
+
+const METRIC_WEIGHTS = {
+  userGeneratedTraffic: 0.20,
+  creatorRevenueGrowth: 0.20,
+  aiActivityRatio: 0.20,
+  organicContent: 0.20,
+  userRetention: 0.20,
 };
 
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-function pctToward(current: number, target: number): number {
-  return clamp((current / Math.max(target, 0.01)) * 100, 0, 100);
-}
-
 class PhaseTransitionService {
+  private snapshots: Array<{
+    timestamp: number;
+    transitionScore: number;
+    metrics: Record<string, number>;
+  }> = [];
 
   async getTransitionIndex() {
     const metrics = await this.computeMetrics();
     const scores = this.scoreMetrics(metrics);
-    const autonomyPct = this.computeAutonomyPercentage(scores);
-    const phase = this.determinePhase(autonomyPct);
-    const trend = await this.computeTrend();
+    const transitionScore = this.computeTransitionScore(scores);
+    const phase = this.determinePhase(transitionScore);
+    const signals = this.getTransitionSignals(metrics, scores, phase);
+    const governance = this.getGovernanceGuidance(phase, metrics);
+
+    this.snapshots.push({
+      timestamp: Date.now(),
+      transitionScore,
+      metrics: { ...scores },
+    });
+    if (this.snapshots.length > 288) this.snapshots.shift();
 
     return {
-      autonomyPercentage: Math.round(autonomyPct * 10) / 10,
+      transitionScore: Math.round(transitionScore * 10) / 10,
       phase,
+      phases: PHASES,
       metrics,
       scores,
-      trend,
-      selfSustaining: autonomyPct >= 80,
-      indicators: this.getGrowthIndicators(metrics, scores),
+      signals,
+      governance,
+      selfSustaining: transitionScore >= 75,
+      trend: this.computeTrend(),
+      history: this.snapshots.slice(-24).map(s => ({
+        timestamp: s.timestamp,
+        score: s.transitionScore,
+      })),
     };
   }
 
   async computeMetrics() {
     const now = new Date();
+    const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const [
-      referralSignups, totalSignups,
-      totalCreators, repeatCreators,
-      totalRevenue, totalAiCost,
-      totalOpportunities, publishedApps,
-      weekApps, prevWeekApps,
+      totalPostsMonth, aiGeneratedPosts,
+      totalUsersMonth, returningUsers,
+      creatorsWithRevenue, creatorsWithGrowth,
+      weekPosts, prevWeekPosts,
+      totalAiConversations, totalUserActions,
+      organicPosts, founderPosts,
     ] = await Promise.all([
-      db.select({ total: sql<number>`COALESCE(SUM(signups), 0)` })
-        .from(labsReferrals).where(gte(labsReferrals.createdAt, monthAgo)),
+      db.select({ cnt: count() }).from(posts).where(gte(posts.createdAt, monthAgo)),
+      db.select({ cnt: count() }).from(posts).where(
+        and(gte(posts.createdAt, monthAgo), eq(posts.authorId, "ai-system"))
+      ),
       db.select({ cnt: count() }).from(users).where(gte(users.createdAt, monthAgo)),
+      db.select({ cnt: count() }).from(users).where(
+        and(gte(users.createdAt, twoWeeksAgo), eq(users.profileCompleted, true))
+      ),
       db.select({ cnt: count() }).from(labsCreatorRankings),
-      db.select({ cnt: count() }).from(labsCreatorRankings)
-        .where(and(gt(labsCreatorRankings.totalApps, 1), gte(labsCreatorRankings.lastActiveAt, weekAgo))),
-      db.select({ total: sql<number>`COALESCE(SUM(total_revenue), 0)` }).from(labsFlywheelAnalytics),
-      db.select({ total: sql<number>`COALESCE(SUM(total_installs * 5), 0)` }).from(labsFlywheelAnalytics),
-      db.select({ cnt: count() }).from(labsOpportunities).where(gte(labsOpportunities.createdAt, monthAgo)),
-      db.select({ cnt: count() }).from(labsApps).where(and(eq(labsApps.status, "published"), gte(labsApps.createdAt, monthAgo))),
-      db.select({ cnt: count() }).from(labsApps).where(gte(labsApps.createdAt, weekAgo)),
-      db.select({ cnt: count() }).from(labsApps)
-        .where(and(gte(labsApps.createdAt, twoWeeksAgo), gte(labsApps.createdAt, twoWeeksAgo))),
+      db.select({ cnt: count() }).from(labsCreatorRankings).where(
+        gte(labsCreatorRankings.lastActiveAt, weekAgo)
+      ),
+      db.select({ cnt: count() }).from(posts).where(gte(posts.createdAt, weekAgo)),
+      db.select({ cnt: count() }).from(posts).where(
+        and(gte(posts.createdAt, twoWeeksAgo))
+      ),
+      db.select({ cnt: count() }).from(personalAgentConversations).where(
+        gte(personalAgentConversations.createdAt, monthAgo)
+      ),
+      db.select({ cnt: count() }).from(posts).where(gte(posts.createdAt, monthAgo)),
+      db.select({ cnt: count() }).from(posts).where(
+        and(gte(posts.createdAt, monthAgo), sql`${posts.authorId} != 'admin'`, sql`${posts.authorId} != 'ai-system'`)
+      ),
+      db.select({ cnt: count() }).from(posts).where(
+        and(gte(posts.createdAt, monthAgo), eq(posts.authorId, "admin"))
+      ),
     ]);
 
-    const externalAcquisition = totalSignups[0].cnt > 0
-      ? (Number(referralSignups[0].total) / totalSignups[0].cnt) * 100
+    const totalContent = totalPostsMonth[0].cnt || 1;
+    const realUserPosts = organicPosts[0].cnt || 0;
+    const userGeneratedTrafficPct = (realUserPosts / totalContent) * 100;
+
+    const totalCreators = creatorsWithRevenue[0].cnt || 1;
+    const activeCreators = creatorsWithGrowth[0].cnt || 0;
+    const creatorRevenueGrowthPct = (activeCreators / totalCreators) * 100;
+
+    const totalActivity = (totalUserActions[0].cnt || 0) + (totalAiConversations[0].cnt || 0);
+    const aiRatio = totalActivity > 0
+      ? ((totalAiConversations[0].cnt || 0) / totalActivity) * 100
       : 0;
 
-    const creatorRepeatRate = totalCreators[0].cnt > 0
-      ? (repeatCreators[0].cnt / totalCreators[0].cnt) * 100
+    const totalFounder = founderPosts[0].cnt || 0;
+    const nonFounderContent = totalContent - totalFounder;
+    const organicContentPct = totalContent > 0
+      ? (nonFounderContent / totalContent) * 100
       : 0;
 
-    const aiCostValue = Math.max(Number(totalAiCost[0].total), 1);
-    const revenueCostRatio = (Number(totalRevenue[0].total) / aiCostValue) * 100;
-
-    const labsSuccessRate = totalOpportunities[0].cnt > 0
-      ? (publishedApps[0].cnt / totalOpportunities[0].cnt) * 100
-      : 0;
-
-    const appCreationFreq = weekApps[0].cnt;
+    const totalUsers = totalUsersMonth[0].cnt || 1;
+    const usersWithActivity = returningUsers[0].cnt || 0;
+    const retentionPct = Math.min((usersWithActivity / totalUsers) * 100, 100);
 
     return {
-      externalAcquisition: Math.round(externalAcquisition * 10) / 10,
-      creatorRepeatRate: Math.round(creatorRepeatRate * 10) / 10,
-      revenueCostRatio: Math.round(revenueCostRatio * 10) / 10,
-      labsSuccessRate: Math.round(labsSuccessRate * 10) / 10,
-      appCreationFreq,
+      userGeneratedTraffic: Math.round(userGeneratedTrafficPct * 10) / 10,
+      creatorRevenueGrowth: Math.round(creatorRevenueGrowthPct * 10) / 10,
+      aiActivityRatio: Math.round(aiRatio * 10) / 10,
+      organicContent: Math.round(organicContentPct * 10) / 10,
+      userRetention: Math.round(clamp(retentionPct, 0, 100) * 10) / 10,
       raw: {
-        referralSignups: Number(referralSignups[0].total),
-        totalSignups: totalSignups[0].cnt,
-        totalCreators: totalCreators[0].cnt,
-        repeatCreators: repeatCreators[0].cnt,
-        totalRevenue: Number(totalRevenue[0].total),
-        estimatedAiCost: Number(totalAiCost[0].total),
-        totalOpportunities: totalOpportunities[0].cnt,
-        publishedApps: publishedApps[0].cnt,
-        appsThisWeek: weekApps[0].cnt,
+        totalPosts: totalPostsMonth[0].cnt,
+        userGeneratedPosts: realUserPosts,
+        aiGeneratedPosts: aiGeneratedPosts[0].cnt,
+        founderPosts: totalFounder,
+        nonFounderContent: nonFounderContent,
+        totalUsers: totalUsersMonth[0].cnt,
+        usersWithActivity: usersWithActivity,
+        totalCreators: creatorsWithRevenue[0].cnt,
+        activeCreators: creatorsWithGrowth[0].cnt,
+        aiConversations: totalAiConversations[0].cnt,
+        weeklyPosts: weekPosts[0].cnt,
+        prevWeekPosts: prevWeekPosts[0].cnt,
       },
     };
   }
 
   scoreMetrics(metrics: Awaited<ReturnType<typeof this.computeMetrics>>) {
     return {
-      externalAcquisition: pctToward(metrics.externalAcquisition, AUTONOMY_THRESHOLDS.externalAcquisition.selfSustaining),
-      creatorRepeatRate: pctToward(metrics.creatorRepeatRate, AUTONOMY_THRESHOLDS.creatorRepeatRate.selfSustaining),
-      revenueCostRatio: pctToward(metrics.revenueCostRatio, AUTONOMY_THRESHOLDS.revenueCostRatio.selfSustaining),
-      labsSuccessRate: pctToward(metrics.labsSuccessRate, AUTONOMY_THRESHOLDS.labsSuccessRate.selfSustaining),
-      appCreationFreq: pctToward(metrics.appCreationFreq, AUTONOMY_THRESHOLDS.appCreationFreq.selfSustaining),
+      userGeneratedTraffic: clamp(metrics.userGeneratedTraffic / 80 * 100, 0, 100),
+      creatorRevenueGrowth: clamp(metrics.creatorRevenueGrowth / 50 * 100, 0, 100),
+      aiActivityRatio: clamp((100 - Math.abs(metrics.aiActivityRatio - 30)) / 70 * 100, 0, 100),
+      organicContent: clamp(metrics.organicContent / 90 * 100, 0, 100),
+      userRetention: clamp(metrics.userRetention / 40 * 100, 0, 100),
     };
   }
 
-  computeAutonomyPercentage(scores: ReturnType<typeof this.scoreMetrics>): number {
+  computeTransitionScore(scores: ReturnType<typeof this.scoreMetrics>): number {
     return (
-      scores.externalAcquisition * AUTONOMY_THRESHOLDS.externalAcquisition.weight +
-      scores.creatorRepeatRate * AUTONOMY_THRESHOLDS.creatorRepeatRate.weight +
-      scores.revenueCostRatio * AUTONOMY_THRESHOLDS.revenueCostRatio.weight +
-      scores.labsSuccessRate * AUTONOMY_THRESHOLDS.labsSuccessRate.weight +
-      scores.appCreationFreq * AUTONOMY_THRESHOLDS.appCreationFreq.weight
+      scores.userGeneratedTraffic * METRIC_WEIGHTS.userGeneratedTraffic +
+      scores.creatorRevenueGrowth * METRIC_WEIGHTS.creatorRevenueGrowth +
+      scores.aiActivityRatio * METRIC_WEIGHTS.aiActivityRatio +
+      scores.organicContent * METRIC_WEIGHTS.organicContent +
+      scores.userRetention * METRIC_WEIGHTS.userRetention
     );
   }
 
-  determinePhase(autonomyPct: number): { id: number; label: string; description: string } {
-    if (autonomyPct >= 80) return { id: 4, label: "Autonomous Growth", description: "System is self-sustaining and profitable" };
-    if (autonomyPct >= 50) return { id: 3, label: "Flywheel Ignition", description: "Growth begins to accelerate organically" };
-    if (autonomyPct >= 25) return { id: 2, label: "Engagement Lock", description: "Users consistently returning and creating" };
-    return { id: 1, label: "Engine Building", description: "Establishing core content and user loops" };
+  determinePhase(transitionScore: number): PhaseDefinition {
+    if (transitionScore >= PHASES[2].threshold) return PHASES[2];
+    if (transitionScore >= PHASES[1].threshold) return PHASES[1];
+    return PHASES[0];
   }
 
-  async computeTrend(): Promise<{ direction: string; delta: number }> {
-    const metrics = await db.select().from(superLoopMetrics)
-      .orderBy(desc(superLoopMetrics.date)).limit(2);
+  getTransitionSignals(
+    metrics: Awaited<ReturnType<typeof this.computeMetrics>>,
+    scores: ReturnType<typeof this.scoreMetrics>,
+    phase: PhaseDefinition
+  ) {
+    const signals: Array<{
+      metric: string;
+      status: "strong" | "emerging" | "weak";
+      label: string;
+      detail: string;
+    }> = [];
 
-    if (metrics.length < 2) return { direction: "stable", delta: 0 };
+    const addSignal = (key: string, label: string, score: number, detail: string) => {
+      const status = score >= 70 ? "strong" : score >= 35 ? "emerging" : "weak";
+      signals.push({ metric: key, status, label, detail });
+    };
 
-    const recent = metrics[0].reinforcementScore || 0;
-    const prev = metrics[1].reinforcementScore || 0;
-    const delta = Math.round((recent - prev) * 100);
+    addSignal(
+      "userGeneratedTraffic",
+      "User-Generated Traffic",
+      scores.userGeneratedTraffic,
+      `${metrics.userGeneratedTraffic}% of content is user-generated (target: 80%+)`
+    );
 
+    addSignal(
+      "creatorRevenueGrowth",
+      "Creator Revenue Growth",
+      scores.creatorRevenueGrowth,
+      `${metrics.creatorRevenueGrowth}% of creators actively growing (target: 50%+)`
+    );
+
+    addSignal(
+      "aiActivityRatio",
+      "AI Activity Balance",
+      scores.aiActivityRatio,
+      `AI is ${metrics.aiActivityRatio}% of activity (ideal: ~30% — augment, not dominate)`
+    );
+
+    addSignal(
+      "organicContent",
+      "Organic Content Creation",
+      scores.organicContent,
+      `${metrics.organicContent}% of content created without founder action (target: 90%+)`
+    );
+
+    addSignal(
+      "userRetention",
+      "User Retention",
+      scores.userRetention,
+      `${metrics.userRetention}% of users returning within a week (target: 40%+)`
+    );
+
+    return signals;
+  }
+
+  getGovernanceGuidance(phase: PhaseDefinition, metrics: Awaited<ReturnType<typeof this.computeMetrics>>) {
+    const actions: Array<{ priority: "high" | "medium" | "low"; action: string; reason: string }> = [];
+
+    if (phase.id === 1) {
+      actions.push({
+        priority: "high",
+        action: "Focus on shipping features that attract creators",
+        reason: "Platform is in Tool Stage — growth depends on founder-built value",
+      });
+      if (metrics.userRetention < 20) {
+        actions.push({
+          priority: "high",
+          action: "Improve onboarding and first-session experience",
+          reason: `Only ${metrics.userRetention}% users returning — fix activation before growth`,
+        });
+      }
+      if (metrics.organicContent < 30) {
+        actions.push({
+          priority: "medium",
+          action: "Seed initial content and invite early creators",
+          reason: `${metrics.organicContent}% organic content — need more community contribution`,
+        });
+      }
+    }
+
+    if (phase.id === 2) {
+      actions.push({
+        priority: "high",
+        action: "Shift from building features to nurturing creator ecosystem",
+        reason: "Ecosystem Stage — creators now produce value; your role is to amplify them",
+      });
+      if (metrics.creatorRevenueGrowth < 30) {
+        actions.push({
+          priority: "high",
+          action: "Improve creator monetization tools and revenue sharing",
+          reason: `Only ${metrics.creatorRevenueGrowth}% creators growing — financial incentives needed`,
+        });
+      }
+      if (metrics.aiActivityRatio > 50) {
+        actions.push({
+          priority: "medium",
+          action: "Reduce AI dependency — ensure human value leads",
+          reason: `AI is ${metrics.aiActivityRatio}% of activity — should augment, not replace`,
+        });
+      }
+    }
+
+    if (phase.id === 3) {
+      actions.push({
+        priority: "medium",
+        action: "Transition to governance role — set ecosystem rules rather than building features",
+        reason: "Network Organism — the platform grows on its own; over-intervention can harm it",
+      });
+      actions.push({
+        priority: "low",
+        action: "Monitor ecosystem health metrics and intervene only on systemic risks",
+        reason: "Self-sustaining systems need light-touch management",
+      });
+    }
+
+    return {
+      currentRole: phase.founderRole,
+      actions,
+      nextPhase: phase.id < 3 ? PHASES[phase.id] : null,
+      distanceToNext: phase.id < 3
+        ? Math.round(PHASES[phase.id].threshold - this.computeTransitionScore(this.scoreMetrics(metrics)))
+        : 0,
+    };
+  }
+
+  computeTrend(): { direction: string; delta: number } {
+    if (this.snapshots.length < 2) return { direction: "stable", delta: 0 };
+    const recent = this.snapshots[this.snapshots.length - 1].transitionScore;
+    const prev = this.snapshots[Math.max(0, this.snapshots.length - 6)].transitionScore;
+    const delta = Math.round((recent - prev) * 10) / 10;
     if (delta > 2) return { direction: "improving", delta };
     if (delta < -2) return { direction: "declining", delta };
     return { direction: "stable", delta };
-  }
-
-  getGrowthIndicators(
-    metrics: Awaited<ReturnType<typeof this.computeMetrics>>,
-    scores: ReturnType<typeof this.scoreMetrics>
-  ) {
-    const indicators: { label: string; status: string; detail: string }[] = [];
-
-    if (scores.externalAcquisition >= 80) {
-      indicators.push({ label: "User Acquisition Self-Sustaining", status: "achieved", detail: `${metrics.externalAcquisition}% from referrals` });
-    } else if (scores.externalAcquisition >= 40) {
-      indicators.push({ label: "User Acquisition Growing", status: "progressing", detail: `${metrics.externalAcquisition}% from referrals (need ${AUTONOMY_THRESHOLDS.externalAcquisition.selfSustaining}%)` });
-    } else {
-      indicators.push({ label: "User Acquisition Dependent", status: "early", detail: "Most users from direct acquisition" });
-    }
-
-    if (scores.creatorRepeatRate >= 80) {
-      indicators.push({ label: "Creator Loyalty Established", status: "achieved", detail: `${metrics.creatorRepeatRate}% repeat rate` });
-    } else if (scores.creatorRepeatRate >= 40) {
-      indicators.push({ label: "Creator Retention Building", status: "progressing", detail: `${metrics.creatorRepeatRate}% repeat rate` });
-    } else {
-      indicators.push({ label: "Creator Retention Low", status: "early", detail: "Creators not consistently active" });
-    }
-
-    if (scores.revenueCostRatio >= 80) {
-      indicators.push({ label: "Revenue Exceeds AI Costs", status: "achieved", detail: `${metrics.revenueCostRatio}% ratio` });
-    } else if (scores.revenueCostRatio >= 40) {
-      indicators.push({ label: "Revenue Approaching Break-Even", status: "progressing", detail: `${metrics.revenueCostRatio}% of cost covered` });
-    } else {
-      indicators.push({ label: "Revenue Below AI Costs", status: "early", detail: "Need revenue growth to cover AI operations" });
-    }
-
-    if (scores.labsSuccessRate >= 80) {
-      indicators.push({ label: "Labs Pipeline Efficient", status: "achieved", detail: `${metrics.labsSuccessRate}% opportunity-to-app rate` });
-    } else if (scores.labsSuccessRate >= 40) {
-      indicators.push({ label: "Labs Pipeline Active", status: "progressing", detail: `${metrics.labsSuccessRate}% conversion` });
-    } else {
-      indicators.push({ label: "Labs Pipeline Building", status: "early", detail: "Low opportunity conversion rate" });
-    }
-
-    if (scores.appCreationFreq >= 80) {
-      indicators.push({ label: "App Creation Self-Sustaining", status: "achieved", detail: `${metrics.appCreationFreq} apps/week` });
-    } else if (scores.appCreationFreq >= 40) {
-      indicators.push({ label: "App Creation Growing", status: "progressing", detail: `${metrics.appCreationFreq} apps/week (need ${AUTONOMY_THRESHOLDS.appCreationFreq.selfSustaining})` });
-    } else {
-      indicators.push({ label: "App Creation Starting", status: "early", detail: `${metrics.appCreationFreq} apps this week` });
-    }
-
-    return indicators;
   }
 }
 
