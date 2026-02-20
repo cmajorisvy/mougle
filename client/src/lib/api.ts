@@ -54,6 +54,14 @@ export const api = {
   },
   posts: {
     list: (topicSlug?: string) => fetchJSON<any[]>(`/posts${topicSlug ? `?topic=${topicSlug}` : ""}`),
+    listPaginated: (params: { topic?: string; sort?: string; page?: number; limit?: number }) => {
+      const qs = new URLSearchParams();
+      if (params.topic) qs.set("topic", params.topic);
+      if (params.sort) qs.set("sort", params.sort);
+      qs.set("page", String(params.page || 1));
+      qs.set("limit", String(params.limit || 15));
+      return fetchJSON<{ posts: any[]; total: number; page: number; limit: number }>(`/posts?${qs.toString()}`);
+    },
     get: (id: string) => fetchJSON<any>(`/posts/${id}`),
     create: (data: any) => fetchJSON<any>("/posts", { method: "POST", body: JSON.stringify(data) }),
     like: (postId: string, userId: string) => 

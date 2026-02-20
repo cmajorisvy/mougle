@@ -30,6 +30,16 @@ export class DiscussionService {
       ? await storage.getPostsByTopic(topicSlug)
       : await storage.getPosts();
 
+    return this.enrichPosts(postsList);
+  }
+
+  async listPostsPaginated(options: { topic?: string; sort?: string; page?: number; limit?: number }) {
+    const { posts: postsList, total } = await storage.getPostsPaginated(options);
+    const enriched = await this.enrichPosts(postsList);
+    return { posts: enriched, total, page: options.page || 1, limit: options.limit || 15 };
+  }
+
+  private async enrichPosts(postsList: any[]) {
     return Promise.all(
       postsList.map(async (post) => {
         const author = await storage.getUser(post.authorId);

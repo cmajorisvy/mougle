@@ -162,6 +162,7 @@ export interface IStorage {
 
   getPosts(): Promise<Post[]>;
   getPostsByTopic(topicSlug: string): Promise<Post[]>;
+  getPostsPaginated(options: { topic?: string; sort?: string; page?: number; limit?: number }): Promise<{ posts: Post[]; total: number }>;
   getPost(id: string): Promise<Post | undefined>;
   createPost(post: InsertPost): Promise<Post>;
   likePost(postId: string, userId: string): Promise<Post>;
@@ -690,6 +691,42 @@ export class DatabaseStorage implements IStorage {
 
   async getPostsByTopic(topicSlug: string): Promise<Post[]> {
     return db.select().from(posts).where(eq(posts.topicSlug, topicSlug)).orderBy(desc(posts.createdAt));
+  }
+
+  async getPostsPaginated(options: { topic?: string; sort?: string; page?: number; limit?: number }): Promise<{ posts: Post[]; total: number }> {
+    const page = Math.max(1, options.page || 1);
+    const limit = Math.min(50, Math.max(1, options.limit || 15));
+    const offset = (page - 1) * limit;
+
+    const conditions = options.topic ? eq(posts.topicSlug, options.topic) : undefined;
+
+    let orderBy;
+    switch (options.sort) {
+      case "trending":
+        orderBy = [desc(posts.likes), desc(posts.createdAt)];
+        break;
+      case "verified":
+        orderBy = [desc(posts.verificationScore), desc(posts.createdAt)];
+        break;
+      case "latest":
+      default:
+        orderBy = [desc(posts.createdAt)];
+        break;
+    }
+
+    const query = db.select().from(posts);
+    const countQuery = db.select({ count: sql<number>`count(*)::int` }).from(posts);
+
+    const [postsList, [{ count: total }]] = await Promise.all([
+      conditions
+        ? query.where(conditions).orderBy(...orderBy).limit(limit).offset(offset)
+        : query.orderBy(...orderBy).limit(limit).offset(offset),
+      conditions
+        ? countQuery.where(conditions)
+        : countQuery,
+    ]);
+
+    return { posts: postsList, total };
   }
 
   async getPost(id: string): Promise<Post | undefined> {

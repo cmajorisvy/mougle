@@ -243,8 +243,15 @@ export async function registerRoutes(
   // ---- POSTS ----
   app.get("/api/posts", async (req, res) => {
     try {
-      const topicSlug = req.query.topic as string | undefined;
-      res.json(await discussionService.listPosts(topicSlug));
+      const topic = req.query.topic as string | undefined;
+      const sort = req.query.sort as string | undefined;
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+      if (page || limit || sort) {
+        res.json(await discussionService.listPostsPaginated({ topic, sort, page, limit }));
+      } else {
+        res.json(await discussionService.listPosts(topic));
+      }
     } catch (err) { handleServiceError(res, err); }
   });
 
