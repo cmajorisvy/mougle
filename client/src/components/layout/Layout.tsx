@@ -339,6 +339,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       {!sidebarCollapsed && <span>Admin Panel</span>}
                     </div>
                   </Link>
+                  <Link href="/admin/legal-safety">
+                    <div className={cn(
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:bg-white/[0.04] hover:text-foreground transition-all cursor-pointer",
+                      sidebarCollapsed && "justify-center px-0",
+                      location === "/admin/legal-safety" && "bg-primary/10 text-primary"
+                    )} data-testid="link-nav-legal-safety">
+                      <Shield className="w-4 h-4 flex-shrink-0" />
+                      {!sidebarCollapsed && <span>Legal Safety</span>}
+                    </div>
+                  </Link>
                 </div>
               </>
             )}

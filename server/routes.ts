@@ -61,6 +61,7 @@ import { superLoopService } from "./services/super-loop-service";
 import { phaseTransitionService } from "./services/phase-transition-service";
 import { razorpayMarketplaceService } from "./services/razorpay-marketplace-service";
 import { publisherResponsibilityService } from "./services/publisher-responsibility-service";
+import { legalSafetyService } from "./services/legal-safety-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -2870,6 +2871,141 @@ Keep under 200 words.`
   app.get("/api/publisher/disclaimer", async (_req, res) => {
     try {
       res.json({ disclaimer: publisherResponsibilityService.getPlatformDisclaimer() });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Legal Safety Stack routes
+  app.get("/api/legal-safety/risk-disclaimer/:appId", async (req, res) => {
+    try {
+      const disclaimer = await legalSafetyService.getAppDisclaimer(req.params.appId);
+      if (!disclaimer) return res.status(404).json({ error: "App not found" });
+      res.json(disclaimer);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/legal-safety/generate-disclaimer", async (req, res) => {
+    try {
+      const { appId, industry, category } = req.body;
+      if (!appId || !industry) return res.status(400).json({ error: "appId and industry required" });
+      const disclaimer = await legalSafetyService.generateRiskDisclaimer(appId, industry, category);
+      res.json(disclaimer);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/legal-safety/risk-categories", async (_req, res) => {
+    try {
+      res.json(legalSafetyService.getRiskCategories());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/legal-safety/report", async (req, res) => {
+    try {
+      const { appId, reporterId, reason, category, description, evidence } = req.body;
+      if (!appId || !reporterId || !reason || !category) {
+        return res.status(400).json({ error: "appId, reporterId, reason, and category required" });
+      }
+      const report = await legalSafetyService.submitReport({ appId, reporterId, reason, category, description, evidence });
+      res.json(report);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/legal-safety/reports/:appId", async (req, res) => {
+    try {
+      const reports = await legalSafetyService.getReportsForApp(req.params.appId);
+      res.json(reports);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/legal-safety/report-categories", async (_req, res) => {
+    try {
+      res.json(legalSafetyService.getReportCategories());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/moderation/reports", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const reports = await legalSafetyService.getAllReports(status);
+      res.json(reports);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/moderation/resolve", async (req, res) => {
+    try {
+      const { reportId, moderatorId, action, notes } = req.body;
+      if (!reportId || !moderatorId || !action) return res.status(400).json({ error: "reportId, moderatorId, action required" });
+      const report = await legalSafetyService.resolveReport(reportId, moderatorId, action, notes);
+      res.json(report);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/moderation/dismiss", async (req, res) => {
+    try {
+      const { reportId, moderatorId, notes } = req.body;
+      if (!reportId || !moderatorId) return res.status(400).json({ error: "reportId, moderatorId required" });
+      const report = await legalSafetyService.dismissReport(reportId, moderatorId, notes);
+      res.json(report);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/legal-safety/check-ai-content", async (req, res) => {
+    try {
+      const { content, appId, userId } = req.body;
+      if (!content) return res.status(400).json({ error: "content required" });
+      const result = legalSafetyService.checkAiContent(content, appId, userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/legal-safety/ai-violations", async (req, res) => {
+    try {
+      const appId = req.query.appId as string | undefined;
+      const violations = await legalSafetyService.getAiViolations(appId);
+      res.json(violations);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/legal-safety/ai-policy-rules", async (_req, res) => {
+    try {
+      res.json(legalSafetyService.getAiPolicyRules());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/legal-safety/creation-limit/:userId", async (req, res) => {
+    try {
+      const tier = (req.query.tier as string) || "free";
+      const result = await legalSafetyService.checkCreationLimit(req.params.userId, tier);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/legal-safety/increment-creation", async (req, res) => {
+    try {
+      const { userId, type } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      await legalSafetyService.incrementCreationCount(userId, type || "app");
+      const result = await legalSafetyService.checkCreationLimit(userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/legal-safety/publish-checks/:userId/:appId", async (req, res) => {
+    try {
+      const result = await legalSafetyService.canPublishApp(req.params.userId, req.params.appId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/legal-safety/stats", async (_req, res) => {
+    try {
+      const stats = await legalSafetyService.getModerationStats();
+      res.json(stats);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/legal-safety/daily-limits", async (_req, res) => {
+    try {
+      res.json(legalSafetyService.getDailyLimits());
     } catch (err) { handleServiceError(res, err); }
   });
 

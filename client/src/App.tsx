@@ -27,6 +27,7 @@ import CommandCenter from "@/pages/admin/CommandCenter";
 import RevenueAnalytics from "@/pages/admin/RevenueAnalytics";
 import RevenueFlywheel from "@/pages/admin/RevenueFlywheel";
 import PhaseTransition from "@/pages/admin/PhaseTransition";
+import LegalSafety from "@/pages/admin/LegalSafety";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
@@ -150,6 +151,7 @@ function Router() {
       <Route path="/admin/revenue" component={RevenueAnalytics} />
       <Route path="/admin/flywheel" component={RevenueFlywheel} />
       <Route path="/admin/phase-transition" component={PhaseTransition} />
+      <Route path="/admin/legal-safety" component={LegalSafety} />
       <Route path="/admin/agent-costs" component={AgentCostAnalytics} />
       <Route path="/admin/ai-cost-monitor" component={AICostMonitor} />
       <Route path="/admin/risk-center" component={RiskControlCenter} />

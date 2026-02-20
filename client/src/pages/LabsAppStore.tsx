@@ -11,7 +11,7 @@ import {
 import {
   Store, Search, Star, Download, Heart, ExternalLink,
   ArrowLeft, Smartphone, Globe, Crown,
-  CheckCircle2, Beaker, Sparkles
+  CheckCircle2, Beaker, Sparkles, Flag, Shield, User, AlertTriangle, X
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -20,6 +20,7 @@ import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
 import type { LabsApp } from "@shared/schema";
 
 const pricingBadgeColors: Record<string, string> = {
@@ -34,6 +35,81 @@ const pricingLabels: Record<string, string> = {
   "one-time": "One-time Purchase",
 };
 
+function ReportModal({ appId, appName, onClose }: { appId: string; appName: string; onClose: () => void }) {
+  const [category, setCategory] = useState("");
+  const [reason, setReason] = useState("");
+  const [description, setDescription] = useState("");
+  const { toast } = useToast();
+  const userId = getCurrentUserId();
+
+  const { data: categories } = useQuery({
+    queryKey: ["report-categories"],
+    queryFn: () => api.legalSafety.getReportCategories(),
+  });
+
+  const submit = useMutation({
+    mutationFn: () => api.legalSafety.submitReport({
+      appId, reporterId: userId, reason, category, description,
+    }),
+    onSuccess: () => {
+      toast({ title: "Report submitted", description: "Our team will review this report." });
+      onClose();
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <Card className="glass-card rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()} data-testid="modal-report">
+        <div className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold flex items-center gap-2">
+              <Flag className="w-4 h-4 text-red-400" /> Report App
+            </h3>
+            <button onClick={onClose} className="text-muted-foreground hover:text-white" data-testid="button-close-report">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">Reporting: <span className="text-white font-medium">{appName}</span></p>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Category *</label>
+            <select
+              data-testid="select-report-category"
+              className="w-full h-10 rounded-md border border-white/[0.08] bg-background px-3 text-sm"
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+            >
+              <option value="">Select a reason...</option>
+              {(categories || []).map((c: any) => (
+                <option key={c.id} value={c.id}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Summary *</label>
+            <Input data-testid="input-report-reason" placeholder="Brief summary of the issue" value={reason} onChange={e => setReason(e.target.value)} />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Details</label>
+            <Textarea data-testid="input-report-description" placeholder="Additional details..." value={description} onChange={e => setDescription(e.target.value)} rows={3} className="bg-white/[0.04] border-white/[0.08]" />
+          </div>
+
+          <Button
+            data-testid="button-submit-report"
+            className="w-full bg-red-600 hover:bg-red-700"
+            onClick={() => submit.mutate()}
+            disabled={!category || !reason || submit.isPending}
+          >
+            {submit.isPending ? "Submitting..." : "Submit Report"}
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function AppCard({ app, isInstalled, isFavorited, onInstall, onFavorite }: {
   app: LabsApp;
   isInstalled: boolean;
@@ -41,74 +117,109 @@ function AppCard({ app, isInstalled, isFavorited, onInstall, onFavorite }: {
   onInstall: () => void;
   onFavorite: () => void;
 }) {
+  const [showReport, setShowReport] = useState(false);
+
+  const { data: publisherInfo } = useQuery({
+    queryKey: ["publisher-info", app.id],
+    queryFn: () => api.publisher.getAppInfo(app.id),
+    staleTime: 60000,
+  });
+
   return (
-    <Card className="glass-card rounded-xl p-5 hover:bg-white/[0.06] transition-all group" data-testid={`card-app-${app.id}`}>
-      <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-violet-500/20 flex items-center justify-center shrink-0">
-          <Sparkles className="w-6 h-6 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="font-semibold text-sm group-hover:text-primary transition-colors" data-testid={`text-app-name-${app.id}`}>
-                {app.name}
-              </h3>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{app.industry}</Badge>
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{app.category}</Badge>
+    <>
+      <Card className="glass-card rounded-xl p-5 hover:bg-white/[0.06] transition-all group" data-testid={`card-app-${app.id}`}>
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-violet-500/20 flex items-center justify-center shrink-0">
+            <Sparkles className="w-6 h-6 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-semibold text-sm group-hover:text-primary transition-colors" data-testid={`text-app-name-${app.id}`}>
+                  {app.name}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{app.industry}</Badge>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">{app.category}</Badge>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setShowReport(true)} className="text-muted-foreground hover:text-red-400 transition-colors" data-testid={`button-report-app-${app.id}`} title="Report this app">
+                  <Flag className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={onFavorite} className="text-muted-foreground hover:text-red-400 transition-colors" data-testid={`button-favorite-app-${app.id}`}>
+                  <Heart className={cn("w-4 h-4", isFavorited && "fill-red-400 text-red-400")} />
+                </button>
               </div>
             </div>
-            <button onClick={onFavorite} className="text-muted-foreground hover:text-red-400 transition-colors" data-testid={`button-favorite-app-${app.id}`}>
-              <Heart className={cn("w-4 h-4", isFavorited && "fill-red-400 text-red-400")} />
-            </button>
-          </div>
 
-          <p className="text-xs text-muted-foreground mt-2 line-clamp-2" data-testid={`text-app-desc-${app.id}`}>
-            {app.description}
-          </p>
+            {publisherInfo?.publisher && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-muted-foreground" data-testid={`text-publisher-${app.id}`}>
+                <User className="w-3 h-3" />
+                <span>by <span className="text-white/70 font-medium">{publisherInfo.publisher.name}</span></span>
+                {publisherInfo.publisher.verified && (
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 bg-blue-500/10 text-blue-400 border-blue-500/20">Verified</Badge>
+                )}
+              </div>
+            )}
 
-          <div className="flex items-center gap-3 mt-3">
-            <Badge variant="outline" className={cn("text-[10px] px-2 py-0.5", pricingBadgeColors[app.pricingModel])}>
-              {pricingLabels[app.pricingModel]}
-              {app.price && app.price > 0 ? ` $${(app.price / 100).toFixed(2)}` : ""}
-              {app.subscriptionInterval ? `/${app.subscriptionInterval}` : ""}
-            </Badge>
-            {app.rating && app.rating > 0 ? (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                <Star className="w-3 h-3 text-amber-400 fill-amber-400" /> {app.rating.toFixed(1)}
-              </span>
-            ) : null}
-            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-              <Download className="w-3 h-3" /> {app.installCount}
-            </span>
-            {app.pwaEnabled && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
-                <Smartphone className="w-3 h-3 mr-0.5" /> PWA
+            <p className="text-xs text-muted-foreground mt-2 line-clamp-2" data-testid={`text-app-desc-${app.id}`}>
+              {app.description}
+            </p>
+
+            <div className="flex items-center gap-3 mt-3">
+              <Badge variant="outline" className={cn("text-[10px] px-2 py-0.5", pricingBadgeColors[app.pricingModel])}>
+                {pricingLabels[app.pricingModel]}
+                {app.price && app.price > 0 ? ` $${(app.price / 100).toFixed(2)}` : ""}
+                {app.subscriptionInterval ? `/${app.subscriptionInterval}` : ""}
               </Badge>
-            )}
-          </div>
+              {app.rating && app.rating > 0 ? (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" /> {app.rating.toFixed(1)}
+                </span>
+              ) : null}
+              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                <Download className="w-3 h-3" /> {app.installCount}
+              </span>
+              {app.pwaEnabled && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+                  <Smartphone className="w-3 h-3 mr-0.5" /> PWA
+                </Badge>
+              )}
+            </div>
 
-          <div className="flex items-center gap-2 mt-3">
-            {isInstalled ? (
-              <Button size="sm" variant="outline" className="text-xs text-emerald-400 border-emerald-500/20" disabled data-testid={`button-installed-${app.id}`}>
-                <CheckCircle2 className="w-3 h-3 mr-1" /> Installed
-              </Button>
-            ) : (
-              <Button size="sm" onClick={onInstall} className="text-xs bg-primary hover:bg-primary/90" data-testid={`button-install-${app.id}`}>
-                <Download className="w-3 h-3 mr-1" /> Install
-              </Button>
-            )}
-            {app.liveUrl && (
-              <a href={app.liveUrl} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" variant="outline" className="text-xs" data-testid={`button-visit-${app.id}`}>
-                  <ExternalLink className="w-3 h-3 mr-1" /> Visit
+            <div className="flex items-center gap-2 mt-3">
+              {isInstalled ? (
+                <Button size="sm" variant="outline" className="text-xs text-emerald-400 border-emerald-500/20" disabled data-testid={`button-installed-${app.id}`}>
+                  <CheckCircle2 className="w-3 h-3 mr-1" /> Installed
                 </Button>
-              </a>
+              ) : (
+                <Button size="sm" onClick={onInstall} className="text-xs bg-primary hover:bg-primary/90" data-testid={`button-install-${app.id}`}>
+                  <Download className="w-3 h-3 mr-1" /> Install
+                </Button>
+              )}
+              {app.liveUrl && (
+                <a href={app.liveUrl} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" variant="outline" className="text-xs" data-testid={`button-visit-${app.id}`}>
+                    <ExternalLink className="w-3 h-3 mr-1" /> Visit
+                  </Button>
+                </a>
+              )}
+            </div>
+
+            {publisherInfo?.disclaimer && (
+              <div className="mt-3 p-2 rounded-md bg-amber-500/5 border border-amber-500/10" data-testid={`text-disclaimer-${app.id}`}>
+                <div className="flex items-start gap-1.5">
+                  <Shield className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-[9px] text-muted-foreground leading-relaxed">{publisherInfo.disclaimer}</p>
+                </div>
+              </div>
             )}
           </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+      {showReport && <ReportModal appId={app.id} appName={app.name} onClose={() => setShowReport(false)} />}
+    </>
   );
 }
 
