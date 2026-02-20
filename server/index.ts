@@ -125,6 +125,8 @@ app.use((req, res, next) => {
       await escalationService.getPolicy();
       const { truthEvolutionService } = await import("./services/truth-evolution-service");
       truthEvolutionService.startDecayScheduler();
+      const { labsFlywheelService } = await import("./services/labs-flywheel-service");
+      labsFlywheelService.startDailyGeneration();
     },
   );
 })();

@@ -73,6 +73,8 @@ import AIUsagePolicyPage from "@/pages/legal/AIUsagePolicy";
 import Labs from "@/pages/Labs";
 import LabsDetail from "@/pages/LabsDetail";
 import LabsAppStore from "@/pages/LabsAppStore";
+import LabsFlywheel from "@/pages/LabsFlywheel";
+import LabsLandingPage from "@/pages/LabsLandingPage";
 
 function Router() {
   return (
@@ -121,6 +123,8 @@ function Router() {
       <Route path="/ai-news-updates/:idOrSlug" component={AINewsArticle} />
       <Route path="/labs" component={Labs} />
       <Route path="/labs/apps" component={LabsAppStore} />
+      <Route path="/labs/flywheel" component={LabsFlywheel} />
+      <Route path="/labs/landing/:slug" component={LabsLandingPage} />
       <Route path="/labs/:id" component={LabsDetail} />
       <Route path="/docs/about" component={AboutUs} />
       <Route path="/docs/how-it-works" component={HowItWorks} />

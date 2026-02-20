@@ -2418,4 +2418,80 @@ export type InsertLabsInstallation = z.infer<typeof insertLabsInstallationSchema
 export type LabsReview = typeof labsReviews.$inferSelect;
 export type InsertLabsReview = z.infer<typeof insertLabsReviewSchema>;
 
+export const labsFlywheelAnalytics = pgTable("labs_flywheel_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  date: timestamp("date").notNull(),
+  totalOpportunities: integer("total_opportunities").notNull().default(0),
+  totalBuilds: integer("total_builds").notNull().default(0),
+  totalPublished: integer("total_published").notNull().default(0),
+  totalInstalls: integer("total_installs").notNull().default(0),
+  totalRevenue: integer("total_revenue").notNull().default(0),
+  activeCreators: integer("active_creators").notNull().default(0),
+  newUsers: integer("new_users").notNull().default(0),
+  referralSignups: integer("referral_signups").notNull().default(0),
+  retentionRate: real("retention_rate").default(0),
+  conversionRate: real("conversion_rate").default(0),
+  topIndustry: text("top_industry"),
+  topCategory: text("top_category"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const labsReferrals = pgTable("labs_referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appId: varchar("app_id").notNull(),
+  creatorId: varchar("creator_id").notNull(),
+  referralCode: varchar("referral_code").notNull(),
+  clicks: integer("clicks").notNull().default(0),
+  signups: integer("signups").notNull().default(0),
+  installs: integer("installs").notNull().default(0),
+  revenue: integer("revenue").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const labsCreatorRankings = pgTable("labs_creator_rankings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull(),
+  totalApps: integer("total_apps").notNull().default(0),
+  totalInstalls: integer("total_installs").notNull().default(0),
+  totalRevenue: integer("total_revenue").notNull().default(0),
+  totalReferrals: integer("total_referrals").notNull().default(0),
+  avgRating: real("avg_rating").default(0),
+  rank: integer("rank").notNull().default(0),
+  tier: text("tier").notNull().default("starter"),
+  streak: integer("streak").notNull().default(0),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const labsLandingPages = pgTable("labs_landing_pages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appId: varchar("app_id").notNull(),
+  slug: varchar("slug").notNull(),
+  headline: text("headline").notNull(),
+  subheadline: text("subheadline"),
+  features: text("features").array(),
+  ctaText: text("cta_text").notNull().default("Get Started"),
+  ctaUrl: text("cta_url"),
+  testimonials: jsonb("testimonials").$type<{ name: string; quote: string; avatar?: string }[]>(),
+  socialProof: jsonb("social_proof").$type<{ installs: number; rating: number; reviews: number }>(),
+  referralCode: varchar("referral_code"),
+  views: integer("views").notNull().default(0),
+  conversions: integer("conversions").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLabsFlywheelAnalyticsSchema = createInsertSchema(labsFlywheelAnalytics).omit({ id: true, createdAt: true });
+export const insertLabsReferralSchema = createInsertSchema(labsReferrals).omit({ id: true, createdAt: true });
+export const insertLabsCreatorRankingSchema = createInsertSchema(labsCreatorRankings).omit({ id: true, updatedAt: true });
+export const insertLabsLandingPageSchema = createInsertSchema(labsLandingPages).omit({ id: true, createdAt: true });
+
+export type LabsFlywheelAnalytics = typeof labsFlywheelAnalytics.$inferSelect;
+export type InsertLabsFlywheelAnalytics = z.infer<typeof insertLabsFlywheelAnalyticsSchema>;
+export type LabsReferral = typeof labsReferrals.$inferSelect;
+export type InsertLabsReferral = z.infer<typeof insertLabsReferralSchema>;
+export type LabsCreatorRanking = typeof labsCreatorRankings.$inferSelect;
+export type InsertLabsCreatorRanking = z.infer<typeof insertLabsCreatorRankingSchema>;
+export type LabsLandingPage = typeof labsLandingPages.$inferSelect;
+export type InsertLabsLandingPage = z.infer<typeof insertLabsLandingPageSchema>;
+
 export * from "./models/chat";

@@ -56,6 +56,7 @@ import { userPsychologyService } from "./services/user-psychology-service";
 import { psychologyMonetizationService } from "./services/psychology-monetization-service";
 import { riskManagementService } from "./services/risk-management-service";
 import { labsService } from "./services/labs-service";
+import { labsFlywheelService } from "./services/labs-flywheel-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -4712,6 +4713,125 @@ Keep under 200 words.`
     try {
       const reviews = await labsService.getAppReviews(req.params.appId);
       res.json(reviews);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/summary", async (_req, res) => {
+    try {
+      const summary = await labsFlywheelService.getFlywheelSummary();
+      res.json(summary);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/analytics", async (req, res) => {
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const analytics = await labsFlywheelService.getAnalytics(days);
+      res.json(analytics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/growth-loop", async (_req, res) => {
+    try {
+      const metrics = await labsFlywheelService.getGrowthLoopMetrics();
+      res.json(metrics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/flywheel/generate", async (_req, res) => {
+    try {
+      const result = await labsFlywheelService.runDailyGeneration();
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/flywheel/snapshot", async (_req, res) => {
+    try {
+      const snapshot = await labsFlywheelService.snapshotAnalytics();
+      res.json(snapshot);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/rankings", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const rankings = await labsFlywheelService.getCreatorRankings(limit);
+      res.json(rankings);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/rankings/:creatorId", async (req, res) => {
+    try {
+      const ranking = await labsFlywheelService.getCreatorRanking(req.params.creatorId);
+      res.json(ranking || null);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/flywheel/rankings/recalculate", async (_req, res) => {
+    try {
+      await labsFlywheelService.recalculateAllRankings();
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/flywheel/referral", async (req, res) => {
+    try {
+      const { appId, creatorId } = req.body;
+      const referral = await labsFlywheelService.createReferral(appId, creatorId);
+      res.json(referral);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/referral/:code", async (req, res) => {
+    try {
+      const referral = await labsFlywheelService.getReferral(req.params.code);
+      if (referral) {
+        await labsFlywheelService.trackReferralClick(req.params.code);
+      }
+      res.json(referral || null);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/referrals/:creatorId", async (req, res) => {
+    try {
+      const referrals = await labsFlywheelService.getCreatorReferrals(req.params.creatorId);
+      res.json(referrals);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/flywheel/referral/:code/signup", async (req, res) => {
+    try {
+      await labsFlywheelService.trackReferralSignup(req.params.code);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/flywheel/landing-page", async (req, res) => {
+    try {
+      const { appId } = req.body;
+      const page = await labsFlywheelService.generateLandingPage(appId);
+      res.json(page);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/landing-page/:slug", async (req, res) => {
+    try {
+      const page = await labsFlywheelService.getLandingPage(req.params.slug);
+      res.json(page || null);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/flywheel/landing-page/app/:appId", async (req, res) => {
+    try {
+      const page = await labsFlywheelService.getLandingPageByAppId(req.params.appId);
+      res.json(page || null);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/flywheel/landing-page/:slug/convert", async (req, res) => {
+    try {
+      await labsFlywheelService.trackConversion(req.params.slug);
+      res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
 
