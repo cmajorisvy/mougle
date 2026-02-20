@@ -15,9 +15,49 @@ interface CostBreakdown {
   bandwidth: { monthly: number; perUser: number; details: string };
   support: { monthly: number; perUser: number; details: string };
   platformFee: { monthly: number; perUser: number; details: string };
+  devAmortization: { monthly: number; perUser: number; details: string };
+  gst: { monthly: number; perUser: number; details: string; rate: number; itcApplied: boolean };
   totalPerUser: number;
   totalMonthly: number;
 }
+
+interface DevCostEstimate {
+  replitAiHours: number;
+  replitPlanCost: number;
+  totalDevCost: number;
+  gstOnDev: number;
+  effectiveDevCost: number;
+  amortizationMonths: number;
+  monthlyAmortized: number;
+}
+
+interface PlatformPricing {
+  platform: string;
+  minimumPrice: number;
+  recommendedPrice: number;
+  platformFeePercent: number;
+  effectiveCreatorShare: number;
+  details: string;
+}
+
+const GST_RATE = 0.18;
+
+const REPLIT_COST_PER_AI_HOUR = 25;
+const REPLIT_PLAN_MONTHLY = 1500;
+
+const DEV_HOURS_BY_COMPLEXITY: Record<string, number> = {
+  none: 20,
+  light: 40,
+  moderate: 80,
+  heavy: 150,
+  intensive: 300,
+};
+
+const PLATFORM_FEES: Record<string, { feePercent: number; additionalCost: number; details: string }> = {
+  web: { feePercent: 0, additionalCost: 0, details: "Direct web distribution — no store commission" },
+  android: { feePercent: 15, additionalCost: 2083, details: "Google Play 15% (first ₹10L/yr), ₹2,083/mo dev account amortized" },
+  ios: { feePercent: 30, additionalCost: 8333, details: "Apple App Store 30% commission, ₹8,333/mo dev program amortized" },
+};
 
 const AI_COST_MAP: Record<string, { perUser: number; details: string }> = {
   none: { perUser: 0, details: "No AI features — zero compute cost" },
@@ -111,7 +151,33 @@ function analyzePrompt(prompt: string): AppAnalysis {
   return { aiUsage, hostingTier, bandwidthTier, supportLevel };
 }
 
-function calculateCosts(analysis: AppAnalysis, estimatedUsers: number): CostBreakdown {
+function estimateDevCost(analysis: AppAnalysis, devHoursOverride?: number, gstItcEnabled = false, amortizationMonths = 12): DevCostEstimate {
+  const replitAiHours = devHoursOverride || DEV_HOURS_BY_COMPLEXITY[analysis.aiUsage] || 40;
+  const aiUsageCost = replitAiHours * REPLIT_COST_PER_AI_HOUR;
+  const replitPlanCost = REPLIT_PLAN_MONTHLY * Math.ceil(replitAiHours / 160);
+  const totalDevCost = aiUsageCost + replitPlanCost;
+  const gstOnDev = Math.round(totalDevCost * GST_RATE * 100) / 100;
+  const effectiveDevCost = gstItcEnabled ? totalDevCost : totalDevCost + gstOnDev;
+  const monthlyAmortized = Math.round((effectiveDevCost / amortizationMonths) * 100) / 100;
+
+  return {
+    replitAiHours,
+    replitPlanCost,
+    totalDevCost,
+    gstOnDev,
+    effectiveDevCost,
+    amortizationMonths,
+    monthlyAmortized,
+  };
+}
+
+function calculateCosts(
+  analysis: AppAnalysis,
+  estimatedUsers: number,
+  devHoursOverride?: number,
+  gstItcEnabled = false,
+  amortizationMonths = 12
+): CostBreakdown {
   const ai = AI_COST_MAP[analysis.aiUsage];
   const hosting = HOSTING_COST_MAP[analysis.hostingTier];
   const bandwidth = BANDWIDTH_COST_MAP[analysis.bandwidthTier];
@@ -125,8 +191,18 @@ function calculateCosts(analysis: AppAnalysis, estimatedUsers: number): CostBrea
   const supportMonthly = support.perUser * estimatedUsers;
   const platformFeeMonthly = platformFeePerUser * estimatedUsers;
 
-  const totalMonthly = aiMonthly + hostingMonthly + bandwidthMonthly + supportMonthly + platformFeeMonthly;
-  const totalPerUser = totalMonthly / estimatedUsers;
+  const operationalSubtotal = aiMonthly + hostingMonthly + bandwidthMonthly + supportMonthly + platformFeeMonthly;
+
+  const dev = estimateDevCost(analysis, devHoursOverride, gstItcEnabled, amortizationMonths);
+  const devAmortizationMonthly = dev.monthlyAmortized;
+  const devAmortizationPerUser = Math.round((devAmortizationMonthly / estimatedUsers) * 100) / 100;
+
+  const gstOnOperational = Math.round(operationalSubtotal * GST_RATE * 100) / 100;
+  const effectiveGst = gstItcEnabled ? 0 : gstOnOperational;
+  const gstPerUser = Math.round((effectiveGst / estimatedUsers) * 100) / 100;
+
+  const totalMonthly = operationalSubtotal + devAmortizationMonthly + effectiveGst;
+  const totalPerUser = Math.round((totalMonthly / estimatedUsers) * 100) / 100;
 
   return {
     aiCompute: { monthly: Math.round(aiMonthly * 100) / 100, perUser: ai.perUser, details: ai.details },
@@ -134,7 +210,17 @@ function calculateCosts(analysis: AppAnalysis, estimatedUsers: number): CostBrea
     bandwidth: { monthly: Math.round(bandwidthMonthly * 100) / 100, perUser: bandwidth.perUser, details: bandwidth.details },
     support: { monthly: Math.round(supportMonthly * 100) / 100, perUser: support.perUser, details: support.details },
     platformFee: { monthly: Math.round(platformFeeMonthly * 100) / 100, perUser: platformFeePerUser, details: "Dig8opia platform fee (infrastructure, marketplace, billing)" },
-    totalPerUser: Math.round(totalPerUser * 100) / 100,
+    devAmortization: { monthly: devAmortizationMonthly, perUser: devAmortizationPerUser, details: `Replit AI dev cost (${dev.replitAiHours}hrs) amortized over ${amortizationMonths} months` },
+    gst: {
+      monthly: effectiveGst,
+      perUser: gstPerUser,
+      details: gstItcEnabled
+        ? "GST Input Tax Credit applied — GST excluded from cost base"
+        : `18% GST on operational expenses (₹${Math.round(gstOnOperational)}/mo). Dev GST (₹${Math.round(dev.gstOnDev)}) included in amortization.`,
+      rate: GST_RATE,
+      itcApplied: gstItcEnabled,
+    },
+    totalPerUser,
     totalMonthly: Math.round(totalMonthly * 100) / 100,
   };
 }
@@ -149,6 +235,34 @@ function calculatePricing(costs: CostBreakdown, targetMargin: number) {
   };
 }
 
+function calculatePlatformPricing(costs: CostBreakdown, targetMargin: number, estimatedUsers: number): PlatformPricing[] {
+  return Object.entries(PLATFORM_FEES).map(([platform, fee]) => {
+    const additionalPerUser = fee.additionalCost > 0
+      ? Math.round((fee.additionalCost / estimatedUsers) * 100) / 100
+      : 0;
+    const adjustedCostPerUser = costs.totalPerUser + additionalPerUser;
+
+    const effectiveMarginTarget = fee.feePercent > 0
+      ? 1 - ((1 - targetMargin) * (1 - fee.feePercent / 100))
+      : targetMargin;
+
+    const minimumPrice = Math.ceil(adjustedCostPerUser / (1 - effectiveMarginTarget));
+    const recommendedPrice = Math.ceil(minimumPrice * 1.2);
+
+    const creatorSharePercent = 100 - fee.feePercent;
+    const effectiveCreatorShare = Math.round(recommendedPrice * (creatorSharePercent / 100));
+
+    return {
+      platform: platform.charAt(0).toUpperCase() + platform.slice(1),
+      minimumPrice: Math.max(minimumPrice, 1),
+      recommendedPrice: Math.max(recommendedPrice, 2),
+      platformFeePercent: fee.feePercent,
+      effectiveCreatorShare,
+      details: fee.details,
+    };
+  });
+}
+
 export const pricingEngineService = {
   async analyzeApp(params: {
     creatorId: string;
@@ -158,14 +272,19 @@ export const pricingEngineService = {
     estimatedUsers?: number;
     targetMargin?: number;
     pricingModel?: string;
+    devHours?: number;
+    gstItcEnabled?: boolean;
+    amortizationMonths?: number;
   }) {
     const estimatedUsers = params.estimatedUsers || 100;
     const targetMargin = params.targetMargin || 0.5;
     const pricingModel = params.pricingModel || "subscription";
 
     const analysis = analyzePrompt(params.appPrompt);
-    const costs = calculateCosts(analysis, estimatedUsers);
+    const costs = calculateCosts(analysis, estimatedUsers, params.devHours, params.gstItcEnabled || false, params.amortizationMonths || 12);
     const { minimumPrice, recommendedPrice } = calculatePricing(costs, targetMargin);
+    const platformPricing = calculatePlatformPricing(costs, targetMargin, estimatedUsers);
+    const devCostEstimate = estimateDevCost(analysis, params.devHours, params.gstItcEnabled || false, params.amortizationMonths || 12);
 
     const warnings: string[] = [];
     if (analysis.aiUsage === "intensive") {
@@ -204,6 +323,8 @@ export const pricingEngineService = {
       estimatedUsers,
       warnings,
       sustainable: true,
+      devCostEstimate,
+      platformPricing,
     };
   },
 
@@ -248,10 +369,12 @@ export const pricingEngineService = {
     };
   },
 
-  analyzePromptOnly(prompt: string, estimatedUsers = 100, targetMargin = 0.5) {
+  analyzePromptOnly(prompt: string, estimatedUsers = 100, targetMargin = 0.5, devHours?: number, gstItcEnabled = false, amortizationMonths = 12) {
     const analysis = analyzePrompt(prompt);
-    const costs = calculateCosts(analysis, estimatedUsers);
+    const costs = calculateCosts(analysis, estimatedUsers, devHours, gstItcEnabled, amortizationMonths);
     const { minimumPrice, recommendedPrice } = calculatePricing(costs, targetMargin);
-    return { analysis, costs, minimumPrice, recommendedPrice };
+    const platformPricing = calculatePlatformPricing(costs, targetMargin, estimatedUsers);
+    const devCostEstimate = estimateDevCost(analysis, devHours, gstItcEnabled, amortizationMonths);
+    return { analysis, costs, minimumPrice, recommendedPrice, platformPricing, devCostEstimate };
   },
 };

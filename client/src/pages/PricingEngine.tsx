@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
   Calculator, Cpu, Server, Wifi, HeadphonesIcon, IndianRupee,
   TrendingUp, AlertTriangle, CheckCircle2, XCircle, Sparkles,
-  BarChart3, Shield, ArrowRight, Loader2
+  BarChart3, Shield, ArrowRight, Loader2, Code, Receipt,
+  Globe, Smartphone, Apple, Monitor
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -25,14 +27,40 @@ interface CostItem {
   details: string;
 }
 
+interface GstCostItem extends CostItem {
+  rate: number;
+  itcApplied: boolean;
+}
+
 interface CostBreakdown {
   aiCompute: CostItem;
   hosting: CostItem;
   bandwidth: CostItem;
   support: CostItem;
   platformFee: CostItem;
+  devAmortization: CostItem;
+  gst: GstCostItem;
   totalPerUser: number;
   totalMonthly: number;
+}
+
+interface DevCostEstimate {
+  replitAiHours: number;
+  replitPlanCost: number;
+  totalDevCost: number;
+  gstOnDev: number;
+  effectiveDevCost: number;
+  amortizationMonths: number;
+  monthlyAmortized: number;
+}
+
+interface PlatformPricingItem {
+  platform: string;
+  minimumPrice: number;
+  recommendedPrice: number;
+  platformFeePercent: number;
+  effectiveCreatorShare: number;
+  details: string;
 }
 
 interface AnalysisResult {
@@ -51,6 +79,8 @@ interface AnalysisResult {
   estimatedUsers: number;
   warnings: string[];
   sustainable: boolean;
+  devCostEstimate: DevCostEstimate;
+  platformPricing: PlatformPricingItem[];
 }
 
 interface ValidationResult {
@@ -69,6 +99,8 @@ const costIcons: Record<string, typeof Cpu> = {
   bandwidth: Wifi,
   support: HeadphonesIcon,
   platformFee: Shield,
+  devAmortization: Code,
+  gst: Receipt,
 };
 
 const costLabels: Record<string, string> = {
@@ -77,6 +109,8 @@ const costLabels: Record<string, string> = {
   bandwidth: "Bandwidth",
   support: "Support",
   platformFee: "Platform Fee",
+  devAmortization: "Dev Amortization",
+  gst: "GST (18%)",
 };
 
 const costColors: Record<string, string> = {
@@ -85,6 +119,8 @@ const costColors: Record<string, string> = {
   bandwidth: "text-emerald-400",
   support: "text-amber-400",
   platformFee: "text-rose-400",
+  devAmortization: "text-cyan-400",
+  gst: "text-orange-400",
 };
 
 const barColors: Record<string, string> = {
@@ -93,6 +129,20 @@ const barColors: Record<string, string> = {
   bandwidth: "bg-emerald-500",
   support: "bg-amber-500",
   platformFee: "bg-rose-500",
+  devAmortization: "bg-cyan-500",
+  gst: "bg-orange-500",
+};
+
+const platformIcons: Record<string, typeof Globe> = {
+  Web: Globe,
+  Android: Smartphone,
+  Ios: Monitor,
+};
+
+const platformColors: Record<string, string> = {
+  Web: "from-blue-600 to-blue-400",
+  Android: "from-emerald-600 to-emerald-400",
+  Ios: "from-zinc-500 to-zinc-300",
 };
 
 export default function PricingEngine() {
@@ -100,6 +150,9 @@ export default function PricingEngine() {
   const [appName, setAppName] = useState("");
   const [estimatedUsers, setEstimatedUsers] = useState(100);
   const [pricingModel, setPricingModel] = useState("subscription");
+  const [devHours, setDevHours] = useState(40);
+  const [gstItcEnabled, setGstItcEnabled] = useState(false);
+  const [amortizationMonths, setAmortizationMonths] = useState(12);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [customPrice, setCustomPrice] = useState("");
   const [validation, setValidation] = useState<ValidationResult | null>(null);
@@ -112,6 +165,9 @@ export default function PricingEngine() {
         appName: appName || undefined,
         estimatedUsers,
         pricingModel,
+        devHours,
+        gstItcEnabled,
+        amortizationMonths,
       });
       return res.json();
     },
@@ -135,12 +191,9 @@ export default function PricingEngine() {
     },
   });
 
+  const allCostKeys = ["aiCompute", "hosting", "bandwidth", "support", "platformFee", "devAmortization", "gst"] as const;
   const maxCost = result ? Math.max(
-    result.costs.aiCompute.perUser,
-    result.costs.hosting.perUser,
-    result.costs.bandwidth.perUser,
-    result.costs.support.perUser,
-    result.costs.platformFee.perUser,
+    ...allCostKeys.map(k => (result.costs[k] as CostItem)?.perUser || 0),
     0.01
   ) : 1;
 
@@ -153,20 +206,35 @@ export default function PricingEngine() {
           </div>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-page-title">Intelligent Pricing Engine</h1>
-            <p className="text-zinc-400 text-sm">Calculate sustainable pricing for your Labs app</p>
+            <p className="text-zinc-400 text-sm">Sustainable pricing with India-based operational economics</p>
           </div>
         </div>
 
         <Card className="glass-card rounded-xl p-6 space-y-5" data-testid="section-prompt-input">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-300">App Name</label>
-            <Input
-              placeholder="My Awesome App"
-              value={appName}
-              onChange={(e) => setAppName(e.target.value)}
-              className="bg-zinc-900/60 border-zinc-700"
-              data-testid="input-app-name"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-zinc-300">App Name</label>
+              <Input
+                placeholder="My Awesome App"
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
+                className="bg-zinc-900/60 border-zinc-700"
+                data-testid="input-app-name"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-zinc-300">Pricing Model</label>
+              <Select value={pricingModel} onValueChange={setPricingModel}>
+                <SelectTrigger className="bg-zinc-900/60 border-zinc-700" data-testid="select-pricing-model">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="subscription">Monthly Subscription</SelectItem>
+                  <SelectItem value="one_time">One-time Purchase</SelectItem>
+                  <SelectItem value="usage">Usage-based</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -197,19 +265,49 @@ export default function PricingEngine() {
                 <span className="text-sm font-mono text-zinc-300 w-16 text-right" data-testid="text-user-count">{estimatedUsers.toLocaleString()}</span>
               </div>
             </div>
-
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Pricing Model</label>
-              <Select value={pricingModel} onValueChange={setPricingModel}>
-                <SelectTrigger className="bg-zinc-900/60 border-zinc-700" data-testid="select-pricing-model">
+              <label className="text-sm font-medium text-zinc-300">Replit AI Dev Hours</label>
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={[devHours]}
+                  onValueChange={([v]) => setDevHours(v)}
+                  min={5}
+                  max={500}
+                  step={5}
+                  className="flex-1"
+                  data-testid="slider-dev-hours"
+                />
+                <span className="text-sm font-mono text-zinc-300 w-16 text-right" data-testid="text-dev-hours">{devHours}h</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Amortization Period</label>
+              <Select value={String(amortizationMonths)} onValueChange={(v) => setAmortizationMonths(Number(v))}>
+                <SelectTrigger className="bg-zinc-900/60 border-zinc-700" data-testid="select-amortization">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="subscription">Monthly Subscription</SelectItem>
-                  <SelectItem value="one_time">One-time Purchase</SelectItem>
-                  <SelectItem value="usage">Usage-based</SelectItem>
+                  <SelectItem value="6">6 months</SelectItem>
+                  <SelectItem value="12">12 months</SelectItem>
+                  <SelectItem value="18">18 months</SelectItem>
+                  <SelectItem value="24">24 months</SelectItem>
+                  <SelectItem value="36">36 months</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center justify-between bg-zinc-900/60 rounded-lg p-3 border border-zinc-700">
+              <div>
+                <p className="text-sm font-medium text-zinc-300">GST Input Tax Credit</p>
+                <p className="text-xs text-zinc-500">If enabled, 18% GST is excluded from cost base</p>
+              </div>
+              <Switch
+                checked={gstItcEnabled}
+                onCheckedChange={setGstItcEnabled}
+                data-testid="switch-gst-itc"
+              />
             </div>
           </div>
 
@@ -238,7 +336,7 @@ export default function PricingEngine() {
                 <p className="text-2xl font-bold text-zinc-200" data-testid="text-cost-per-user">
                   ₹{result.costs.totalPerUser.toFixed(2)}
                 </p>
-                <p className="text-xs text-zinc-500 mt-1">per user per month</p>
+                <p className="text-xs text-zinc-500 mt-1">per user per month (incl. dev + GST)</p>
               </Card>
 
               <Card className="glass-card rounded-xl p-5 border-emerald-500/30 bg-emerald-500/5">
@@ -249,7 +347,7 @@ export default function PricingEngine() {
                 <p className="text-2xl font-bold text-emerald-300" data-testid="text-minimum-price">
                   ₹{result.minimumPrice}
                 </p>
-                <p className="text-xs text-zinc-500 mt-1">ensures 50% margin</p>
+                <p className="text-xs text-zinc-500 mt-1">ensures 50% margin (Web)</p>
               </Card>
 
               <Card className="glass-card rounded-xl p-5 border-primary/30 bg-primary/5">
@@ -260,33 +358,70 @@ export default function PricingEngine() {
                 <p className="text-2xl font-bold text-primary" data-testid="text-recommended-price">
                   ₹{result.recommendedPrice}
                 </p>
-                <p className="text-xs text-zinc-500 mt-1">optimal for growth</p>
+                <p className="text-xs text-zinc-500 mt-1">optimal for growth (Web)</p>
               </Card>
             </div>
+
+            <Card className="glass-card rounded-xl p-6" data-testid="section-dev-cost">
+              <div className="flex items-center gap-2 mb-4">
+                <Code className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-lg font-semibold">Replit Development Cost</h2>
+                {gstItcEnabled && (
+                  <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px] ml-auto">ITC Applied</Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-ai-hours">
+                  <p className="text-[11px] text-zinc-500 uppercase">AI Dev Hours</p>
+                  <p className="text-lg font-bold font-mono">{result.devCostEstimate.replitAiHours}h</p>
+                  <p className="text-[10px] text-zinc-600">@ ₹{25}/hr</p>
+                </div>
+                <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-total-cost">
+                  <p className="text-[11px] text-zinc-500 uppercase">Dev Cost</p>
+                  <p className="text-lg font-bold font-mono">₹{result.devCostEstimate.totalDevCost.toLocaleString()}</p>
+                  <p className="text-[10px] text-zinc-600">AI usage + plan</p>
+                </div>
+                <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-gst">
+                  <p className="text-[11px] text-zinc-500 uppercase">GST (18%)</p>
+                  <p className={cn("text-lg font-bold font-mono", gstItcEnabled ? "text-zinc-500 line-through" : "text-orange-400")}>
+                    ₹{result.devCostEstimate.gstOnDev.toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-zinc-600">{gstItcEnabled ? "ITC credited" : "Added to cost"}</p>
+                </div>
+                <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-amortized">
+                  <p className="text-[11px] text-zinc-500 uppercase">Monthly Amortized</p>
+                  <p className="text-lg font-bold font-mono text-cyan-400">₹{result.devCostEstimate.monthlyAmortized.toLocaleString()}</p>
+                  <p className="text-[10px] text-zinc-600">over {result.devCostEstimate.amortizationMonths} months</p>
+                </div>
+              </div>
+            </Card>
 
             <Card className="glass-card rounded-xl p-6" data-testid="section-cost-breakdown">
               <div className="flex items-center gap-2 mb-5">
                 <BarChart3 className="w-5 h-5 text-zinc-400" />
-                <h2 className="text-lg font-semibold">Cost Breakdown</h2>
+                <h2 className="text-lg font-semibold">Full Cost Breakdown</h2>
                 <Badge variant="outline" className="ml-auto text-[10px] px-2 py-0.5">
                   {result.estimatedUsers.toLocaleString()} users
                 </Badge>
               </div>
 
               <div className="space-y-4">
-                {(["aiCompute", "hosting", "bandwidth", "support", "platformFee"] as const).map((key) => {
-                  const item = result.costs[key];
+                {allCostKeys.map((key) => {
+                  const item = result.costs[key] as CostItem;
+                  if (!item) return null;
                   const Icon = costIcons[key];
                   const pct = maxCost > 0 ? (item.perUser / maxCost) * 100 : 0;
+                  const isGstZero = key === "gst" && gstItcEnabled;
                   return (
-                    <div key={key} className="space-y-1.5" data-testid={`cost-item-${key}`}>
+                    <div key={key} className={cn("space-y-1.5", isGstZero && "opacity-50")} data-testid={`cost-item-${key}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Icon className={cn("w-4 h-4", costColors[key])} />
                           <span className="text-sm font-medium">{costLabels[key]}</span>
+                          {isGstZero && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400">ITC</Badge>}
                         </div>
                         <div className="text-right">
-                          <span className="text-sm font-mono font-semibold" data-testid={`cost-per-user-${key}`}>
+                          <span className={cn("text-sm font-mono font-semibold", isGstZero && "line-through")} data-testid={`cost-per-user-${key}`}>
                             ₹{item.perUser.toFixed(2)}
                           </span>
                           <span className="text-xs text-zinc-500 ml-1">/user</span>
@@ -298,7 +433,7 @@ export default function PricingEngine() {
                       <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                         <div
                           className={cn("h-full rounded-full transition-all", barColors[key])}
-                          style={{ width: `${Math.max(pct, 2)}%` }}
+                          style={{ width: `${Math.max(isGstZero ? 0 : pct, 2)}%` }}
                         />
                       </div>
                       <p className="text-[11px] text-zinc-500">{item.details}</p>
@@ -312,6 +447,49 @@ export default function PricingEngine() {
                     ₹{result.costs.totalPerUser.toFixed(2)}
                   </span>
                 </div>
+              </div>
+            </Card>
+
+            <Card className="glass-card rounded-xl p-6" data-testid="section-platform-pricing">
+              <div className="flex items-center gap-2 mb-5">
+                <Globe className="w-5 h-5 text-zinc-400" />
+                <h2 className="text-lg font-semibold">Platform-Specific Pricing</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {(result.platformPricing || []).map((pp) => {
+                  const Icon = platformIcons[pp.platform] || Globe;
+                  const colors = platformColors[pp.platform] || "from-zinc-600 to-zinc-400";
+                  return (
+                    <Card key={pp.platform} className="glass-card rounded-xl p-5 border-zinc-700/50" data-testid={`platform-${pp.platform.toLowerCase()}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br flex items-center justify-center", colors)}>
+                          <Icon className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-semibold">{pp.platform}</h3>
+                          {pp.platformFeePercent > 0 && (
+                            <p className="text-[10px] text-zinc-500">{pp.platformFeePercent}% store fee</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-xs text-zinc-500">Minimum</span>
+                          <span className="text-sm font-mono font-bold text-emerald-400" data-testid={`platform-min-${pp.platform.toLowerCase()}`}>₹{pp.minimumPrice}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-zinc-500">Recommended</span>
+                          <span className="text-sm font-mono font-bold text-primary" data-testid={`platform-rec-${pp.platform.toLowerCase()}`}>₹{pp.recommendedPrice}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-zinc-500">Creator Gets</span>
+                          <span className="text-sm font-mono font-semibold">₹{pp.effectiveCreatorShare}</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-zinc-600 mt-2">{pp.details}</p>
+                    </Card>
+                  );
+                })}
               </div>
             </Card>
 
@@ -438,7 +616,7 @@ export default function PricingEngine() {
             </Card>
 
             <div className="text-center text-xs text-zinc-600 pb-4" data-testid="section-footer">
-              Pricing engine ensures minimum 50% margin after operational costs.
+              Pricing includes Replit AI development cost amortization + 18% Indian GST.
               Creators keep 70% of revenue through Razorpay Route split.
             </div>
           </>

@@ -3164,6 +3164,9 @@ Keep under 200 words.`
     estimatedUsers: z.number().int().min(1).max(100000).optional(),
     targetMargin: z.number().min(0.1).max(0.95).optional(),
     pricingModel: z.enum(["subscription", "one_time", "usage"]).optional(),
+    devHours: z.number().int().min(1).max(10000).optional(),
+    gstItcEnabled: z.boolean().optional(),
+    amortizationMonths: z.number().int().min(1).max(60).optional(),
   });
 
   app.post("/api/pricing-engine/analyze", async (req, res) => {
@@ -3208,13 +3211,23 @@ Keep under 200 words.`
     appPrompt: z.string().min(1),
     estimatedUsers: z.number().int().min(1).max(100000).optional(),
     targetMargin: z.number().min(0.1).max(0.95).optional(),
+    devHours: z.number().int().min(1).max(10000).optional(),
+    gstItcEnabled: z.boolean().optional(),
+    amortizationMonths: z.number().int().min(1).max(60).optional(),
   });
 
   app.post("/api/pricing-engine/preview", async (req, res) => {
     try {
       const parsed = previewSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
-      const result = pricingEngineService.analyzePromptOnly(parsed.data.appPrompt, parsed.data.estimatedUsers, parsed.data.targetMargin);
+      const result = pricingEngineService.analyzePromptOnly(
+        parsed.data.appPrompt,
+        parsed.data.estimatedUsers,
+        parsed.data.targetMargin,
+        parsed.data.devHours,
+        parsed.data.gstItcEnabled,
+        parsed.data.amortizationMonths
+      );
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
