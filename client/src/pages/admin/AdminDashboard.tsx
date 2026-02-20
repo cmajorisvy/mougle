@@ -33,7 +33,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization" | "trust" | "teams";
+type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization" | "trust" | "teams" | "stability";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -53,6 +53,7 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "civilization", label: "Civilization", icon: Database },
   { id: "trust", label: "Trust Network", icon: Shield },
   { id: "teams", label: "AI Teams", icon: Users },
+  { id: "stability", label: "Stability", icon: Heart },
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
@@ -2934,6 +2935,235 @@ function AITeamsTab() {
   );
 }
 
+function StabilityTab() {
+  const { data: dashboard, isLoading } = useQuery({
+    queryKey: ["admin-stability"],
+    queryFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch("/api/admin/civilization/stability", { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to fetch stability data");
+      return res.json();
+    },
+  });
+
+  const recomputeMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch("/api/admin/civilization/stability/recompute", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to recompute");
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-stability"] }); },
+  });
+
+  const toggleRuleMutation = useMutation({
+    mutationFn: async (ruleId: string) => {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch(`/api/admin/civilization/policies/${ruleId}/toggle`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to toggle rule");
+      return res.json();
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-stability"] }); },
+  });
+
+  if (isLoading) return <LoadingSpinner />;
+
+  const stats = dashboard?.stats || {};
+  const healthScore = dashboard?.healthScore || 0;
+  const latestSnapshot = dashboard?.latestSnapshot;
+
+  const healthColor = healthScore >= 70 ? "text-green-400" : healthScore >= 40 ? "text-yellow-400" : "text-red-400";
+  const healthBg = healthScore >= 70 ? "bg-green-500/20" : healthScore >= 40 ? "bg-yellow-500/20" : "bg-red-500/20";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Heart className="w-5 h-5 text-pink-400" />
+          <h2 className="text-xl font-bold text-white">Civilization Stability</h2>
+        </div>
+        <Button
+          data-testid="button-recompute-stability"
+          size="sm"
+          onClick={() => recomputeMutation.mutate()}
+          disabled={recomputeMutation.isPending}
+          className="bg-purple-600/20 text-purple-300 border border-purple-500/20 hover:bg-purple-600/30"
+        >
+          {recomputeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+          Recompute
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className={`${healthBg} border-gray-800/50 p-5`}>
+          <div className="text-center">
+            <p className={`text-3xl font-bold ${healthColor}`} data-testid="text-health-score">{healthScore}</p>
+            <p className="text-xs text-gray-400 mt-1">Health Score</p>
+          </div>
+        </Card>
+        <StatCard icon={Shield} label="Active Rules" value={stats.activeRules || 0} color="bg-blue-500/10 text-blue-400" />
+        <StatCard icon={AlertTriangle} label="Active Violations" value={stats.activeViolations || 0} color="bg-red-500/10 text-red-400" />
+        <StatCard icon={Activity} label="Throttled Agents" value={stats.totalThrottled || 0} color="bg-orange-500/10 text-orange-400" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={Eye} label="Suppressed" value={stats.totalSuppressed || 0} color="bg-yellow-500/10 text-yellow-400" />
+        <StatCard icon={Cpu} label="Credit Sinked" value={stats.totalCreditSinked || 0} color="bg-purple-500/10 text-purple-400" />
+        <StatCard icon={Bot} label="Agent Count" value={latestSnapshot?.agentCount || 0} color="bg-cyan-500/10 text-cyan-400" />
+        <StatCard icon={TrendingUp} label="Collab Success" value={latestSnapshot?.collaborationSuccess ? `${latestSnapshot.collaborationSuccess}%` : "N/A"} color="bg-green-500/10 text-green-400" />
+      </div>
+
+      {latestSnapshot && (
+        <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+          <h3 className="text-sm font-semibold text-gray-300 mb-4">Ecosystem Dimensions</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Spam Rate", value: latestSnapshot.spamRate, suffix: "%", color: latestSnapshot.spamRate > 20 ? "text-red-400" : "text-green-400" },
+              { label: "Cost Balance", value: latestSnapshot.costBalance, suffix: "%", color: latestSnapshot.costBalance > 50 ? "text-green-400" : "text-orange-400" },
+              { label: "Collab Success", value: latestSnapshot.collaborationSuccess, suffix: "%", color: latestSnapshot.collaborationSuccess > 50 ? "text-green-400" : "text-yellow-400" },
+              { label: "Violations", value: latestSnapshot.violationCount, suffix: "", color: latestSnapshot.violationCount > 10 ? "text-red-400" : "text-green-400" },
+            ].map((dim) => (
+              <div key={dim.label} className="p-3 rounded-lg bg-gray-800/40 text-center">
+                <p className={`text-xl font-bold ${dim.color}`}>{dim.value}{dim.suffix}</p>
+                <p className="text-xs text-gray-500 mt-1">{dim.label}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+        <h3 className="text-sm font-semibold text-gray-300 mb-4">Policy Rules</h3>
+        {(dashboard?.rules || []).length === 0 ? (
+          <p className="text-xs text-gray-500 text-center py-4">No rules configured</p>
+        ) : (
+          <div className="space-y-2">
+            {(dashboard?.rules || []).map((rule: any) => (
+              <div key={rule.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-800/40 border border-gray-700/30">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-white">{rule.name}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${rule.isActive ? "bg-green-500/20 text-green-400" : "bg-gray-500/20 text-gray-400"}`}>
+                      {rule.isActive ? "Active" : "Disabled"}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-gray-700/50 text-gray-400">Sev: {rule.severity}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">{rule.description}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  data-testid={`button-toggle-rule-${rule.id}`}
+                  onClick={() => toggleRuleMutation.mutate(rule.id)}
+                  className={rule.isActive ? "text-green-400 hover:text-red-400" : "text-gray-400 hover:text-green-400"}
+                >
+                  {rule.isActive ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {(dashboard?.creditSinks || []).length > 0 && (
+        <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Credit Sinks</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {dashboard.creditSinks.map((sink: any) => (
+              <div key={sink.type} className="p-3 rounded-lg bg-gray-800/40 text-center">
+                <p className="text-lg font-bold text-purple-400">{sink.total || 0}</p>
+                <p className="text-xs text-gray-500 capitalize">{sink.type.replace(/_/g, " ")}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {(dashboard?.violations || []).length > 0 && (
+        <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Recent Violations</h3>
+          <div className="space-y-2">
+            {dashboard.violations.slice(0, 10).map((v: any) => (
+              <div key={v.id} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/30">
+                <div>
+                  <span className="text-xs font-medium text-red-400">{v.ruleName || "Unknown Rule"}</span>
+                  <span className="text-xs text-gray-500 ml-2">Agent: {v.agentId?.substring(0, 8)}...</span>
+                </div>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] ${v.status === "active" ? "bg-red-500/20 text-red-400" : "bg-gray-500/20 text-gray-400"}`}>
+                  {v.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {(dashboard?.throttledAgents || []).length > 0 && (
+        <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Throttled Agents</h3>
+          <div className="space-y-2">
+            {dashboard.throttledAgents.map((a: any) => (
+              <div key={a.agentId} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/30">
+                <span className="text-xs text-white font-mono">{a.agentId?.substring(0, 12)}...</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">{a.usagePercent}% used</span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${a.throttleLevel === "hard" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"}`}>
+                    {a.throttleLevel}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {(dashboard?.suppressedAgents || []).length > 0 && (
+        <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Suppressed Agents</h3>
+          <div className="space-y-2">
+            {dashboard.suppressedAgents.map((a: any) => (
+              <div key={a.agentId} className="flex items-center justify-between p-2 rounded-lg bg-gray-800/30">
+                <span className="text-xs text-white font-mono">{a.agentId?.substring(0, 12)}...</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">Score: {Number(a.score).toFixed(2)}</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-400">{a.reason}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {(dashboard?.history || []).length > 1 && (
+        <Card className="bg-gray-900/60 border-gray-800/50 p-5">
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Health History</h3>
+          <div className="flex items-end gap-1 h-24">
+            {dashboard.history.slice(0, 20).reverse().map((h: any, i: number) => {
+              const height = Math.max(4, (h.score / 100) * 96);
+              const color = h.score >= 70 ? "bg-green-500/60" : h.score >= 40 ? "bg-yellow-500/60" : "bg-red-500/60";
+              return (
+                <div key={i} className="flex-1 flex flex-col justify-end">
+                  <div className={`${color} rounded-t`} style={{ height: `${height}px` }} title={`Score: ${h.score}`} />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-gray-600">Oldest</span>
+            <span className="text-[10px] text-gray-600">Latest</span>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 function LoadingSpinner() {
   return (
     <div className="flex items-center justify-center py-12">
@@ -2981,6 +3211,7 @@ export default function AdminDashboard() {
     civilization: CivilizationMetricsTab,
     trust: TrustNetworkTab,
     teams: AITeamsTab,
+    stability: StabilityTab,
     systems: SystemsTab,
   }[activeTab];
 

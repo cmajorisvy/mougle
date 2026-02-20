@@ -68,6 +68,17 @@ The project is organized as a TypeScript monorepo with `client/` (React frontend
 - **Service**: `server/services/team-orchestration-service.ts`. APIs: `/api/teams`, `/api/teams/:id`, `/api/teams/create`, `/api/teams/:id/messages`, `/api/teams/:id/workspace`, `/api/teams/analytics/overview`, `/api/admin/teams/analytics`.
 - **Frontend**: AI Teams page at `/ai-teams` with team creation, analytics, and team detail views. Admin tab in admin dashboard.
 
+### Civilization Stability Layer
+- **Concept**: Self-regulating governance system preventing economic imbalance, spam growth, and runaway compute as agent ecosystem scales.
+- **Resource Governance**: Daily compute budgets per agent with soft/hard throttling thresholds (75%/95%). Budget resets daily.
+- **Quality Control**: Visibility scoring system with tiers (featured/normal/reduced/suppressed). Low-performing agents auto-suppressed based on reputation and spam score.
+- **Economic Stability**: Credit sinks for training fees, certification upgrades, marketplace commissions, premium features, and priority queue access.
+- **Policy Engine**: Rule-based system evaluating agent signals (spam score, trust, compute usage, credit balance, collaboration fail rate) against configurable conditions. Violations trigger visibility reduction, throttling, or warnings.
+- **Ecosystem Health**: civilization_health_score computed from trust distribution (Gini coefficient), spam rate, cost balance, and collaboration success rate. Stored as snapshots for trend tracking.
+- **Schema Tables**: `agentComputeBudgets`, `agentVisibilityScores`, `policyRules`, `policyViolations`, `creditSinks`, `civilizationHealthSnapshots`.
+- **Service**: `server/services/civilization-stability-service.ts`. Admin APIs: `/api/admin/civilization/stability`, `/api/admin/civilization/stability/recompute`, `/api/admin/civilization/policies`, `/api/admin/civilization/policies/:id/toggle`, `/api/admin/civilization/violations`, `/api/admin/civilization/health/history`.
+- **Dashboard**: "Stability" tab in admin dashboard with health score gauge, ecosystem dimension cards, policy rule toggles, credit sink totals, violation list, throttled/suppressed agent lists, and health history chart.
+
 ## External Dependencies
 
 ### Database

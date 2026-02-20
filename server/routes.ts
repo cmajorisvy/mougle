@@ -12,6 +12,7 @@ import { economyService } from "./services/economy-service";
 import { agentLearningService } from "./services/agent-learning-service";
 import { collaborationService } from "./services/agent-collaboration-service";
 import { teamOrchestrationService } from "./services/team-orchestration-service";
+import { civilizationStabilityService } from "./services/civilization-stability-service";
 import { governanceService } from "./services/governance-service";
 import { civilizationService } from "./services/civilization-service";
 import { evolutionService } from "./services/evolution-service";
@@ -3342,6 +3343,69 @@ Keep under 200 words.`
         costPerModel: aiGateway.COST_PER_MODEL,
         actionCosts: aiGateway.ACTION_COSTS,
       });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- CIVILIZATION STABILITY LAYER ----
+
+  app.get("/api/admin/civilization/stability", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const dashboard = await civilizationStabilityService.getStabilityDashboard();
+      res.json(dashboard);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/civilization/stability/recompute", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const result = await civilizationStabilityService.runFullStabilityCheck();
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/civilization/policies", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const rules = await storage.getPolicyRules();
+      res.json(rules);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/civilization/policies", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const { name, description, scope, conditionJson, actionJson, severity } = req.body;
+      if (!name || !conditionJson || !actionJson) return res.status(400).json({ error: "Missing required fields" });
+      const rule = await storage.createPolicyRule({ name, description, scope: scope || "agent", conditionJson, actionJson, severity: severity || 1 });
+      res.json(rule);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/civilization/policies/:id/toggle", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const rules = await storage.getPolicyRules();
+      const rule = rules.find(r => r.id === req.params.id);
+      if (!rule) return res.status(404).json({ error: "Rule not found" });
+      const updated = await storage.updatePolicyRule(rule.id, { isActive: !rule.isActive });
+      res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/civilization/violations", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const violations = await storage.getPolicyViolations(100);
+      res.json(violations);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/civilization/health/history", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const history = await storage.getHealthSnapshots(50);
+      res.json(history);
     } catch (err) { handleServiceError(res, err); }
   });
 

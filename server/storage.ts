@@ -97,6 +97,13 @@ import {
   type TeamTask, type InsertTeamTask,
   type TeamMessage, type InsertTeamMessage,
   type TeamWorkspace, type InsertTeamWorkspace,
+  type AgentComputeBudget, type InsertAgentComputeBudget,
+  type AgentVisibilityScore, type InsertAgentVisibilityScore,
+  type PolicyRule, type InsertPolicyRule,
+  type PolicyViolation, type InsertPolicyViolation,
+  type CreditSink, type InsertCreditSink,
+  type CivilizationHealthSnapshot, type InsertCivilizationHealthSnapshot,
+  agentComputeBudgets, agentVisibilityScores, policyRules, policyViolations, creditSinks, civilizationHealthSnapshots,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -476,6 +483,29 @@ export interface IStorage {
   getTeamMessages(teamId: string): Promise<TeamMessage[]>;
   setWorkspaceEntry(data: InsertTeamWorkspace): Promise<TeamWorkspace>;
   getWorkspaceEntries(teamId: string): Promise<TeamWorkspace[]>;
+
+  // Civilization Stability Layer
+  getComputeBudget(agentId: string): Promise<AgentComputeBudget | undefined>;
+  upsertComputeBudget(data: InsertAgentComputeBudget): Promise<AgentComputeBudget>;
+  getAllComputeBudgets(): Promise<AgentComputeBudget[]>;
+  updateComputeBudget(id: string, data: Partial<AgentComputeBudget>): Promise<AgentComputeBudget>;
+  resetAllDailyBudgets(): Promise<void>;
+  getVisibilityScore(agentId: string): Promise<AgentVisibilityScore | undefined>;
+  upsertVisibilityScore(data: InsertAgentVisibilityScore): Promise<AgentVisibilityScore>;
+  getAllVisibilityScores(): Promise<AgentVisibilityScore[]>;
+  getPolicyRules(): Promise<PolicyRule[]>;
+  createPolicyRule(data: InsertPolicyRule): Promise<PolicyRule>;
+  updatePolicyRule(id: string, data: Partial<PolicyRule>): Promise<PolicyRule>;
+  getPolicyViolations(limit?: number): Promise<PolicyViolation[]>;
+  createPolicyViolation(data: InsertPolicyViolation): Promise<PolicyViolation>;
+  updatePolicyViolation(id: string, data: Partial<PolicyViolation>): Promise<PolicyViolation>;
+  getViolationsByAgent(agentId: string): Promise<PolicyViolation[]>;
+  createCreditSink(data: InsertCreditSink): Promise<CreditSink>;
+  getCreditSinks(limit?: number): Promise<CreditSink[]>;
+  getCreditSinkTotals(): Promise<{ type: string; total: number }[]>;
+  createHealthSnapshot(data: InsertCivilizationHealthSnapshot): Promise<CivilizationHealthSnapshot>;
+  getHealthSnapshots(limit?: number): Promise<CivilizationHealthSnapshot[]>;
+  getLatestHealthSnapshot(): Promise<CivilizationHealthSnapshot | undefined>;
 }
 
 function computeRank(reputation: number): string {
@@ -2141,6 +2171,97 @@ export class DatabaseStorage implements IStorage {
   }
   async getWorkspaceEntries(teamId: string): Promise<TeamWorkspace[]> {
     return db.select().from(teamWorkspaces).where(eq(teamWorkspaces.teamId, teamId)).orderBy(asc(teamWorkspaces.updatedAt));
+  }
+
+  // Civilization Stability Layer
+  async getComputeBudget(agentId: string): Promise<AgentComputeBudget | undefined> {
+    const [budget] = await db.select().from(agentComputeBudgets).where(eq(agentComputeBudgets.agentId, agentId));
+    return budget;
+  }
+  async upsertComputeBudget(data: InsertAgentComputeBudget): Promise<AgentComputeBudget> {
+    const existing = await this.getComputeBudget(data.agentId);
+    if (existing) {
+      const [updated] = await db.update(agentComputeBudgets).set(data).where(eq(agentComputeBudgets.agentId, data.agentId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(agentComputeBudgets).values(data).returning();
+    return created;
+  }
+  async getAllComputeBudgets(): Promise<AgentComputeBudget[]> {
+    return db.select().from(agentComputeBudgets);
+  }
+  async updateComputeBudget(id: string, data: Partial<AgentComputeBudget>): Promise<AgentComputeBudget> {
+    const [updated] = await db.update(agentComputeBudgets).set(data).where(eq(agentComputeBudgets.id, id)).returning();
+    return updated;
+  }
+  async resetAllDailyBudgets(): Promise<void> {
+    await db.update(agentComputeBudgets).set({ usedToday: 0, throttleLevel: "none", resetAt: new Date() });
+  }
+  async getVisibilityScore(agentId: string): Promise<AgentVisibilityScore | undefined> {
+    const [score] = await db.select().from(agentVisibilityScores).where(eq(agentVisibilityScores.agentId, agentId));
+    return score;
+  }
+  async upsertVisibilityScore(data: InsertAgentVisibilityScore): Promise<AgentVisibilityScore> {
+    const existing = await this.getVisibilityScore(data.agentId);
+    if (existing) {
+      const [updated] = await db.update(agentVisibilityScores).set({ ...data, lastUpdated: new Date() }).where(eq(agentVisibilityScores.agentId, data.agentId)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(agentVisibilityScores).values(data).returning();
+    return created;
+  }
+  async getAllVisibilityScores(): Promise<AgentVisibilityScore[]> {
+    return db.select().from(agentVisibilityScores);
+  }
+  async getPolicyRules(): Promise<PolicyRule[]> {
+    return db.select().from(policyRules).orderBy(desc(policyRules.createdAt));
+  }
+  async createPolicyRule(data: InsertPolicyRule): Promise<PolicyRule> {
+    const [rule] = await db.insert(policyRules).values(data).returning();
+    return rule;
+  }
+  async updatePolicyRule(id: string, data: Partial<PolicyRule>): Promise<PolicyRule> {
+    const [updated] = await db.update(policyRules).set(data).where(eq(policyRules.id, id)).returning();
+    return updated;
+  }
+  async getPolicyViolations(limit = 100): Promise<PolicyViolation[]> {
+    return db.select().from(policyViolations).orderBy(desc(policyViolations.detectedAt)).limit(limit);
+  }
+  async createPolicyViolation(data: InsertPolicyViolation): Promise<PolicyViolation> {
+    const [violation] = await db.insert(policyViolations).values(data).returning();
+    return violation;
+  }
+  async updatePolicyViolation(id: string, data: Partial<PolicyViolation>): Promise<PolicyViolation> {
+    const [updated] = await db.update(policyViolations).set(data).where(eq(policyViolations.id, id)).returning();
+    return updated;
+  }
+  async getViolationsByAgent(agentId: string): Promise<PolicyViolation[]> {
+    return db.select().from(policyViolations).where(eq(policyViolations.agentId, agentId)).orderBy(desc(policyViolations.detectedAt));
+  }
+  async createCreditSink(data: InsertCreditSink): Promise<CreditSink> {
+    const [sink] = await db.insert(creditSinks).values(data).returning();
+    return sink;
+  }
+  async getCreditSinks(limit = 100): Promise<CreditSink[]> {
+    return db.select().from(creditSinks).orderBy(desc(creditSinks.createdAt)).limit(limit);
+  }
+  async getCreditSinkTotals(): Promise<{ type: string; total: number }[]> {
+    const results = await db.select({
+      type: creditSinks.type,
+      total: sql<number>`sum(${creditSinks.amount})::int`,
+    }).from(creditSinks).groupBy(creditSinks.type);
+    return results;
+  }
+  async createHealthSnapshot(data: InsertCivilizationHealthSnapshot): Promise<CivilizationHealthSnapshot> {
+    const [snapshot] = await db.insert(civilizationHealthSnapshots).values(data).returning();
+    return snapshot;
+  }
+  async getHealthSnapshots(limit = 50): Promise<CivilizationHealthSnapshot[]> {
+    return db.select().from(civilizationHealthSnapshots).orderBy(desc(civilizationHealthSnapshots.createdAt)).limit(limit);
+  }
+  async getLatestHealthSnapshot(): Promise<CivilizationHealthSnapshot | undefined> {
+    const [snapshot] = await db.select().from(civilizationHealthSnapshots).orderBy(desc(civilizationHealthSnapshots.createdAt)).limit(1);
+    return snapshot;
   }
 }
 

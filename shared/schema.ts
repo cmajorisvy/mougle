@@ -1637,4 +1637,94 @@ export type InsertAgentVersion = z.infer<typeof insertAgentVersionSchema>;
 export type AgentCostLog = typeof agentCostLogs.$inferSelect;
 export type InsertAgentCostLog = z.infer<typeof insertAgentCostLogSchema>;
 
+// ---- CIVILIZATION STABILITY LAYER ----
+
+export const agentComputeBudgets = pgTable("agent_compute_budgets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  dailyBudget: integer("daily_budget").notNull().default(100),
+  usedToday: integer("used_today").notNull().default(0),
+  resetAt: timestamp("reset_at").defaultNow(),
+  throttleLevel: text("throttle_level").notNull().default("none"),
+  lastThrottleAt: timestamp("last_throttle_at"),
+});
+
+export const agentVisibilityScores = pgTable("agent_visibility_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  score: real("score").notNull().default(1.0),
+  tier: text("tier").notNull().default("normal"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  suppressionReason: text("suppression_reason"),
+  isSuppressed: boolean("is_suppressed").notNull().default(false),
+});
+
+export const policyRules = pgTable("policy_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  scope: text("scope").notNull().default("agent"),
+  conditionJson: jsonb("condition_json").notNull(),
+  actionJson: jsonb("action_json").notNull(),
+  severity: integer("severity").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const policyViolations = pgTable("policy_violations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  ruleId: varchar("rule_id").notNull(),
+  ruleName: text("rule_name"),
+  status: text("status").notNull().default("active"),
+  penaltyApplied: jsonb("penalty_applied"),
+  detectedAt: timestamp("detected_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const creditSinks = pgTable("credit_sinks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(),
+  amount: integer("amount").notNull(),
+  referenceId: varchar("reference_id"),
+  agentId: varchar("agent_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const civilizationHealthSnapshots = pgTable("civilization_health_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  score: real("score").notNull(),
+  trustDistribution: jsonb("trust_distribution"),
+  spamRate: real("spam_rate").notNull().default(0),
+  costBalance: real("cost_balance").notNull().default(0),
+  collaborationSuccess: real("collaboration_success").notNull().default(0),
+  agentCount: integer("agent_count").notNull().default(0),
+  throttledCount: integer("throttled_count").notNull().default(0),
+  suppressedCount: integer("suppressed_count").notNull().default(0),
+  totalCreditSinks: integer("total_credit_sinks").notNull().default(0),
+  violationCount: integer("violation_count").notNull().default(0),
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAgentComputeBudgetSchema = createInsertSchema(agentComputeBudgets).omit({ id: true });
+export const insertAgentVisibilityScoreSchema = createInsertSchema(agentVisibilityScores).omit({ id: true });
+export const insertPolicyRuleSchema = createInsertSchema(policyRules).omit({ id: true, createdAt: true });
+export const insertPolicyViolationSchema = createInsertSchema(policyViolations).omit({ id: true, detectedAt: true });
+export const insertCreditSinkSchema = createInsertSchema(creditSinks).omit({ id: true, createdAt: true });
+export const insertCivilizationHealthSnapshotSchema = createInsertSchema(civilizationHealthSnapshots).omit({ id: true, createdAt: true });
+
+export type AgentComputeBudget = typeof agentComputeBudgets.$inferSelect;
+export type InsertAgentComputeBudget = z.infer<typeof insertAgentComputeBudgetSchema>;
+export type AgentVisibilityScore = typeof agentVisibilityScores.$inferSelect;
+export type InsertAgentVisibilityScore = z.infer<typeof insertAgentVisibilityScoreSchema>;
+export type PolicyRule = typeof policyRules.$inferSelect;
+export type InsertPolicyRule = z.infer<typeof insertPolicyRuleSchema>;
+export type PolicyViolation = typeof policyViolations.$inferSelect;
+export type InsertPolicyViolation = z.infer<typeof insertPolicyViolationSchema>;
+export type CreditSink = typeof creditSinks.$inferSelect;
+export type InsertCreditSink = z.infer<typeof insertCreditSinkSchema>;
+export type CivilizationHealthSnapshot = typeof civilizationHealthSnapshots.$inferSelect;
+export type InsertCivilizationHealthSnapshot = z.infer<typeof insertCivilizationHealthSnapshotSchema>;
+
 export * from "./models/chat";
