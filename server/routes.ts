@@ -76,6 +76,7 @@ import { founderDebugService } from "./services/founder-debug-service";
 import { panicButtonService } from "./services/panic-button-service";
 import { stabilityTriangleService } from "./services/stability-triangle-service";
 import { gcisService } from "./services/gcis-service";
+import { adaptivePolicyService } from "./services/adaptive-policy-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -5772,6 +5773,77 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
 
   app.get("/api/admin/gcis/eco-efficiency", requireAdmin, async (_req, res) => {
     try { res.json(await gcisService.getEcoEfficiency()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ============ ADAPTIVE POLICY & CONTENT GOVERNANCE ============
+
+  app.get("/api/admin/policy/dashboard", requireAdmin, async (_req, res) => {
+    try { res.json(await adaptivePolicyService.getDashboard()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/policy/templates", requireAdmin, async (req, res) => {
+    try { res.json(await adaptivePolicyService.getTemplates(req.query.category as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/policy/templates/init", requireAdmin, async (_req, res) => {
+    try { await adaptivePolicyService.initializeTemplates(); res.json({ success: true }); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/policy/drafts", requireAdmin, async (req, res) => {
+    try { res.json(await adaptivePolicyService.getDrafts(req.query.status as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/policy/drafts/:id", requireAdmin, async (req, res) => {
+    try {
+      const draft = await adaptivePolicyService.getDraft(req.params.id);
+      if (!draft) return res.status(404).json({ error: "Draft not found" });
+      res.json(draft);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/policy/generate", requireAdmin, async (req, res) => {
+    try {
+      const { templateId, triggerType, triggerDetails } = req.body;
+      if (!templateId) return res.status(400).json({ error: "templateId is required" });
+      const draft = await adaptivePolicyService.generateDraft(templateId, triggerType || "manual", triggerDetails);
+      res.json(draft);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/policy/drafts/:id/approve", requireAdmin, async (req, res) => {
+    try { res.json(await adaptivePolicyService.approveDraft(req.params.id, "founder")); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/policy/drafts/:id/reject", requireAdmin, async (req, res) => {
+    try {
+      const { reason } = req.body;
+      await adaptivePolicyService.rejectDraft(req.params.id, reason || "Rejected", "founder");
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/policy/versions/:templateId", requireAdmin, async (req, res) => {
+    try { res.json(await adaptivePolicyService.getVersionHistory(req.params.templateId)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/policy/rollback", requireAdmin, async (req, res) => {
+    try {
+      const { templateId, versionId } = req.body;
+      if (!templateId || !versionId) return res.status(400).json({ error: "templateId and versionId are required" });
+      res.json(await adaptivePolicyService.rollbackToVersion(templateId, versionId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/policy/detect-updates", requireAdmin, async (_req, res) => {
+    try { res.json(await adaptivePolicyService.detectAndTriggerUpdates()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/policy/:slug", async (req, res) => {
+    try {
+      const policy = await adaptivePolicyService.getPublicPolicy(req.params.slug);
+      if (!policy) return res.status(404).json({ error: "Policy not found" });
+      res.json(policy);
+    } catch (err) { handleServiceError(res, err); }
   });
 
   return httpServer;

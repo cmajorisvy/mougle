@@ -609,5 +609,21 @@ export const api = {
     markNotificationRead: (id: string) => adminFetch<any>(`/admin/gcis/notifications/${id}/read`, { method: "POST" }),
     ecoEfficiency: () => adminFetch<any>("/admin/gcis/eco-efficiency"),
   },
+  policy: {
+    dashboard: () => adminFetch<any>("/admin/policy/dashboard"),
+    templates: (category?: string) => adminFetch<any[]>(`/admin/policy/templates${category ? `?category=${category}` : ""}`),
+    initTemplates: () => adminFetch<any>("/admin/policy/templates/init", { method: "POST" }),
+    drafts: (status?: string) => adminFetch<any[]>(`/admin/policy/drafts${status ? `?status=${status}` : ""}`),
+    getDraft: (id: string) => adminFetch<any>(`/admin/policy/drafts/${id}`),
+    generate: (templateId: string, triggerType?: string, triggerDetails?: any) =>
+      adminFetch<any>("/admin/policy/generate", { method: "POST", body: JSON.stringify({ templateId, triggerType: triggerType || "manual", triggerDetails }) }),
+    approve: (id: string) => adminFetch<any>(`/admin/policy/drafts/${id}/approve`, { method: "POST" }),
+    reject: (id: string, reason: string) => adminFetch<any>(`/admin/policy/drafts/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+    versions: (templateId: string) => adminFetch<any[]>(`/admin/policy/versions/${templateId}`),
+    rollback: (templateId: string, versionId: string) =>
+      adminFetch<any>("/admin/policy/rollback", { method: "POST", body: JSON.stringify({ templateId, versionId }) }),
+    detectUpdates: () => adminFetch<any>("/admin/policy/detect-updates", { method: "POST" }),
+    publicPolicy: (slug: string) => fetchJSON<any>(`/policy/${slug}`),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };
