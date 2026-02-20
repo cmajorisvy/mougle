@@ -74,6 +74,7 @@ import { intelligenceStackRegistry } from "./services/intelligence-stack-registr
 import { intelligenceStackAnalytics } from "./services/intelligence-stack-analytics";
 import { founderDebugService } from "./services/founder-debug-service";
 import { panicButtonService } from "./services/panic-button-service";
+import { stabilityTriangleService } from "./services/stability-triangle-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -146,6 +147,7 @@ export async function registerRoutes(
 
   // Initialize panic button system
   panicButtonService.initialize().catch(err => console.error("[PanicButton] Init error:", err));
+  stabilityTriangleService.initialize();
 
   // ---- AUTH ----
   app.post("/api/auth/signup", async (req, res) => {
@@ -262,6 +264,7 @@ export async function registerRoutes(
       const modResult = moderateContent(sanitizeHTML(parsed.data.content), parsed.data.title);
       if (!modResult.allowed) {
         if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam, modResult.category, "post", parsed.data.content?.substring(0, 200));
+        founderDebugService.trackModerationAction("content_blocked", parsed.data.authorId);
         return res.status(400).json({ message: "Content violates platform safety guidelines." });
       }
 
@@ -339,6 +342,7 @@ export async function registerRoutes(
       const modResult = moderateContent(sanitizeHTML(parsed.data.content));
       if (!modResult.allowed) {
         if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam, modResult.category, "comment", parsed.data.content?.substring(0, 200));
+        founderDebugService.trackModerationAction("content_blocked", parsed.data.authorId);
         return res.status(400).json({ message: "Content violates platform safety guidelines." });
       }
 
@@ -1556,6 +1560,7 @@ export async function registerRoutes(
   app.post("/api/admin/moderation/shadow-ban/:userId", requireAdmin, async (req, res) => {
     try {
       await storage.shadowBanUser(req.params.userId);
+      founderDebugService.trackModerationAction("shadow_ban", req.params.userId);
       res.json({ message: "User shadow banned" });
     } catch (err) { handleServiceError(res, err); }
   });
@@ -1570,6 +1575,7 @@ export async function registerRoutes(
   app.post("/api/admin/moderation/mark-spammer/:userId", requireAdmin, async (req, res) => {
     try {
       await storage.markUserAsSpammer(req.params.userId);
+      founderDebugService.trackModerationAction("mark_spammer", req.params.userId);
       res.json({ message: "User marked as spammer" });
     } catch (err) { handleServiceError(res, err); }
   });
@@ -5564,6 +5570,14 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     try {
       const result = await superLoopService.triggerLoopScan();
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ── Stability Triangle ──
+
+  app.get("/api/stability-triangle/snapshot", requireAdmin, async (_req, res) => {
+    try {
+      res.json(stabilityTriangleService.getSnapshot());
     } catch (err) { handleServiceError(res, err); }
   });
 

@@ -61,6 +61,7 @@ const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
 class FounderDebugService {
   private aiLogs: AIActionLog[] = [];
   private journeyEvents: UserJourneyEvent[] = [];
+  private moderationActions: Array<{ type: string; timestamp: number; userId?: string }> = [];
   private maxLogs = 10000;
   private maxEvents = 50000;
 
@@ -280,6 +281,31 @@ class FounderDebugService {
 
   isFeatureEnabled(feature: string): boolean {
     return this.config.featureToggles[feature] !== false;
+  }
+
+  trackModerationAction(type: string, userId?: string) {
+    this.moderationActions.push({ type, timestamp: Date.now(), userId });
+    if (this.moderationActions.length > 10000) {
+      this.moderationActions = this.moderationActions.slice(-5000);
+    }
+  }
+
+  getModerationStats() {
+    const now = Date.now();
+    const last24h = now - 24 * 60 * 60 * 1000;
+    const last7d = now - 7 * 24 * 60 * 60 * 1000;
+    const recent = this.moderationActions.filter(a => a.timestamp >= last24h);
+    const weekly = this.moderationActions.filter(a => a.timestamp >= last7d);
+    const byType: Record<string, number> = {};
+    for (const action of recent) {
+      byType[action.type] = (byType[action.type] || 0) + 1;
+    }
+    return {
+      totalToday: recent.length,
+      totalWeekly: weekly.length,
+      byType,
+      uniqueUsersModerated: new Set(recent.filter(a => a.userId).map(a => a.userId)).size,
+    };
   }
 
   getFullDebugSnapshot() {

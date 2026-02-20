@@ -29,7 +29,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "ai" | "economics" | "journey" | "config" | "panic";
+type Tab = "overview" | "ai" | "economics" | "journey" | "config" | "panic" | "stability";
 
 export default function FounderDebugConsole() {
   const { isAuthenticated, isLoading: authLoading } = useAdminAuth();
@@ -46,6 +46,7 @@ export default function FounderDebugConsole() {
     { id: "journey", label: "User Journey", icon: Users },
     { id: "config", label: "Controls", icon: Settings },
     { id: "panic", label: "Panic Button", icon: OctagonX },
+    { id: "stability", label: "Stability", icon: Activity },
   ];
 
   return (
@@ -87,6 +88,7 @@ export default function FounderDebugConsole() {
         {activeTab === "journey" && <JourneyTab />}
         {activeTab === "config" && <ConfigTab />}
         {activeTab === "panic" && <PanicButtonTab />}
+        {activeTab === "stability" && <StabilityTriangleTab />}
       </div>
     </div>
   );
@@ -751,6 +753,196 @@ function PanicButtonTab() {
           />
         </div>
       </Card>
+    </div>
+  );
+}
+
+function StabilityTriangleTab() {
+  const { data: snapshot, isLoading, refetch } = useQuery({
+    queryKey: ["stability-triangle"],
+    queryFn: () => api.admin.stabilityTriangle.snapshot(),
+    refetchInterval: 15000,
+  });
+
+  if (isLoading) return <LoadingSkeleton />;
+
+  const freedom = snapshot?.freedom?.value ?? 0;
+  const automation = snapshot?.automation?.value ?? 0;
+  const control = snapshot?.control?.value ?? 0;
+  const stabilityIndex = snapshot?.stabilityIndex ?? 100;
+  const stabilityLabel = snapshot?.stabilityLabel ?? "Stable";
+  const recommendations = snapshot?.recommendations ?? [];
+
+  const indexColor =
+    stabilityIndex >= 80 ? "text-emerald-400" :
+    stabilityIndex >= 60 ? "text-yellow-400" :
+    stabilityIndex >= 40 ? "text-orange-400" : "text-red-400";
+
+  const indexBg =
+    stabilityIndex >= 80 ? "bg-emerald-500/20 border-emerald-500/30" :
+    stabilityIndex >= 60 ? "bg-yellow-500/20 border-yellow-500/30" :
+    stabilityIndex >= 40 ? "bg-orange-500/20 border-orange-500/30" : "bg-red-500/20 border-red-500/30";
+
+  const dimensionConfigs = [
+    { key: "freedom", label: "Creator Freedom", value: freedom, score: snapshot?.freedom, color: "blue", icon: Users, desc: "User activity, signups, exports" },
+    { key: "automation", label: "AI Automation", value: automation, score: snapshot?.automation, color: "purple", icon: Brain, desc: "AI requests, cost, token usage" },
+    { key: "control", label: "Founder Control", value: control, score: snapshot?.control, color: "orange", icon: Shield, desc: "Limits, moderation, system mode" },
+  ];
+
+  const w = 240;
+  const h = 220;
+  const cx = w / 2;
+  const cy = h / 2 + 15;
+  const r = 80;
+  const angles = [-Math.PI / 2, Math.PI / 6, Math.PI * 5 / 6];
+  const triPoints = angles.map(a => ({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }));
+  const valPoints = angles.map((a, i) => {
+    const val = [freedom, automation, control][i] / 100;
+    return { x: cx + r * val * Math.cos(a), y: cy + r * val * Math.sin(a) };
+  });
+
+  return (
+    <div className="space-y-6" data-testid="section-stability">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">Platform Stability Triangle</h2>
+        <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-stability">
+          <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className={`col-span-1 p-6 border ${indexBg}`} data-testid="card-stability-index">
+          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Platform Stability Index</div>
+          <div className={`text-5xl font-bold ${indexColor}`} data-testid="text-stability-index">{stabilityIndex}</div>
+          <div className={`text-sm font-medium ${indexColor} mt-1`} data-testid="text-stability-label">{stabilityLabel}</div>
+          <div className="text-xs text-zinc-500 mt-2">
+            Balance: {snapshot?.balance?.balanced ? (
+              <span className="text-emerald-400">Balanced</span>
+            ) : (
+              <span className="text-yellow-400">Deviation: {snapshot?.balance?.deviation}</span>
+            )}
+          </div>
+        </Card>
+
+        <Card className="col-span-1 lg:col-span-2 p-6 bg-zinc-900/50 border-zinc-800 flex items-center justify-center" data-testid="card-triangle-viz">
+          <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+            <polygon
+              points={triPoints.map(p => `${p.x},${p.y}`).join(" ")}
+              fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1"
+            />
+            {[0.25, 0.5, 0.75].map(scale => (
+              <polygon
+                key={scale}
+                points={angles.map(a => `${cx + r * scale * Math.cos(a)},${cy + r * scale * Math.sin(a)}`).join(" ")}
+                fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5"
+              />
+            ))}
+            <polygon
+              points={valPoints.map(p => `${p.x},${p.y}`).join(" ")}
+              fill="rgba(16,185,129,0.15)" stroke="rgb(16,185,129)" strokeWidth="2"
+            />
+            {valPoints.map((p, i) => (
+              <circle key={i} cx={p.x} cy={p.y} r="4" fill={["#3b82f6", "#a855f7", "#f97316"][i]} />
+            ))}
+            <text x={triPoints[0].x} y={triPoints[0].y - 10} textAnchor="middle" fill="#93c5fd" fontSize="11" fontWeight="600">Freedom {freedom}</text>
+            <text x={triPoints[1].x + 10} y={triPoints[1].y + 16} textAnchor="start" fill="#c084fc" fontSize="11" fontWeight="600">Automation {automation}</text>
+            <text x={triPoints[2].x - 10} y={triPoints[2].y + 16} textAnchor="end" fill="#fb923c" fontSize="11" fontWeight="600">Control {control}</text>
+          </svg>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="section-dimension-cards">
+        {dimensionConfigs.map(dim => {
+          const DimIcon = dim.icon;
+          const colorClasses: Record<string, string> = {
+            blue: "text-blue-400 bg-blue-500/20",
+            purple: "text-purple-400 bg-purple-500/20",
+            orange: "text-orange-400 bg-orange-500/20",
+          };
+          return (
+            <Card key={dim.key} className="bg-zinc-900/50 border-zinc-800 p-5" data-testid={`card-dim-${dim.key}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`p-2 rounded-lg ${colorClasses[dim.color]}`}>
+                  <DimIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">{dim.label}</div>
+                  <div className="text-xs text-zinc-500">{dim.desc}</div>
+                </div>
+              </div>
+              <div className="mb-2">
+                <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                  <span>{dim.score?.label}</span>
+                  <span>{dim.value}/100</span>
+                </div>
+                <div className="w-full bg-zinc-800 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all ${
+                      dim.color === "blue" ? "bg-blue-500" : dim.color === "purple" ? "bg-purple-500" : "bg-orange-500"
+                    }`}
+                    style={{ width: `${dim.value}%` }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                {dim.score?.metrics && Object.entries(dim.score.metrics).map(([k, v]) => (
+                  <div key={k} className="text-xs">
+                    <span className="text-zinc-500">{k.replace(/([A-Z])/g, " $1").trim()}: </span>
+                    <span className="text-zinc-300 font-medium">{typeof v === "number" && v % 1 !== 0 ? (v as number).toFixed(4) : String(v)}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {recommendations.length > 0 && (
+        <Card className="bg-zinc-900/50 border-zinc-800 p-5" data-testid="card-recommendations">
+          <h3 className="text-sm font-semibold text-zinc-400 flex items-center gap-2 mb-4">
+            <Zap className="w-4 h-4" /> Stability Recommendations
+          </h3>
+          <div className="space-y-3">
+            {recommendations.map((rec: any, i: number) => {
+              const sevColors: Record<string, string> = {
+                critical: "bg-red-500/20 text-red-400 border-red-500/30",
+                warning: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+                info: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+              };
+              return (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/30" data-testid={`recommendation-${i}`}>
+                  <Badge className={`text-xs shrink-0 ${sevColors[rec.severity] || sevColors.info}`}>{rec.severity}</Badge>
+                  <div>
+                    <div className="text-sm text-zinc-300">{rec.message}</div>
+                    <div className="text-xs text-zinc-500 mt-1">{rec.action}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {snapshot?.history?.length > 1 && (
+        <Card className="bg-zinc-900/50 border-zinc-800 p-5" data-testid="card-history">
+          <h3 className="text-sm font-semibold text-zinc-400 flex items-center gap-2 mb-4">
+            <Clock className="w-4 h-4" /> Stability History
+          </h3>
+          <div className="grid grid-cols-4 gap-2 text-xs text-zinc-500 font-medium mb-2 px-2">
+            <span>Time</span><span>Freedom</span><span>Automation</span><span>Control</span>
+          </div>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {snapshot.history.slice().reverse().slice(0, 20).map((h: any, i: number) => (
+              <div key={i} className="grid grid-cols-4 gap-2 text-xs px-2 py-1 rounded hover:bg-zinc-800/50">
+                <span className="text-zinc-500">{new Date(h.timestamp).toLocaleTimeString()}</span>
+                <span className="text-blue-400">{h.freedom}</span>
+                <span className="text-purple-400">{h.automation}</span>
+                <span className="text-orange-400">{h.control}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

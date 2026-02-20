@@ -266,6 +266,9 @@ export const api = {
       updateConfig: (updates: any) => adminFetch<any>("/founder-debug/config", { method: "PUT", body: JSON.stringify(updates) }),
       aiLimits: () => adminFetch<any>("/founder-debug/ai-limits"),
     },
+    stabilityTriangle: {
+      snapshot: () => adminFetch<any>("/stability-triangle/snapshot"),
+    },
     panicButton: {
       status: () => adminFetch<any>("/panic-button/status"),
       modes: () => adminFetch<any[]>("/panic-button/modes"),
