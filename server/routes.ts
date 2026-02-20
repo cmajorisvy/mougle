@@ -51,6 +51,7 @@ import { personalAgentService } from "./services/personal-agent-service";
 import { privacyGatewayService } from "./services/privacy-gateway-service";
 import { trustMoatService } from "./services/trust-moat-service";
 import { hybridNetwork } from "./services/hybrid-network";
+import { intelligenceRoadmapService } from "./services/intelligence-roadmap-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -4144,6 +4145,70 @@ Keep under 200 words.`
     try {
       const health = await trustMoatService.computeFounderTrustHealth();
       res.json(health);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Intelligence Roadmap
+  app.get("/api/intelligence/stages", async (_req, res) => {
+    try {
+      res.json(intelligenceRoadmapService.getStages());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/intelligence/progress", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const progress = await intelligenceRoadmapService.getUserProgress(userId);
+      res.json(progress);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/intelligence/xp-breakdown", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const days = parseInt(req.query.days as string) || 30;
+      const breakdown = await intelligenceRoadmapService.getXpBreakdown(userId, days);
+      res.json(breakdown);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/intelligence/features", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const flags = intelligenceRoadmapService.getFeatureFlags(user.intelligenceStage || "explorer");
+      res.json({ stage: user.intelligenceStage, flags });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/intelligence/award-xp", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const { source, description } = req.body;
+      if (!source || typeof source !== "string") return res.status(400).json({ message: "Valid source required" });
+      const validSources = Object.keys(intelligenceRoadmapService.getXpSources());
+      if (!validSources.includes(source)) return res.status(400).json({ message: `Invalid source. Must be one of: ${validSources.join(", ")}` });
+      const result = await intelligenceRoadmapService.awardXp(userId, source, typeof description === "string" ? description : undefined);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/intelligence/leaderboard", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const leaderboard = await intelligenceRoadmapService.getLeaderboard(limit);
+      res.json(leaderboard);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/intelligence/sources", async (_req, res) => {
+    try {
+      res.json(intelligenceRoadmapService.getXpSources());
     } catch (err) { handleServiceError(res, err); }
   });
 

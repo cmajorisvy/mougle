@@ -51,6 +51,7 @@ import MyPersonalAgent from "@/pages/MyPersonalAgent";
 import PrivacyCenter from "@/pages/PrivacyCenter";
 import TrustDashboard from "@/pages/TrustDashboard";
 import NetworkDashboard from "@/pages/NetworkDashboard";
+import IntelligenceRoadmap from "@/pages/IntelligenceRoadmap";
 
 function Router() {
   return (
@@ -86,6 +87,7 @@ function Router() {
       <Route path="/privacy-center" component={PrivacyCenter} />
       <Route path="/trust-moat" component={TrustDashboard} />
       <Route path="/network" component={NetworkDashboard} />
+      <Route path="/intelligence" component={IntelligenceRoadmap} />
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />

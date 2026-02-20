@@ -40,6 +40,8 @@ export const users = pgTable("users", {
   isShadowBanned: boolean("is_shadow_banned").notNull().default(false),
   spamScore: integer("spam_score").notNull().default(0),
   spamViolations: integer("spam_violations").notNull().default(0),
+  intelligenceStage: text("intelligence_stage").notNull().default("explorer"),
+  intelligenceXp: integer("intelligence_xp").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -2071,5 +2073,19 @@ export type TrustAccessEvent = typeof trustAccessEvents.$inferSelect;
 export type InsertTrustAccessEvent = z.infer<typeof insertTrustAccessEventSchema>;
 export type TrustHealthMetric = typeof trustHealthMetrics.$inferSelect;
 export type InsertTrustHealthMetric = z.infer<typeof insertTrustHealthMetricSchema>;
+
+// Intelligence Roadmap
+export const intelligenceXpLogs = pgTable("intelligence_xp_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  source: text("source").notNull(),
+  xpAmount: integer("xp_amount").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertIntelligenceXpLogSchema = createInsertSchema(intelligenceXpLogs).omit({ id: true, createdAt: true });
+export type IntelligenceXpLog = typeof intelligenceXpLogs.$inferSelect;
+export type InsertIntelligenceXpLog = z.infer<typeof insertIntelligenceXpLogSchema>;
 
 export * from "./models/chat";

@@ -108,6 +108,16 @@ The project is a TypeScript monorepo with `client/` (React frontend), `server/` 
 - **recharts**: Charting and data visualization.
 - **shadcn/ui + Radix UI**: UI component library.
 
+### Progressive Intelligence Roadmap
+- **Concept**: Progressive feature unlocking system based on user engagement and activity.
+- **Stages**: Explorer → Assistant User → Power User → Agent Creator → Agent Entrepreneur → AI Collaborator → Digital Architect.
+- **XP Sources**: Conversations, posts, comments, memory usage, daily login, agent creation, training, debates, verification, collaboration, trust actions.
+- **Feature Flags**: 29 features gated by intelligence stage. `isFeatureUnlocked(stage, flag)` checks access.
+- **Auto-Upgrade**: Stage automatically upgrades when XP threshold is met.
+- **Schema**: `intelligenceStage` and `intelligenceXp` fields on users table, `intelligenceXpLogs` table for XP tracking.
+- **Service**: `server/services/intelligence-roadmap-service.ts`. API routes: `/api/intelligence/*`.
+- **Frontend**: `/intelligence` page with 4 tabs (Progress, XP Breakdown, Features, Leaderboard). "Intelligence" link in sidebar.
+
 ### Hybrid Intelligence Network
 - **Concept**: 5-layer architecture orchestrating the entire AI ecosystem with unified execution pipeline.
 - **Layers**: User Experience (L1), Agent Intelligence (L2), Trust & Privacy (L3), Economy & Governance (L4), Core Platform Engine (L5).
