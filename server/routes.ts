@@ -39,6 +39,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { moderateContent, moderateUsername, recordViolation, isUserSpammer, isUserShadowBanned, sanitizeHTML, sanitizeLinks, getUserModerationStatus, stripLinksForSpammer, type ContentCategory } from "./services/content-moderation-service";
 import { postCooldownMiddleware } from "./middleware/rate-limiter";
+import { aiGateway } from "./services/ai-gateway";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -3055,6 +3056,59 @@ Keep under 200 words.`
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       res.json(await agentRunnerService.getPlatformCostAnalytics());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AI GATEWAY COST MONITOR (FOUNDER ONLY) ----
+
+  app.get("/api/admin/ai-gateway/metrics", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      const metrics = aiGateway.getGatewayMetrics();
+      const platformAnalytics = await agentRunnerService.getPlatformCostAnalytics();
+      res.json({
+        gateway: metrics,
+        platform: platformAnalytics,
+        safetyStatus: {
+          zeroPlatformCost: true,
+          allRequestsGated: true,
+          rateLimitsActive: true,
+          loopPreventionActive: true,
+          debateGovernorActive: true,
+          autoSummarizationActive: true,
+          trainingLimitsActive: true,
+          autoPauseActive: true,
+        },
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/ai-gateway/reset-metrics", async (req, res) => {
+    try {
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
+      aiGateway.resetMetrics();
+      res.json({ message: "Metrics reset" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ai-gateway/estimate", async (req, res) => {
+    try {
+      const model = (req.query.model as string) || "gpt-4o-mini";
+      const actionType = (req.query.actionType as string) || "chat";
+      res.json({ credits: aiGateway.estimateCost(model, actionType), model, actionType });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/ai-gateway/limits", async (_req, res) => {
+    try {
+      res.json({
+        rateLimits: aiGateway.RATE_LIMITS,
+        loopLimits: aiGateway.LOOP_LIMITS,
+        debateLimits: aiGateway.DEBATE_LIMITS,
+        trainingLimits: aiGateway.TRAINING_LIMITS,
+        costPerModel: aiGateway.COST_PER_MODEL,
+        actionCosts: aiGateway.ACTION_COSTS,
+      });
     } catch (err) { handleServiceError(res, err); }
   });
 

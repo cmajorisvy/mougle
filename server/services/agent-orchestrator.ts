@@ -9,12 +9,7 @@ import { evolutionService } from "./evolution-service";
 import { ethicsService } from "./ethics-service";
 import { collectiveIntelligenceService } from "./collective-intelligence-service";
 import type { User, Post } from "@shared/schema";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+import { aiGateway } from "./ai-gateway";
 
 const CYCLE_INTERVAL_MS = 45_000;
 const MAX_ACTIONS_PER_HOUR = 8;
@@ -89,8 +84,15 @@ async function generateAIResponse(agent: User, post: Post): Promise<{ content: s
   const capabilities = (agent.capabilities as string[])?.join(", ") || "general analysis";
 
   try {
-    const completion = await openai.chat.completions.create({
+    const result = await aiGateway.processRequest({
+      callerId: agent.id,
+      callerType: "agent",
+      actionType: "orchestrator",
       model: "gpt-4o-mini",
+      agentId: agent.id,
+      chainId: `orch-comment-${agent.id}-${post.id}`,
+      maxTokens: 200,
+      skipCreditCheck: true,
       messages: [
         {
           role: "system",
@@ -101,12 +103,10 @@ async function generateAIResponse(agent: User, post: Post): Promise<{ content: s
           content: `Topic: ${post.topicSlug}\nPost title: "${post.title}"\nPost content: "${post.content?.substring(0, 500)}"\n\nWrite your ${reasoningType.toLowerCase()} comment:`
         }
       ],
-      max_completion_tokens: 200,
     });
 
-    const content = completion.choices[0]?.message?.content?.trim();
-    if (content && content.length > 20) {
-      return { content, confidence: 60 + Math.floor(Math.random() * 30), reasoningType };
+    if (result.content && result.content.length > 20) {
+      return { content: result.content, confidence: 60 + Math.floor(Math.random() * 30), reasoningType };
     }
   } catch (err) {
     console.error(`[AgentOrchestrator] AI generation failed for ${agent.username}, using template:`, (err as Error).message);
@@ -134,8 +134,15 @@ async function generateAIVerification(agent: User, post: Post): Promise<{ score:
   const score = Math.min(1, baseScore * agentWeight);
 
   try {
-    const completion = await openai.chat.completions.create({
+    const result = await aiGateway.processRequest({
+      callerId: agent.id,
+      callerType: "agent",
+      actionType: "verify",
       model: "gpt-4o-mini",
+      agentId: agent.id,
+      chainId: `orch-verify-${agent.id}-${post.id}`,
+      maxTokens: 100,
+      skipCreditCheck: true,
       messages: [
         {
           role: "system",
@@ -146,12 +153,10 @@ async function generateAIVerification(agent: User, post: Post): Promise<{ score:
           content: `Post: "${post.title}" - ${post.content?.substring(0, 300)}`
         }
       ],
-      max_completion_tokens: 100,
     });
 
-    const rationale = completion.choices[0]?.message?.content?.trim();
-    if (rationale && rationale.length > 15) {
-      return { score, rationale };
+    if (result.content && result.content.length > 15) {
+      return { score, rationale: result.content };
     }
   } catch (err) {
     console.error(`[AgentOrchestrator] AI verification failed for ${agent.username}:`, (err as Error).message);
@@ -213,8 +218,15 @@ async function maybeCreatePost(agent: User): Promise<boolean> {
   const isDebate = Math.random() < 0.3;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const postResult = await aiGateway.processRequest({
+      callerId: agent.id,
+      callerType: "agent",
+      actionType: "orchestrator",
       model: "gpt-4o-mini",
+      agentId: agent.id,
+      chainId: `orch-post-${agent.id}`,
+      maxTokens: 250,
+      skipCreditCheck: true,
       messages: [
         {
           role: "system",
@@ -225,14 +237,19 @@ async function maybeCreatePost(agent: User): Promise<boolean> {
           content: `Write a post inspired by this theme: "${titleTemplate}". Give a unique perspective.`
         }
       ],
-      max_completion_tokens: 250,
     });
 
-    const content = completion.choices[0]?.message?.content?.trim();
+    const content = postResult.content?.trim();
     if (!content || content.length < 30) return false;
 
-    const titleCompletion = await openai.chat.completions.create({
+    const titleResult = await aiGateway.processRequest({
+      callerId: agent.id,
+      callerType: "agent",
+      actionType: "orchestrator",
       model: "gpt-4o-mini",
+      agentId: agent.id,
+      maxTokens: 30,
+      skipCreditCheck: true,
       messages: [
         {
           role: "system",
@@ -243,10 +260,9 @@ async function maybeCreatePost(agent: User): Promise<boolean> {
           content: content.substring(0, 300)
         }
       ],
-      max_completion_tokens: 30,
     });
 
-    const title = titleCompletion.choices[0]?.message?.content?.trim()?.replace(/^["']|["']$/g, "") || titleTemplate;
+    const title = titleResult.content?.trim()?.replace(/^["']|["']$/g, "") || titleTemplate;
 
     const topics = await storage.getTopics();
     const matchedTopic = topics.find(t => t.slug === topic.slug);

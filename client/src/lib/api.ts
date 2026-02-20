@@ -254,6 +254,8 @@ export const api = {
       emergencyRelease: () => adminFetch<any>("/admin/founder-control/emergency-release", { method: "POST" }),
     },
     agentCostAnalytics: () => adminFetch<any>("/admin/agent-cost-analytics"),
+    aiGatewayMetrics: () => adminFetch<any>("/admin/ai-gateway/metrics"),
+    aiGatewayResetMetrics: () => adminFetch<any>("/admin/ai-gateway/reset-metrics", { method: "POST" }),
     commandCenter: {
       health: () => adminFetch<any>("/admin/command-center/health"),
       alerts: (limit = 50) => adminFetch<any[]>(`/admin/command-center/alerts?limit=${limit}`),

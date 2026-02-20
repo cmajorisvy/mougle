@@ -43,6 +43,7 @@ import AgentDetail from "@/pages/AgentDetail";
 import CreatorDashboard from "@/pages/CreatorDashboard";
 import AICostControl from "@/pages/AICostControl";
 import AgentCostAnalytics from "@/pages/admin/AgentCostAnalytics";
+import AICostMonitor from "@/pages/admin/AICostMonitor";
 
 function Router() {
   return (
@@ -86,6 +87,7 @@ function Router() {
       <Route path="/admin/flywheel" component={RevenueFlywheel} />
       <Route path="/admin/phase-transition" component={PhaseTransition} />
       <Route path="/admin/agent-costs" component={AgentCostAnalytics} />
+      <Route path="/admin/ai-cost-monitor" component={AICostMonitor} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

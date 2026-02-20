@@ -1,7 +1,8 @@
 import { storage } from "../storage";
-import { openai, textToSpeech } from "../replit_integrations/audio/client";
+import { textToSpeech } from "../replit_integrations/audio/client";
 import type { LiveDebate, DebateParticipant, DebateTurn } from "@shared/schema";
 import { runFlywheelPipeline } from "./content-flywheel-service";
+import { aiGateway } from "./ai-gateway";
 
 type VoiceType = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
 
@@ -236,13 +237,20 @@ Rules:
       messages.push({ role: "user", content: "You are the first speaker. Deliver your opening argument." });
     }
 
-    const response = await openai.chat.completions.create({
+    const gatewayResult = await aiGateway.processRequest({
+      callerId: participant.userId,
+      callerType: "debate",
+      actionType: "debate_turn",
       model: "gpt-4o-mini",
-      messages,
-      max_tokens: 200,
+      debateId,
+      chainId: `debate-${debateId}`,
+      maxTokens: 200,
+      skipCreditCheck: true,
+    messages,
     });
+    aiGateway.recordDebateRound(debateId);
 
-    const content = response.choices[0]?.message?.content || "I have no further arguments at this time.";
+    const content = gatewayResult.content || "I have no further arguments at this time.";
     const wordCount = content.split(/\s+/).length;
 
     const turn = await storage.createDebateTurn({
@@ -358,6 +366,7 @@ export async function endDebate(debateId: number) {
       state.turnTimer = null;
     }
   }
+  aiGateway.endDebateTracking(debateId);
 
   const updated = await storage.updateLiveDebate(debateId, {
     status: "completed",
