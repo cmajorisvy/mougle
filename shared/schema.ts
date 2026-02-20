@@ -1799,4 +1799,131 @@ export type InsertFlywheelAutomationConfig = z.infer<typeof insertFlywheelAutoma
 export type FlywheelOptimizationOutcome = typeof flywheelOptimizationOutcomes.$inferSelect;
 export type InsertFlywheelOptimizationOutcome = z.infer<typeof insertFlywheelOptimizationOutcomeSchema>;
 
+// ============ Personal AI Agent System ============
+
+export const personalAgentProfiles = pgTable("personal_agent_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  agentName: text("agent_name").notNull().default("My AI Assistant"),
+  voicePreference: text("voice_preference").notNull().default("alloy"),
+  dailyMessageLimit: integer("daily_message_limit").notNull().default(50),
+  dailyMessagesUsed: integer("daily_messages_used").notNull().default(0),
+  dailyVoiceLimit: integer("daily_voice_limit").notNull().default(10),
+  dailyVoiceUsed: integer("daily_voice_used").notNull().default(0),
+  lastResetDate: text("last_reset_date"),
+  preferences: jsonb("preferences").default({}),
+  encryptionKey: text("encryption_key").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const personalAgentMemories = pgTable("personal_agent_memories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  domain: text("domain").notNull(),
+  content: text("content").notNull(),
+  tags: text("tags").array(),
+  importance: integer("importance").notNull().default(5),
+  confirmed: boolean("confirmed").notNull().default(false),
+  encrypted: boolean("encrypted").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const personalAgentConversations = pgTable("personal_agent_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  title: text("title").notNull().default("New Conversation"),
+  domain: text("domain").notNull().default("general"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const personalAgentMessages = pgTable("personal_agent_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: text("role").notNull(),
+  content: text("content").notNull(),
+  isVoice: boolean("is_voice").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const personalAgentTasks = pgTable("personal_agent_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("general"),
+  priority: text("priority").notNull().default("medium"),
+  status: text("status").notNull().default("pending"),
+  dueDate: timestamp("due_date"),
+  reminderAt: timestamp("reminder_at"),
+  recurrence: text("recurrence"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const personalAgentDevices = pgTable("personal_agent_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  deviceName: text("device_name").notNull(),
+  deviceType: text("device_type").notNull(),
+  provider: text("provider").notNull(),
+  connectionConfig: text("connection_config"),
+  allowControl: boolean("allow_control").notNull().default(false),
+  status: text("status").notNull().default("disconnected"),
+  lastSeen: timestamp("last_seen"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const personalAgentFinance = pgTable("personal_agent_finance", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  entryType: text("entry_type").notNull(),
+  title: text("title").notNull(),
+  amount: integer("amount").notNull(),
+  currency: text("currency").notNull().default("USD"),
+  dueDate: timestamp("due_date"),
+  recurring: boolean("recurring").notNull().default(false),
+  recurrencePattern: text("recurrence_pattern"),
+  status: text("status").notNull().default("active"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const personalAgentUsage = pgTable("personal_agent_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  actionType: text("action_type").notNull(),
+  creditsUsed: integer("credits_used").notNull().default(1),
+  dateKey: text("date_key").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPersonalAgentProfileSchema = createInsertSchema(personalAgentProfiles).omit({ id: true, createdAt: true });
+export const insertPersonalAgentMemorySchema = createInsertSchema(personalAgentMemories).omit({ id: true, createdAt: true });
+export const insertPersonalAgentConversationSchema = createInsertSchema(personalAgentConversations).omit({ id: true, createdAt: true });
+export const insertPersonalAgentMessageSchema = createInsertSchema(personalAgentMessages).omit({ id: true, createdAt: true });
+export const insertPersonalAgentTaskSchema = createInsertSchema(personalAgentTasks).omit({ id: true, createdAt: true, completedAt: true });
+export const insertPersonalAgentDeviceSchema = createInsertSchema(personalAgentDevices).omit({ id: true, createdAt: true, lastSeen: true });
+export const insertPersonalAgentFinanceSchema = createInsertSchema(personalAgentFinance).omit({ id: true, createdAt: true });
+export const insertPersonalAgentUsageSchema = createInsertSchema(personalAgentUsage).omit({ id: true, createdAt: true });
+
+export type PersonalAgentProfile = typeof personalAgentProfiles.$inferSelect;
+export type InsertPersonalAgentProfile = z.infer<typeof insertPersonalAgentProfileSchema>;
+export type PersonalAgentMemory = typeof personalAgentMemories.$inferSelect;
+export type InsertPersonalAgentMemory = z.infer<typeof insertPersonalAgentMemorySchema>;
+export type PersonalAgentConversation = typeof personalAgentConversations.$inferSelect;
+export type InsertPersonalAgentConversation = z.infer<typeof insertPersonalAgentConversationSchema>;
+export type PersonalAgentMessage = typeof personalAgentMessages.$inferSelect;
+export type InsertPersonalAgentMessage = z.infer<typeof insertPersonalAgentMessageSchema>;
+export type PersonalAgentTask = typeof personalAgentTasks.$inferSelect;
+export type InsertPersonalAgentTask = z.infer<typeof insertPersonalAgentTaskSchema>;
+export type PersonalAgentDevice = typeof personalAgentDevices.$inferSelect;
+export type InsertPersonalAgentDevice = z.infer<typeof insertPersonalAgentDeviceSchema>;
+export type PersonalAgentFinanceEntry = typeof personalAgentFinance.$inferSelect;
+export type InsertPersonalAgentFinanceEntry = z.infer<typeof insertPersonalAgentFinanceSchema>;
+export type PersonalAgentUsage = typeof personalAgentUsage.$inferSelect;
+export type InsertPersonalAgentUsage = z.infer<typeof insertPersonalAgentUsageSchema>;
+
 export * from "./models/chat";

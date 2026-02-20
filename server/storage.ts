@@ -110,6 +110,17 @@ import {
   type FlywheelAutomationConfig, type InsertFlywheelAutomationConfig,
   type FlywheelOptimizationOutcome, type InsertFlywheelOptimizationOutcome,
   platformEvents, flywheelAgents, flywheelRecommendations, flywheelAutomationConfig, flywheelOptimizationOutcomes,
+  type PersonalAgentProfile, type InsertPersonalAgentProfile,
+  type PersonalAgentMemory, type InsertPersonalAgentMemory,
+  type PersonalAgentConversation, type InsertPersonalAgentConversation,
+  type PersonalAgentMessage, type InsertPersonalAgentMessage,
+  type PersonalAgentTask, type InsertPersonalAgentTask,
+  type PersonalAgentDevice, type InsertPersonalAgentDevice,
+  type PersonalAgentFinanceEntry, type InsertPersonalAgentFinanceEntry,
+  type PersonalAgentUsage, type InsertPersonalAgentUsage,
+  personalAgentProfiles, personalAgentMemories, personalAgentConversations,
+  personalAgentMessages, personalAgentTasks, personalAgentDevices,
+  personalAgentFinance, personalAgentUsage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -2363,6 +2374,152 @@ export class DatabaseStorage implements IStorage {
   }
   async getFlywheelOutcomes(limit = 50): Promise<FlywheelOptimizationOutcome[]> {
     return db.select().from(flywheelOptimizationOutcomes).orderBy(desc(flywheelOptimizationOutcomes.createdAt)).limit(limit);
+  }
+
+  // ============ Personal AI Agent ============
+
+  async getPersonalAgentProfile(userId: string): Promise<PersonalAgentProfile | undefined> {
+    const [profile] = await db.select().from(personalAgentProfiles).where(eq(personalAgentProfiles.userId, userId));
+    return profile;
+  }
+  async createPersonalAgentProfile(data: InsertPersonalAgentProfile): Promise<PersonalAgentProfile> {
+    const [profile] = await db.insert(personalAgentProfiles).values(data).returning();
+    return profile;
+  }
+  async updatePersonalAgentProfile(userId: string, data: Partial<PersonalAgentProfile>): Promise<PersonalAgentProfile> {
+    const [updated] = await db.update(personalAgentProfiles).set(data).where(eq(personalAgentProfiles.userId, userId)).returning();
+    return updated;
+  }
+  async deletePersonalAgentProfile(userId: string): Promise<void> {
+    await db.delete(personalAgentProfiles).where(eq(personalAgentProfiles.userId, userId));
+  }
+
+  async getPersonalAgentMemories(userId: string, domain?: string): Promise<PersonalAgentMemory[]> {
+    if (domain) {
+      return db.select().from(personalAgentMemories).where(and(eq(personalAgentMemories.userId, userId), eq(personalAgentMemories.domain, domain))).orderBy(desc(personalAgentMemories.createdAt));
+    }
+    return db.select().from(personalAgentMemories).where(eq(personalAgentMemories.userId, userId)).orderBy(desc(personalAgentMemories.createdAt));
+  }
+  async getConfirmedMemories(userId: string, domain?: string): Promise<PersonalAgentMemory[]> {
+    if (domain) {
+      return db.select().from(personalAgentMemories).where(and(eq(personalAgentMemories.userId, userId), eq(personalAgentMemories.domain, domain), eq(personalAgentMemories.confirmed, true))).orderBy(desc(personalAgentMemories.importance));
+    }
+    return db.select().from(personalAgentMemories).where(and(eq(personalAgentMemories.userId, userId), eq(personalAgentMemories.confirmed, true))).orderBy(desc(personalAgentMemories.importance));
+  }
+  async createPersonalAgentMemory(data: InsertPersonalAgentMemory): Promise<PersonalAgentMemory> {
+    const [memory] = await db.insert(personalAgentMemories).values(data).returning();
+    return memory;
+  }
+  async updatePersonalAgentMemory(id: string, data: Partial<PersonalAgentMemory>): Promise<PersonalAgentMemory> {
+    const [updated] = await db.update(personalAgentMemories).set(data).where(eq(personalAgentMemories.id, id)).returning();
+    return updated;
+  }
+  async deletePersonalAgentMemory(id: string): Promise<void> {
+    await db.delete(personalAgentMemories).where(eq(personalAgentMemories.id, id));
+  }
+  async deleteAllPersonalAgentMemories(userId: string): Promise<void> {
+    await db.delete(personalAgentMemories).where(eq(personalAgentMemories.userId, userId));
+  }
+
+  async getPersonalAgentConversations(userId: string): Promise<PersonalAgentConversation[]> {
+    return db.select().from(personalAgentConversations).where(eq(personalAgentConversations.userId, userId)).orderBy(desc(personalAgentConversations.createdAt));
+  }
+  async createPersonalAgentConversation(data: InsertPersonalAgentConversation): Promise<PersonalAgentConversation> {
+    const [conv] = await db.insert(personalAgentConversations).values(data).returning();
+    return conv;
+  }
+  async deletePersonalAgentConversation(id: string): Promise<void> {
+    await db.delete(personalAgentMessages).where(eq(personalAgentMessages.conversationId, id));
+    await db.delete(personalAgentConversations).where(eq(personalAgentConversations.id, id));
+  }
+  async deleteAllPersonalAgentConversations(userId: string): Promise<void> {
+    const convs = await this.getPersonalAgentConversations(userId);
+    for (const c of convs) {
+      await db.delete(personalAgentMessages).where(eq(personalAgentMessages.conversationId, c.id));
+    }
+    await db.delete(personalAgentConversations).where(eq(personalAgentConversations.userId, userId));
+  }
+
+  async getPersonalAgentMessages(conversationId: string): Promise<PersonalAgentMessage[]> {
+    return db.select().from(personalAgentMessages).where(eq(personalAgentMessages.conversationId, conversationId)).orderBy(asc(personalAgentMessages.createdAt));
+  }
+  async createPersonalAgentMessage(data: InsertPersonalAgentMessage): Promise<PersonalAgentMessage> {
+    const [msg] = await db.insert(personalAgentMessages).values(data).returning();
+    return msg;
+  }
+
+  async getPersonalAgentTasks(userId: string, status?: string): Promise<PersonalAgentTask[]> {
+    if (status) {
+      return db.select().from(personalAgentTasks).where(and(eq(personalAgentTasks.userId, userId), eq(personalAgentTasks.status, status))).orderBy(desc(personalAgentTasks.createdAt));
+    }
+    return db.select().from(personalAgentTasks).where(eq(personalAgentTasks.userId, userId)).orderBy(desc(personalAgentTasks.createdAt));
+  }
+  async createPersonalAgentTask(data: InsertPersonalAgentTask): Promise<PersonalAgentTask> {
+    const [task] = await db.insert(personalAgentTasks).values(data).returning();
+    return task;
+  }
+  async updatePersonalAgentTask(id: string, data: Partial<PersonalAgentTask>): Promise<PersonalAgentTask> {
+    const [updated] = await db.update(personalAgentTasks).set(data).where(eq(personalAgentTasks.id, id)).returning();
+    return updated;
+  }
+  async deletePersonalAgentTask(id: string): Promise<void> {
+    await db.delete(personalAgentTasks).where(eq(personalAgentTasks.id, id));
+  }
+  async deleteAllPersonalAgentTasks(userId: string): Promise<void> {
+    await db.delete(personalAgentTasks).where(eq(personalAgentTasks.userId, userId));
+  }
+
+  async getPersonalAgentDevices(userId: string): Promise<PersonalAgentDevice[]> {
+    return db.select().from(personalAgentDevices).where(eq(personalAgentDevices.userId, userId)).orderBy(desc(personalAgentDevices.createdAt));
+  }
+  async createPersonalAgentDevice(data: InsertPersonalAgentDevice): Promise<PersonalAgentDevice> {
+    const [device] = await db.insert(personalAgentDevices).values(data).returning();
+    return device;
+  }
+  async updatePersonalAgentDevice(id: string, data: Partial<PersonalAgentDevice>): Promise<PersonalAgentDevice> {
+    const [updated] = await db.update(personalAgentDevices).set(data).where(eq(personalAgentDevices.id, id)).returning();
+    return updated;
+  }
+  async deletePersonalAgentDevice(id: string): Promise<void> {
+    await db.delete(personalAgentDevices).where(eq(personalAgentDevices.id, id));
+  }
+  async deleteAllPersonalAgentDevices(userId: string): Promise<void> {
+    await db.delete(personalAgentDevices).where(eq(personalAgentDevices.userId, userId));
+  }
+
+  async getPersonalAgentFinance(userId: string): Promise<PersonalAgentFinanceEntry[]> {
+    return db.select().from(personalAgentFinance).where(eq(personalAgentFinance.userId, userId)).orderBy(desc(personalAgentFinance.createdAt));
+  }
+  async createPersonalAgentFinance(data: InsertPersonalAgentFinanceEntry): Promise<PersonalAgentFinanceEntry> {
+    const [entry] = await db.insert(personalAgentFinance).values(data).returning();
+    return entry;
+  }
+  async updatePersonalAgentFinance(id: string, data: Partial<PersonalAgentFinanceEntry>): Promise<PersonalAgentFinanceEntry> {
+    const [updated] = await db.update(personalAgentFinance).set(data).where(eq(personalAgentFinance.id, id)).returning();
+    return updated;
+  }
+  async deletePersonalAgentFinance(id: string): Promise<void> {
+    await db.delete(personalAgentFinance).where(eq(personalAgentFinance.id, id));
+  }
+  async deleteAllPersonalAgentFinance(userId: string): Promise<void> {
+    await db.delete(personalAgentFinance).where(eq(personalAgentFinance.userId, userId));
+  }
+
+  async getPersonalAgentUsage(userId: string, dateKey: string): Promise<PersonalAgentUsage[]> {
+    return db.select().from(personalAgentUsage).where(and(eq(personalAgentUsage.userId, userId), eq(personalAgentUsage.dateKey, dateKey)));
+  }
+  async createPersonalAgentUsage(data: InsertPersonalAgentUsage): Promise<PersonalAgentUsage> {
+    const [usage] = await db.insert(personalAgentUsage).values(data).returning();
+    return usage;
+  }
+  async deleteAllPersonalAgentData(userId: string): Promise<void> {
+    await this.deleteAllPersonalAgentConversations(userId);
+    await this.deleteAllPersonalAgentMemories(userId);
+    await this.deleteAllPersonalAgentTasks(userId);
+    await this.deleteAllPersonalAgentDevices(userId);
+    await this.deleteAllPersonalAgentFinance(userId);
+    await db.delete(personalAgentUsage).where(eq(personalAgentUsage.userId, userId));
+    await this.deletePersonalAgentProfile(userId);
   }
 }
 

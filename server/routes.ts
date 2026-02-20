@@ -47,6 +47,7 @@ import { agentProgressionService } from "./services/agent-progression-service";
 import { seedIndustryData } from "./services/industry-seed";
 import { industries, industryCategories, agentRoles as agentRolesTable, knowledgePacks, agentSkillNodes, agentSpecializations, agentCertifications, agentTrustProfiles, agentTrustEvents, agentTrustHistory } from "@shared/schema";
 import { agentTrustEngine } from "./services/agent-trust-engine";
+import { personalAgentService } from "./services/personal-agent-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -3546,6 +3547,318 @@ Keep under 200 words.`
       const analytics = await teamOrchestrationService.getTeamAnalytics();
       const teams = await teamOrchestrationService.getTeamsOverview();
       res.json({ analytics, teams });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ============ Personal AI Agent Routes ============
+
+  function getUserIdFromReq(req: any): string | null {
+    const userId = req.headers["x-user-id"] as string;
+    return userId || null;
+  }
+
+  async function requireProUser(req: any, res: any): Promise<string | null> {
+    const userId = getUserIdFromReq(req);
+    if (!userId) { res.status(401).json({ error: "Authentication required" }); return null; }
+    const isPro = await personalAgentService.isProUser(userId);
+    if (!isPro) { res.status(403).json({ error: "Pro subscription required to access Personal AI Agent" }); return null; }
+    return userId;
+  }
+
+  app.get("/api/personal-agent/dashboard", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const dashboard = await personalAgentService.getDashboard(userId);
+      res.json(dashboard);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/profile", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const profile = await personalAgentService.getOrCreateProfile(userId);
+      res.json({ ...profile, encryptionKey: undefined });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/personal-agent/profile", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const { agentName, voicePreference, preferences } = req.body;
+      const updated = await storage.updatePersonalAgentProfile(userId, {
+        ...(agentName && { agentName }),
+        ...(voicePreference && { voicePreference }),
+        ...(preferences && { preferences }),
+      });
+      res.json({ ...updated, encryptionKey: undefined });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/conversations", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const conversations = await personalAgentService.getConversations(userId);
+      res.json(conversations);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/conversations", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const { title, domain } = req.body;
+      const conversation = await personalAgentService.createConversation(userId, title, domain);
+      res.json(conversation);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/personal-agent/conversations/:id", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      await storage.deletePersonalAgentConversation(req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/conversations/:id/messages", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const messages = await personalAgentService.getMessages(req.params.id);
+      res.json(messages);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/chat", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const { conversationId, message } = req.body;
+      if (!conversationId || !message) return res.status(400).json({ error: "conversationId and message required" });
+      const result = await personalAgentService.chat(userId, conversationId, message);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/voice/tts", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const { text, voice } = req.body;
+      if (!text) return res.status(400).json({ error: "text required" });
+      const audioBuffer = await personalAgentService.textToSpeech(userId, text, voice);
+      res.set({ "Content-Type": "audio/mpeg", "Content-Length": audioBuffer.length.toString() });
+      res.send(audioBuffer);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/memories", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const domain = req.query.domain as string | undefined;
+      const memories = await personalAgentService.getMemories(userId, domain);
+      res.json(memories);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/memories", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const { domain, content, importance } = req.body;
+      if (!domain || !content) return res.status(400).json({ error: "domain and content required" });
+      const memory = await personalAgentService.addManualMemory(userId, domain, content, importance);
+      res.json(memory);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/memories/:id/confirm", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const memory = await personalAgentService.confirmMemory(userId, req.params.id);
+      res.json(memory);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/personal-agent/memories/:id", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      await personalAgentService.dismissMemory(req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/tasks", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const status = req.query.status as string | undefined;
+      const tasks = await personalAgentService.getTasks(userId, status);
+      res.json(tasks);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/tasks", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const task = await personalAgentService.createTask(userId, req.body);
+      res.json(task);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/personal-agent/tasks/:id", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const task = await personalAgentService.updateTask(req.params.id, req.body);
+      res.json(task);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/personal-agent/tasks/:id", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      await personalAgentService.deleteTask(req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/tasks/reminders", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const reminders = await personalAgentService.getDueReminders(userId);
+      res.json(reminders);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/devices", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const devices = await personalAgentService.getDevices(userId);
+      res.json(devices);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/devices", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const device = await personalAgentService.addDevice(userId, req.body);
+      res.json(device);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/personal-agent/devices/:id", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const device = await personalAgentService.updateDevice(req.params.id, req.body);
+      res.json(device);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/devices/:id/control", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const { command } = req.body;
+      if (!command) return res.status(400).json({ error: "command required" });
+      const result = await personalAgentService.controlDevice(userId, req.params.id, command);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/personal-agent/devices/:id", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      await personalAgentService.removeDevice(req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/finance", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const entries = await personalAgentService.getFinanceEntries(userId);
+      res.json(entries);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/personal-agent/finance", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const entry = await personalAgentService.addFinanceEntry(userId, req.body);
+      res.json(entry);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/personal-agent/finance/:id", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const entry = await personalAgentService.updateFinanceEntry(req.params.id, req.body);
+      res.json(entry);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/personal-agent/finance/:id", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      await personalAgentService.deleteFinanceEntry(req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/finance/reminders", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const reminders = await personalAgentService.getFinanceReminders(userId);
+      res.json(reminders);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/export", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const data = await personalAgentService.exportAllData(userId);
+      res.json(data);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/personal-agent/data", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const result = await personalAgentService.deleteAllData(userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/personal-agent/usage", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const limit = await personalAgentService.checkDailyLimit(userId, "message");
+      const voiceLimit = await personalAgentService.checkDailyLimit(userId, "voice");
+      res.json({ messages: limit, voice: voiceLimit });
     } catch (err) { handleServiceError(res, err); }
   });
 

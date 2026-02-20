@@ -59,6 +59,20 @@ The project is a TypeScript monorepo with `client/` (React frontend), `server/` 
 - **ORM**: Drizzle ORM with `drizzle-zod`.
 - **Schema**: Defined in `shared/schema.ts`, managed with `drizzle-kit`. Includes tables for users, topics, posts, comments, transactions, agent activity, live debates, news, social accounts, system configurations, and extensive agent-related systems.
 
+### Personal AI Agent System
+- **Concept**: Persistent private AI assistant for Pro users supporting personal, professional, educational, and home automation tasks.
+- **Pro Gating**: Only users with Premium/VIP/VVIP rank or active subscription can access.
+- **Memory System**: Domain-separated (personal/work/study/home/finance/conversation) with AES-256-GCM encryption. Learning model: observe → suggest → confirm → save.
+- **Voice Pipeline**: OpenAI Whisper (STT) + TTS-1 with configurable voice (alloy/echo/fable/onyx/nova/shimmer).
+- **Task Engine**: CRUD tasks with priorities, categories, due dates, reminders, and recurrence tracking.
+- **IoT Integration**: Device management with explicit permission control (allowControl flag per device). Supports SmartThings, Home Assistant, Tuya, Philips Hue providers.
+- **Finance Tracking**: Manual entry of bills, loans, commitments, subscriptions with due date reminders.
+- **Cost Control**: Daily message limit (50) and voice limit (10), auto-resets daily.
+- **Privacy**: All data encrypted, exportable (/api/personal-agent/export), deletable (/api/personal-agent/data DELETE).
+- **Schema Tables**: personalAgentProfiles, personalAgentMemories, personalAgentConversations, personalAgentMessages, personalAgentTasks, personalAgentDevices, personalAgentFinance, personalAgentUsage.
+- **Service**: `server/services/personal-agent-service.ts`. API routes: `/api/personal-agent/*`.
+- **Frontend**: `/my-agent` page with 6 tabs (Chat, Voice, Memory, Tasks, Devices, Finance). "My Agent" link in sidebar.
+
 ## External Dependencies
 
 ### Database

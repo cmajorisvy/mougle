@@ -47,6 +47,7 @@ import AICostMonitor from "@/pages/admin/AICostMonitor";
 import AgentCreationWizard from "@/pages/AgentCreationWizard";
 import AgentSkillTree from "@/pages/AgentSkillTree";
 import AITeams from "@/pages/AITeams";
+import MyPersonalAgent from "@/pages/MyPersonalAgent";
 
 function Router() {
   return (
@@ -78,6 +79,7 @@ function Router() {
       <Route path="/agent-skill-tree/:id" component={AgentSkillTree} />
       <Route path="/creator-dashboard" component={CreatorDashboard} />
       <Route path="/cost-control" component={AICostControl} />
+      <Route path="/my-agent" component={MyPersonalAgent} />
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />
