@@ -201,6 +201,54 @@ class TruthEvolutionService {
       .limit(limit);
   }
 
+  async applyConfidenceDecay(): Promise<{ decayed: number }> {
+    const decayThresholdDays = 30;
+    const cutoff = new Date(Date.now() - decayThresholdDays * 24 * 60 * 60 * 1000);
+
+    const staleMemories = await db.select().from(truthMemories)
+      .where(and(
+        sql`${truthMemories.lastEvaluatedAt} < ${cutoff}`,
+        sql`${truthMemories.confidenceScore} > 0.1`,
+        eq(truthMemories.truthType, "objective_fact"),
+      ))
+      .limit(100);
+
+    let decayed = 0;
+    for (const mem of staleMemories) {
+      const prevConfidence = mem.confidenceScore;
+      const newConfidence = Math.max(0.05, prevConfidence + CONFIDENCE_WEIGHTS.decay);
+
+      if (newConfidence !== prevConfidence) {
+        await db.update(truthMemories).set({
+          confidenceScore: newConfidence,
+          lastEvaluatedAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(truthMemories.id, mem.id));
+
+        await this.logEvolution(mem.agentId, mem.id, "confidence_decay", prevConfidence, newConfidence, "decay",
+          `Confidence decayed from ${(prevConfidence * 100).toFixed(0)}% to ${(newConfidence * 100).toFixed(0)}% (${decayThresholdDays}+ days without re-validation)`);
+        decayed++;
+      }
+    }
+
+    if (decayed > 0) {
+      console.log(`[TruthEvolution] Confidence decay applied to ${decayed} memories`);
+    }
+    return { decayed };
+  }
+
+  startDecayScheduler(intervalMs = 24 * 60 * 60 * 1000): void {
+    setInterval(async () => {
+      try {
+        await this.applyConfidenceDecay();
+        await this.createAlignmentSnapshot();
+      } catch (err) {
+        console.error("[TruthEvolution] Decay scheduler error:", err);
+      }
+    }, intervalMs);
+    console.log("[TruthEvolution] Confidence decay scheduler started (every 24h)");
+  }
+
   private async logEvolution(
     agentId: string, memoryId: string | null, eventType: string,
     prevConfidence: number | null, newConfidence: number | null,

@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import crypto from "crypto";
 import { storage } from "../storage";
 import type { PersonalAgentMemory } from "@shared/schema";
+import { truthEvolutionService } from "./truth-evolution-service";
 
 const MEMORY_DOMAINS = ["personal", "work", "study", "home", "finance", "conversation"] as const;
 
@@ -112,7 +113,7 @@ class PersonalAgentService {
     });
   }
 
-  async chat(userId: string, conversationId: string, userMessage: string): Promise<{ reply: string; memorySuggestions: any[] }> {
+  async chat(userId: string, conversationId: string, userMessage: string): Promise<{ reply: string; memorySuggestions: any[]; truthMetrics?: any }> {
     const limit = await this.checkDailyLimit(userId, "message");
     if (!limit.allowed) throw { status: 429, message: `Daily message limit reached. Resets tomorrow. (${limit.remaining} remaining)` };
 
@@ -120,10 +121,22 @@ class PersonalAgentService {
     const messages = await storage.getPersonalAgentMessages(conversationId);
     const confirmedMemories = await storage.getConfirmedMemories(userId);
 
+    const agentId = `personal-${userId}`;
+
+    const truthMemories = await truthEvolutionService.getAgentMemories(agentId, { limit: 30 }).catch(() => []);
+
     const decryptedMemories = confirmedMemories.slice(0, 20).map(m => {
       const content = m.encrypted ? decrypt(m.content, profile.encryptionKey) : m.content;
       return `[${m.domain}] ${content}`;
     });
+
+    const truthContext = truthMemories
+      .filter(tm => tm.confidenceScore >= 0.3)
+      .map(tm => {
+        const weight = truthEvolutionService.getConfidenceWeight(tm.confidenceScore);
+        const reliability = tm.confidenceScore >= 0.8 ? "HIGH" : tm.confidenceScore >= 0.5 ? "MEDIUM" : "LOW";
+        return `[${tm.truthType}|${reliability}|w:${weight}] ${tm.content}`;
+      });
 
     await storage.createPersonalAgentMessage({
       conversationId,
@@ -138,18 +151,25 @@ class PersonalAgentService {
         role: "system",
         content: `You are ${profile.agentName}, a personal AI assistant for a Pro user on Dig8opia. You help with personal, professional, educational, and home automation tasks.
 
-You have continuous memory of the user's preferences and context:
+You evolve through Truth-Anchored Evolution: your knowledge is classified by truth type and weighted by factual confidence. You prioritize high-confidence knowledge and flag uncertain claims.
+
+Personal memories:
 ${decryptedMemories.length > 0 ? decryptedMemories.join("\n") : "No memories stored yet."}
+
+${truthContext.length > 0 ? `Truth-anchored knowledge (weighted by confidence):
+${truthContext.join("\n")}` : ""}
 
 Guidelines:
 - Be helpful, concise, and proactive
+- When stating facts, indicate your confidence level (high/medium/low)
+- If you detect a contradiction with existing knowledge, flag it clearly
+- If new evidence supports or contradicts a previous statement, mention it
 - Suggest creating reminders or tasks when appropriate
-- If you learn something new about the user, suggest saving it as a memory (use JSON: {"memorySuggestions": [{"domain": "personal|work|study|home|finance|conversation", "content": "what to remember", "importance": 1-10}]})
-- For finance queries, help track bills and commitments
-- Always be privacy-conscious and ask before assuming
+- If you learn something new about the user, suggest saving it as a memory
+- For factual claims, suggest truth classification
 
-End your response with a JSON block if you have memory suggestions:
-<!--MEMORY_SUGGESTIONS:{"memorySuggestions": [...]}-->`,
+End your response with a JSON block for memory and truth operations:
+<!--AGENT_OPS:{"memorySuggestions": [{"domain": "personal|work|study|home|finance|conversation", "content": "what to remember", "importance": 1-10}], "truthOps": [{"op": "create|evidence|contradict|correct", "content": "the factual content", "truthType": "personal_truth|objective_fact|contextual_interpretation", "memoryId": "optional-existing-id", "source": "optional-source"}]}-->`,
       },
     ];
 
@@ -174,11 +194,22 @@ End your response with a JSON block if you have memory suggestions:
 
     let reply = fullReply;
     let memorySuggestions: any[] = [];
-    const memoryMatch = fullReply.match(/<!--MEMORY_SUGGESTIONS:([\s\S]*?)-->/);
-    if (memoryMatch) {
+    let truthOps: any[] = [];
+
+    const opsMatch = fullReply.match(/<!--AGENT_OPS:([\s\S]*?)-->/);
+    const legacyMatch = fullReply.match(/<!--MEMORY_SUGGESTIONS:([\s\S]*?)-->/);
+
+    if (opsMatch) {
+      reply = fullReply.replace(/<!--AGENT_OPS:[\s\S]*?-->/, "").trim();
+      try {
+        const parsed = JSON.parse(opsMatch[1]);
+        memorySuggestions = parsed.memorySuggestions || [];
+        truthOps = parsed.truthOps || [];
+      } catch {}
+    } else if (legacyMatch) {
       reply = fullReply.replace(/<!--MEMORY_SUGGESTIONS:[\s\S]*?-->/, "").trim();
       try {
-        const parsed = JSON.parse(memoryMatch[1]);
+        const parsed = JSON.parse(legacyMatch[1]);
         memorySuggestions = parsed.memorySuggestions || [];
       } catch {}
     }
@@ -192,20 +223,138 @@ End your response with a JSON block if you have memory suggestions:
     });
 
     for (const suggestion of memorySuggestions) {
+      const domain = MEMORY_DOMAINS.includes(suggestion.domain) ? suggestion.domain : "conversation";
       await storage.createPersonalAgentMemory({
         userId,
-        domain: MEMORY_DOMAINS.includes(suggestion.domain) ? suggestion.domain : "conversation",
+        domain,
         content: encrypt(suggestion.content, profile.encryptionKey),
         tags: [],
         importance: suggestion.importance || 5,
         confirmed: false,
         encrypted: true,
       });
+
+      const truthType = truthEvolutionService.classifyTruth(suggestion.content, {
+        isPersonal: domain === "personal" || domain === "conversation",
+        hasSource: false,
+      });
+      await truthEvolutionService.createMemory({
+        agentId,
+        userId,
+        content: suggestion.content,
+        truthType,
+        confidenceScore: truthType === "objective_fact" ? 0.5 : 0.7,
+        sources: [],
+      }).catch(err => console.error("[TruthEvolution] Failed to create truth memory:", err));
     }
+
+    for (const op of truthOps) {
+      try {
+        switch (op.op) {
+          case "create":
+            await truthEvolutionService.createMemory({
+              agentId,
+              userId,
+              content: op.content,
+              truthType: op.truthType || truthEvolutionService.classifyTruth(op.content),
+              confidenceScore: op.truthType === "objective_fact" ? 0.5 : 0.7,
+              sources: op.source ? [op.source] : [],
+            });
+            break;
+          case "evidence":
+            if (op.memoryId) {
+              await truthEvolutionService.addEvidence(op.memoryId, op.source || op.content);
+            }
+            break;
+          case "contradict":
+            if (op.memoryId) {
+              await truthEvolutionService.recordContradiction(op.memoryId, op.content);
+            } else {
+              await this.detectAndRecordContradictions(agentId, op.content);
+            }
+            break;
+          case "correct":
+            if (op.memoryId) {
+              await truthEvolutionService.correctFact(op.memoryId, op.content);
+            }
+            break;
+        }
+      } catch (err) {
+        console.error(`[TruthEvolution] Failed truth op ${op.op}:`, err);
+      }
+    }
+
+    await this.autoDetectTruthSignals(agentId, userId, userMessage, reply);
 
     await this.incrementUsage(userId, "message");
 
-    return { reply, memorySuggestions };
+    const agentTruthMetrics = await this.getAgentTruthMetrics(agentId);
+
+    return { reply, memorySuggestions, truthMetrics: agentTruthMetrics };
+  }
+
+  private async detectAndRecordContradictions(agentId: string, content: string): Promise<void> {
+    const existing = await truthEvolutionService.getAgentMemories(agentId, { limit: 50 });
+    for (const mem of existing) {
+      if (mem.truthType === "objective_fact" && mem.confidenceScore >= 0.3) {
+        const contentWords = content.toLowerCase().split(/\s+/);
+        const memWords = mem.content.toLowerCase().split(/\s+/);
+        const overlap = contentWords.filter(w => w.length > 4 && memWords.includes(w));
+        if (overlap.length >= 3) {
+          await truthEvolutionService.recordContradiction(mem.id, content);
+          break;
+        }
+      }
+    }
+  }
+
+  private async autoDetectTruthSignals(agentId: string, userId: string, userMessage: string, agentReply: string): Promise<void> {
+    const evidenceIndicators = /\b(actually|research shows|according to|studies found|data shows|source:|citing|reference:)\b/i;
+    const correctionIndicators = /\b(that's wrong|incorrect|not true|actually it's|correction:|the correct|in fact)\b/i;
+
+    if (correctionIndicators.test(userMessage)) {
+      const existing = await truthEvolutionService.getAgentMemories(agentId, { limit: 20 });
+      const replyWords = agentReply.toLowerCase().split(/\s+/);
+      for (const mem of existing) {
+        const memWords = mem.content.toLowerCase().split(/\s+/);
+        const overlap = replyWords.filter(w => w.length > 4 && memWords.includes(w));
+        if (overlap.length >= 2) {
+          await truthEvolutionService.recordContradiction(mem.id, userMessage);
+          break;
+        }
+      }
+    }
+
+    if (evidenceIndicators.test(userMessage)) {
+      const factContent = userMessage.replace(evidenceIndicators, "").trim();
+      if (factContent.length > 10) {
+        await truthEvolutionService.createMemory({
+          agentId,
+          userId,
+          content: factContent,
+          truthType: "objective_fact",
+          confidenceScore: 0.6,
+          sources: ["user_provided"],
+        }).catch(() => {});
+      }
+    }
+  }
+
+  async getAgentTruthMetrics(agentId: string) {
+    const memories = await truthEvolutionService.getAgentMemories(agentId, { limit: 100 }).catch(() => []);
+    if (memories.length === 0) return { totalTruthMemories: 0, avgConfidence: 0, distribution: { personal_truth: 0, objective_fact: 0, contextual_interpretation: 0 }, highConfidenceCount: 0, factualReliability: 0 };
+
+    const totalConfidence = memories.reduce((sum, m) => sum + m.confidenceScore, 0);
+    const avgConfidence = totalConfidence / memories.length;
+    const distribution = {
+      personal_truth: memories.filter(m => m.truthType === "personal_truth").length,
+      objective_fact: memories.filter(m => m.truthType === "objective_fact").length,
+      contextual_interpretation: memories.filter(m => m.truthType === "contextual_interpretation").length,
+    };
+    const highConfidenceCount = memories.filter(m => m.confidenceScore >= 0.8).length;
+    const factualReliability = memories.length > 0 ? highConfidenceCount / memories.length : 0;
+
+    return { totalTruthMemories: memories.length, avgConfidence: Math.round(avgConfidence * 100) / 100, distribution, highConfidenceCount, factualReliability: Math.round(factualReliability * 100) / 100 };
   }
 
   async speechToText(userId: string, audioBuffer: Buffer): Promise<string> {
@@ -260,15 +409,32 @@ End your response with a JSON block if you have memory suggestions:
 
   async addManualMemory(userId: string, domain: string, content: string, importance = 5) {
     const profile = await this.getOrCreateProfile(userId);
-    return storage.createPersonalAgentMemory({
+    const validDomain = MEMORY_DOMAINS.includes(domain as any) ? domain : "personal";
+    const memory = await storage.createPersonalAgentMemory({
       userId,
-      domain: MEMORY_DOMAINS.includes(domain as any) ? domain : "personal",
+      domain: validDomain,
       content: encrypt(content, profile.encryptionKey),
       tags: [],
       importance,
       confirmed: true,
       encrypted: true,
     });
+
+    const agentId = `personal-${userId}`;
+    const truthType = truthEvolutionService.classifyTruth(content, {
+      isPersonal: validDomain === "personal" || validDomain === "conversation",
+      hasSource: false,
+    });
+    await truthEvolutionService.createMemory({
+      agentId,
+      userId,
+      content,
+      truthType,
+      confidenceScore: truthType === "objective_fact" ? 0.5 : 0.7,
+      sources: ["manual_entry"],
+    }).catch(err => console.error("[TruthEvolution] Failed to create truth memory for manual entry:", err));
+
+    return memory;
   }
 
   async createConversation(userId: string, title?: string, domain?: string) {
@@ -423,6 +589,10 @@ End your response with a JSON block if you have memory suggestions:
     const dueReminders = await this.getDueReminders(userId);
     const financeReminders = await this.getFinanceReminders(userId);
 
+    const agentId = `personal-${userId}`;
+    const truthMetrics = await this.getAgentTruthMetrics(agentId);
+    const recentEvolution = await truthEvolutionService.getEvolutionHistory(agentId, 5).catch(() => []);
+
     return {
       profile: { ...profile, encryptionKey: undefined },
       stats: {
@@ -447,6 +617,18 @@ End your response with a JSON block if you have memory suggestions:
         domain: d,
         count: memories.filter(m => m.domain === d).length,
       })),
+      truthEvolution: {
+        ...truthMetrics,
+        recentEvents: recentEvolution.map(e => ({
+          id: e.id,
+          eventType: e.eventType,
+          description: e.description,
+          previousConfidence: e.previousConfidence,
+          newConfidence: e.newConfidence,
+          trigger: e.trigger,
+          createdAt: e.createdAt,
+        })),
+      },
     };
   }
 }

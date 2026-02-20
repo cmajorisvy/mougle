@@ -14,12 +14,13 @@ import {
   Calendar, Bell, Edit2, MoreVertical, Play
 } from "lucide-react";
 
-type Tab = "chat" | "voice" | "memory" | "tasks" | "devices" | "finance";
+type Tab = "chat" | "voice" | "memory" | "truth" | "tasks" | "devices" | "finance";
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: "chat", label: "Chat", icon: MessageSquare },
   { id: "voice", label: "Voice", icon: Mic },
   { id: "memory", label: "Memory", icon: Brain },
+  { id: "truth", label: "Truth Core", icon: Shield },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
   { id: "devices", label: "Devices", icon: Wifi },
   { id: "finance", label: "Finance", icon: DollarSign },
@@ -150,6 +151,7 @@ export default function MyPersonalAgent() {
           {tab === "chat" && <ChatTab userId={userId} />}
           {tab === "voice" && <VoiceTab userId={userId} />}
           {tab === "memory" && <MemoryTab userId={userId} />}
+          {tab === "truth" && <TruthCoreTab userId={userId} dashboard={dashboard} />}
           {tab === "tasks" && <TasksTab userId={userId} />}
           {tab === "devices" && <DevicesTab userId={userId} />}
           {tab === "finance" && <FinanceTab userId={userId} />}
@@ -750,6 +752,129 @@ function DevicesTab({ userId }: { userId: string }) {
           <div>
             <p className="text-sm text-yellow-400 font-medium">Permission Required</p>
             <p className="text-xs text-gray-400 mt-1">Your AI agent will never control devices without your explicit permission. Enable "Allow AI Control" for each device individually.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TruthCoreTab({ userId, dashboard }: { userId: string; dashboard: any }) {
+  const { data: truthData, isLoading } = useQuery({
+    queryKey: ["pa-truth-metrics", userId],
+    queryFn: () => fetchPA("/truth-metrics", userId),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const te = dashboard?.truthEvolution || truthData || {};
+  const dist = te.distribution || { personal_truth: 0, objective_fact: 0, contextual_interpretation: 0 };
+  const totalDist = dist.personal_truth + dist.objective_fact + dist.contextual_interpretation;
+
+  return (
+    <div className="space-y-6" data-testid="truth-core-tab">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="glass-card rounded-xl p-4" data-testid="truth-total-memories">
+          <div className="flex items-center gap-2 mb-2 text-gray-400"><Brain className="w-4 h-4" /><span className="text-xs">Truth Memories</span></div>
+          <span className="text-2xl font-bold text-white">{te.totalTruthMemories || 0}</span>
+        </div>
+        <div className="glass-card rounded-xl p-4" data-testid="truth-avg-confidence">
+          <div className="flex items-center gap-2 mb-2 text-gray-400"><Zap className="w-4 h-4" /><span className="text-xs">Avg Confidence</span></div>
+          <span className="text-2xl font-bold text-white">{((te.avgConfidence || 0) * 100).toFixed(0)}%</span>
+        </div>
+        <div className="glass-card rounded-xl p-4" data-testid="truth-high-confidence">
+          <div className="flex items-center gap-2 mb-2 text-gray-400"><Star className="w-4 h-4" /><span className="text-xs">High Confidence</span></div>
+          <span className="text-2xl font-bold text-white">{te.highConfidenceCount || 0}</span>
+        </div>
+        <div className="glass-card rounded-xl p-4" data-testid="truth-reliability">
+          <div className="flex items-center gap-2 mb-2 text-gray-400"><Shield className="w-4 h-4" /><span className="text-xs">Factual Reliability</span></div>
+          <span className="text-2xl font-bold text-white">{((te.factualReliability || 0) * 100).toFixed(0)}%</span>
+        </div>
+      </div>
+
+      <div className="glass-card rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-white mb-4">Truth Type Distribution</h3>
+        <div className="space-y-3">
+          {[
+            { key: "personal_truth", label: "Personal Truth", color: "bg-blue-500", desc: "Subjective preferences and beliefs" },
+            { key: "objective_fact", label: "Objective Fact", color: "bg-green-500", desc: "Verified factual knowledge" },
+            { key: "contextual_interpretation", label: "Contextual Interpretation", color: "bg-purple-500", desc: "Situation-dependent knowledge" },
+          ].map(({ key, label, color, desc }) => {
+            const val = dist[key as keyof typeof dist] || 0;
+            const pct = totalDist > 0 ? (val / totalDist * 100).toFixed(0) : "0";
+            return (
+              <div key={key} data-testid={`truth-dist-${key}`}>
+                <div className="flex justify-between items-center mb-1">
+                  <div>
+                    <span className="text-sm text-white">{label}</span>
+                    <span className="text-[10px] text-gray-500 ml-2">{desc}</span>
+                  </div>
+                  <span className="text-sm font-medium text-gray-300">{val} ({pct}%)</span>
+                </div>
+                <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                  <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="glass-card rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-white mb-4">Recent Evolution Events</h3>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>
+        ) : (!te.recentEvents || te.recentEvents.length === 0) ? (
+          <div className="text-center py-8 text-gray-500">
+            <Brain className="w-10 h-10 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No evolution events yet. Your agent evolves as you interact with it.</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {te.recentEvents.map((evt: any) => (
+              <div key={evt.id} className="flex items-center justify-between p-3 bg-white/[0.03] rounded-lg" data-testid={`truth-event-${evt.id}`}>
+                <div className="flex items-center gap-3">
+                  <span className={cn(
+                    "text-[10px] px-2 py-0.5 rounded font-medium",
+                    evt.eventType === "fact_correction" ? "bg-orange-500/20 text-orange-400" :
+                    evt.eventType === "contradiction_detected" ? "bg-red-500/20 text-red-400" :
+                    evt.eventType === "expert_validation" ? "bg-green-500/20 text-green-400" :
+                    evt.eventType === "confidence_decay" ? "bg-yellow-500/20 text-yellow-400" :
+                    "bg-blue-500/20 text-blue-400"
+                  )}>
+                    {evt.eventType?.replace(/_/g, " ")}
+                  </span>
+                  <span className="text-xs text-gray-300">{evt.description?.slice(0, 60)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                  {evt.previousConfidence !== null && evt.newConfidence !== null && (
+                    <span className={cn(
+                      "font-medium",
+                      (evt.newConfidence || 0) > (evt.previousConfidence || 0) ? "text-green-400" : "text-red-400"
+                    )}>
+                      {((evt.previousConfidence || 0) * 100).toFixed(0)}% → {((evt.newConfidence || 0) * 100).toFixed(0)}%
+                    </span>
+                  )}
+                  {evt.createdAt && <span>{new Date(evt.createdAt).toLocaleDateString()}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="glass-card rounded-xl p-5 border border-cyan-500/20">
+        <div className="flex items-start gap-3">
+          <Shield className="w-5 h-5 text-cyan-400 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-semibold text-white mb-1">How Truth-Anchored Evolution Works</h4>
+            <ul className="text-xs text-gray-400 space-y-1">
+              <li>Your agent classifies knowledge into personal truths, objective facts, and contextual interpretations</li>
+              <li>Factual memories carry confidence scores that increase with evidence and validation</li>
+              <li>Contradictions reduce confidence, prompting the agent to seek verification</li>
+              <li>Unvalidated facts gradually decay in confidence over time</li>
+              <li>Responses are weighted by confidence — high-confidence facts are prioritized</li>
+            </ul>
           </div>
         </div>
       </div>

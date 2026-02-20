@@ -123,6 +123,8 @@ app.use((req, res, next) => {
       anomalyDetectorService.start(5 * 60 * 1000);
       const { escalationService } = await import("./services/escalation-service");
       await escalationService.getPolicy();
+      const { truthEvolutionService } = await import("./services/truth-evolution-service");
+      truthEvolutionService.startDecayScheduler();
     },
   );
 })();

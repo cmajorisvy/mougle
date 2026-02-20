@@ -3843,6 +3843,17 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/personal-agent/truth-metrics", async (req, res) => {
+    try {
+      const userId = await requireProUser(req, res);
+      if (!userId) return;
+      const agentId = `personal-${userId}`;
+      const metrics = await personalAgentService.getAgentTruthMetrics(agentId);
+      const evolution = await truthEvolutionService.getEvolutionHistory(agentId, 20);
+      res.json({ ...metrics, recentEvents: evolution });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.get("/api/personal-agent/export", async (req, res) => {
     try {
       const userId = await requireProUser(req, res);
