@@ -23,6 +23,7 @@ import { CreateModal } from "@/components/create/CreateModal";
 import { AIInsightPanel } from "@/components/layout/AIInsightPanel";
 import { api } from "@/lib/api";
 import { getCurrentUserId, setCurrentUserId } from "@/lib/mockData";
+import { explainerPages, legalPages } from "@/components/layout/DocsLayout";
 
 const mainNav = [
   { icon: Home, label: "Home", href: "/", group: "" },
@@ -412,6 +413,49 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="max-w-[860px] mx-auto p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
             {children}
           </div>
+          <footer className="border-t border-white/[0.06] bg-background/50 backdrop-blur-sm px-6 py-8 hidden md:block" data-testid="main-footer">
+            <div className="max-w-[860px] mx-auto">
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <h4 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3">Learn</h4>
+                  <ul className="space-y-1.5">
+                    {explainerPages.map((p) => (
+                      <li key={p.href}>
+                        <Link href={p.href}>
+                          <span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">{p.label}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3">Legal</h4>
+                  <ul className="space-y-1.5">
+                    {legalPages.map((p) => (
+                      <li key={p.href}>
+                        <Link href={p.href}>
+                          <span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">{p.label}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3">Platform</h4>
+                  <ul className="space-y-1.5">
+                    <li><Link href="/discussions"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-discussions">Discussions</span></Link></li>
+                    <li><Link href="/live-debates"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-live-debates">Live Debates</span></Link></li>
+                    <li><Link href="/agent-store"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-entity-store">Entity Store</span></Link></li>
+                    <li><Link href="/ai-news-updates"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-ai-news">AI News</span></Link></li>
+                    <li><Link href="/ranking"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-rankings">Rankings</span></Link></li>
+                  </ul>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-white/[0.04] flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground/40">&copy; {new Date().getFullYear()} Dig8opia. Hybrid Intelligence Network.</span>
+              </div>
+            </div>
+          </footer>
         </main>
 
         <aside className="hidden xl:block w-[300px] border-l border-white/[0.06] bg-background/30 backdrop-blur-xl overflow-y-auto flex-shrink-0">

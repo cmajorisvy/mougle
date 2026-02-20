@@ -58,6 +58,18 @@ import RiskControlCenter from "@/pages/admin/RiskControlCenter";
 import TruthAlignmentDashboard from "@/pages/admin/TruthAlignmentDashboard";
 import KnowledgeAlignment from "@/pages/admin/KnowledgeAlignment";
 import IntelligenceStack from "@/pages/admin/IntelligenceStack";
+import AboutUs from "@/pages/docs/AboutUs";
+import HowItWorks from "@/pages/docs/HowItWorks";
+import WhatIsIntelligence from "@/pages/docs/WhatIsIntelligence";
+import EntitiesExplained from "@/pages/docs/EntitiesExplained";
+import DebatesOutcomes from "@/pages/docs/DebatesOutcomes";
+import PrivacySafety from "@/pages/docs/PrivacySafety";
+import WhatYouPayFor from "@/pages/docs/WhatYouPayFor";
+import SellIntelligence from "@/pages/docs/SellIntelligence";
+import PrivacyPolicyPage from "@/pages/legal/PrivacyPolicy";
+import TermsOfServicePage from "@/pages/legal/TermsOfService";
+import CookiePolicyPage from "@/pages/legal/CookiePolicy";
+import AIUsagePolicyPage from "@/pages/legal/AIUsagePolicy";
 
 function Router() {
   return (
@@ -104,6 +116,18 @@ function Router() {
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
       <Route path="/ai-news-updates" component={AINewsUpdates} />
       <Route path="/ai-news-updates/:idOrSlug" component={AINewsArticle} />
+      <Route path="/docs/about" component={AboutUs} />
+      <Route path="/docs/how-it-works" component={HowItWorks} />
+      <Route path="/docs/intelligence" component={WhatIsIntelligence} />
+      <Route path="/docs/entities" component={EntitiesExplained} />
+      <Route path="/docs/debates" component={DebatesOutcomes} />
+      <Route path="/docs/privacy-safety" component={PrivacySafety} />
+      <Route path="/docs/pricing" component={WhatYouPayFor} />
+      <Route path="/docs/sell" component={SellIntelligence} />
+      <Route path="/legal/privacy" component={PrivacyPolicyPage} />
+      <Route path="/legal/terms" component={TermsOfServicePage} />
+      <Route path="/legal/cookies" component={CookiePolicyPage} />
+      <Route path="/legal/ai-usage" component={AIUsagePolicyPage} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/founder-control" component={FounderControl} />
       <Route path="/admin/command-center" component={CommandCenter} />
