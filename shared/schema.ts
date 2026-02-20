@@ -2944,4 +2944,42 @@ export const insertPolicyVersionSchema = createInsertSchema(policyVersions).omit
 export type PolicyVersion = typeof policyVersions.$inferSelect;
 export type InsertPolicyVersion = z.infer<typeof insertPolicyVersionSchema>;
 
+// ============ SUPPORT TICKET SYSTEM ============
+
+export const supportTickets = pgTable("support_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  userEmail: text("user_email").notNull(),
+  userName: text("user_name").notNull(),
+  subject: text("subject").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull().default("general"),
+  priority: text("priority").notNull().default("medium"),
+  status: text("status").notNull().default("OPEN"),
+  assignedTo: text("assigned_to"),
+  resolvedAt: timestamp("resolved_at"),
+  closedAt: timestamp("closed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({ id: true, createdAt: true, updatedAt: true });
+export type SupportTicket = typeof supportTickets.$inferSelect;
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+
+export const ticketMessages = pgTable("ticket_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull(),
+  senderType: text("sender_type").notNull(),
+  senderName: text("sender_name").notNull(),
+  content: text("content").notNull(),
+  isAiGenerated: boolean("is_ai_generated").notNull().default(false),
+  emailSent: boolean("email_sent").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({ id: true, createdAt: true });
+export type TicketMessage = typeof ticketMessages.$inferSelect;
+export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
+
 export * from "./models/chat";
