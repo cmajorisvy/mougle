@@ -58,6 +58,7 @@ import { riskManagementService } from "./services/risk-management-service";
 import { labsService } from "./services/labs-service";
 import { labsFlywheelService } from "./services/labs-flywheel-service";
 import { superLoopService } from "./services/super-loop-service";
+import { phaseTransitionService } from "./services/phase-transition-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -2230,6 +2231,14 @@ export async function registerRoutes(
 
   app.get("/api/admin/billing/phase-transition", requireAdmin, async (_req, res) => {
     try { res.json(await billingService.getPhaseTransitionData()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/transition-index", requireAdmin, async (_req, res) => {
+    try { res.json(await phaseTransitionService.getTransitionIndex()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/transition-metrics", requireAdmin, async (_req, res) => {
+    try { res.json(await phaseTransitionService.computeMetrics()); } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/billing/flywheel/sync", requireAdmin, async (_req, res) => {

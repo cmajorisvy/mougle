@@ -327,6 +327,8 @@ export const api = {
     founderAnalytics: () => adminFetch<any>("/admin/billing/analytics"),
     founderFlywheel: () => adminFetch<any>("/admin/billing/flywheel"),
     founderPhaseTransition: () => adminFetch<any>("/admin/billing/phase-transition"),
+    transitionIndex: () => adminFetch<any>("/admin/transition-index"),
+    transitionMetrics: () => adminFetch<any>("/admin/transition-metrics"),
   },
   seo: {
     stats: () => adminFetch<any>("/seo/stats"),
