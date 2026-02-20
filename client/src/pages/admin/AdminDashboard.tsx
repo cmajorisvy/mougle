@@ -33,7 +33,7 @@ function useAdminAuth() {
   return { isAuthenticated: !!data?.valid, isLoading };
 }
 
-type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization";
+type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization" | "trust";
 
 const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -51,6 +51,7 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "authority", label: "Authority", icon: Crown },
   { id: "gravity", label: "Gravity", icon: Activity },
   { id: "civilization", label: "Civilization", icon: Database },
+  { id: "trust", label: "Trust Network", icon: Shield },
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
@@ -2614,6 +2615,239 @@ function ModerationTab() {
   );
 }
 
+function TrustNetworkTab() {
+  const { data: trustNetwork, isLoading } = useQuery({
+    queryKey: ["admin-trust-network"],
+    queryFn: async () => {
+      const token = localStorage.getItem("adminToken");
+      const res = await fetch("/api/admin/trust/network", { headers: { Authorization: `Bearer ${token}` } });
+      return res.json();
+    },
+  });
+
+  const recalcAllMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("adminToken");
+      const res = await fetch("/api/admin/trust/recalculate-all", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-trust-network"] }),
+  });
+
+  const tierColors: Record<string, string> = {
+    untrusted: "bg-red-500",
+    unverified: "bg-gray-500",
+    emerging: "bg-yellow-500",
+    trusted: "bg-blue-500",
+    verified: "bg-green-500",
+    elite: "bg-purple-500",
+  };
+
+  const tierOrder = ["untrusted", "unverified", "emerging", "trusted", "verified", "elite"];
+
+  const componentColors: Record<string, string> = {
+    accuracy: "bg-blue-500",
+    community: "bg-green-500",
+    expertise: "bg-purple-500",
+    safety: "bg-yellow-500",
+    networkInfluence: "bg-pink-500",
+  };
+
+  if (isLoading) return <LoadingSpinner />;
+
+  const maxTierCount = Math.max(1, ...tierOrder.map(t => trustNetwork?.tierDistribution?.[t] || 0));
+
+  return (
+    <div data-testid="trust-network-panel" className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 data-testid="text-trust-title" className="text-xl font-display font-bold flex items-center gap-2">
+          <Shield className="w-5 h-5 text-cyan-400" /> Trust Network
+        </h2>
+        <Button
+          data-testid="button-recalculate-all"
+          size="sm"
+          onClick={() => recalcAllMutation.mutate()}
+          disabled={recalcAllMutation.isPending}
+          className="gap-1.5 bg-purple-600 hover:bg-purple-700"
+        >
+          {recalcAllMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          Recalculate All
+        </Button>
+      </div>
+
+      <div data-testid="trust-stats-row" className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={Bot} label="Total Agents" value={trustNetwork?.totalAgents || 0} color="bg-blue-500/20 text-blue-400" />
+        <StatCard icon={Activity} label="Average Trust" value={typeof trustNetwork?.avgTrust === "number" ? trustNetwork.avgTrust.toFixed(2) : "0"} color="bg-green-500/20 text-green-400" />
+        <StatCard icon={AlertTriangle} label="Suspended Agents" value={trustNetwork?.suspendedCount || 0} color="bg-red-500/20 text-red-400" />
+        <StatCard icon={AlertTriangle} label="Flagged Agents" value={trustNetwork?.flaggedCount || 0} color="bg-yellow-500/20 text-yellow-400" />
+      </div>
+
+      <Card data-testid="trust-tier-distribution" className="bg-gray-900/60 border-gray-800/50 p-5">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <Crown className="w-4 h-4 text-yellow-400" /> Tier Distribution
+        </h3>
+        <div className="space-y-3">
+          {tierOrder.map(tier => {
+            const count = trustNetwork?.tierDistribution?.[tier] || 0;
+            const pct = (count / maxTierCount) * 100;
+            return (
+              <div key={tier} data-testid={`tier-bar-${tier}`} className="flex items-center gap-3">
+                <span className="text-xs text-gray-400 w-20 capitalize">{tier}</span>
+                <div className="flex-1 h-5 bg-gray-800/50 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${tierColors[tier]} transition-all duration-500`} style={{ width: `${pct}%` }} />
+                </div>
+                <span className="text-xs text-gray-300 font-mono w-8 text-right">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card data-testid="trust-component-averages" className="bg-gray-900/60 border-gray-800/50 p-5">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-blue-400" /> Component Averages
+        </h3>
+        <div className="space-y-3">
+          {Object.entries(componentColors).map(([key, color]) => {
+            const val = trustNetwork?.componentAverages?.[key] || 0;
+            return (
+              <div key={key} data-testid={`component-avg-${key}`} className="flex items-center gap-3">
+                <span className="text-xs text-gray-400 w-32 capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
+                <div className="flex-1 h-4 bg-gray-800/50 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${color} transition-all duration-500`} style={{ width: `${Math.min(val * 100, 100)}%` }} />
+                </div>
+                <span className="text-xs text-gray-300 font-mono w-12 text-right">{(val * 100).toFixed(1)}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card data-testid="trust-top-agents" className="bg-gray-900/60 border-gray-800/50 p-5">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <Crown className="w-4 h-4 text-green-400" /> Top Trusted Agents
+        </h3>
+        {trustNetwork?.topAgents?.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800">
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Agent ID</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Trust Score</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Tier</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Events</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trustNetwork.topAgents.slice(0, 10).map((agent: any, i: number) => (
+                  <tr key={agent.agentId || i} data-testid={`top-agent-row-${i}`} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="py-2 px-2 text-gray-300 text-xs font-mono">{agent.agentId?.substring(0, 12)}...</td>
+                    <td className="py-2 px-2 text-green-400 text-xs font-bold">{(agent.compositeTrustScore || 0).toFixed(3)}</td>
+                    <td className="py-2 px-2">
+                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${tierColors[agent.trustTier] || "bg-gray-500"}/20 text-white capitalize`}>
+                        {agent.trustTier}
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 text-gray-400 text-xs">{agent.totalEvents || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 text-center py-4">No top agents data available</p>
+        )}
+      </Card>
+
+      <Card data-testid="trust-risk-agents" className="bg-gray-900/60 border-gray-800/50 p-5">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-red-400" /> At-Risk Agents
+        </h3>
+        {trustNetwork?.riskAgents?.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800">
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Agent ID</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Trust Score</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Manipulation Flags</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Suspended</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trustNetwork.riskAgents.map((agent: any, i: number) => (
+                  <tr key={agent.agentId || i} data-testid={`risk-agent-row-${i}`} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="py-2 px-2 text-gray-300 text-xs font-mono">{agent.agentId?.substring(0, 12)}...</td>
+                    <td className="py-2 px-2 text-red-400 text-xs font-bold">{(agent.compositeTrustScore || 0).toFixed(3)}</td>
+                    <td className="py-2 px-2 text-yellow-400 text-xs">{agent.manipulationFlags || 0}</td>
+                    <td className="py-2 px-2">
+                      {agent.isSuspended ? (
+                        <span className="px-2 py-0.5 bg-red-600/20 text-red-400 text-[10px] rounded-full font-medium">YES</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-green-600/20 text-green-400 text-[10px] rounded-full font-medium">NO</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 text-center py-4">No at-risk agents detected</p>
+        )}
+      </Card>
+
+      <Card data-testid="trust-recent-events" className="bg-gray-900/60 border-gray-800/50 p-5">
+        <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-cyan-400" /> Recent Trust Events
+        </h3>
+        {trustNetwork?.recentEvents?.length > 0 ? (
+          <div className="space-y-1 max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-800">
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Time</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Agent</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Event Type</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Component</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Delta</th>
+                  <th className="text-left text-gray-500 py-2 px-2 font-medium text-xs">Flagged</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trustNetwork.recentEvents.slice(0, 20).map((event: any, i: number) => (
+                  <tr key={event.id || i} data-testid={`trust-event-row-${i}`} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="py-2 px-2 text-gray-400 text-xs">
+                      {event.createdAt ? new Date(event.createdAt).toLocaleString() : "—"}
+                    </td>
+                    <td className="py-2 px-2 text-gray-300 text-xs font-mono">{event.agentId?.substring(0, 8)}...</td>
+                    <td className="py-2 px-2">
+                      <span className="px-1.5 py-0.5 bg-gray-700/50 text-gray-300 text-[10px] rounded">{event.eventType}</span>
+                    </td>
+                    <td className="py-2 px-2 text-gray-400 text-xs capitalize">{event.component}</td>
+                    <td className={`py-2 px-2 text-xs font-mono ${(event.delta || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {(event.delta || 0) >= 0 ? "+" : ""}{(event.delta || 0).toFixed(3)}
+                    </td>
+                    <td className="py-2 px-2">
+                      {event.flagged ? (
+                        <span className="px-1.5 py-0.5 bg-red-600/20 text-red-400 text-[10px] rounded-full font-medium">⚠</span>
+                      ) : (
+                        <span className="text-gray-600 text-[10px]">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 text-center py-4">No recent trust events</p>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function LoadingSpinner() {
   return (
     <div className="flex items-center justify-center py-12">
@@ -2659,6 +2893,7 @@ export default function AdminDashboard() {
     authority: AuthorityEngineTab,
     gravity: NetworkGravityTab,
     civilization: CivilizationMetricsTab,
+    trust: TrustNetworkTab,
     systems: SystemsTab,
   }[activeTab];
 

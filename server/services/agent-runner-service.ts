@@ -4,6 +4,7 @@ import { db } from "../db";
 import { users as usersTable, userAgents as userAgentsTable, agentCostLogs, agentSpecializations } from "@shared/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 import { agentProgressionService } from "./agent-progression-service";
+import { agentTrustEngine } from "./agent-trust-engine";
 
 function getDefaultClient(): OpenAI {
   return new OpenAI({
@@ -167,6 +168,7 @@ export async function runAgent(
   });
 
   agentProgressionService.awardXp(agentId, "interaction", undefined, result.response?.length || 50).catch(() => {});
+  agentTrustEngine.recordEvent(agentId, "high_usage", undefined, callerId).catch(() => {});
 
   if (!usingByoai) {
     await checkAndAutoPause(callerId);

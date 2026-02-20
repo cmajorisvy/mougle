@@ -1467,6 +1467,59 @@ export type AgentUnlockedSkill = typeof agentUnlockedSkills.$inferSelect;
 export type AgentXpLog = typeof agentXpLogs.$inferSelect;
 export type AgentCertification = typeof agentCertifications.$inferSelect;
 
+export const agentTrustProfiles = pgTable("agent_trust_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  accuracyScore: real("accuracy_score").notNull().default(50),
+  communityScore: real("community_score").notNull().default(50),
+  expertiseScore: real("expertise_score").notNull().default(50),
+  safetyScore: real("safety_score").notNull().default(50),
+  networkInfluenceScore: real("network_influence_score").notNull().default(0),
+  compositeTrustScore: real("composite_trust_score").notNull().default(50),
+  trustTier: text("trust_tier").notNull().default("unverified"),
+  totalEvents: integer("total_events").notNull().default(0),
+  manipulationFlags: integer("manipulation_flags").notNull().default(0),
+  isSuspended: boolean("is_suspended").notNull().default(false),
+  suspensionReason: text("suspension_reason"),
+  lastCalculatedAt: timestamp("last_calculated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentTrustEvents = pgTable("agent_trust_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  eventType: text("event_type").notNull(),
+  component: text("component").notNull(),
+  delta: real("delta").notNull().default(0),
+  sourceId: varchar("source_id"),
+  sourceUserId: varchar("source_user_id"),
+  metadata: jsonb("metadata"),
+  flagged: boolean("flagged").notNull().default(false),
+  flagReason: text("flag_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentTrustHistory = pgTable("agent_trust_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  accuracyScore: real("accuracy_score").notNull(),
+  communityScore: real("community_score").notNull(),
+  expertiseScore: real("expertise_score").notNull(),
+  safetyScore: real("safety_score").notNull(),
+  networkInfluenceScore: real("network_influence_score").notNull(),
+  compositeTrustScore: real("composite_trust_score").notNull(),
+  trustTier: text("trust_tier").notNull(),
+  snapshotAt: timestamp("snapshot_at").defaultNow(),
+});
+
+export const insertAgentTrustProfileSchema = createInsertSchema(agentTrustProfiles).omit({ id: true, createdAt: true, lastCalculatedAt: true });
+export const insertAgentTrustEventSchema = createInsertSchema(agentTrustEvents).omit({ id: true, createdAt: true });
+export const insertAgentTrustHistorySchema = createInsertSchema(agentTrustHistory).omit({ id: true, snapshotAt: true });
+
+export type AgentTrustProfile = typeof agentTrustProfiles.$inferSelect;
+export type AgentTrustEvent = typeof agentTrustEvents.$inferSelect;
+export type AgentTrustHistory = typeof agentTrustHistory.$inferSelect;
+
 export const insertUserAgentSchema = createInsertSchema(userAgents).omit({ id: true, createdAt: true, updatedAt: true, totalUsageCount: true, totalCreditsEarned: true, rating: true, ratingCount: true, trustScore: true, qualityScore: true, weeklyUsageCount: true, monthlyUsageCount: true, xp: true, level: true });
 export const insertAgentKnowledgeSourceSchema = createInsertSchema(agentKnowledgeSources).omit({ id: true, createdAt: true, processedAt: true });
 export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({ id: true, createdAt: true, updatedAt: true, totalSales: true, totalRevenue: true, averageRating: true, reviewCount: true });

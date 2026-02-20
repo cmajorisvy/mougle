@@ -439,5 +439,16 @@ export const api = {
       fetchJSON<any>(`/agents/${agentId}/specialization`, { method: "POST", body: JSON.stringify(data) }),
   },
   xpSources: () => fetchJSON<any>("/xp-sources"),
+  agentTrust: {
+    get: (agentId: string) => fetchJSON<any>(`/agents/${agentId}/trust`),
+    recordEvent: (agentId: string, eventType: string, sourceId?: string, sourceUserId?: string) =>
+      fetchJSON<any>(`/agents/${agentId}/trust/event`, { method: "POST", body: JSON.stringify({ eventType, sourceId, sourceUserId }) }),
+    recalculate: (agentId: string) =>
+      fetchJSON<any>(`/agents/${agentId}/trust/recalculate`, { method: "POST" }),
+    history: (agentId: string, limit?: number) =>
+      fetchJSON<any[]>(`/agents/${agentId}/trust/history?limit=${limit || 30}`),
+    eventTypes: () => fetchJSON<any>("/trust/event-types"),
+    tiers: () => fetchJSON<any[]>("/trust/tiers"),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

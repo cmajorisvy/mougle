@@ -67,7 +67,7 @@ export default function AgentDetail() {
   const queryClient = useQueryClient();
   const currentUserId = getCurrentUserId();
 
-  const [activeTab, setActiveTab] = useState<"reviews" | "versions" | "demo">("reviews");
+  const [activeTab, setActiveTab] = useState<"reviews" | "versions" | "demo" | "trust">("reviews");
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewContent, setReviewContent] = useState("");
@@ -97,6 +97,12 @@ export default function AgentDetail() {
     queryKey: ["/api/marketplace/purchases", currentUserId],
     queryFn: () => api.marketplace.purchases(currentUserId!),
     enabled: !!currentUserId,
+  });
+
+  const { data: trustData } = useQuery({
+    queryKey: ["/api/agents/trust", listing?.agentId],
+    queryFn: () => api.agentTrust.get(listing?.agentId),
+    enabled: !!listing?.agentId && activeTab === "trust",
   });
 
   const hasPurchased = purchases.some(
@@ -352,7 +358,7 @@ export default function AgentDetail() {
         </div>
 
         <div className="flex gap-1 p-1 rounded-xl bg-[#141422]/80 border border-white/[0.06]" data-testid="tabs-navigation">
-          {(["reviews", "versions", ...(demoEnabled ? ["demo"] as const : [])] as const).map((tab) => (
+          {(["reviews", "versions", "trust", ...(demoEnabled ? ["demo"] as const : [])] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
@@ -366,6 +372,7 @@ export default function AgentDetail() {
             >
               {tab === "reviews" && <><MessageSquare className="w-4 h-4 inline mr-1.5 -mt-0.5" />Reviews</>}
               {tab === "versions" && <><History className="w-4 h-4 inline mr-1.5 -mt-0.5" />Versions</>}
+              {tab === "trust" && <><Shield className="w-4 h-4 inline mr-1.5 -mt-0.5" />Trust</>}
               {tab === "demo" && <><Bot className="w-4 h-4 inline mr-1.5 -mt-0.5" />Try Demo</>}
             </button>
           ))}
@@ -483,6 +490,94 @@ export default function AgentDetail() {
                   </div>
                 );
               })
+            )}
+          </div>
+        )}
+
+        {activeTab === "trust" && (
+          <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-5 space-y-5" data-testid="section-trust">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="w-5 h-5 text-green-400" />
+              <h3 className="font-semibold text-white">Trust Score Breakdown</h3>
+            </div>
+            {trustData?.profile ? (
+              <>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="relative w-20 h-20">
+                    <svg viewBox="0 0 36 36" className="w-20 h-20 transform -rotate-90">
+                      <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+                      <circle cx="18" cy="18" r="16" fill="none" stroke="url(#trust-gradient)" strokeWidth="3"
+                        strokeDasharray={`${(trustData.profile.compositeTrustScore / 100) * 100.5} 100.5`}
+                        strokeLinecap="round" />
+                      <defs>
+                        <linearGradient id="trust-gradient">
+                          <stop offset="0%" stopColor="#22c55e" />
+                          <stop offset="100%" stopColor="#3b82f6" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-lg font-bold text-white" data-testid="text-composite-trust">
+                        {Math.round(trustData.profile.compositeTrustScore)}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <Badge className={cn("text-xs mb-1",
+                      trustData.profile.trustTier === "elite" ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                      trustData.profile.trustTier === "verified" ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                      trustData.profile.trustTier === "trusted" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                      "bg-gray-500/10 text-gray-400 border-gray-500/20"
+                    )} data-testid="badge-trust-tier">
+                      {trustData.profile.trustTier.charAt(0).toUpperCase() + trustData.profile.trustTier.slice(1)}
+                    </Badge>
+                    <p className="text-xs text-gray-500">{trustData.profile.totalEvents} trust events recorded</p>
+                    {trustData.profile.isSuspended && (
+                      <Badge className="bg-red-500/10 text-red-400 border-red-500/20 text-[10px] mt-1">Suspended</Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {[
+                    { label: "Accuracy", value: trustData.profile.accuracyScore, color: "bg-blue-500", weight: "30%" },
+                    { label: "Community", value: trustData.profile.communityScore, color: "bg-green-500", weight: "25%" },
+                    { label: "Expertise", value: trustData.profile.expertiseScore, color: "bg-purple-500", weight: "20%" },
+                    { label: "Safety", value: trustData.profile.safetyScore, color: "bg-amber-500", weight: "15%" },
+                    { label: "Network", value: trustData.profile.networkInfluenceScore, color: "bg-cyan-500", weight: "10%" },
+                  ].map((comp) => (
+                    <div key={comp.label} data-testid={`trust-component-${comp.label.toLowerCase()}`}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="text-gray-400">{comp.label} <span className="text-gray-600">({comp.weight})</span></span>
+                        <span className="text-white font-medium">{Math.round(comp.value)}/100</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                        <div className={cn("h-full rounded-full transition-all", comp.color)} style={{ width: `${comp.value}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {trustData.recentEvents?.length > 0 && (
+                  <div className="mt-4">
+                    <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">Recent Events</div>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {trustData.recentEvents.slice(0, 10).map((ev: any) => (
+                        <div key={ev.id} className="flex items-center justify-between text-xs py-1 border-b border-white/[0.03]" data-testid={`trust-event-${ev.id}`}>
+                          <span className="text-gray-400">{ev.eventType.replace(/_/g, " ")}</span>
+                          <span className={cn("font-medium", ev.delta > 0 ? "text-green-400" : ev.delta < 0 ? "text-red-400" : "text-gray-500")}>
+                            {ev.delta > 0 ? "+" : ""}{ev.delta.toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                No trust data available yet. Trust builds over time through interactions, reviews, and fact checks.
+              </div>
             )}
           </div>
         )}

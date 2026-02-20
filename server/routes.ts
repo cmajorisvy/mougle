@@ -42,7 +42,8 @@ import { postCooldownMiddleware } from "./middleware/rate-limiter";
 import { aiGateway } from "./services/ai-gateway";
 import { agentProgressionService } from "./services/agent-progression-service";
 import { seedIndustryData } from "./services/industry-seed";
-import { industries, industryCategories, agentRoles as agentRolesTable, knowledgePacks, agentSkillNodes, agentSpecializations, agentCertifications } from "@shared/schema";
+import { industries, industryCategories, agentRoles as agentRolesTable, knowledgePacks, agentSkillNodes, agentSpecializations, agentCertifications, agentTrustProfiles, agentTrustEvents, agentTrustHistory } from "@shared/schema";
+import { agentTrustEngine } from "./services/agent-trust-engine";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -2748,6 +2749,13 @@ Keep under 200 words.`
         const seller = await storage.getUser(l.sellerId);
         return { ...l, agent, sellerName: seller?.displayName, qualityScore: agent ? agentRunnerService.computeQualityScore(l) : 0 };
       }));
+      enriched.sort((a, b) => {
+        const trustA = a.agent?.trustScore || 0;
+        const trustB = b.agent?.trustScore || 0;
+        const qualA = a.qualityScore || 0;
+        const qualB = b.qualityScore || 0;
+        return (trustB * 0.4 + qualB * 0.6) - (trustA * 0.4 + qualA * 0.6);
+      });
       res.json(enriched);
     } catch (err) { handleServiceError(res, err); }
   });
@@ -2836,6 +2844,9 @@ Keep under 200 words.`
 
         return created;
       });
+
+      const trustEventType = rating >= 4 ? "positive_rating" : rating <= 2 ? "negative_rating" : "neutral_rating";
+      agentTrustEngine.recordEvent(agentId, trustEventType, listingId, reviewerId).catch(() => {});
 
       res.json(review);
     } catch (err) { handleServiceError(res, err); }
@@ -3207,6 +3218,76 @@ Keep under 200 words.`
     try {
       const [spec] = await db.select().from(agentSpecializations).where(eq(agentSpecializations.agentId, req.params.agentId));
       res.json(spec || null);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AGENT TRUST GRAPH SYSTEM ----
+
+  app.get("/api/agents/:agentId/trust", async (req, res) => {
+    try {
+      const breakdown = await agentTrustEngine.getTrustBreakdown(req.params.agentId);
+      res.json(breakdown);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agents/:agentId/trust/event", async (req, res) => {
+    try {
+      const { eventType, sourceId, sourceUserId, metadata } = req.body;
+      if (!eventType) return res.status(400).json({ error: "eventType required" });
+      const event = await agentTrustEngine.recordEvent(req.params.agentId, eventType, sourceId, sourceUserId, metadata);
+      res.json(event || { recorded: false, reason: "Unknown event type" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agents/:agentId/trust/recalculate", async (req, res) => {
+    try {
+      const scores = await agentTrustEngine.recalculateScores(req.params.agentId);
+      res.json(scores);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agents/:agentId/trust/history", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 30;
+      const history = await db.select().from(agentTrustHistory)
+        .where(eq(agentTrustHistory.agentId, req.params.agentId))
+        .orderBy(desc(agentTrustHistory.snapshotAt))
+        .limit(limit);
+      res.json(history);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/trust/event-types", async (_req, res) => {
+    res.json(agentTrustEngine.getEventTypes());
+  });
+
+  app.get("/api/trust/tiers", async (_req, res) => {
+    res.json(agentTrustEngine.getTrustTiers());
+  });
+
+  // ---- ADMIN TRUST NETWORK ANALYTICS ----
+
+  app.get("/api/admin/trust/network", async (req, res) => {
+    try {
+      if (!verifyAdminSession(req, res)) return;
+      const analytics = await agentTrustEngine.getNetworkAnalytics();
+      res.json(analytics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/trust/recalculate-all", async (req, res) => {
+    try {
+      if (!verifyAdminSession(req, res)) return;
+      const result = await agentTrustEngine.recalculateAll();
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/trust/unsuspend/:agentId", async (req, res) => {
+    try {
+      if (!verifyAdminSession(req, res)) return;
+      await agentTrustEngine.unsuspendAgent(req.params.agentId);
+      res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
 
