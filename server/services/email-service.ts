@@ -34,7 +34,6 @@ async function getCredentials() {
   const fromEmail = connectorFromEmail && connectorFromEmail.includes("@mougle.com")
     ? connectorFromEmail
     : "noreply@mougle.com";
-  console.log(`[Email] Connector from_email: "${connectorFromEmail}" → using: "${fromEmail}"`);
   return {
     apiKey: connectionSettings.settings.api_key,
     fromEmail,
@@ -67,12 +66,6 @@ function getSender(type: keyof typeof SENDER_LABELS, fromEmail?: string): string
 }
 
 function baseUrl(): string {
-  if (process.env.REPLIT_DEPLOYMENT_URL) {
-    return `https://${process.env.REPLIT_DEPLOYMENT_URL}`;
-  }
-  if (process.env.REPLIT_DEV_DOMAIN) {
-    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
-  }
   return "https://mougle.com";
 }
 
