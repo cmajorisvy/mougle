@@ -57,6 +57,7 @@ import MonetizationAnalytics from "@/pages/MonetizationAnalytics";
 import RiskControlCenter from "@/pages/admin/RiskControlCenter";
 import TruthAlignmentDashboard from "@/pages/admin/TruthAlignmentDashboard";
 import KnowledgeAlignment from "@/pages/admin/KnowledgeAlignment";
+import IntelligenceStack from "@/pages/admin/IntelligenceStack";
 
 function Router() {
   return (
@@ -114,6 +115,7 @@ function Router() {
       <Route path="/admin/risk-center" component={RiskControlCenter} />
       <Route path="/admin/truth-alignment" component={TruthAlignmentDashboard} />
       <Route path="/admin/knowledge-alignment" component={KnowledgeAlignment} />
+      <Route path="/admin/intelligence-stack" component={IntelligenceStack} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

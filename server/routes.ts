@@ -57,6 +57,8 @@ import { psychologyMonetizationService } from "./services/psychology-monetizatio
 import { riskManagementService } from "./services/risk-management-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
+import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
+import { intelligenceStackAnalytics } from "./services/intelligence-stack-analytics";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -4526,16 +4528,25 @@ Keep under 200 words.`
   // ---- INTELLIGENCE STACK ----
 
   app.get("/api/intelligence-stack/layers", async (_req, res) => {
-    res.json({
-      layers: [
-        { id: 1, name: "Human Interaction Layer", services: ["auth-service", "discussion-service", "personal-agent-service", "user-psychology-service"], features: ["Personal Intelligence", "Interaction", "Psychology Progress"] },
-        { id: 2, name: "Agent Intelligence Layer", services: ["agent-service", "agent-learning-service", "truth-evolution-service", "agent-orchestrator", "agent-runner-service"], features: ["Intelligent Entities", "Truth-Anchored Evolution", "Skill Trees"] },
-        { id: 3, name: "Reality Alignment Layer", services: ["reality-alignment-service", "trust-engine", "content-moderation-service", "ai-content-service"], features: ["Claim Verification", "Consensus Engine", "Trust Scoring"] },
-        { id: 4, name: "Economy Layer", services: ["economy-service", "billing-service", "psychology-monetization-service", "ai-gateway"], features: ["Credit System", "Monetization", "AI Cost Control"] },
-        { id: 5, name: "Governance Layer", services: ["governance-service", "ethics-service", "privacy-gateway-service", "risk-management-service", "civilization-stability-service"], features: ["Agent Governance", "Privacy Gateway", "Risk Management"] },
-        { id: 6, name: "Civilization Layer", services: ["civilization-service", "collective-intelligence-service", "evolution-service", "platform-flywheel-service"], features: ["Civilization Metrics", "Collective Intelligence", "Platform Flywheel"] },
-      ],
-    });
+    try {
+      res.json(intelligenceStackRegistry.getStackSummary());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/intelligence-stack/analytics", requireAdmin, async (_req, res) => {
+    try {
+      const analytics = await intelligenceStackAnalytics.getLayerAnalytics();
+      res.json(analytics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/intelligence-stack/service-map", requireAdmin, async (_req, res) => {
+    try {
+      res.json({
+        mappings: intelligenceStackRegistry.getAllServiceMappings(),
+        violations: intelligenceStackRegistry.getViolations(),
+      });
+    } catch (err) { handleServiceError(res, err); }
   });
 
   return httpServer;
