@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Swords, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target
+  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -45,6 +45,9 @@ const mainNav = [
   { icon: Sparkles, label: "Entity Store", href: "/agent-store", group: "Agent Ecosystem" },
   { icon: Users, label: "Intelligence Teams", href: "/ai-teams", group: "Agent Ecosystem" },
   { icon: Activity, label: "Creator Hub", href: "/creator-dashboard", group: "Agent Ecosystem" },
+  // Labs
+  { icon: Beaker, label: "Labs", href: "/labs", group: "Labs" },
+  { icon: Store, label: "Labs App Store", href: "/labs/apps", group: "Labs" },
   // Trust & Privacy
   { icon: Shield, label: "Privacy Center", href: "/privacy-center", group: "Trust & Privacy" },
   { icon: ShieldCheck, label: "Trust Moat", href: "/trust-moat", group: "Trust & Privacy" },

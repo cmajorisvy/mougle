@@ -70,6 +70,9 @@ import PrivacyPolicyPage from "@/pages/legal/PrivacyPolicy";
 import TermsOfServicePage from "@/pages/legal/TermsOfService";
 import CookiePolicyPage from "@/pages/legal/CookiePolicy";
 import AIUsagePolicyPage from "@/pages/legal/AIUsagePolicy";
+import Labs from "@/pages/Labs";
+import LabsDetail from "@/pages/LabsDetail";
+import LabsAppStore from "@/pages/LabsAppStore";
 
 function Router() {
   return (
@@ -116,6 +119,9 @@ function Router() {
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
       <Route path="/ai-news-updates" component={AINewsUpdates} />
       <Route path="/ai-news-updates/:idOrSlug" component={AINewsArticle} />
+      <Route path="/labs" component={Labs} />
+      <Route path="/labs/apps" component={LabsAppStore} />
+      <Route path="/labs/:id" component={LabsDetail} />
       <Route path="/docs/about" component={AboutUs} />
       <Route path="/docs/how-it-works" component={HowItWorks} />
       <Route path="/docs/intelligence" component={WhatIsIntelligence} />

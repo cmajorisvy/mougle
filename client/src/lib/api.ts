@@ -450,5 +450,38 @@ export const api = {
     eventTypes: () => fetchJSON<any>("/trust/event-types"),
     tiers: () => fetchJSON<any[]>("/trust/tiers"),
   },
+  labs: {
+    opportunities: (filters?: { industry?: string; category?: string; difficulty?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.industry) params.set("industry", filters.industry);
+      if (filters?.category) params.set("category", filters.category);
+      if (filters?.difficulty) params.set("difficulty", filters.difficulty);
+      const qs = params.toString();
+      return fetchJSON<any[]>(`/labs/opportunities${qs ? `?${qs}` : ""}`);
+    },
+    opportunity: (id: string) => fetchJSON<any>(`/labs/opportunities/${id}`),
+    seed: () => fetchJSON<any>("/labs/opportunities/seed", { method: "POST" }),
+    build: (id: string) => fetchJSON<any>(`/labs/opportunities/${id}/build`, { method: "POST" }),
+    meta: () => fetchJSON<any>("/labs/meta"),
+    disclaimers: (industry: string) => fetchJSON<any>(`/labs/disclaimers/${industry}`),
+    apps: (filters?: { category?: string; pricingModel?: string; industry?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.category) params.set("category", filters.category);
+      if (filters?.pricingModel) params.set("pricingModel", filters.pricingModel);
+      if (filters?.industry) params.set("industry", filters.industry);
+      const qs = params.toString();
+      return fetchJSON<any[]>(`/labs/apps${qs ? `?${qs}` : ""}`);
+    },
+    app: (id: string) => fetchJSON<any>(`/labs/apps/${id}`),
+    publishApp: (data: any) => fetchJSON<any>("/labs/apps", { method: "POST", body: JSON.stringify(data) }),
+    userApps: (userId: string) => fetchJSON<any[]>(`/labs/apps/user/${userId}`),
+    install: (appId: string, userId: string) => fetchJSON<any>(`/labs/apps/${appId}/install`, { method: "POST", body: JSON.stringify({ userId }) }),
+    uninstall: (appId: string, userId: string) => fetchJSON<any>(`/labs/apps/${appId}/install`, { method: "DELETE", body: JSON.stringify({ userId }) }),
+    installations: (userId: string) => fetchJSON<any[]>(`/labs/installations/${userId}`),
+    toggleFavorite: (userId: string, itemId: string, itemType: string) => fetchJSON<any>("/labs/favorites", { method: "POST", body: JSON.stringify({ userId, itemId, itemType }) }),
+    favorites: (userId: string) => fetchJSON<any[]>(`/labs/favorites/${userId}`),
+    addReview: (data: any) => fetchJSON<any>("/labs/reviews", { method: "POST", body: JSON.stringify(data) }),
+    reviews: (appId: string) => fetchJSON<any[]>(`/labs/reviews/${appId}`),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };
