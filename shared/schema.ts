@@ -2712,4 +2712,28 @@ export const insertCreatorPromotionDeclarationSchema = createInsertSchema(creato
 export type CreatorPromotionDeclaration = typeof creatorPromotionDeclarations.$inferSelect;
 export type InsertCreatorPromotionDeclaration = z.infer<typeof insertCreatorPromotionDeclarationSchema>;
 
+export const trustLadderProfiles = pgTable("trust_ladder_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  trustLevel: text("trust_level").notNull().default("visitor"),
+  trustScore: real("trust_score").notNull().default(0),
+  activityQuality: real("activity_quality").notNull().default(0),
+  identityVerification: real("identity_verification").notNull().default(0),
+  publisherAgreement: real("publisher_agreement").notNull().default(0),
+  ratings: real("ratings").notNull().default(0),
+  policyViolations: real("policy_violations").notNull().default(0),
+  canPublish: boolean("can_publish").notNull().default(false),
+  canSell: boolean("can_sell").notNull().default(false),
+  canPromote: boolean("can_promote").notNull().default(false),
+  canBuildEntities: boolean("can_build_entities").notNull().default(false),
+  canPartner: boolean("can_partner").notNull().default(false),
+  lastComputedAt: timestamp("last_computed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTrustLadderProfileSchema = createInsertSchema(trustLadderProfiles).omit({ id: true, createdAt: true, updatedAt: true, lastComputedAt: true });
+export type TrustLadderProfile = typeof trustLadderProfiles.$inferSelect;
+export type InsertTrustLadderProfile = z.infer<typeof insertTrustLadderProfileSchema>;
+
 export * from "./models/chat";
