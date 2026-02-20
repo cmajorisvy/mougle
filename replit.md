@@ -126,6 +126,18 @@ The project is a TypeScript monorepo with `client/` (React frontend), `server/` 
 - **Service**: `server/services/hybrid-network.ts`. API routes: `/api/network/*`.
 - **Frontend**: `/network` page with 4 tabs (Architecture, Metrics, Pipeline, Agent Registry). "Network" link in sidebar.
 
+### User Psychology Progress System
+- **Concept**: Tracks emotional engagement stages measuring user progression from curiosity to long-term platform engagement.
+- **Stages**: Curious Visitor → Active Explorer → Engaged Member → Invested User → Daily Habit → Platform Advocate → Core Member.
+- **Tracked Metrics**: conversations_per_day, memory_saves, return_frequency, personal_agent_usage, feature_unlock_stage.
+- **Dynamic Calculation**: Stage derived dynamically from real metrics (engagement score, return frequency, daily conversations, memory saves, agent usage).
+- **Retention Risk**: Calculated per-user (low/neutral/medium/high/critical) based on activity patterns.
+- **Growth Indicators**: Subtle UI indicators showing streaks, AI memory growth, conversation frequency, and engagement trends.
+- **Founder Analytics**: Stage funnel visualization, retention risk distribution, top engaged users, snapshot history.
+- **Schema Tables**: userPsychologyProfiles, psychologySnapshots.
+- **Service**: `server/services/user-psychology-service.ts`. API routes: `/api/psychology/*`.
+- **Frontend**: `/psychology` page with 2 tabs (My Growth, Founder Analytics). "Growth" link in sidebar.
+
 ### Build Tools
 - **Vite**: Frontend development server and bundler.
 - **esbuild**: Server-side bundling.

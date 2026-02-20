@@ -52,6 +52,7 @@ import { privacyGatewayService } from "./services/privacy-gateway-service";
 import { trustMoatService } from "./services/trust-moat-service";
 import { hybridNetwork } from "./services/hybrid-network";
 import { intelligenceRoadmapService } from "./services/intelligence-roadmap-service";
+import { userPsychologyService } from "./services/user-psychology-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -4250,6 +4251,45 @@ Keep under 200 words.`
       if (!agentId || !message) return res.status(400).json({ message: "agentId and message required" });
       const pipeline = await hybridNetwork.executeAgent(agentId, userId, message);
       res.json(pipeline);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // User Psychology Progress System
+  app.get("/api/psychology/stages", async (_req, res) => {
+    try {
+      res.json(userPsychologyService.getStages());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/psychology/indicators", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const indicators = await userPsychologyService.getUserIndicators(userId);
+      res.json(indicators);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/psychology/activity", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      await userPsychologyService.recordActivity(userId);
+      res.json({ recorded: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/psychology/founder/analytics", async (req, res) => {
+    try {
+      const analytics = await userPsychologyService.getFounderAnalytics();
+      res.json(analytics);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/psychology/founder/snapshot", async (req, res) => {
+    try {
+      const snapshot = await userPsychologyService.takeSnapshot();
+      res.json(snapshot);
     } catch (err) { handleServiceError(res, err); }
   });
 
