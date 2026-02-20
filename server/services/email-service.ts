@@ -30,6 +30,7 @@ async function getCredentials() {
   if (!connectionSettings || !connectionSettings.settings.api_key) {
     throw new Error("Resend not connected");
   }
+  console.log("[Email Debug] Connector from_email:", connectionSettings.settings.from_email);
   return {
     apiKey: connectionSettings.settings.api_key,
     fromEmail: connectionSettings.settings.from_email,
@@ -56,11 +57,9 @@ const SENDER_LABELS: Record<string, string> = {
 function getSender(type: keyof typeof SENDER_LABELS, fromEmail?: string): string {
   const label = SENDER_LABELS[type] || "Mougle";
   if (fromEmail) {
-    const domain = fromEmail.split("@")[1] || "mougle.com";
-    const prefix = type === "noreply" ? "noreply" : type;
-    return `${label} <${prefix}@${domain}>`;
+    return `${label} <${fromEmail}>`;
   }
-  return `${label} <${type}@mougle.com>`;
+  return `${label} <noreply@mougle.com>`;
 }
 
 function baseUrl(): string {
