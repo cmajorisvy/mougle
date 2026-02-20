@@ -1213,6 +1213,9 @@ export const userAgents = pgTable("user_agents", {
   qualityScore: real("quality_score").notNull().default(0),
   version: text("version").notNull().default("1.0.0"),
   changelog: text("changelog"),
+  xp: integer("xp").notNull().default(0),
+  level: integer("level").notNull().default(1),
+  specializationSlug: text("specialization_slug"),
   weeklyUsageCount: integer("weekly_usage_count").notNull().default(0),
   monthlyUsageCount: integer("monthly_usage_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
@@ -1404,7 +1407,67 @@ export const agentCostLogs = pgTable("agent_cost_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertUserAgentSchema = createInsertSchema(userAgents).omit({ id: true, createdAt: true, updatedAt: true, totalUsageCount: true, totalCreditsEarned: true, rating: true, ratingCount: true, trustScore: true, qualityScore: true, weeklyUsageCount: true, monthlyUsageCount: true });
+// ---- AGENT SKILL TREE & PROGRESSION ----
+
+export const agentSkillNodes = pgTable("agent_skill_nodes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  industrySlug: text("industry_slug").notNull(),
+  treeTier: integer("tree_tier").notNull().default(1),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  icon: text("icon").notNull().default("Zap"),
+  xpCost: integer("xp_cost").notNull().default(100),
+  creditCost: integer("credit_cost").notNull().default(0),
+  levelRequired: integer("level_required").notNull().default(1),
+  prerequisiteSlugs: text("prerequisite_slugs").array(),
+  effectType: text("effect_type").notNull().default("boost"),
+  effectKey: text("effect_key"),
+  effectValue: real("effect_value"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentUnlockedSkills = pgTable("agent_unlocked_skills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  skillSlug: text("skill_slug").notNull(),
+  unlockedAt: timestamp("unlocked_at").defaultNow(),
+});
+
+export const agentXpLogs = pgTable("agent_xp_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  source: text("source").notNull(),
+  xpAmount: integer("xp_amount").notNull(),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentCertifications = pgTable("agent_certifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  industrySlug: text("industry_slug").notNull(),
+  certSlug: text("cert_slug").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  badge: text("badge").notNull().default("verified"),
+  rankBoost: integer("rank_boost").notNull().default(10),
+  grantedAt: timestamp("granted_at").defaultNow(),
+});
+
+export const insertAgentSkillNodeSchema = createInsertSchema(agentSkillNodes).omit({ id: true, createdAt: true });
+export const insertAgentUnlockedSkillSchema = createInsertSchema(agentUnlockedSkills).omit({ id: true, unlockedAt: true });
+export const insertAgentXpLogSchema = createInsertSchema(agentXpLogs).omit({ id: true, createdAt: true });
+export const insertAgentCertificationSchema = createInsertSchema(agentCertifications).omit({ id: true, grantedAt: true });
+
+export type AgentSkillNode = typeof agentSkillNodes.$inferSelect;
+export type InsertAgentSkillNode = z.infer<typeof insertAgentSkillNodeSchema>;
+export type AgentUnlockedSkill = typeof agentUnlockedSkills.$inferSelect;
+export type AgentXpLog = typeof agentXpLogs.$inferSelect;
+export type AgentCertification = typeof agentCertifications.$inferSelect;
+
+export const insertUserAgentSchema = createInsertSchema(userAgents).omit({ id: true, createdAt: true, updatedAt: true, totalUsageCount: true, totalCreditsEarned: true, rating: true, ratingCount: true, trustScore: true, qualityScore: true, weeklyUsageCount: true, monthlyUsageCount: true, xp: true, level: true });
 export const insertAgentKnowledgeSourceSchema = createInsertSchema(agentKnowledgeSources).omit({ id: true, createdAt: true, processedAt: true });
 export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({ id: true, createdAt: true, updatedAt: true, totalSales: true, totalRevenue: true, averageRating: true, reviewCount: true });
 export const insertAgentPurchaseSchema = createInsertSchema(agentPurchases).omit({ id: true, createdAt: true });

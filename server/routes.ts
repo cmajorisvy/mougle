@@ -40,6 +40,9 @@ import crypto from "crypto";
 import { moderateContent, moderateUsername, recordViolation, isUserSpammer, isUserShadowBanned, sanitizeHTML, sanitizeLinks, getUserModerationStatus, stripLinksForSpammer, type ContentCategory } from "./services/content-moderation-service";
 import { postCooldownMiddleware } from "./middleware/rate-limiter";
 import { aiGateway } from "./services/ai-gateway";
+import { agentProgressionService } from "./services/agent-progression-service";
+import { seedIndustryData } from "./services/industry-seed";
+import { industries, industryCategories, agentRoles as agentRolesTable, knowledgePacks, agentSkillNodes, agentSpecializations, agentCertifications } from "@shared/schema";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -3056,6 +3059,154 @@ Keep under 200 words.`
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       res.json(await agentRunnerService.getPlatformCostAnalytics());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- INDUSTRY SPECIALIZATION SYSTEM ----
+
+  seedIndustryData().catch(console.error);
+
+  app.get("/api/industries", async (_req, res) => {
+    try {
+      const rows = await db.select().from(industries).orderBy(industries.sortOrder);
+      res.json(rows);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/industries/:slug/categories", async (req, res) => {
+    try {
+      const rows = await db.select().from(industryCategories).where(eq(industryCategories.industrySlug, req.params.slug)).orderBy(industryCategories.sortOrder);
+      res.json(rows);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/industries/:slug/roles", async (req, res) => {
+    try {
+      const { category } = req.query;
+      let query = db.select().from(agentRolesTable).where(eq(agentRolesTable.industrySlug, req.params.slug)).orderBy(agentRolesTable.sortOrder);
+      const rows = await query;
+      const filtered = category ? rows.filter(r => r.categorySlug === category) : rows;
+      res.json(filtered);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/industries/:slug/knowledge-packs", async (req, res) => {
+    try {
+      const rows = await db.select().from(knowledgePacks).where(eq(knowledgePacks.industrySlug, req.params.slug));
+      res.json(rows);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/industries/:slug/skill-tree", async (req, res) => {
+    try {
+      const rows = await db.select().from(agentSkillNodes).where(eq(agentSkillNodes.industrySlug, req.params.slug)).orderBy(agentSkillNodes.treeTier, agentSkillNodes.sortOrder);
+      res.json(rows);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/knowledge-packs", async (_req, res) => {
+    try {
+      const rows = await db.select().from(knowledgePacks);
+      res.json(rows);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- AGENT SKILL TREE & PROGRESSION ----
+
+  app.get("/api/agents/:agentId/progression", async (req, res) => {
+    try {
+      const result = await agentProgressionService.getAgentProgression(req.params.agentId);
+      if (!result) return res.status(404).json({ error: "Agent not found" });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agents/:agentId/unlock-skill", async (req, res) => {
+    try {
+      const { skillSlug } = req.body;
+      if (!skillSlug) return res.status(400).json({ error: "skillSlug required" });
+      const result = await agentProgressionService.unlockSkill(req.params.agentId, skillSlug);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      res.json({ success: true, message: `Skill "${skillSlug}" unlocked!` });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agents/:agentId/award-xp", async (req, res) => {
+    try {
+      const { source, contentLength, metadata } = req.body;
+      if (!source) return res.status(400).json({ error: "source required" });
+      const result = await agentProgressionService.awardXp(req.params.agentId, source, metadata, contentLength);
+      if (!result) return res.json({ awarded: false, reason: "Cooldown or quality check failed" });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agents/:agentId/certifications", async (req, res) => {
+    try {
+      const certs = await db.select().from(agentCertifications).where(eq(agentCertifications.agentId, req.params.agentId));
+      res.json(certs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agents/:agentId/check-certifications", async (req, res) => {
+    try {
+      const granted = await agentProgressionService.checkAndGrantCertifications(req.params.agentId);
+      res.json({ granted });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agents/:agentId/skill-effects", async (req, res) => {
+    try {
+      const effects = await agentProgressionService.getSkillEffects(req.params.agentId);
+      res.json(effects);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/xp-sources", async (_req, res) => {
+    res.json(agentProgressionService.XP_SOURCES);
+  });
+
+  // ---- AGENT SPECIALIZATION CRUD ----
+
+  app.post("/api/agents/:agentId/specialization", async (req, res) => {
+    try {
+      const { industrySlug, categorySlug, roleSlug, knowledgePackIds, customSkills, behaviorProfile } = req.body;
+      if (!industrySlug) return res.status(400).json({ error: "industrySlug required" });
+
+      const ind = await db.select().from(industries).where(eq(industries.slug, industrySlug)).limit(1);
+      const disclaimer = ind[0]?.regulated ? ind[0].disclaimer : null;
+
+      let industrySystemPrompt = "";
+      if (roleSlug) {
+        const [role] = await db.select().from(agentRolesTable).where(eq(agentRolesTable.slug, roleSlug));
+        if (role?.systemPromptTemplate) industrySystemPrompt = role.systemPromptTemplate;
+      }
+
+      const existing = await db.select().from(agentSpecializations).where(eq(agentSpecializations.agentId, req.params.agentId));
+      if (existing.length > 0) {
+        await db.update(agentSpecializations)
+          .set({ industrySlug, categorySlug, roleSlug, knowledgePackIds, customSkills, behaviorProfile, complianceDisclaimer: disclaimer, industrySystemPrompt })
+          .where(eq(agentSpecializations.agentId, req.params.agentId));
+      } else {
+        await db.insert(agentSpecializations).values({
+          agentId: req.params.agentId, industrySlug, categorySlug, roleSlug,
+          knowledgePackIds, customSkills, behaviorProfile,
+          complianceDisclaimer: disclaimer, industrySystemPrompt,
+        });
+      }
+
+      await db.update(userAgents_table)
+        .set({ industrySlug, categorySlug, roleSlug, updatedAt: new Date() })
+        .where(eq(userAgents_table.id, req.params.agentId));
+
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/agents/:agentId/specialization", async (req, res) => {
+    try {
+      const [spec] = await db.select().from(agentSpecializations).where(eq(agentSpecializations.agentId, req.params.agentId));
+      res.json(spec || null);
     } catch (err) { handleServiceError(res, err); }
   });
 

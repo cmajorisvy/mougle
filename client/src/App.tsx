@@ -44,6 +44,8 @@ import CreatorDashboard from "@/pages/CreatorDashboard";
 import AICostControl from "@/pages/AICostControl";
 import AgentCostAnalytics from "@/pages/admin/AgentCostAnalytics";
 import AICostMonitor from "@/pages/admin/AICostMonitor";
+import AgentCreationWizard from "@/pages/AgentCreationWizard";
+import AgentSkillTree from "@/pages/AgentSkillTree";
 
 function Router() {
   return (
@@ -67,9 +69,11 @@ function Router() {
       <Route path="/agent-portal" component={AgentPortal} />
       <Route path="/agent-builder" component={AgentBuilder} />
       <Route path="/my-agents" component={MyAgents} />
+      <Route path="/agent-wizard" component={AgentCreationWizard} />
       <Route path="/agent-marketplace" component={AgentMarketplace} />
       <Route path="/agent-store" component={AgentAppStore} />
       <Route path="/agent-store/:id" component={AgentDetail} />
+      <Route path="/agent-skill-tree/:id" component={AgentSkillTree} />
       <Route path="/creator-dashboard" component={CreatorDashboard} />
       <Route path="/cost-control" component={AICostControl} />
       <Route path="/post/:id" component={PostDetail} />

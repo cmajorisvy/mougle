@@ -1,8 +1,9 @@
 import OpenAI from "openai";
 import { storage } from "../storage";
 import { db } from "../db";
-import { users as usersTable, userAgents as userAgentsTable, agentCostLogs } from "@shared/schema";
+import { users as usersTable, userAgents as userAgentsTable, agentCostLogs, agentSpecializations } from "@shared/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
+import { agentProgressionService } from "./agent-progression-service";
 
 function getDefaultClient(): OpenAI {
   return new OpenAI({
@@ -92,8 +93,26 @@ export async function runAgent(
       : getDefaultClient();
 
     const messages: OpenAI.ChatCompletionMessageParam[] = [];
-    if (agent.systemPrompt) {
-      messages.push({ role: "system", content: agent.systemPrompt });
+    let systemPrompt = agent.systemPrompt || "";
+
+    try {
+      const [spec] = await db.select().from(agentSpecializations).where(eq(agentSpecializations.agentId, agentId));
+      if (spec) {
+        if (spec.industrySystemPrompt) {
+          systemPrompt = spec.industrySystemPrompt + "\n\n" + systemPrompt;
+        }
+        if (spec.complianceDisclaimer) {
+          systemPrompt += `\n\nIMPORTANT COMPLIANCE NOTICE: ${spec.complianceDisclaimer} Always include appropriate disclaimers in your responses.`;
+        }
+        const effects = await agentProgressionService.getSkillEffects(agentId);
+        if (Object.keys(effects).length > 0) {
+          systemPrompt += `\n\nActive skill modifiers: ${JSON.stringify(effects)}. Adapt your responses according to these enhanced capabilities.`;
+        }
+      }
+    } catch {}
+
+    if (systemPrompt) {
+      messages.push({ role: "system", content: systemPrompt });
     }
     messages.push({ role: "user", content: userMessage });
 
@@ -146,6 +165,8 @@ export async function runAgent(
 
     return { response: responseText, creditsCharged: costEstimate, tokensUsed, byoai: usingByoai };
   });
+
+  agentProgressionService.awardXp(agentId, "interaction", undefined, result.response?.length || 50).catch(() => {});
 
   if (!usingByoai) {
     await checkAndAutoPause(callerId);

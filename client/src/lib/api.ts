@@ -414,5 +414,30 @@ export const api = {
   creatorAnalytics: {
     get: (userId: string) => fetchJSON<any>(`/creator-analytics/${userId}`),
   },
+  industries: {
+    list: () => fetchJSON<any[]>("/industries"),
+    categories: (slug: string) => fetchJSON<any[]>(`/industries/${slug}/categories`),
+    roles: (slug: string, category?: string) => fetchJSON<any[]>(`/industries/${slug}/roles${category ? `?category=${category}` : ""}`),
+    knowledgePacks: (slug: string) => fetchJSON<any[]>(`/industries/${slug}/knowledge-packs`),
+    skillTree: (slug: string) => fetchJSON<any[]>(`/industries/${slug}/skill-tree`),
+  },
+  knowledgePacks: {
+    list: () => fetchJSON<any[]>("/knowledge-packs"),
+  },
+  agentProgression: {
+    get: (agentId: string) => fetchJSON<any>(`/agents/${agentId}/progression`),
+    unlockSkill: (agentId: string, skillSlug: string) =>
+      fetchJSON<any>(`/agents/${agentId}/unlock-skill`, { method: "POST", body: JSON.stringify({ skillSlug }) }),
+    awardXp: (agentId: string, source: string, contentLength?: number) =>
+      fetchJSON<any>(`/agents/${agentId}/award-xp`, { method: "POST", body: JSON.stringify({ source, contentLength }) }),
+    certifications: (agentId: string) => fetchJSON<any[]>(`/agents/${agentId}/certifications`),
+    checkCertifications: (agentId: string) =>
+      fetchJSON<any>(`/agents/${agentId}/check-certifications`, { method: "POST" }),
+    skillEffects: (agentId: string) => fetchJSON<any>(`/agents/${agentId}/skill-effects`),
+    specialization: (agentId: string) => fetchJSON<any>(`/agents/${agentId}/specialization`),
+    setSpecialization: (agentId: string, data: any) =>
+      fetchJSON<any>(`/agents/${agentId}/specialization`, { method: "POST", body: JSON.stringify(data) }),
+  },
+  xpSources: () => fetchJSON<any>("/xp-sources"),
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

@@ -9,7 +9,7 @@ import { useLocation } from "wouter";
 import {
   Store, Bot, Star, Search, TrendingUp, Coins, Loader2,
   ArrowRight, ArrowLeft, Sparkles, Shield, Crown, CheckCircle,
-  Flame, ChevronRight, Eye, ShoppingCart, Zap
+  Flame, ChevronRight, Eye, ShoppingCart, Zap, Briefcase, Filter
 } from "lucide-react";
 
 const CATEGORIES = ["All", "Research", "Writing", "Analysis", "Debate", "Coding", "Translation"];
@@ -146,9 +146,15 @@ function AgentCard({ listing, index, onClick }: { listing: any; index: number; o
 export default function AgentAppStore() {
   const [, navigate] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedIndustry, setSelectedIndustry] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [carouselIndex, setCarouselIndex] = useState(0);
+
+  const { data: industryList = [] } = useQuery({
+    queryKey: ["/api/industries"],
+    queryFn: () => api.industries.list(),
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -181,9 +187,11 @@ export default function AgentAppStore() {
   const displayListings = isSearching ? searchResults : rankings;
   const isLoading = isSearching ? searchLoading : rankingsLoading;
 
-  const filteredListings = selectedCategory === "All" || isSearching
-    ? displayListings
-    : displayListings.filter((l: any) => l.category?.toLowerCase() === selectedCategory.toLowerCase());
+  const filteredListings = displayListings.filter((l: any) => {
+    if (selectedCategory !== "All" && !isSearching && l.category?.toLowerCase() !== selectedCategory.toLowerCase()) return false;
+    if (selectedIndustry !== "All" && l.agent?.industrySlug !== selectedIndustry) return false;
+    return true;
+  });
 
   const handleNavigate = useCallback((id: string) => {
     navigate(`/agent-store/${id}`);
@@ -271,6 +279,44 @@ export default function AgentAppStore() {
             </button>
           ))}
         </div>
+
+        {industryList.length > 0 && (
+          <div className="flex items-center gap-3 flex-wrap" data-testid="industry-filters">
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Briefcase className="w-3.5 h-3.5" />
+              <span>Industry:</span>
+            </div>
+            <button
+              onClick={() => setSelectedIndustry("All")}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium transition-all",
+                selectedIndustry === "All"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                  : "bg-white/[0.03] text-gray-500 border border-white/[0.04] hover:bg-white/[0.06] hover:text-gray-300"
+              )}
+              data-testid="button-industry-all"
+            >
+              All Industries
+            </button>
+            {industryList.map((ind: any) => (
+              <button
+                key={ind.slug}
+                onClick={() => setSelectedIndustry(ind.slug)}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1",
+                  selectedIndustry === ind.slug
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    : "bg-white/[0.03] text-gray-500 border border-white/[0.04] hover:bg-white/[0.06] hover:text-gray-300"
+                )}
+                data-testid={`button-industry-${ind.slug}`}
+              >
+                <span>{ind.icon}</span>
+                {ind.name}
+                {ind.regulated && <Shield className="w-3 h-3 text-amber-400 ml-0.5" />}
+              </button>
+            ))}
+          </div>
+        )}
 
         {featured.length > 0 && !isSearching && (
           <section data-testid="section-featured">
