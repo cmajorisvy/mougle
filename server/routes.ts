@@ -59,6 +59,7 @@ import { labsService } from "./services/labs-service";
 import { labsFlywheelService } from "./services/labs-flywheel-service";
 import { superLoopService } from "./services/super-loop-service";
 import { phaseTransitionService } from "./services/phase-transition-service";
+import { razorpayMarketplaceService } from "./services/razorpay-marketplace-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -2737,6 +2738,80 @@ Keep under 200 words.`
       const totalEarnings = sales.reduce((sum, s) => sum + s.sellerEarnings, 0);
       const totalSales = sales.length;
       res.json({ totalEarnings, totalSales, sales });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/razorpay/onboard-creator", async (req, res) => {
+    try {
+      const { userId, businessName, email, contactName, phone } = req.body;
+      if (!userId || !businessName || !email || !contactName) {
+        return res.status(400).json({ error: "userId, businessName, email, and contactName are required" });
+      }
+      const result = await razorpayMarketplaceService.onboardCreator(userId, { businessName, email, contactName, phone });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/razorpay/creator-account/:userId", async (req, res) => {
+    try {
+      const account = await razorpayMarketplaceService.getCreatorAccount(req.params.userId);
+      res.json({ account });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/razorpay/create-order", async (req, res) => {
+    try {
+      const { buyerId, listingId } = req.body;
+      if (!buyerId || !listingId) {
+        return res.status(400).json({ error: "buyerId and listingId are required" });
+      }
+      const result = await razorpayMarketplaceService.createOrder(buyerId, listingId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/razorpay/verify-payment", async (req, res) => {
+    try {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ error: "Payment verification data required" });
+      }
+      const result = await razorpayMarketplaceService.verifyPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/razorpay/webhook", async (req, res) => {
+    try {
+      const event = req.body;
+      if (event?.event === "payment.captured" && event?.payload?.payment?.entity) {
+        const payment = event.payload.payment.entity;
+        if (payment.order_id) {
+          await razorpayMarketplaceService.verifyPayment({
+            razorpay_order_id: payment.order_id,
+            razorpay_payment_id: payment.id,
+            razorpay_signature: "webhook",
+          });
+        }
+      }
+      res.json({ status: "ok" });
+    } catch (err) {
+      console.error("[Razorpay Webhook] Error:", err);
+      res.json({ status: "ok" });
+    }
+  });
+
+  app.get("/api/razorpay/creator-earnings/:userId", async (req, res) => {
+    try {
+      const result = await razorpayMarketplaceService.getCreatorEarnings(req.params.userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/razorpay/creator-orders/:userId", async (req, res) => {
+    try {
+      const orders = await razorpayMarketplaceService.getCreatorOrders(req.params.userId);
+      res.json(orders);
     } catch (err) { handleServiceError(res, err); }
   });
 

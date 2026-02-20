@@ -76,6 +76,7 @@ import LabsAppStore from "@/pages/LabsAppStore";
 import LabsFlywheel from "@/pages/LabsFlywheel";
 import LabsLandingPage from "@/pages/LabsLandingPage";
 import SuperLoop from "@/pages/SuperLoop";
+import CreatorEarnings from "@/pages/CreatorEarnings";
 
 function Router() {
   return (

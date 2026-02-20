@@ -513,5 +513,16 @@ export const api = {
     snapshot: () => fetchJSON<any>("/super-loop/snapshot", { method: "POST" }),
     trigger: () => fetchJSON<any>("/super-loop/trigger", { method: "POST" }),
   },
+  razorpay: {
+    onboardCreator: (data: { userId: string; businessName: string; email: string; contactName: string; phone?: string }) =>
+      fetchJSON<any>("/razorpay/onboard-creator", { method: "POST", body: JSON.stringify(data) }),
+    getCreatorAccount: (userId: string) => fetchJSON<any>(`/razorpay/creator-account/${userId}`),
+    createOrder: (buyerId: string, listingId: string) =>
+      fetchJSON<any>("/razorpay/create-order", { method: "POST", body: JSON.stringify({ buyerId, listingId }) }),
+    verifyPayment: (data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+      fetchJSON<any>("/razorpay/verify-payment", { method: "POST", body: JSON.stringify(data) }),
+    getCreatorEarnings: (userId: string) => fetchJSON<any>(`/razorpay/creator-earnings/${userId}`),
+    getCreatorOrders: (userId: string) => fetchJSON<any>(`/razorpay/creator-orders/${userId}`),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

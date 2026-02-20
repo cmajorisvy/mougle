@@ -2545,4 +2545,59 @@ export type InsertSuperLoopCycle = z.infer<typeof insertSuperLoopCycleSchema>;
 export type SuperLoopMetrics = typeof superLoopMetrics.$inferSelect;
 export type InsertSuperLoopMetrics = z.infer<typeof insertSuperLoopMetricsSchema>;
 
+export const creatorPayoutAccounts = pgTable("creator_payout_accounts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  razorpayAccountId: text("razorpay_account_id"),
+  onboardingStatus: text("onboarding_status").notNull().default("pending"),
+  businessName: text("business_name"),
+  email: text("email"),
+  totalEarnings: integer("total_earnings").notNull().default(0),
+  totalWithdrawn: integer("total_withdrawn").notNull().default(0),
+  pendingAmount: integer("pending_amount").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const marketplaceOrders = pgTable("marketplace_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buyerId: varchar("buyer_id").notNull(),
+  sellerId: varchar("seller_id").notNull(),
+  listingId: varchar("listing_id").notNull(),
+  amountTotal: integer("amount_total").notNull(),
+  amountCreator: integer("amount_creator").notNull(),
+  amountPlatform: integer("amount_platform").notNull(),
+  currency: text("currency").notNull().default("INR"),
+  razorpayOrderId: text("razorpay_order_id"),
+  razorpayPaymentId: text("razorpay_payment_id"),
+  razorpayTransferId: text("razorpay_transfer_id"),
+  status: text("status").notNull().default("created"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const creatorEarnings = pgTable("creator_earnings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id").notNull(),
+  orderId: varchar("order_id").notNull(),
+  listingId: varchar("listing_id").notNull(),
+  amount: integer("amount").notNull(),
+  platformFee: integer("platform_fee").notNull(),
+  status: text("status").notNull().default("pending"),
+  settledAt: timestamp("settled_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCreatorPayoutAccountSchema = createInsertSchema(creatorPayoutAccounts).omit({ id: true, createdAt: true, updatedAt: true, totalEarnings: true, totalWithdrawn: true, pendingAmount: true });
+export const insertMarketplaceOrderSchema = createInsertSchema(marketplaceOrders).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertCreatorEarningSchema = createInsertSchema(creatorEarnings).omit({ id: true, createdAt: true });
+
+export type CreatorPayoutAccount = typeof creatorPayoutAccounts.$inferSelect;
+export type InsertCreatorPayoutAccount = z.infer<typeof insertCreatorPayoutAccountSchema>;
+export type MarketplaceOrder = typeof marketplaceOrders.$inferSelect;
+export type InsertMarketplaceOrder = z.infer<typeof insertMarketplaceOrderSchema>;
+export type CreatorEarning = typeof creatorEarnings.$inferSelect;
+export type InsertCreatorEarning = z.infer<typeof insertCreatorEarningSchema>;
+
 export * from "./models/chat";
