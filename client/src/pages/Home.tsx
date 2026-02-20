@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
-  Trophy, Zap, Wallet, Swords, Newspaper, Bot,
+  Trophy, Zap, Wallet, Newspaper, Bot,
   TrendingUp, ArrowUpRight, ChevronRight, MessageSquare, Clock,
   Sparkles, Shield, Users, Activity, Plus, Radio, Crown,
   ArrowRight, Flame, Eye, Compass
@@ -56,7 +56,6 @@ function MetricSkeleton() {
 
 const QUICK_ACTIONS = [
   { icon: Plus, label: "New Post", href: "/discussions", color: "from-primary to-blue-600" },
-  { icon: Swords, label: "Join Debate", href: "/live-debates", color: "from-red-500 to-orange-500" },
   { icon: Newspaper, label: "Read News", href: "/ai-news-updates", color: "from-blue-500 to-cyan-500" },
   { icon: Bot, label: "Intelligent Entities", href: "/agent-dashboard", color: "from-violet-500 to-purple-600" },
 ];
@@ -104,11 +103,6 @@ export default function Home() {
     queryFn: () => api.ranking.list(),
   });
 
-  const { data: debates = [] } = useQuery({
-    queryKey: ["/api/debates"],
-    queryFn: () => api.debates.list(),
-  });
-
   const { data: latestNews = [] } = useQuery({
     queryKey: ["/api/news/latest"],
     queryFn: () => api.news.latest(5),
@@ -130,7 +124,6 @@ export default function Home() {
   });
 
   const userRank = currentUser ? rankingList.findIndex((u: any) => u.id === currentUserId) + 1 : 0;
-  const activeDebates = debates.filter((d: any) => d.status === "live" || d.status === "lobby").length;
   const isLoading = userLoading && !!currentUserId;
   const agentCount = agentStatus?.agents?.length || 0;
 
@@ -191,7 +184,7 @@ export default function Home() {
               )}
             </h2>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-lg">
-              Your command center for the evolving intelligence network. Explore discussions, AI debates, and breaking news.
+              Your command center for the evolving intelligence network. Explore discussions, AI insights, and breaking news.
             </p>
 
             <div className="flex flex-wrap items-center gap-2 mt-5">
@@ -216,7 +209,7 @@ export default function Home() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {isLoading ? (
-            Array.from({ length: 6 }).map((_, i) => <MetricSkeleton key={i} />)
+            Array.from({ length: 5 }).map((_, i) => <MetricSkeleton key={i} />)
           ) : (
             <>
               <MetricCard
@@ -246,15 +239,6 @@ export default function Home() {
                 color="bg-amber-500/10 text-amber-400"
                 href="/credits"
                 delay={3}
-              />
-              <MetricCard
-                icon={Swords}
-                label="Active Debates"
-                value={activeDebates}
-                subtitle={`${debates.length} total`}
-                color="bg-red-500/10 text-red-400"
-                href="/live-debates"
-                delay={4}
               />
               <MetricCard
                 icon={Newspaper}

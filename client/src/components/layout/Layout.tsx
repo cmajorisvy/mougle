@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { 
   Search, Bell, Plus, Zap, User, Menu, X,
-  Home, MessageSquare, Newspaper, Swords, Bot,
+  Home, MessageSquare, Newspaper, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
   Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker, RefreshCw, Infinity, IndianRupee, FileText, UserCheck, Layers, Heart, Calculator
@@ -33,7 +33,6 @@ const mainNav = [
   { icon: Brain, label: "Growth Insights", href: "/psychology", group: "Personal Intelligence" },
   // Collective Intelligence
   { icon: MessageSquare, label: "Interactions", href: "/discussions", group: "Collective Intelligence" },
-  { icon: Swords, label: "Live Debates", href: "/live-debates", group: "Collective Intelligence" },
   { icon: Newspaper, label: "AI News", href: "/ai-news-updates", group: "Collective Intelligence" },
   { icon: Network, label: "Network", href: "/network", group: "Collective Intelligence" },
   { icon: Trophy, label: "Rankings", href: "/ranking", group: "Collective Intelligence" },
@@ -77,29 +76,9 @@ const mobileNav = [
   { icon: Home, label: "Home", href: "/" },
   { icon: MessageSquare, label: "Interact", href: "/discussions" },
   { icon: Newspaper, label: "News", href: "/ai-news-updates" },
-  { icon: Swords, label: "Debates", href: "/live-debates" },
   { icon: User, label: "Profile", href: "/profile" },
 ];
 
-function LiveIndicator() {
-  const { data: debates = [] } = useQuery({
-    queryKey: ["/api/debates", "live"],
-    queryFn: () => api.debates.list("live"),
-    refetchInterval: 15000,
-  });
-  if (debates.length === 0) return null;
-  return (
-    <Link href="/live-debates">
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 cursor-pointer hover:bg-red-500/15 transition-colors" data-testid="live-indicator">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-        </span>
-        <span className="text-xs font-semibold text-red-400">{debates.length} LIVE</span>
-      </div>
-    </Link>
-  );
-}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -156,7 +135,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <LiveIndicator />
 
           {currentUser ? (
             <>
@@ -370,7 +348,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <span className="text-[11px] font-semibold text-primary">Upgrade to Pro</span>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-relaxed mb-2">
-                    Unlock unlimited debates, AI responses & priority support.
+                    Unlock unlimited AI responses, insights & priority support.
                   </p>
                   <Link href="/billing">
                     <Button size="sm" className="w-full h-6 text-[10px] bg-gradient-to-r from-primary to-secondary hover:opacity-90 rounded-md font-medium" data-testid="button-view-plans">
@@ -467,7 +445,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <h4 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3">Platform</h4>
                   <ul className="space-y-1.5">
                     <li><Link href="/discussions"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-discussions">Discussions</span></Link></li>
-                    <li><Link href="/live-debates"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-live-debates">Live Debates</span></Link></li>
                     <li><Link href="/agent-store"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-entity-store">Entity Store</span></Link></li>
                     <li><Link href="/ai-news-updates"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-ai-news">AI News</span></Link></li>
                     <li><Link href="/ranking"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-rankings">Rankings</span></Link></li>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  PenTool, Image as ImageIcon, Video, MessageSquare, Bot, Loader2 
+  PenTool, Image as ImageIcon, Bot, Loader2 
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -56,8 +56,6 @@ export function CreateModal({ open, onOpenChange }: CreateModalProps) {
       content,
       topicSlug: topicSlug || "tech",
       authorId: userId,
-      isDebate: activeTab === "debate",
-      debateActive: activeTab === "debate",
     });
   };
 
@@ -69,11 +67,9 @@ export function CreateModal({ open, onOpenChange }: CreateModalProps) {
         </DialogHeader>
 
         <Tabs defaultValue="post" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-5 w-full bg-background/50 border border-white/5">
+          <TabsList className="grid grid-cols-3 w-full bg-background/50 border border-white/5">
             <TabsTrigger value="post" data-testid="tab-create-post"><PenTool className="w-4 h-4" /></TabsTrigger>
             <TabsTrigger value="image"><ImageIcon className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="video"><Video className="w-4 h-4" /></TabsTrigger>
-            <TabsTrigger value="debate" data-testid="tab-create-debate"><MessageSquare className="w-4 h-4" /></TabsTrigger>
             <TabsTrigger value="agent"><Bot className="w-4 h-4" /></TabsTrigger>
           </TabsList>
 
@@ -116,41 +112,6 @@ export function CreateModal({ open, onOpenChange }: CreateModalProps) {
               </div>
             </TabsContent>
 
-            <TabsContent value="debate" className="space-y-4">
-              <Input 
-                placeholder="Debate topic" 
-                className="bg-background/50 border-white/10"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-              <Textarea 
-                placeholder="Describe the debate premise..." 
-                className="min-h-[120px] bg-background/50 border-white/10 resize-none"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-              />
-              <Select value={topicSlug} onValueChange={setTopicSlug}>
-                <SelectTrigger className="bg-background/50 border-white/10">
-                  <SelectValue placeholder="Select topic" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-white/10">
-                  {topicsList.map((t: any) => (
-                    <SelectItem key={t.slug} value={t.slug}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex justify-end">
-                <Button 
-                  className="bg-destructive hover:bg-destructive/90"
-                  disabled={!title.trim() || !content.trim() || createMutation.isPending}
-                  onClick={handleCreate}
-                >
-                  {createMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Start Debate
-                </Button>
-              </div>
-            </TabsContent>
-
             <TabsContent value="image" className="space-y-4">
               <Textarea 
                 placeholder="Describe the image you want to generate..." 
@@ -158,16 +119,6 @@ export function CreateModal({ open, onOpenChange }: CreateModalProps) {
               />
               <Button className="w-full bg-secondary hover:bg-secondary/90 text-white">
                 <ImageIcon className="w-4 h-4 mr-2" /> Generate Image (50 Energy)
-              </Button>
-            </TabsContent>
-
-            <TabsContent value="video" className="space-y-4">
-              <Textarea 
-                placeholder="Describe the video scene..." 
-                className="min-h-[100px] bg-background/50 border-white/10 resize-none"
-              />
-              <Button className="w-full bg-secondary hover:bg-secondary/90 text-white">
-                <Video className="w-4 h-4 mr-2" /> Generate Video (200 Energy)
               </Button>
             </TabsContent>
 

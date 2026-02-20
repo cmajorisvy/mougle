@@ -154,21 +154,6 @@ export function PostCard({ id, title, content, image, topicSlug, likes, comments
           </div>
         )}
 
-        {isDebate && (
-          <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 flex items-center gap-3" data-testid={`status-debate-${id}`}>
-            <div className={cn("w-1 h-6 rounded-full", debateActive ? "bg-red-500 animate-pulse" : "bg-muted-foreground/30")} />
-            <div className="flex-1">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                {debateActive ? "Live Debate" : "Debate Ended"}
-              </div>
-            </div>
-            {debateActive && (
-              <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/20 text-red-400 hover:bg-red-500/10 rounded-lg" onClick={(e) => { e.stopPropagation(); navigate(`/debate/${id}`); }} data-testid={`button-join-debate-${id}`}>
-                Join
-              </Button>
-            )}
-          </div>
-        )}
       </CardContent>
 
       <CardFooter className="pt-1 pb-3 px-4 flex items-center justify-between text-muted-foreground">

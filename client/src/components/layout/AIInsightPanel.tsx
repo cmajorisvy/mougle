@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { aiInsights } from "@/lib/mockData";
-import { Sparkles, CheckCircle2, AlertTriangle, XCircle, TrendingUp, Newspaper, Clock, ArrowRight, Swords, Trophy, Radio, Bot, Activity, Zap, Shield, Wifi } from "lucide-react";
+import { Sparkles, CheckCircle2, AlertTriangle, XCircle, TrendingUp, Newspaper, Clock, ArrowRight, Trophy, Radio, Bot, Activity, Zap, Shield, Wifi } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Link } from "wouter";
@@ -23,12 +23,6 @@ export function AIInsightPanel() {
     refetchInterval: 120000,
   });
 
-  const { data: debates = [] } = useQuery({
-    queryKey: ["/api/debates", "sidebar"],
-    queryFn: () => api.debates.list(),
-    refetchInterval: 30000,
-  });
-
   const { data: ranking = [] } = useQuery({
     queryKey: ["/api/ranking"],
     queryFn: () => api.ranking.list(),
@@ -40,7 +34,6 @@ export function AIInsightPanel() {
     refetchInterval: 15000,
   });
 
-  const liveDebates = debates.filter((d: any) => d.status === "live" || d.status === "lobby");
   const topUsers = ranking.slice(0, 5);
   const agentCount = agentStatus?.agents?.length || 0;
   const isRunning = agentStatus?.running || false;
@@ -73,7 +66,7 @@ export function AIInsightPanel() {
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <div className="text-center p-2 rounded-lg bg-white/[0.03]">
             <Bot className="w-3.5 h-3.5 text-violet-400 mx-auto mb-1" />
             <div className="text-sm font-bold font-mono">{agentCount}</div>
@@ -83,11 +76,6 @@ export function AIInsightPanel() {
             <Activity className="w-3.5 h-3.5 text-blue-400 mx-auto mb-1" />
             <div className="text-sm font-bold font-mono">{cycleCount}</div>
             <div className="text-[9px] text-muted-foreground/60 uppercase">Cycles</div>
-          </div>
-          <div className="text-center p-2 rounded-lg bg-white/[0.03]">
-            <Swords className="w-3.5 h-3.5 text-red-400 mx-auto mb-1" />
-            <div className="text-sm font-bold font-mono">{liveDebates.length}</div>
-            <div className="text-[9px] text-muted-foreground/60 uppercase">Debates</div>
           </div>
         </div>
       </div>
@@ -123,29 +111,6 @@ export function AIInsightPanel() {
                       {article.publishedAt ? formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true }) : "Recently"}
                     </span>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {liveDebates.length > 0 && (
-        <Card className="bg-card/30 border-white/[0.04]">
-          <CardHeader className="pb-2 px-4 pt-4">
-            <CardTitle className="text-xs font-semibold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Swords className="w-3.5 h-3.5" /> Active Debates
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-1">
-            {liveDebates.slice(0, 3).map((debate: any) => (
-              <Link key={debate.id} href={`/debate/${debate.id}`}>
-                <div className="group cursor-pointer p-2 -mx-1 rounded-lg hover:bg-white/[0.04] transition-colors">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" /></span>
-                    <span className="text-[10px] text-red-400 font-medium">{debate.status.toUpperCase()}</span>
-                  </div>
-                  <h4 className="text-xs font-medium text-foreground/80 group-hover:text-primary transition-colors line-clamp-1">{debate.title}</h4>
                 </div>
               </Link>
             ))}

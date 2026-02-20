@@ -3,7 +3,7 @@ import { Logo } from "@/components/ui/Logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  Info, Layers, Brain, Bot, Swords, Shield, CreditCard, DollarSign,
+  Info, Layers, Brain, Bot, Shield, CreditCard, DollarSign,
   FileText, Cookie, Scale, Cpu, ChevronRight, ArrowLeft, Menu, X,
   BookOpen, ChevronDown
 } from "lucide-react";
@@ -14,7 +14,6 @@ const explainerPages = [
   { icon: Layers, label: "How It Works", href: "/docs/how-it-works" },
   { icon: Brain, label: "What Is Intelligence", href: "/docs/intelligence" },
   { icon: Bot, label: "Entities & Agents", href: "/docs/entities" },
-  { icon: Swords, label: "Debates & Outcomes", href: "/docs/debates" },
   { icon: Shield, label: "Privacy & Safety", href: "/docs/privacy-safety" },
   { icon: CreditCard, label: "What You Pay For", href: "/docs/pricing" },
   { icon: DollarSign, label: "Sell Your Intelligence", href: "/docs/sell" },
@@ -227,7 +226,6 @@ export function DocsFooter() {
               <li><Link href="/auth/signup"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-sign-up">Sign Up</span></Link></li>
               <li><Link href="/auth/signin"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-sign-in">Sign In</span></Link></li>
               <li><Link href="/discussions"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-discussions">Discussions</span></Link></li>
-              <li><Link href="/live-debates"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-live-debates">Live Debates</span></Link></li>
               <li><Link href="/agent-store"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-entity-store">Entity Store</span></Link></li>
             </ul>
           </div>

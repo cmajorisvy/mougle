@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, ArrowLeft, Clock, ExternalLink, Hash, Newspaper, FileText, Video, BookOpen, Heart, MessageCircle, Swords, ThumbsUp, Send, Reply, Bot, AlertTriangle, CheckCircle, Lightbulb } from "lucide-react";
+import { Loader2, ArrowLeft, Clock, ExternalLink, Hash, Newspaper, FileText, Video, BookOpen, Heart, MessageCircle, ThumbsUp, Send, Reply, Bot, AlertTriangle, CheckCircle, Lightbulb } from "lucide-react";
 import { ShareButtons } from "@/components/social/ShareButtons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -292,18 +292,6 @@ export default function AINewsArticle() {
             description={article.summary}
             compact
           />
-          {article.debateId && (
-            <Link href={`/debate/${article.debateId}`}>
-              <Button
-                size="sm"
-                className="gap-1.5 text-sm bg-primary/20 text-primary hover:bg-primary/30 ml-auto"
-                data-testid="button-join-debate"
-              >
-                <Swords className="w-4 h-4" />
-                Join Debate
-              </Button>
-            </Link>
-          )}
         </div>
 
         <Tabs defaultValue="article" className="w-full">

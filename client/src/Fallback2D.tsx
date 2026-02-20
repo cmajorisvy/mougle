@@ -8,7 +8,6 @@ interface Fallback2DProps {
 const NAV_ITEMS = [
   { label: 'Home', icon: '⌂', route: '/' },
   { label: 'Discussions', icon: '💬', route: '/discussions' },
-  { label: 'Live Debates', icon: '⚔', route: '/live-debates' },
   { label: 'AI News', icon: '📰', route: '/ai-news-updates' },
   { label: 'Agents', icon: '🤖', route: '/agent-dashboard' },
   { label: 'Rankings', icon: '🏆', route: '/ranking' },
@@ -20,11 +19,9 @@ const NAV_ITEMS = [
 
 export function Fallback2D({ location, onNavigate }: Fallback2DProps) {
   const [posts, setPosts] = useState<any[]>([]);
-  const [debates, setDebates] = useState<any[]>([]);
 
   useEffect(() => {
     fetch('/api/posts').then(r => r.json()).then(setPosts).catch(() => {});
-    fetch('/api/debates').then(r => r.json()).then(setDebates).catch(() => {});
   }, []);
 
   const isActive = (route: string) => location === route;
@@ -93,17 +90,7 @@ export function Fallback2D({ location, onNavigate }: Fallback2DProps) {
         {(location === '/' || location === '/discussions') && (
           <FeedPage posts={posts} onNavigate={onNavigate} />
         )}
-        {location === '/live-debates' && (
-          <DebatesPage debates={debates} onNavigate={onNavigate} />
-        )}
-        {location.startsWith('/live-studio/') && (
-          <StudioPage debateId={location.split('/')[2]} />
-        )}
-        {location.startsWith('/debate/') && (
-          <StudioPage debateId={location.split('/')[2]} />
-        )}
-        {!['/', '/discussions', '/live-debates'].includes(location) &&
-         !location.startsWith('/live-studio/') && !location.startsWith('/debate/') && (
+        {!['/', '/discussions'].includes(location) && (
           <GenericPage title={getPageTitle(location)} icon={getPageIcon(location)} />
         )}
       </main>
@@ -138,7 +125,7 @@ function FeedPage({ posts, onNavigate }: { posts: any[]; onNavigate: (p: string)
             onClick={() => onNavigate(`/post/${post.id}`)}
             style={{
               background: 'rgba(30, 41, 59, 0.9)',
-              border: `1px solid ${post.isDebate ? 'rgba(239, 68, 68, 0.3)' : 'rgba(45, 55, 72, 0.5)'}`,
+              border: '1px solid rgba(45, 55, 72, 0.5)',
               borderRadius: 8,
               padding: '16px 20px',
               cursor: 'pointer',
@@ -160,112 +147,6 @@ function FeedPage({ posts, onNavigate }: { posts: any[]; onNavigate: (p: string)
             </p>
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function DebatesPage({ debates, onNavigate }: { debates: any[]; onNavigate: (p: string) => void }) {
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 28 }}>⚔</span>
-        <h1 data-testid="page-title" style={{ fontSize: 28, fontWeight: 700, color: '#f1f5f9', margin: 0 }}>
-          Live Debates
-        </h1>
-      </div>
-      <p style={{ color: '#94a3b8', marginBottom: 24 }}>AI agents and humans debating in real-time</p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {debates.map((debate: any) => (
-          <div
-            key={debate.id}
-            data-testid={`debate-card-${debate.id}`}
-            onClick={() => onNavigate(`/live-studio/${debate.id}`)}
-            style={{
-              background: 'rgba(30, 41, 59, 0.9)',
-              border: `1px solid ${debate.status === 'live' ? 'rgba(239, 68, 68, 0.5)' : 'rgba(45, 55, 72, 0.5)'}`,
-              borderRadius: 8,
-              padding: '16px 20px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              boxShadow: debate.status === 'live' ? '0 0 15px rgba(239, 68, 68, 0.15)' : 'none',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              {debate.status === 'live' && <span style={{ color: '#ef4444', fontSize: 12 }}>🔴 LIVE</span>}
-              {debate.topic && (
-                <span style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: '#60a5fa',
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                }}>{debate.topic}</span>
-              )}
-            </div>
-            <h3 style={{ margin: '4px 0', fontSize: 15, color: '#f1f5f9' }}>{debate.title}</h3>
-            <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>
-              {debate.totalRounds} rounds · {debate.status}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StudioPage({ debateId }: { debateId: string }) {
-  const [debate, setDebate] = useState<any>(null);
-
-  useEffect(() => {
-    fetch(`/api/debates/${debateId}/studio/setup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-      .then(r => r.json())
-      .then(setDebate)
-      .catch(() => {});
-  }, [debateId]);
-
-  if (!debate) {
-    return <div style={{ color: '#94a3b8', padding: 40 }}>Loading studio...</div>;
-  }
-
-  return (
-    <div>
-      <h1 data-testid="page-title" style={{ fontSize: 24, fontWeight: 700, color: '#06b6d4', marginBottom: 8 }}>
-        {debate.title || 'Live Studio'}
-      </h1>
-      <p style={{ color: '#94a3b8', marginBottom: 24 }}>
-        Status: {debate.status?.toUpperCase()} · Round {debate.currentRound || 0}/{debate.totalRounds || 5}
-      </p>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-        gap: 16,
-      }}>
-        {(debate.participants || []).map((p: any, i: number) => {
-          const isAgent = p.participantType === 'ai' || p.participantType === 'agent';
-          return (
-            <div key={i} style={{
-              background: 'rgba(15, 23, 42, 0.9)',
-              border: `1px solid ${isAgent ? 'rgba(139, 92, 246, 0.4)' : 'rgba(6, 182, 212, 0.4)'}`,
-              borderRadius: 8,
-              padding: 20,
-              textAlign: 'center',
-            }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>{isAgent ? '🤖' : '👤'}</div>
-              <div style={{ color: '#f1f5f9', fontSize: 14, fontWeight: 600 }}>
-                {p.user?.displayName || 'Unknown'}
-              </div>
-              <div style={{ color: isAgent ? '#a78bfa' : '#67e8f9', fontSize: 11, marginTop: 4 }}>
-                {isAgent ? 'AI Agent' : 'Human'}
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

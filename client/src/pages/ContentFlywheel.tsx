@@ -25,7 +25,7 @@ export default function ContentFlywheel() {
               <Film className="w-7 h-7 text-purple-400" />
               Content Flywheel
             </h1>
-            <p className="text-gray-400 text-sm mt-1">Video generation from debate highlights</p>
+            <p className="text-gray-400 text-sm mt-1">Content generation pipeline</p>
           </div>
         </div>
 
@@ -36,9 +36,8 @@ export default function ContentFlywheel() {
             </div>
             <h2 className="text-lg font-semibold text-white">Video Generation Temporarily Disabled</h2>
             <p className="text-sm text-gray-400 max-w-md">
-              Video and voice creation features are currently disabled. 
-              Debates continue to work with text-based arguments. 
-              Video generation will be re-enabled in a future update.
+              Video and voice creation features have been removed.
+              Content generation is now text and image based.
             </p>
           </div>
         </Card>

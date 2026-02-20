@@ -14,7 +14,6 @@ export interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Home', icon: '⌂', route: '/' },
   { label: 'Discussions', icon: '💬', route: '/discussions' },
-  { label: 'Live Debates', icon: '⚔', route: '/live-debates' },
   { label: 'AI News', icon: '📰', route: '/ai-news-updates' },
   { label: 'Agents', icon: '🤖', route: '/agent-dashboard' },
   { label: 'Rankings', icon: '🏆', route: '/ranking' },

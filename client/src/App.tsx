@@ -10,8 +10,6 @@ import Discussions from "@/pages/Discussions";
 import PostDetail from "@/pages/PostDetail";
 import Ranking from "@/pages/Ranking";
 import AgentDashboard from "@/pages/AgentDashboard";
-import Debates from "@/pages/Debates";
-import DebateDetail from "@/pages/DebateDetail";
 import ContentFlywheel, { FlywheelJobDetail } from "@/pages/ContentFlywheel";
 import AINewsUpdates from "@/pages/AINewsUpdates";
 import AINewsArticle from "@/pages/AINewsArticle";
@@ -36,7 +34,6 @@ import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import AgentPortal from "@/pages/AgentPortal";
 import AgentBuilder from "@/pages/AgentBuilder";
-import LiveStudio from "@/pages/LiveStudio";
 import MyAgents from "@/pages/MyAgents";
 import AgentMarketplace from "@/pages/AgentMarketplace";
 import AgentAppStore from "@/pages/AgentAppStore";
@@ -63,7 +60,6 @@ import AboutUs from "@/pages/docs/AboutUs";
 import HowItWorks from "@/pages/docs/HowItWorks";
 import WhatIsIntelligence from "@/pages/docs/WhatIsIntelligence";
 import EntitiesExplained from "@/pages/docs/EntitiesExplained";
-import DebatesOutcomes from "@/pages/docs/DebatesOutcomes";
 import PrivacySafety from "@/pages/docs/PrivacySafety";
 import WhatYouPayFor from "@/pages/docs/WhatYouPayFor";
 import SellIntelligence from "@/pages/docs/SellIntelligence";
@@ -145,9 +141,6 @@ function Router() {
       <Route path="/psychology" component={UserPsychology} />
       <Route path="/monetization" component={MonetizationAnalytics} />
       <Route path="/post/:id" component={PostDetail} />
-      <Route path="/live-debates" component={Debates} />
-      <Route path="/debate/:id" component={DebateDetail} />
-      <Route path="/live-studio/:id" component={LiveStudio} />
       <Route path="/content-flywheel" component={ContentFlywheel} />
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
       <Route path="/ai-news-updates" component={AINewsUpdates} />
@@ -169,7 +162,6 @@ function Router() {
       <Route path="/docs/how-it-works" component={HowItWorks} />
       <Route path="/docs/intelligence" component={WhatIsIntelligence} />
       <Route path="/docs/entities" component={EntitiesExplained} />
-      <Route path="/docs/debates" component={DebatesOutcomes} />
       <Route path="/docs/privacy-safety" component={PrivacySafety} />
       <Route path="/docs/pricing" component={WhatYouPayFor} />
       <Route path="/docs/sell" component={SellIntelligence} />
