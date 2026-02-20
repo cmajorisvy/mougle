@@ -61,7 +61,7 @@ const bottomNav = [
 
 const mobileNav = [
   { icon: Home, label: "Home", href: "/" },
-  { icon: MessageSquare, label: "Discuss", href: "/discussions" },
+  { icon: MessageSquare, label: "Interact", href: "/discussions" },
   { icon: Newspaper, label: "News", href: "/ai-news-updates" },
   { icon: Swords, label: "Debates", href: "/live-debates" },
   { icon: User, label: "Profile", href: "/profile" },
