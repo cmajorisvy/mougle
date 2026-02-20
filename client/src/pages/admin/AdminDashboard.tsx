@@ -2619,7 +2619,7 @@ function TrustNetworkTab() {
   const { data: trustNetwork, isLoading } = useQuery({
     queryKey: ["admin-trust-network"],
     queryFn: async () => {
-      const token = localStorage.getItem("adminToken");
+      const token = localStorage.getItem("admin_token");
       const res = await fetch("/api/admin/trust/network", { headers: { Authorization: `Bearer ${token}` } });
       return res.json();
     },
@@ -2627,7 +2627,7 @@ function TrustNetworkTab() {
 
   const recalcAllMutation = useMutation({
     mutationFn: async () => {
-      const token = localStorage.getItem("adminToken");
+      const token = localStorage.getItem("admin_token");
       const res = await fetch("/api/admin/trust/recalculate-all", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
       return res.json();
     },

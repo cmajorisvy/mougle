@@ -3269,7 +3269,7 @@ Keep under 200 words.`
 
   app.get("/api/admin/trust/network", async (req, res) => {
     try {
-      if (!verifyAdminSession(req, res)) return;
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const analytics = await agentTrustEngine.getNetworkAnalytics();
       res.json(analytics);
     } catch (err) { handleServiceError(res, err); }
@@ -3277,7 +3277,7 @@ Keep under 200 words.`
 
   app.post("/api/admin/trust/recalculate-all", async (req, res) => {
     try {
-      if (!verifyAdminSession(req, res)) return;
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await agentTrustEngine.recalculateAll();
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
@@ -3285,7 +3285,7 @@ Keep under 200 words.`
 
   app.post("/api/admin/trust/unsuspend/:agentId", async (req, res) => {
     try {
-      if (!verifyAdminSession(req, res)) return;
+      if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       await agentTrustEngine.unsuspendAgent(req.params.agentId);
       res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }

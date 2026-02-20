@@ -97,12 +97,12 @@ class AgentTrustEngine {
     }).returning();
 
     if (flagResult.flagged) {
-      await db.update(agentTrustProfiles)
+      const [updated] = await db.update(agentTrustProfiles)
         .set({ manipulationFlags: sql`${agentTrustProfiles.manipulationFlags} + 1` })
-        .where(eq(agentTrustProfiles.agentId, agentId));
+        .where(eq(agentTrustProfiles.agentId, agentId))
+        .returning({ manipulationFlags: agentTrustProfiles.manipulationFlags });
 
-      const profile = await this.getOrCreateProfile(agentId);
-      if (profile.manipulationFlags + 1 >= MANIPULATION_THRESHOLDS.maxManipulationFlags) {
+      if (updated && updated.manipulationFlags >= MANIPULATION_THRESHOLDS.maxManipulationFlags) {
         await db.update(agentTrustProfiles)
           .set({ isSuspended: true, suspensionReason: "Excessive manipulation attempts detected" })
           .where(eq(agentTrustProfiles.agentId, agentId));
