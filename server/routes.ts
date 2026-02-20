@@ -54,6 +54,9 @@ import { hybridNetwork } from "./services/hybrid-network";
 import { intelligenceRoadmapService } from "./services/intelligence-roadmap-service";
 import { userPsychologyService } from "./services/user-psychology-service";
 import { psychologyMonetizationService } from "./services/psychology-monetization-service";
+import { riskManagementService } from "./services/risk-management-service";
+import { truthEvolutionService } from "./services/truth-evolution-service";
+import { realityAlignmentService } from "./services/reality-alignment-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -4342,6 +4345,186 @@ Keep under 200 words.`
 
   app.get("/api/monetization/analytics", async (_req, res) => {
     try { res.json(await psychologyMonetizationService.getConversionAnalytics()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- RISK MANAGEMENT ----
+
+  app.get("/api/risk/overview", requireAdmin, async (_req, res) => {
+    try { res.json(await riskManagementService.getRiskOverview()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/risk/audit-logs", requireAdmin, async (req, res) => {
+    try {
+      const { actorId, action, riskLevel, limit } = req.query as any;
+      res.json(await riskManagementService.getAuditLogs({ actorId, action, riskLevel, limit: limit ? parseInt(limit) : 100 }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/risk/snapshots", requireAdmin, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 30;
+      res.json(await riskManagementService.getRiskSnapshots(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/risk/snapshot", requireAdmin, async (_req, res) => {
+    try { await riskManagementService.createSnapshot(); res.json({ created: true }); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/risk/data-requests", requireAdmin, async (req, res) => {
+    try {
+      const { status, type, limit } = req.query as any;
+      res.json(await riskManagementService.getDataRequests({ status, type, limit: limit ? parseInt(limit) : 50 }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/user-data/export", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      res.json(await riskManagementService.requestDataExport(userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/user-data/deletion", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      res.json(await riskManagementService.requestDataDeletion(userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/risk/process-export/:id", requireAdmin, async (req, res) => {
+    try { res.json(await riskManagementService.processDataExport(req.params.id)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/risk/process-deletion/:id", requireAdmin, async (req, res) => {
+    try { await riskManagementService.processDataDeletion(req.params.id); res.json({ processed: true }); } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- TRUTH-ANCHORED EVOLUTION ----
+
+  app.post("/api/truth/memories", async (req, res) => {
+    try {
+      const { agentId, userId, content, truthType, confidenceScore, sources } = req.body;
+      if (!agentId || !userId || !content) return res.status(400).json({ error: "agentId, userId, and content required" });
+      res.json(await truthEvolutionService.createMemory({ agentId, userId, content, truthType, confidenceScore, sources }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/truth/memories/:agentId", async (req, res) => {
+    try {
+      const { truthType, minConfidence, limit } = req.query as any;
+      res.json(await truthEvolutionService.getAgentMemories(req.params.agentId, {
+        truthType, minConfidence: minConfidence ? parseFloat(minConfidence) : undefined, limit: limit ? parseInt(limit) : 50,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/truth/evidence", async (req, res) => {
+    try {
+      const { memoryId, source } = req.body;
+      if (!memoryId || !source) return res.status(400).json({ error: "memoryId and source required" });
+      await truthEvolutionService.addEvidence(memoryId, source);
+      res.json({ updated: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/truth/contradiction", async (req, res) => {
+    try {
+      const { memoryId, content } = req.body;
+      if (!memoryId || !content) return res.status(400).json({ error: "memoryId and content required" });
+      await truthEvolutionService.recordContradiction(memoryId, content);
+      res.json({ recorded: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/truth/validation", async (req, res) => {
+    try {
+      const { memoryId, validatorId } = req.body;
+      if (!memoryId || !validatorId) return res.status(400).json({ error: "memoryId and validatorId required" });
+      await truthEvolutionService.recordValidation(memoryId, validatorId);
+      res.json({ validated: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/truth/correct", async (req, res) => {
+    try {
+      const { memoryId, correctedContent } = req.body;
+      if (!memoryId || !correctedContent) return res.status(400).json({ error: "memoryId and correctedContent required" });
+      await truthEvolutionService.correctFact(memoryId, correctedContent);
+      res.json({ corrected: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/truth/evolution/:agentId", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      res.json(await truthEvolutionService.getEvolutionHistory(req.params.agentId, limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/truth/analytics", requireAdmin, async (_req, res) => {
+    try { res.json(await truthEvolutionService.getFounderAnalytics()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/truth/alignment-history", requireAdmin, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 30;
+      res.json(await truthEvolutionService.getAlignmentHistory(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- REALITY ALIGNMENT ----
+
+  app.post("/api/reality/claims", async (req, res) => {
+    try {
+      const { content, sourcePostId, sourceCommentId, extractedBy, domain, tags } = req.body;
+      if (!content || !extractedBy) return res.status(400).json({ error: "content and extractedBy required" });
+      res.json(await realityAlignmentService.extractClaim({ content, sourcePostId, sourceCommentId, extractedBy, domain, tags }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/reality/claims", async (req, res) => {
+    try {
+      const { status, domain, limit } = req.query as any;
+      res.json(await realityAlignmentService.getClaims({ status, domain, limit: limit ? parseInt(limit) : 50 }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/reality/claims/:id", async (req, res) => {
+    try {
+      const claim = await realityAlignmentService.getClaim(req.params.id);
+      if (!claim) return res.status(404).json({ error: "Claim not found" });
+      res.json(claim);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/reality/evidence", async (req, res) => {
+    try {
+      const { claimId, submittedBy, submitterType, evidenceType, content, sourceUrl, weight, trustScore } = req.body;
+      if (!claimId || !submittedBy || !evidenceType || !content) return res.status(400).json({ error: "claimId, submittedBy, evidenceType, and content required" });
+      res.json(await realityAlignmentService.addEvidence({ claimId, submittedBy, submitterType, evidenceType, content, sourceUrl, weight, trustScore }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/reality/analytics", requireAdmin, async (_req, res) => {
+    try { res.json(await realityAlignmentService.getFounderAnalytics()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- INTELLIGENCE STACK ----
+
+  app.get("/api/intelligence-stack/layers", async (_req, res) => {
+    res.json({
+      layers: [
+        { id: 1, name: "Human Interaction Layer", services: ["auth-service", "discussion-service", "personal-agent-service", "user-psychology-service"], features: ["Personal Intelligence", "Interaction", "Psychology Progress"] },
+        { id: 2, name: "Agent Intelligence Layer", services: ["agent-service", "agent-learning-service", "truth-evolution-service", "agent-orchestrator", "agent-runner-service"], features: ["Intelligent Entities", "Truth-Anchored Evolution", "Skill Trees"] },
+        { id: 3, name: "Reality Alignment Layer", services: ["reality-alignment-service", "trust-engine", "content-moderation-service", "ai-content-service"], features: ["Claim Verification", "Consensus Engine", "Trust Scoring"] },
+        { id: 4, name: "Economy Layer", services: ["economy-service", "billing-service", "psychology-monetization-service", "ai-gateway"], features: ["Credit System", "Monetization", "AI Cost Control"] },
+        { id: 5, name: "Governance Layer", services: ["governance-service", "ethics-service", "privacy-gateway-service", "risk-management-service", "civilization-stability-service"], features: ["Agent Governance", "Privacy Gateway", "Risk Management"] },
+        { id: 6, name: "Civilization Layer", services: ["civilization-service", "collective-intelligence-service", "evolution-service", "platform-flywheel-service"], features: ["Civilization Metrics", "Collective Intelligence", "Platform Flywheel"] },
+      ],
+    });
   });
 
   return httpServer;

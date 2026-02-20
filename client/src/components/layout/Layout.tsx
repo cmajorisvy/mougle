@@ -25,25 +25,29 @@ import { api } from "@/lib/api";
 import { getCurrentUserId, setCurrentUserId } from "@/lib/mockData";
 
 const mainNav = [
-  { icon: Home, label: "Home", href: "/" },
-  { icon: MessageSquare, label: "Discussions", href: "/discussions" },
-  { icon: Swords, label: "Live Debates", href: "/live-debates" },
-  { icon: Newspaper, label: "AI News", href: "/ai-news-updates" },
-  { icon: Bot, label: "Agents", href: "/agent-dashboard" },
-  { icon: Wrench, label: "Agent Builder", href: "/agent-builder" },
-  { icon: Globe, label: "My Agents", href: "/my-agents" },
-  { icon: Store, label: "Marketplace", href: "/agent-marketplace" },
-  { icon: Sparkles, label: "App Store", href: "/agent-store" },
-  { icon: Users, label: "AI Teams", href: "/ai-teams" },
-  { icon: Brain, label: "My Agent", href: "/my-agent" },
-  { icon: Shield, label: "Privacy Center", href: "/privacy-center" },
-  { icon: ShieldCheck, label: "Trust Moat", href: "/trust-moat" },
-  { icon: Network, label: "Network", href: "/network" },
-  { icon: Sparkles, label: "Intelligence", href: "/intelligence" },
-  { icon: Brain, label: "Growth", href: "/psychology" },
-  { icon: Target, label: "Monetization", href: "/monetization" },
-  { icon: Activity, label: "Creator Hub", href: "/creator-dashboard" },
-  { icon: Trophy, label: "Rankings", href: "/ranking" },
+  { icon: Home, label: "Home", href: "/", group: "" },
+  // Personal Intelligence
+  { icon: Brain, label: "Personal Intelligence", href: "/my-agent", group: "Personal Intelligence" },
+  { icon: Sparkles, label: "Intelligence Path", href: "/intelligence", group: "Personal Intelligence" },
+  { icon: Brain, label: "Growth Insights", href: "/psychology", group: "Personal Intelligence" },
+  // Collective Intelligence
+  { icon: MessageSquare, label: "Interactions", href: "/discussions", group: "Collective Intelligence" },
+  { icon: Swords, label: "Live Debates", href: "/live-debates", group: "Collective Intelligence" },
+  { icon: Newspaper, label: "AI News", href: "/ai-news-updates", group: "Collective Intelligence" },
+  { icon: Network, label: "Network", href: "/network", group: "Collective Intelligence" },
+  { icon: Trophy, label: "Rankings", href: "/ranking", group: "Collective Intelligence" },
+  // Agent Ecosystem
+  { icon: Bot, label: "Intelligent Entities", href: "/agent-dashboard", group: "Agent Ecosystem" },
+  { icon: Wrench, label: "Entity Builder", href: "/agent-builder", group: "Agent Ecosystem" },
+  { icon: Globe, label: "My Entities", href: "/my-agents", group: "Agent Ecosystem" },
+  { icon: Store, label: "Intelligence Exchange", href: "/agent-marketplace", group: "Agent Ecosystem" },
+  { icon: Sparkles, label: "Entity Store", href: "/agent-store", group: "Agent Ecosystem" },
+  { icon: Users, label: "AI Teams", href: "/ai-teams", group: "Agent Ecosystem" },
+  { icon: Activity, label: "Creator Hub", href: "/creator-dashboard", group: "Agent Ecosystem" },
+  // Trust & Privacy
+  { icon: Shield, label: "Privacy Center", href: "/privacy-center", group: "Trust & Privacy" },
+  { icon: ShieldCheck, label: "Trust Moat", href: "/trust-moat", group: "Trust & Privacy" },
+  { icon: Target, label: "Monetization", href: "/monetization", group: "Trust & Privacy" },
 ];
 
 const bottomNav = [
@@ -227,7 +231,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}>
           <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
             <div className="space-y-0.5">
-              {mainNav.map((item) => {
+              {mainNav.map((item, idx) => {
+                const prevGroup = idx > 0 ? mainNav[idx - 1].group : "";
+                const showGroupHeader = item.group && item.group !== prevGroup;
                 const active = isActive(item.href);
                 const navItem = (
                   <Link key={item.href} href={item.href}>
@@ -247,15 +253,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     </div>
                   </Link>
                 );
+                const elements: React.ReactNode[] = [];
+                if (showGroupHeader && !sidebarCollapsed) {
+                  elements.push(
+                    <div key={`group-${item.group}`} className="px-2.5 pt-3 pb-1">
+                      <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">{item.group}</span>
+                    </div>
+                  );
+                } else if (showGroupHeader && sidebarCollapsed) {
+                  elements.push(<div key={`sep-${item.group}`} className="h-px bg-white/[0.06] my-1.5" />);
+                }
                 if (sidebarCollapsed) {
-                  return (
+                  elements.push(
                     <Tooltip key={item.href} delayDuration={0}>
                       <TooltipTrigger asChild>{navItem}</TooltipTrigger>
                       <TooltipContent side="right" className="text-xs glass-panel">{item.label}</TooltipContent>
                     </Tooltip>
                   );
+                } else {
+                  elements.push(navItem);
                 }
-                return navItem;
+                return elements;
               })}
             </div>
 

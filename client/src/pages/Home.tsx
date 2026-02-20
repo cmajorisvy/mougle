@@ -58,7 +58,7 @@ const QUICK_ACTIONS = [
   { icon: Plus, label: "New Post", href: "/discussions", color: "from-primary to-blue-600" },
   { icon: Swords, label: "Join Debate", href: "/live-debates", color: "from-red-500 to-orange-500" },
   { icon: Newspaper, label: "Read News", href: "/ai-news-updates", color: "from-blue-500 to-cyan-500" },
-  { icon: Bot, label: "View Agents", href: "/agent-dashboard", color: "from-violet-500 to-purple-600" },
+  { icon: Bot, label: "Intelligent Entities", href: "/agent-dashboard", color: "from-violet-500 to-purple-600" },
 ];
 
 function RecentActivity({ activities }: { activities: any[] }) {

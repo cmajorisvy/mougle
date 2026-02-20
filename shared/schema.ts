@@ -2209,4 +2209,118 @@ export type InsertRiskSnapshot = z.infer<typeof insertRiskSnapshotSchema>;
 export type DataRequest = typeof dataRequests.$inferSelect;
 export type InsertDataRequest = z.infer<typeof insertDataRequestSchema>;
 
+// ---- TRUTH-ANCHORED EVOLUTION ----
+
+export const truthMemories = pgTable("truth_memories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  content: text("content").notNull(),
+  truthType: text("truth_type").notNull().default("personal_truth"), // personal_truth, objective_fact, contextual_interpretation
+  confidenceScore: real("confidence_score").notNull().default(0.5),
+  evidenceCount: integer("evidence_count").notNull().default(0),
+  contradictionCount: integer("contradiction_count").notNull().default(0),
+  validationCount: integer("validation_count").notNull().default(0),
+  lastEvaluatedAt: timestamp("last_evaluated_at").defaultNow(),
+  sources: jsonb("sources").$type<string[]>().default([]),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const truthEvolutionEvents = pgTable("truth_evolution_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  memoryId: varchar("memory_id"),
+  eventType: text("event_type").notNull(), // fact_correction, knowledge_update, confidence_shift, contradiction_detected, expert_validation
+  previousConfidence: real("previous_confidence"),
+  newConfidence: real("new_confidence"),
+  trigger: text("trigger").notNull(), // new_evidence, contradiction, expert_review, decay
+  description: text("description"),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const truthAlignmentSnapshots = pgTable("truth_alignment_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  snapshotDate: timestamp("snapshot_date").notNull().defaultNow(),
+  totalMemories: integer("total_memories").notNull().default(0),
+  avgConfidence: real("avg_confidence").notNull().default(0),
+  truthTypeDistribution: jsonb("truth_type_distribution").$type<Record<string, number>>().notNull().default({}),
+  evolutionEvents24h: integer("evolution_events_24h").notNull().default(0),
+  correctionsCount: integer("corrections_count").notNull().default(0),
+  highConfidenceRatio: real("high_confidence_ratio").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTruthMemorySchema = createInsertSchema(truthMemories).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTruthEvolutionEventSchema = createInsertSchema(truthEvolutionEvents).omit({ id: true, createdAt: true });
+export const insertTruthAlignmentSnapshotSchema = createInsertSchema(truthAlignmentSnapshots).omit({ id: true, createdAt: true });
+export type TruthMemory = typeof truthMemories.$inferSelect;
+export type InsertTruthMemory = z.infer<typeof insertTruthMemorySchema>;
+export type TruthEvolutionEvent = typeof truthEvolutionEvents.$inferSelect;
+export type InsertTruthEvolutionEvent = z.infer<typeof insertTruthEvolutionEventSchema>;
+export type TruthAlignmentSnapshot = typeof truthAlignmentSnapshots.$inferSelect;
+export type InsertTruthAlignmentSnapshot = z.infer<typeof insertTruthAlignmentSnapshotSchema>;
+
+// ---- REALITY ALIGNMENT LAYER ----
+
+export const realityClaims = pgTable("reality_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  content: text("content").notNull(),
+  sourcePostId: varchar("source_post_id"),
+  sourceCommentId: varchar("source_comment_id"),
+  extractedBy: varchar("extracted_by").notNull(), // agent or system ID
+  status: text("status").notNull().default("unverified"), // unverified, contested, supported, consensus
+  confidenceScore: real("confidence_score").notNull().default(0.5),
+  agreementLevel: real("agreement_level").notNull().default(0),
+  evidenceStrength: real("evidence_strength").notNull().default(0),
+  contradictionCount: integer("contradiction_count").notNull().default(0),
+  evaluationCount: integer("evaluation_count").notNull().default(0),
+  domain: text("domain"),
+  tags: text("tags").array(),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const claimEvidence = pgTable("claim_evidence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  claimId: varchar("claim_id").notNull(),
+  submittedBy: varchar("submitted_by").notNull(),
+  submitterType: text("submitter_type").notNull().default("user"), // user, agent, system
+  evidenceType: text("evidence_type").notNull(), // supporting, contradicting, neutral
+  content: text("content").notNull(),
+  sourceUrl: text("source_url"),
+  weight: real("weight").notNull().default(1.0),
+  trustScore: real("trust_score").notNull().default(0.5),
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const consensusRecords = pgTable("consensus_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  claimId: varchar("claim_id").notNull(),
+  previousStatus: text("previous_status").notNull(),
+  newStatus: text("new_status").notNull(),
+  previousConfidence: real("previous_confidence").notNull(),
+  newConfidence: real("new_confidence").notNull(),
+  participantCount: integer("participant_count").notNull().default(0),
+  evidenceCount: integer("evidence_count").notNull().default(0),
+  debateRounds: integer("debate_rounds").notNull().default(0),
+  trigger: text("trigger").notNull(), // evidence_added, debate_completed, re_evaluation, expert_review
+  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRealityClaimSchema = createInsertSchema(realityClaims).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertClaimEvidenceSchema = createInsertSchema(claimEvidence).omit({ id: true, createdAt: true });
+export const insertConsensusRecordSchema = createInsertSchema(consensusRecords).omit({ id: true, createdAt: true });
+export type RealityClaim = typeof realityClaims.$inferSelect;
+export type InsertRealityClaim = z.infer<typeof insertRealityClaimSchema>;
+export type ClaimEvidence = typeof claimEvidence.$inferSelect;
+export type InsertClaimEvidence = z.infer<typeof insertClaimEvidenceSchema>;
+export type ConsensusRecord = typeof consensusRecords.$inferSelect;
+export type InsertConsensusRecord = z.infer<typeof insertConsensusRecordSchema>;
+
 export * from "./models/chat";

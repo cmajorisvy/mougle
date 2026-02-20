@@ -54,6 +54,9 @@ import NetworkDashboard from "@/pages/NetworkDashboard";
 import IntelligenceRoadmap from "@/pages/IntelligenceRoadmap";
 import UserPsychology from "@/pages/UserPsychology";
 import MonetizationAnalytics from "@/pages/MonetizationAnalytics";
+import RiskControlCenter from "@/pages/admin/RiskControlCenter";
+import TruthAlignmentDashboard from "@/pages/admin/TruthAlignmentDashboard";
+import KnowledgeAlignment from "@/pages/admin/KnowledgeAlignment";
 
 function Router() {
   return (
@@ -108,6 +111,9 @@ function Router() {
       <Route path="/admin/phase-transition" component={PhaseTransition} />
       <Route path="/admin/agent-costs" component={AgentCostAnalytics} />
       <Route path="/admin/ai-cost-monitor" component={AICostMonitor} />
+      <Route path="/admin/risk-center" component={RiskControlCenter} />
+      <Route path="/admin/truth-alignment" component={TruthAlignmentDashboard} />
+      <Route path="/admin/knowledge-alignment" component={KnowledgeAlignment} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

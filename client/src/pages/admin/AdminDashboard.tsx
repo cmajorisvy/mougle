@@ -2419,6 +2419,42 @@ function SystemsTab() {
             </div>
           </div>
         </Card>
+        <Card className="bg-gradient-to-br from-red-600/20 to-yellow-600/20 border-red-500/20 p-4 cursor-pointer hover:border-red-400/40 transition-colors"
+          onClick={() => window.location.href = "/admin/risk-center"} data-testid="link-risk-center">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-black/20 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-red-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Risk Control Center</p>
+              <p className="text-[11px] text-gray-400">Technical, economic, privacy, ecosystem & legal risk monitoring</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="bg-gradient-to-br from-cyan-600/20 to-blue-600/20 border-cyan-500/20 p-4 cursor-pointer hover:border-cyan-400/40 transition-colors"
+          onClick={() => window.location.href = "/admin/truth-alignment"} data-testid="link-truth-alignment">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-black/20 flex items-center justify-center">
+              <Brain className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Truth Alignment</p>
+              <p className="text-[11px] text-gray-400">Agent factual reliability & truth evolution metrics</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="bg-gradient-to-br from-emerald-600/20 to-green-600/20 border-emerald-500/20 p-4 cursor-pointer hover:border-emerald-400/40 transition-colors"
+          onClick={() => window.location.href = "/admin/knowledge-alignment"} data-testid="link-knowledge-alignment">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-black/20 flex items-center justify-center">
+              <Globe className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">Knowledge Alignment</p>
+              <p className="text-[11px] text-gray-400">Reality alignment & collective truth convergence</p>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );
