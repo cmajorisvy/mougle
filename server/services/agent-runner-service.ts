@@ -4,10 +4,24 @@ import { db } from "../db";
 import { users as usersTable, userAgents as userAgentsTable, agentCostLogs } from "@shared/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+function getDefaultClient(): OpenAI {
+  return new OpenAI({
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  });
+}
+
+function getByoaiClient(provider: string, apiKey: string): OpenAI {
+  const baseUrls: Record<string, string> = {
+    openai: "https://api.openai.com/v1",
+    together: "https://api.together.xyz/v1",
+    groq: "https://api.groq.com/openai/v1",
+  };
+  return new OpenAI({
+    apiKey,
+    baseURL: baseUrls[provider] || baseUrls.openai,
+  });
+}
 
 const CREDIT_COSTS: Record<string, number> = {
   "gpt-4o": 5,
@@ -37,6 +51,7 @@ interface RunAgentResult {
   response: string;
   creditsCharged: number;
   tokensUsed: number;
+  byoai: boolean;
 }
 
 export async function runAgent(
@@ -48,23 +63,33 @@ export async function runAgent(
   if (!agent) throw new Error("Agent not found");
 
   if (agent.status === "paused") {
-    throw new Error("Agent is paused. The agent owner needs to resume it.");
+    throw new Error("Agent is paused due to insufficient credits. Add credits and resume to continue.");
   }
 
-  const costEstimate = estimateCost(agent.model, "chat");
+  const caller = await storage.getUser(callerId);
+  if (!caller) throw new Error("User not found");
+
+  const usingByoai = !!(caller.byoaiProvider && caller.byoaiApiKey);
+  const costEstimate = usingByoai ? 0 : estimateCost(agent.model, "chat");
 
   const result = await db.transaction(async (tx) => {
-    const [updatedCaller] = await tx.update(usersTable)
-      .set({ creditWallet: sql`COALESCE(${usersTable.creditWallet}, 0) - ${costEstimate}` })
-      .where(and(
-        eq(usersTable.id, callerId),
-        gte(usersTable.creditWallet, costEstimate)
-      ))
-      .returning({ id: usersTable.id, creditWallet: usersTable.creditWallet });
+    if (costEstimate > 0) {
+      const [updatedCaller] = await tx.update(usersTable)
+        .set({ creditWallet: sql`COALESCE(${usersTable.creditWallet}, 0) - ${costEstimate}` })
+        .where(and(
+          eq(usersTable.id, callerId),
+          gte(usersTable.creditWallet, costEstimate)
+        ))
+        .returning({ id: usersTable.id, creditWallet: usersTable.creditWallet });
 
-    if (!updatedCaller) {
-      throw new Error("Insufficient credits. Please add credits to your wallet.");
+      if (!updatedCaller) {
+        throw new Error("Insufficient credits. Please add credits to your wallet.");
+      }
     }
+
+    const client = usingByoai
+      ? getByoaiClient(caller.byoaiProvider!, caller.byoaiApiKey!)
+      : getDefaultClient();
 
     const messages: OpenAI.ChatCompletionMessageParam[] = [];
     if (agent.systemPrompt) {
@@ -76,7 +101,7 @@ export async function runAgent(
     let tokensUsed = 0;
 
     try {
-      const completion = await openai.chat.completions.create({
+      const completion = await client.chat.completions.create({
         model: agent.model === "gpt-4o" ? "gpt-4o" : "gpt-4o-mini",
         messages,
         temperature: agent.temperature,
@@ -86,9 +111,11 @@ export async function runAgent(
       responseText = completion.choices[0]?.message?.content || "No response generated.";
       tokensUsed = completion.usage?.total_tokens || 0;
     } catch (err: any) {
-      await tx.update(usersTable)
-        .set({ creditWallet: sql`COALESCE(${usersTable.creditWallet}, 0) + ${costEstimate}` })
-        .where(eq(usersTable.id, callerId));
+      if (costEstimate > 0) {
+        await tx.update(usersTable)
+          .set({ creditWallet: sql`COALESCE(${usersTable.creditWallet}, 0) + ${costEstimate}` })
+          .where(eq(usersTable.id, callerId));
+      }
 
       await tx.insert(agentCostLogs).values({
         agentId,
@@ -106,7 +133,7 @@ export async function runAgent(
     await tx.insert(agentCostLogs).values({
       agentId,
       ownerId: callerId,
-      actionType: "chat",
+      actionType: usingByoai ? "chat_byoai" : "chat",
       creditsCharged: costEstimate,
       tokensUsed,
       model: agent.model,
@@ -117,10 +144,198 @@ export async function runAgent(
       .set({ totalUsageCount: sql`${userAgentsTable.totalUsageCount} + 1` })
       .where(eq(userAgentsTable.id, agentId));
 
-    return { response: responseText, creditsCharged: costEstimate, tokensUsed };
+    return { response: responseText, creditsCharged: costEstimate, tokensUsed, byoai: usingByoai };
   });
 
+  if (!usingByoai) {
+    await checkAndAutoPause(callerId);
+  }
+
   return result;
+}
+
+export async function trainAgent(
+  agentId: string,
+  ownerId: string,
+  sources: Array<{ sourceType: string; title: string; content?: string; uri?: string; charCount: number }>
+): Promise<{ creditsCharged: number; sourcesProcessed: number }> {
+  const agent = await storage.getUserAgent(agentId);
+  if (!agent) throw new Error("Agent not found");
+  if (agent.ownerId !== ownerId) throw new Error("Not authorized to train this agent");
+
+  const sub = await storage.getUserSubscription(ownerId);
+  const hasPro = sub && sub.status === "active" && sub.planId !== "free";
+  if (!hasPro) {
+    throw new Error("Pro subscription required for agent training. Upgrade your plan to unlock training features.");
+  }
+
+  const owner = await storage.getUser(ownerId);
+  if (!owner) throw new Error("User not found");
+  const usingByoai = !!(owner.byoaiProvider && owner.byoaiApiKey);
+
+  const totalChars = sources.reduce((sum, s) => sum + (s.charCount || 0), 0);
+  const cost = estimateTrainingCost(sources.length, totalChars);
+  const totalCredits = usingByoai ? 0 : cost.total;
+
+  const result = await db.transaction(async (tx) => {
+    if (totalCredits > 0) {
+      const [updated] = await tx.update(usersTable)
+        .set({ creditWallet: sql`COALESCE(${usersTable.creditWallet}, 0) - ${totalCredits}` })
+        .where(and(
+          eq(usersTable.id, ownerId),
+          gte(usersTable.creditWallet, totalCredits)
+        ))
+        .returning({ id: usersTable.id, creditWallet: usersTable.creditWallet });
+
+      if (!updated) {
+        throw new Error(`Insufficient credits. Training requires ${totalCredits} credits.`);
+      }
+    }
+
+    await tx.insert(agentCostLogs).values({
+      agentId,
+      ownerId,
+      actionType: "training",
+      creditsCharged: totalCredits,
+      tokensUsed: 0,
+      model: agent.model,
+      status: "completed",
+    });
+
+    return { creditsCharged: totalCredits, sourcesProcessed: sources.length };
+  });
+
+  if (!usingByoai) {
+    await checkAndAutoPause(ownerId);
+  }
+
+  return result;
+}
+
+async function checkAndAutoPause(userId: string): Promise<void> {
+  const user = await storage.getUser(userId);
+  if (!user || (user.creditWallet || 0) > 0) return;
+
+  const agents = await storage.getUserAgentsByOwner(userId);
+  const activeAgents = agents.filter(a => a.status === "active");
+
+  for (const agent of activeAgents) {
+    await storage.updateUserAgent(agent.id, { status: "paused" });
+  }
+}
+
+export async function resumeAgents(ownerId: string): Promise<{ resumed: number }> {
+  const user = await storage.getUser(ownerId);
+  if (!user) throw new Error("User not found");
+
+  if ((user.creditWallet || 0) <= 0) {
+    throw new Error("Cannot resume agents with zero credits. Please add credits first.");
+  }
+
+  const agents = await storage.getUserAgentsByOwner(ownerId);
+  const pausedAgents = agents.filter(a => a.status === "paused");
+  let resumed = 0;
+
+  for (const agent of pausedAgents) {
+    await storage.updateUserAgent(agent.id, { status: "active" });
+    resumed++;
+  }
+
+  return { resumed };
+}
+
+export async function setByoaiKey(userId: string, provider: string, apiKey: string): Promise<{ success: boolean }> {
+  const validProviders = ["openai", "together", "groq"];
+  if (!validProviders.includes(provider)) {
+    throw new Error(`Invalid BYOAI provider. Supported: ${validProviders.join(", ")}`);
+  }
+
+  try {
+    const client = getByoaiClient(provider, apiKey);
+    await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: "test" }],
+      max_completion_tokens: 5,
+    });
+  } catch (err: any) {
+    throw new Error(`API key validation failed: ${err.message}`);
+  }
+
+  await db.update(usersTable)
+    .set({ byoaiProvider: provider, byoaiApiKey: apiKey })
+    .where(eq(usersTable.id, userId));
+
+  return { success: true };
+}
+
+export async function removeByoaiKey(userId: string): Promise<{ success: boolean }> {
+  await db.update(usersTable)
+    .set({ byoaiProvider: null, byoaiApiKey: null })
+    .where(eq(usersTable.id, userId));
+  return { success: true };
+}
+
+export async function getWalletStatus(userId: string): Promise<{
+  creditWallet: number;
+  byoaiEnabled: boolean;
+  byoaiProvider: string | null;
+  activeAgents: number;
+  pausedAgents: number;
+  totalSpent: number;
+}> {
+  const user = await storage.getUser(userId);
+  if (!user) throw new Error("User not found");
+
+  const agents = await storage.getUserAgentsByOwner(userId);
+  const costLogs = await storage.getAgentCostLogs(userId, 500);
+  const totalSpent = costLogs.reduce((sum, l) => sum + l.creditsCharged, 0);
+
+  return {
+    creditWallet: user.creditWallet || 0,
+    byoaiEnabled: !!(user.byoaiProvider && user.byoaiApiKey),
+    byoaiProvider: user.byoaiProvider || null,
+    activeAgents: agents.filter(a => a.status === "active").length,
+    pausedAgents: agents.filter(a => a.status === "paused").length,
+    totalSpent,
+  };
+}
+
+export async function getPlatformCostAnalytics(): Promise<{
+  totalAgents: number;
+  activeAgents: number;
+  pausedAgents: number;
+  totalUsage: number;
+  totalCreditsCharged: number;
+  byoaiUsers: number;
+  creditCosts: Record<string, number>;
+  costByModel: Record<string, number>;
+  costByAction: Record<string, number>;
+}> {
+  const allAgents = await db.select().from(userAgentsTable);
+  const allCostLogs = await db.select().from(agentCostLogs);
+  const allUsers = await db.select({ id: usersTable.id, byoaiProvider: usersTable.byoaiProvider }).from(usersTable);
+
+  const costByModel: Record<string, number> = {};
+  const costByAction: Record<string, number> = {};
+  let totalCreditsCharged = 0;
+
+  for (const log of allCostLogs) {
+    totalCreditsCharged += log.creditsCharged;
+    costByModel[log.model || "unknown"] = (costByModel[log.model || "unknown"] || 0) + log.creditsCharged;
+    costByAction[log.actionType] = (costByAction[log.actionType] || 0) + log.creditsCharged;
+  }
+
+  return {
+    totalAgents: allAgents.length,
+    activeAgents: allAgents.filter(a => a.status === "active").length,
+    pausedAgents: allAgents.filter(a => a.status === "paused").length,
+    totalUsage: allAgents.reduce((sum, a) => sum + a.totalUsageCount, 0),
+    totalCreditsCharged,
+    byoaiUsers: allUsers.filter(u => u.byoaiProvider).length,
+    creditCosts: CREDIT_COSTS,
+    costByModel,
+    costByAction,
+  };
 }
 
 export async function runDemoInteraction(
@@ -139,7 +354,8 @@ export async function runDemoInteraction(
   messages.push({ role: "user", content: userMessage });
 
   try {
-    const completion = await openai.chat.completions.create({
+    const client = getDefaultClient();
+    const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages,
       temperature: agent.temperature,
@@ -179,6 +395,13 @@ export function computeQualityScore(listing: {
 export const agentRunnerService = {
   runAgent,
   runDemoInteraction,
+  trainAgent,
+  resumeAgents,
+  setByoaiKey,
+  removeByoaiKey,
+  getWalletStatus,
+  getPlatformCostAnalytics,
+  checkAndAutoPause,
   estimateCost,
   estimateTrainingCost,
   computeTrustScore,

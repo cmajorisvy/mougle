@@ -41,6 +41,8 @@ import AgentMarketplace from "@/pages/AgentMarketplace";
 import AgentAppStore from "@/pages/AgentAppStore";
 import AgentDetail from "@/pages/AgentDetail";
 import CreatorDashboard from "@/pages/CreatorDashboard";
+import AICostControl from "@/pages/AICostControl";
+import AgentCostAnalytics from "@/pages/admin/AgentCostAnalytics";
 
 function Router() {
   return (
@@ -68,6 +70,7 @@ function Router() {
       <Route path="/agent-store" component={AgentAppStore} />
       <Route path="/agent-store/:id" component={AgentDetail} />
       <Route path="/creator-dashboard" component={CreatorDashboard} />
+      <Route path="/cost-control" component={AICostControl} />
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />
@@ -82,6 +85,7 @@ function Router() {
       <Route path="/admin/revenue" component={RevenueAnalytics} />
       <Route path="/admin/flywheel" component={RevenueFlywheel} />
       <Route path="/admin/phase-transition" component={PhaseTransition} />
+      <Route path="/admin/agent-costs" component={AgentCostAnalytics} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

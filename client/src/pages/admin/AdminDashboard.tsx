@@ -656,42 +656,42 @@ function SocialTab() {
 
   const { data: accounts = [], refetch: refetchAccounts } = useQuery({
     queryKey: ["admin-social-accounts"],
-    queryFn: () => api.admin.social.accounts(),
+    queryFn: () => api.social.accounts(),
   });
 
   const { data: posts = [], refetch: refetchPosts } = useQuery({
     queryKey: ["admin-social-posts"],
-    queryFn: () => api.admin.social.posts(30),
+    queryFn: () => api.social.posts(30),
   });
 
   const createAccountMutation = useMutation({
-    mutationFn: (data: any) => api.admin.social.createAccount(data),
+    mutationFn: (data: any) => api.social.createAccount(data),
     onSuccess: () => { refetchAccounts(); setShowAddAccount(false); setNewName(""); },
   });
 
   const updateAccountMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => api.admin.social.updateAccount(id, data),
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.social.updateAccount(id, data),
     onSuccess: () => refetchAccounts(),
   });
 
   const deleteAccountMutation = useMutation({
-    mutationFn: (id: number) => api.admin.social.deleteAccount(id),
+    mutationFn: (id: number) => api.social.deleteAccount(id),
     onSuccess: () => refetchAccounts(),
   });
 
   const publishMutation = useMutation({
-    mutationFn: (id: number) => api.admin.social.publishPost(id),
+    mutationFn: (id: number) => api.social.publishPost(id),
     onSuccess: () => refetchPosts(),
   });
 
   const triggerPublishMutation = useMutation({
-    mutationFn: () => api.admin.social.triggerPublish(),
+    mutationFn: () => api.social.triggerPublish(),
     onSuccess: () => { refetchPosts(); refetchAccounts(); },
   });
 
   const captionMutation = useMutation({
     mutationFn: (data: { contentType: string; contentId: string; platform?: string }) =>
-      api.admin.social.generateCaption(data),
+      api.social.generateCaption(data),
     onSuccess: (data) => setCaptionPreview(data),
   });
 

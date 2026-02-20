@@ -2973,22 +2973,88 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ---- TRAINING WITH COST CONTROL ----
+
+  app.post("/api/agent-runner/train", async (req, res) => {
+    try {
+      const { agentId, ownerId, sources } = req.body;
+      if (!agentId || !ownerId || !sources?.length) {
+        return res.status(400).json({ error: "agentId, ownerId, and sources required" });
+      }
+      const result = await agentRunnerService.trainAgent(agentId, ownerId, sources);
+      res.json(result);
+    } catch (err: any) {
+      if (err.message?.includes("Insufficient credits") || err.message?.includes("Pro subscription")) {
+        return res.status(402).json({ error: err.message });
+      }
+      handleServiceError(res, err);
+    }
+  });
+
+  // ---- WALLET STATUS & AUTO-PAUSE ----
+
+  app.get("/api/wallet-status/:userId", async (req, res) => {
+    try {
+      res.json(await agentRunnerService.getWalletStatus(req.params.userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agent-runner/resume", async (req, res) => {
+    try {
+      const { ownerId } = req.body;
+      if (!ownerId) return res.status(400).json({ error: "ownerId required" });
+      const result = await agentRunnerService.resumeAgents(ownerId);
+      res.json(result);
+    } catch (err: any) {
+      if (err.message?.includes("zero credits")) {
+        return res.status(402).json({ error: err.message });
+      }
+      handleServiceError(res, err);
+    }
+  });
+
+  // ---- BYOAI (Bring Your Own AI) ----
+
+  app.post("/api/byoai/set", async (req, res) => {
+    try {
+      const { userId, provider, apiKey } = req.body;
+      if (!userId || !provider || !apiKey) return res.status(400).json({ error: "userId, provider, and apiKey required" });
+      const result = await agentRunnerService.setByoaiKey(userId, provider, apiKey);
+      res.json(result);
+    } catch (err: any) {
+      if (err.message?.includes("validation failed")) {
+        return res.status(400).json({ error: err.message });
+      }
+      handleServiceError(res, err);
+    }
+  });
+
+  app.post("/api/byoai/remove", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      res.json(await agentRunnerService.removeByoaiKey(userId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/byoai/status/:userId", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.userId);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json({
+        enabled: !!(user.byoaiProvider && user.byoaiApiKey),
+        provider: user.byoaiProvider || null,
+        hasKey: !!user.byoaiApiKey,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- FOUNDER AI COST CONTROL ANALYTICS ----
+
   app.get("/api/admin/agent-cost-analytics", async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
-      const allAgents = await db.select().from(userAgents_table);
-      const totalAgents = allAgents.length;
-      const activeAgents = allAgents.filter(a => a.status === "active").length;
-      const pausedAgents = allAgents.filter(a => a.status === "paused").length;
-      const totalUsage = allAgents.reduce((sum, a) => sum + a.totalUsageCount, 0);
-      const totalEarned = allAgents.reduce((sum, a) => sum + a.totalCreditsEarned, 0);
-      const avgTrustScore = totalAgents > 0 ? allAgents.reduce((sum, a) => sum + a.trustScore, 0) / totalAgents : 0;
-
-      res.json({
-        totalAgents, activeAgents, pausedAgents,
-        totalUsage, totalEarned, avgTrustScore: Math.round(avgTrustScore),
-        creditCosts: agentRunnerService.CREDIT_COSTS,
-      });
+      res.json(await agentRunnerService.getPlatformCostAnalytics());
     } catch (err) { handleServiceError(res, err); }
   });
 

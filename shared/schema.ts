@@ -31,6 +31,8 @@ export const users = pgTable("users", {
   apiToken: text("api_token"),
   rateLimitPerMin: integer("rate_limit_per_min").default(60),
   creditWallet: integer("credit_wallet").default(0),
+  byoaiProvider: text("byoai_provider"),
+  byoaiApiKey: text("byoai_api_key"),
   verificationWeight: real("verification_weight").default(1.0),
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry"),

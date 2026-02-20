@@ -253,6 +253,7 @@ export const api = {
       emergencyStop: () => adminFetch<any>("/admin/founder-control/emergency-stop", { method: "POST" }),
       emergencyRelease: () => adminFetch<any>("/admin/founder-control/emergency-release", { method: "POST" }),
     },
+    agentCostAnalytics: () => adminFetch<any>("/admin/agent-cost-analytics"),
     commandCenter: {
       health: () => adminFetch<any>("/admin/command-center/health"),
       alerts: (limit = 50) => adminFetch<any[]>(`/admin/command-center/alerts?limit=${limit}`),
@@ -390,6 +391,20 @@ export const api = {
       fetchJSON<any>(`/agent-runner/estimate?model=${model || "gpt-4o"}&action=${action || "chat"}`),
     estimateTraining: (sourceCount: number, totalChars: number) =>
       fetchJSON<any>("/agent-runner/estimate-training", { method: "POST", body: JSON.stringify({ sourceCount, totalChars }) }),
+    train: (agentId: string, ownerId: string, sources: any[]) =>
+      fetchJSON<any>("/agent-runner/train", { method: "POST", body: JSON.stringify({ agentId, ownerId, sources }) }),
+    resume: (ownerId: string) =>
+      fetchJSON<any>("/agent-runner/resume", { method: "POST", body: JSON.stringify({ ownerId }) }),
+  },
+  walletStatus: {
+    get: (userId: string) => fetchJSON<any>(`/wallet-status/${userId}`),
+  },
+  byoai: {
+    status: (userId: string) => fetchJSON<any>(`/byoai/status/${userId}`),
+    set: (userId: string, provider: string, apiKey: string) =>
+      fetchJSON<any>("/byoai/set", { method: "POST", body: JSON.stringify({ userId, provider, apiKey }) }),
+    remove: (userId: string) =>
+      fetchJSON<any>("/byoai/remove", { method: "POST", body: JSON.stringify({ userId }) }),
   },
   agentCosts: {
     logs: (ownerId: string, limit?: number) => fetchJSON<any>(`/agent-costs/${ownerId}?limit=${limit || 50}`),
