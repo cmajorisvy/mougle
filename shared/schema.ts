@@ -2323,4 +2323,99 @@ export type InsertClaimEvidence = z.infer<typeof insertClaimEvidenceSchema>;
 export type ConsensusRecord = typeof consensusRecords.$inferSelect;
 export type InsertConsensusRecord = z.infer<typeof insertConsensusRecordSchema>;
 
+// ---- LABS SYSTEM ----
+
+export const labsOpportunities = pgTable("labs_opportunities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  industry: text("industry").notNull(),
+  category: text("category").notNull(),
+  problemStatement: text("problem_statement").notNull(),
+  solution: text("solution").notNull(),
+  developmentSpec: jsonb("development_spec").$type<{
+    techStack: string[];
+    features: string[];
+    estimatedHours: number;
+    complexity: string;
+    scaffoldTemplate: string;
+  }>().notNull(),
+  monetizationModel: text("monetization_model").notNull(),
+  revenueEstimate: text("revenue_estimate"),
+  legalRequirements: text("legal_requirements").array().notNull(),
+  legalDisclaimers: text("legal_disclaimers").array().notNull(),
+  targetAudience: text("target_audience"),
+  competitiveEdge: text("competitive_edge"),
+  difficulty: text("difficulty").notNull().default("intermediate"),
+  trending: boolean("trending").notNull().default(false),
+  buildCount: integer("build_count").notNull().default(0),
+  generatedBy: text("generated_by").notNull().default("system"),
+  status: text("status").notNull().default("active"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const labsApps = pgTable("labs_apps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  opportunityId: varchar("opportunity_id"),
+  creatorId: varchar("creator_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  icon: text("icon"),
+  screenshots: text("screenshots").array(),
+  category: text("category").notNull(),
+  industry: text("industry").notNull(),
+  pricingModel: text("pricing_model").notNull().default("free"),
+  price: integer("price").default(0),
+  subscriptionInterval: text("subscription_interval"),
+  replitProjectUrl: text("replit_project_url"),
+  liveUrl: text("live_url"),
+  pwaEnabled: boolean("pwa_enabled").notNull().default(false),
+  legalDisclaimers: text("legal_disclaimers").array(),
+  installCount: integer("install_count").notNull().default(0),
+  rating: real("rating").default(0),
+  reviewCount: integer("review_count").notNull().default(0),
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const labsFavorites = pgTable("labs_favorites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  itemId: varchar("item_id").notNull(),
+  itemType: text("item_type").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const labsInstallations = pgTable("labs_installations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  appId: varchar("app_id").notNull(),
+  status: text("status").notNull().default("installed"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const labsReviews = pgTable("labs_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appId: varchar("app_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  rating: integer("rating").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertLabsOpportunitySchema = createInsertSchema(labsOpportunities).omit({ id: true, createdAt: true });
+export const insertLabsAppSchema = createInsertSchema(labsApps).omit({ id: true, createdAt: true });
+export const insertLabsFavoriteSchema = createInsertSchema(labsFavorites).omit({ id: true, createdAt: true });
+export const insertLabsInstallationSchema = createInsertSchema(labsInstallations).omit({ id: true, createdAt: true });
+export const insertLabsReviewSchema = createInsertSchema(labsReviews).omit({ id: true, createdAt: true });
+
+export type LabsOpportunity = typeof labsOpportunities.$inferSelect;
+export type InsertLabsOpportunity = z.infer<typeof insertLabsOpportunitySchema>;
+export type LabsApp = typeof labsApps.$inferSelect;
+export type InsertLabsApp = z.infer<typeof insertLabsAppSchema>;
+export type LabsFavorite = typeof labsFavorites.$inferSelect;
+export type InsertLabsFavorite = z.infer<typeof insertLabsFavoriteSchema>;
+export type LabsInstallation = typeof labsInstallations.$inferSelect;
+export type InsertLabsInstallation = z.infer<typeof insertLabsInstallationSchema>;
+export type LabsReview = typeof labsReviews.$inferSelect;
+export type InsertLabsReview = z.infer<typeof insertLabsReviewSchema>;
+
 export * from "./models/chat";

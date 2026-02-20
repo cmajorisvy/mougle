@@ -55,6 +55,7 @@ import { intelligenceRoadmapService } from "./services/intelligence-roadmap-serv
 import { userPsychologyService } from "./services/user-psychology-service";
 import { psychologyMonetizationService } from "./services/psychology-monetization-service";
 import { riskManagementService } from "./services/risk-management-service";
+import { labsService } from "./services/labs-service";
 import { truthEvolutionService } from "./services/truth-evolution-service";
 import { realityAlignmentService } from "./services/reality-alignment-service";
 import { intelligenceStackRegistry } from "./services/intelligence-stack-registry";
@@ -4584,6 +4585,133 @@ Keep under 200 words.`
         mappings: intelligenceStackRegistry.getAllServiceMappings(),
         violations: intelligenceStackRegistry.getViolations(),
       });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- LABS SYSTEM ----
+
+  app.get("/api/labs/opportunities", async (req, res) => {
+    try {
+      const { industry, category, difficulty } = req.query;
+      const opportunities = await labsService.getOpportunities({
+        industry: industry as string,
+        category: category as string,
+        difficulty: difficulty as string,
+      });
+      res.json(opportunities);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/opportunities/:id", async (req, res) => {
+    try {
+      const opp = await labsService.getOpportunity(req.params.id);
+      if (!opp) return res.status(404).json({ error: "Opportunity not found" });
+      res.json(opp);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/opportunities/seed", async (_req, res) => {
+    try {
+      await labsService.seedIfEmpty();
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/opportunities/:id/build", async (req, res) => {
+    try {
+      const scaffold = await labsService.getScaffoldSpec(req.params.id);
+      await labsService.incrementBuildCount(req.params.id);
+      res.json(scaffold);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/meta", async (_req, res) => {
+    res.json({ industries: labsService.getIndustries(), categories: labsService.getCategories() });
+  });
+
+  app.get("/api/labs/disclaimers/:industry", async (req, res) => {
+    res.json({ disclaimers: labsService.getDisclaimers(req.params.industry) });
+  });
+
+  app.get("/api/labs/apps", async (req, res) => {
+    try {
+      const { category, pricingModel, industry } = req.query;
+      const apps = await labsService.getPublishedApps({ category: category as string, pricingModel: pricingModel as string, industry: industry as string });
+      res.json(apps);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/apps/:id", async (req, res) => {
+    try {
+      const app = await labsService.getApp(req.params.id);
+      if (!app) return res.status(404).json({ error: "App not found" });
+      res.json(app);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/apps", async (req, res) => {
+    try {
+      const app = await labsService.publishApp(req.body);
+      res.json(app);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/apps/user/:userId", async (req, res) => {
+    try {
+      const apps = await labsService.getUserApps(req.params.userId);
+      res.json(apps);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/apps/:id/install", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      const install = await labsService.installApp(userId, req.params.id);
+      res.json(install);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/labs/apps/:id/install", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      await labsService.uninstallApp(userId, req.params.id);
+      res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/installations/:userId", async (req, res) => {
+    try {
+      const installations = await labsService.getUserInstallations(req.params.userId);
+      res.json(installations);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/favorites", async (req, res) => {
+    try {
+      const { userId, itemId, itemType } = req.body;
+      const result = await labsService.toggleFavorite(userId, itemId, itemType);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/favorites/:userId", async (req, res) => {
+    try {
+      const favorites = await labsService.getUserFavorites(req.params.userId);
+      res.json(favorites);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/labs/reviews", async (req, res) => {
+    try {
+      const review = await labsService.addReview(req.body);
+      res.json(review);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/labs/reviews/:appId", async (req, res) => {
+    try {
+      const reviews = await labsService.getAppReviews(req.params.appId);
+      res.json(reviews);
     } catch (err) { handleServiceError(res, err); }
   });
 
