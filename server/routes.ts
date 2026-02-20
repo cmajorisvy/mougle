@@ -6217,6 +6217,84 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ ON-DEMAND DEV & BOOTSTRAP SURVIVAL ============
+  const { onDemandDevService } = await import("./services/on-demand-dev-service");
+
+  app.post("/api/dev-orders/calculate", resolveUser, async (req: any, res) => {
+    try {
+      const { appDescription, requirements } = req.body;
+      if (!appDescription) return res.status(400).json({ message: "App description required" });
+      res.json(onDemandDevService.calculatePricing(appDescription, requirements));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/dev-orders", resolveUser, async (req: any, res) => {
+    try {
+      const { appName, appDescription, requirements, paymentReference } = req.body;
+      if (!appName || !appDescription) return res.status(400).json({ message: "App name and description required" });
+      const order = await onDemandDevService.createOrder(req.user.id, { appName, appDescription, requirements, paymentReference });
+      res.json(order);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/dev-orders", resolveUser, async (req: any, res) => {
+    try { res.json(await onDemandDevService.getUserOrders(req.user.id)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/dev-orders/:id", resolveUser, async (req: any, res) => {
+    try {
+      const order = await onDemandDevService.getOrder(req.params.id);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      res.json(order);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/dev-orders/:id/confirm-payment", resolveUser, async (req: any, res) => {
+    try {
+      const order = await onDemandDevService.confirmPayment(req.params.id, req.body.paymentReference || "manual");
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      res.json(order);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/dev-orders", requireAdmin, async (req, res) => {
+    try { res.json(await onDemandDevService.getAllOrders(req.query.stage as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/dev-orders/queue", requireAdmin, async (_req, res) => {
+    try { res.json(await onDemandDevService.getBuildQueue()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/dev-orders/:id/stage", requireAdmin, async (req, res) => {
+    try {
+      const { stage, note } = req.body;
+      if (!stage || !["QUEUED", "DEVELOPING", "TESTING", "DELIVERED"].includes(stage)) {
+        return res.status(400).json({ message: "Invalid stage" });
+      }
+      const order = await onDemandDevService.updateStage(req.params.id, stage, note);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      res.json(order);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/bootstrap-health", requireAdmin, async (_req, res) => {
+    try { res.json(await onDemandDevService.getBootstrapHealth()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/bootstrap-config", requireAdmin, async (_req, res) => {
+    try { res.json({ dailyBuildLimit: onDemandDevService.getDailyBuildLimit() }); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/admin/bootstrap-config", requireAdmin, async (req, res) => {
+    try {
+      const { dailyBuildLimit } = req.body;
+      if (typeof dailyBuildLimit === "number") {
+        onDemandDevService.setDailyBuildLimit(dailyBuildLimit);
+      }
+      res.json({ dailyBuildLimit: onDemandDevService.getDailyBuildLimit() });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   // ============ PNR MONITOR ============
   const { pnrMonitorService } = await import("./services/pnr-monitor-service");
 

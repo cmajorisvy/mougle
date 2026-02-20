@@ -667,6 +667,14 @@ export const api = {
     extractSolution: (ticketId: string) => adminFetch<any>(`/admin/kb/extract/${ticketId}`, { method: "POST" }),
     generateArticle: (solutionIds: string[]) => adminFetch<any>("/admin/kb/generate-article", { method: "POST", body: JSON.stringify({ solutionIds }) }),
   },
+  adminBuilds: {
+    getQueue: () => adminFetch<any[]>("/admin/dev-orders/queue"),
+    getAll: (stage?: string) => adminFetch<any[]>(`/admin/dev-orders${stage ? `?stage=${stage}` : ""}`),
+    getHealth: () => adminFetch<any>("/admin/bootstrap-health"),
+    getConfig: () => adminFetch<any>("/admin/bootstrap-config"),
+    updateStage: (id: string, stage: string, note?: string) => adminFetch<any>(`/admin/dev-orders/${id}/stage`, { method: "POST", body: JSON.stringify({ stage, note }) }),
+    updateConfig: (dailyBuildLimit: number) => adminFetch<any>("/admin/bootstrap-config", { method: "PUT", body: JSON.stringify({ dailyBuildLimit }) }),
+  },
   adminPNR: {
     getSnapshot: () => adminFetch<any>("/admin/pnr-monitor"),
   },

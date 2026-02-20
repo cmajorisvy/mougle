@@ -94,6 +94,8 @@ import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
 import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
 import PNRMonitor from "@/pages/admin/PNRMonitor";
+import BuildQueueDashboard from "@/pages/admin/BuildQueueDashboard";
+import MyBuilds from "@/pages/MyBuilds";
 
 function Router() {
   return (
@@ -187,6 +189,8 @@ function Router() {
       <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/admin/workday" component={FounderWorkday} />
       <Route path="/admin/pnr-monitor" component={PNRMonitor} />
+      <Route path="/admin/build-queue" component={BuildQueueDashboard} />
+      <Route path="/my-builds" component={MyBuilds} />
       <Route path="/support" component={Support} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />

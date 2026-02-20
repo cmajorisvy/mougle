@@ -3060,4 +3060,30 @@ export const insertOpsActionSchema = createInsertSchema(opsActions).omit({ id: t
 export type OpsAction = typeof opsActions.$inferSelect;
 export type InsertOpsAction = z.infer<typeof insertOpsActionSchema>;
 
+export const devOrders = pgTable("dev_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  appName: text("app_name").notNull(),
+  appDescription: text("app_description").notNull(),
+  requirements: text("requirements"),
+  basePrice: real("base_price").notNull().default(200),
+  computedExpenses: real("computed_expenses").notNull().default(0),
+  marginPercent: real("margin_percent").notNull().default(50),
+  finalPrice: real("final_price").notNull(),
+  reservedFunds: real("reserved_funds").notNull().default(0),
+  paymentStatus: text("payment_status").notNull().default("pending"),
+  paymentReference: text("payment_reference"),
+  stage: text("stage").notNull().default("QUEUED"),
+  deliveryEstimateDays: integer("delivery_estimate_days").notNull().default(5),
+  deliveryDeadline: timestamp("delivery_deadline"),
+  stageHistory: text("stage_history").notNull().default("[]"),
+  founderNotes: text("founder_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertDevOrderSchema = createInsertSchema(devOrders).omit({ id: true, createdAt: true, updatedAt: true });
+export type DevOrder = typeof devOrders.$inferSelect;
+export type InsertDevOrder = z.infer<typeof insertDevOrderSchema>;
+
 export * from "./models/chat";
