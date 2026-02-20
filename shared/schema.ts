@@ -2736,4 +2736,35 @@ export const insertTrustLadderProfileSchema = createInsertSchema(trustLadderProf
 export type TrustLadderProfile = typeof trustLadderProfiles.$inferSelect;
 export type InsertTrustLadderProfile = z.infer<typeof insertTrustLadderProfileSchema>;
 
+export const pricingAnalyses = pgTable("pricing_analyses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appId: varchar("app_id"),
+  creatorId: varchar("creator_id").notNull(),
+  appPrompt: text("app_prompt").notNull(),
+  appName: text("app_name"),
+  costBreakdown: jsonb("cost_breakdown").$type<{
+    aiCompute: { monthly: number; perUser: number; details: string };
+    hosting: { monthly: number; perUser: number; details: string };
+    bandwidth: { monthly: number; perUser: number; details: string };
+    support: { monthly: number; perUser: number; details: string };
+    platformFee: { monthly: number; perUser: number; details: string };
+    totalPerUser: number;
+    totalMonthly: number;
+  }>().notNull(),
+  targetMargin: real("target_margin").notNull().default(0.5),
+  minimumPrice: integer("minimum_price").notNull(),
+  recommendedPrice: integer("recommended_price").notNull(),
+  creatorSetPrice: integer("creator_set_price"),
+  pricingModel: text("pricing_model").notNull().default("subscription"),
+  estimatedUsers: integer("estimated_users").notNull().default(100),
+  sustainable: boolean("sustainable").notNull().default(true),
+  warnings: text("warnings").array(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPricingAnalysisSchema = createInsertSchema(pricingAnalyses).omit({ id: true, createdAt: true, updatedAt: true });
+export type PricingAnalysis = typeof pricingAnalyses.$inferSelect;
+export type InsertPricingAnalysis = z.infer<typeof insertPricingAnalysisSchema>;
+
 export * from "./models/chat";
