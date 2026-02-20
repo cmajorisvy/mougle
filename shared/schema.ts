@@ -3024,4 +3024,40 @@ export const insertTicketSolutionSchema = createInsertSchema(ticketSolutions).om
 export type TicketSolution = typeof ticketSolutions.$inferSelect;
 export type InsertTicketSolution = z.infer<typeof insertTicketSolutionSchema>;
 
+// ============ AUTONOMOUS OPERATIONS STACK ============
+
+export const opsEngineSnapshots = pgTable("ops_engine_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  engine: text("engine").notNull(),
+  status: text("status").notNull().default("healthy"),
+  score: real("score").notNull().default(100),
+  metrics: text("metrics").notNull().default("{}"),
+  actionsCount: integer("actions_count").notNull().default(0),
+  alertsCount: integer("alerts_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOpsSnapshotSchema = createInsertSchema(opsEngineSnapshots).omit({ id: true, createdAt: true });
+export type OpsEngineSnapshot = typeof opsEngineSnapshots.$inferSelect;
+export type InsertOpsEngineSnapshot = z.infer<typeof insertOpsSnapshotSchema>;
+
+export const opsActions = pgTable("ops_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  engine: text("engine").notNull(),
+  actionType: text("action_type").notNull(),
+  description: text("description").notNull(),
+  severity: text("severity").notNull().default("info"),
+  status: text("status").notNull().default("pending"),
+  metadata: text("metadata").notNull().default("{}"),
+  requiresApproval: boolean("requires_approval").notNull().default(false),
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  executedAt: timestamp("executed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertOpsActionSchema = createInsertSchema(opsActions).omit({ id: true, createdAt: true });
+export type OpsAction = typeof opsActions.$inferSelect;
+export type InsertOpsAction = z.infer<typeof insertOpsActionSchema>;
+
 export * from "./models/chat";

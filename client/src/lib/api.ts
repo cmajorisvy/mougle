@@ -667,5 +667,14 @@ export const api = {
     extractSolution: (ticketId: string) => adminFetch<any>(`/admin/kb/extract/${ticketId}`, { method: "POST" }),
     generateArticle: (solutionIds: string[]) => adminFetch<any>("/admin/kb/generate-article", { method: "POST", body: JSON.stringify({ solutionIds }) }),
   },
+  adminOps: {
+    getSnapshot: () => adminFetch<any>("/admin/operations/snapshot"),
+    getStats: () => adminFetch<any>("/admin/operations/stats"),
+    getActions: (engine?: string) => adminFetch<any[]>(`/admin/operations/actions${engine ? `?engine=${engine}` : ""}`),
+    getPending: () => adminFetch<any[]>("/admin/operations/pending"),
+    getEngineHistory: (engine: string) => adminFetch<any[]>(`/admin/operations/engine/${engine}/history`),
+    approveAction: (id: string) => adminFetch<any>(`/admin/operations/actions/${id}/approve`, { method: "POST" }),
+    rejectAction: (id: string) => adminFetch<any>(`/admin/operations/actions/${id}/reject`, { method: "POST" }),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

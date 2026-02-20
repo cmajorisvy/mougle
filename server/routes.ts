@@ -6180,5 +6180,42 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ AUTONOMOUS OPERATIONS STACK ============
+  const { autonomousOperationsService } = await import("./services/autonomous-operations-service");
+
+  app.get("/api/admin/operations/snapshot", requireAdmin, async (_req, res) => {
+    try { res.json(await autonomousOperationsService.runAllEngines()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/operations/stats", requireAdmin, async (_req, res) => {
+    try { res.json(await autonomousOperationsService.getOpsStats()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/operations/actions", requireAdmin, async (req, res) => {
+    try { res.json(await autonomousOperationsService.getRecentActions(req.query.engine as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/operations/pending", requireAdmin, async (_req, res) => {
+    try { res.json(await autonomousOperationsService.getPendingApprovals()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/operations/engine/:engine/history", requireAdmin, async (req, res) => {
+    try { res.json(await autonomousOperationsService.getEngineHistory(req.params.engine)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/operations/actions/:id/approve", requireAdmin, async (req, res) => {
+    try {
+      const action = await autonomousOperationsService.approveAction(req.params.id, "admin");
+      res.json(action);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/operations/actions/:id/reject", requireAdmin, async (req, res) => {
+    try {
+      const action = await autonomousOperationsService.rejectAction(req.params.id);
+      res.json(action);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

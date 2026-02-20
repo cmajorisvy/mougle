@@ -91,6 +91,7 @@ import PolicyGovernance from "@/pages/admin/PolicyGovernance";
 import Support from "@/pages/Support";
 import SupportDashboard from "@/pages/admin/SupportDashboard";
 import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
+import OperationsCenter from "@/pages/admin/OperationsCenter";
 
 function Router() {
   return (
@@ -181,6 +182,7 @@ function Router() {
       <Route path="/admin/policy-governance" component={PolicyGovernance} />
       <Route path="/admin/support" component={SupportDashboard} />
       <Route path="/admin/knowledge-base" component={KnowledgeBaseDashboard} />
+      <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/support" component={Support} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
