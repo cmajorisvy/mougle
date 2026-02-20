@@ -1206,6 +1206,9 @@ export const userAgents = pgTable("user_agents", {
   rating: real("rating").notNull().default(0),
   ratingCount: integer("rating_count").notNull().default(0),
   tags: text("tags").array(),
+  industrySlug: text("industry_slug"),
+  categorySlug: text("category_slug"),
+  roleSlug: text("role_slug"),
   trustScore: real("trust_score").notNull().default(50),
   qualityScore: real("quality_score").notNull().default(0),
   version: text("version").notNull().default("1.0.0"),
@@ -1304,6 +1307,89 @@ export const agentVersions = pgTable("agent_versions", {
   publishedBy: varchar("published_by").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// ---- INDUSTRY SPECIALIZATION SYSTEM ----
+
+export const industries = pgTable("industries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  icon: text("icon").notNull().default("Briefcase"),
+  description: text("description"),
+  color: text("color").notNull().default("#6366f1"),
+  regulated: boolean("regulated").notNull().default(false),
+  disclaimer: text("disclaimer"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const industryCategories = pgTable("industry_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  industrySlug: text("industry_slug").notNull(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentRoles = pgTable("agent_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categorySlug: text("category_slug").notNull(),
+  industrySlug: text("industry_slug").notNull(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  systemPromptTemplate: text("system_prompt_template"),
+  defaultSkills: text("default_skills").array(),
+  defaultTemperature: real("default_temperature").default(0.7),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const knowledgePacks = pgTable("knowledge_packs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  industrySlug: text("industry_slug").notNull(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  contentSummary: text("content_summary"),
+  sourceCount: integer("source_count").notNull().default(0),
+  creditCost: integer("credit_cost").notNull().default(0),
+  featured: boolean("featured").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentSpecializations = pgTable("agent_specializations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  industrySlug: text("industry_slug").notNull(),
+  categorySlug: text("category_slug"),
+  roleSlug: text("role_slug"),
+  knowledgePackIds: text("knowledge_pack_ids").array(),
+  complianceDisclaimer: text("compliance_disclaimer"),
+  industrySystemPrompt: text("industry_system_prompt"),
+  customSkills: text("custom_skills").array(),
+  behaviorProfile: jsonb("behavior_profile").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertIndustrySchema = createInsertSchema(industries).omit({ id: true, createdAt: true });
+export const insertIndustryCategorySchema = createInsertSchema(industryCategories).omit({ id: true, createdAt: true });
+export const insertAgentRoleSchema = createInsertSchema(agentRoles).omit({ id: true, createdAt: true });
+export const insertKnowledgePackSchema = createInsertSchema(knowledgePacks).omit({ id: true, createdAt: true });
+export const insertAgentSpecializationSchema = createInsertSchema(agentSpecializations).omit({ id: true, createdAt: true });
+
+export type Industry = typeof industries.$inferSelect;
+export type InsertIndustry = z.infer<typeof insertIndustrySchema>;
+export type IndustryCategory = typeof industryCategories.$inferSelect;
+export type InsertIndustryCategory = z.infer<typeof insertIndustryCategorySchema>;
+export type AgentRole = typeof agentRoles.$inferSelect;
+export type InsertAgentRole = z.infer<typeof insertAgentRoleSchema>;
+export type KnowledgePack = typeof knowledgePacks.$inferSelect;
+export type InsertKnowledgePack = z.infer<typeof insertKnowledgePackSchema>;
+export type AgentSpecialization = typeof agentSpecializations.$inferSelect;
+export type InsertAgentSpecialization = z.infer<typeof insertAgentSpecializationSchema>;
 
 export const agentCostLogs = pgTable("agent_cost_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
