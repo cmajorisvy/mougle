@@ -4,15 +4,18 @@ export class StudioScene {
   public scene: THREE.Scene;
   public ambientLight!: THREE.AmbientLight;
   public keyLight!: THREE.SpotLight;
-  public fillLight!: THREE.PointLight;
-  public rimLight!: THREE.PointLight;
+  public fillLight!: THREE.SpotLight;
+  public rimLight!: THREE.SpotLight;
   public backLight!: THREE.DirectionalLight;
+  public warmRimLeft!: THREE.PointLight;
+  public warmRimRight!: THREE.PointLight;
   private environmentGroup = new THREE.Group();
 
   constructor() {
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x0a0a1a, 0.04);
-    this.buildLighting();
+    this.scene.fog = new THREE.FogExp2(0x080818, 0.035);
+    this.buildEnvironmentLighting();
+    this.buildStudioLighting();
     this.buildFloor();
     this.buildTable();
     this.buildBackdrop();
@@ -20,36 +23,90 @@ export class StudioScene {
     this.scene.add(this.environmentGroup);
   }
 
-  private buildLighting(): void {
-    this.ambientLight = new THREE.AmbientLight(0x1a1a3a, 0.6);
+  private buildEnvironmentLighting(): void {
+    const envMap = new THREE.CubeTextureLoader();
+    const pmremGenerator = (() => {
+      const size = 64;
+      const data = new Float32Array(size * size * 4);
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const i = (y * size + x) * 4;
+          const ny = y / size;
+          const r = 0.02 + ny * 0.04;
+          const g = 0.02 + ny * 0.03;
+          const b = 0.04 + ny * 0.08;
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+          data[i + 3] = 1;
+        }
+      }
+      const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat, THREE.FloatType);
+      tex.needsUpdate = true;
+      return tex;
+    })();
+
+    this.scene.environment = null;
+    this.scene.background = new THREE.Color(0x060612);
+
+    this.ambientLight = new THREE.AmbientLight(0x161630, 0.4);
     this.scene.add(this.ambientLight);
 
-    this.keyLight = new THREE.SpotLight(0xffeedd, 3.0, 20, Math.PI / 5, 0.5, 1);
-    this.keyLight.position.set(0, 6, 4);
+    const hemiLight = new THREE.HemisphereLight(0x2233aa, 0x110808, 0.25);
+    this.scene.add(hemiLight);
+  }
+
+  private buildStudioLighting(): void {
+    this.keyLight = new THREE.SpotLight(0xffeedd, 4.0, 25, Math.PI / 6, 0.6, 1.2);
+    this.keyLight.position.set(2, 6, 5);
     this.keyLight.castShadow = true;
-    this.keyLight.shadow.mapSize.set(1024, 1024);
-    this.keyLight.shadow.bias = -0.002;
+    this.keyLight.shadow.mapSize.set(2048, 2048);
+    this.keyLight.shadow.bias = -0.001;
+    this.keyLight.shadow.radius = 4;
     this.keyLight.target.position.set(0, 1.2, 0);
     this.scene.add(this.keyLight);
     this.scene.add(this.keyLight.target);
 
-    this.fillLight = new THREE.PointLight(0x4488ff, 1.0, 12);
-    this.fillLight.position.set(-4, 3, 3);
+    this.fillLight = new THREE.SpotLight(0x6688cc, 1.5, 20, Math.PI / 4, 0.7, 1.5);
+    this.fillLight.position.set(-4, 4, 4);
+    this.fillLight.castShadow = true;
+    this.fillLight.shadow.mapSize.set(1024, 1024);
+    this.fillLight.shadow.bias = -0.002;
+    this.fillLight.shadow.radius = 8;
+    this.fillLight.target.position.set(0, 1.2, 0);
     this.scene.add(this.fillLight);
+    this.scene.add(this.fillLight.target);
 
-    this.rimLight = new THREE.PointLight(0xff6644, 0.8, 10);
-    this.rimLight.position.set(4, 3, -2);
+    this.rimLight = new THREE.SpotLight(0xff8855, 2.0, 18, Math.PI / 5, 0.5, 1.0);
+    this.rimLight.position.set(3, 4, -3);
+    this.rimLight.castShadow = false;
+    this.rimLight.target.position.set(0, 1.2, 0);
     this.scene.add(this.rimLight);
+    this.scene.add(this.rimLight.target);
 
-    this.backLight = new THREE.DirectionalLight(0x8866ff, 0.5);
-    this.backLight.position.set(0, 4, -6);
+    this.backLight = new THREE.DirectionalLight(0x6644cc, 0.6);
+    this.backLight.position.set(0, 5, -6);
     this.scene.add(this.backLight);
 
-    const accentLeft = new THREE.PointLight(0x00ccff, 0.4, 8);
+    this.warmRimLeft = new THREE.PointLight(0xffaa66, 0.5, 8, 2);
+    this.warmRimLeft.position.set(-3, 2, -1);
+    this.scene.add(this.warmRimLeft);
+
+    this.warmRimRight = new THREE.PointLight(0xffaa66, 0.5, 8, 2);
+    this.warmRimRight.position.set(3, 2, -1);
+    this.scene.add(this.warmRimRight);
+
+    const hairLight = new THREE.SpotLight(0xffffff, 1.0, 12, Math.PI / 8, 0.8, 2);
+    hairLight.position.set(0, 7, -2);
+    hairLight.target.position.set(0, 1.4, 0);
+    this.scene.add(hairLight);
+    this.scene.add(hairLight.target);
+
+    const accentLeft = new THREE.PointLight(0x0088ff, 0.3, 8);
     accentLeft.position.set(-5, 1, -3);
     this.scene.add(accentLeft);
 
-    const accentRight = new THREE.PointLight(0xff00cc, 0.3, 8);
+    const accentRight = new THREE.PointLight(0xff0088, 0.2, 8);
     accentRight.position.set(5, 1, -3);
     this.scene.add(accentRight);
   }
@@ -70,7 +127,7 @@ export class StudioScene {
     const gridHelper = new THREE.GridHelper(20, 40, 0x1a1a3a, 0x111128);
     gridHelper.position.y = 0.01;
     (gridHelper.material as THREE.Material).transparent = true;
-    (gridHelper.material as THREE.Material).opacity = 0.3;
+    (gridHelper.material as THREE.Material).opacity = 0.2;
     this.environmentGroup.add(gridHelper);
   }
 
@@ -112,14 +169,7 @@ export class StudioScene {
       roughness: 0.3,
     });
 
-    const legPositions = [
-      [-0.8, 0, -0.8],
-      [0.8, 0, -0.8],
-      [-0.8, 0, 0.8],
-      [0.8, 0, 0.8],
-    ];
-
-    legPositions.forEach(([x, , z]) => {
+    [[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]].forEach(([x, z]) => {
       const leg = new THREE.Mesh(legGeo, legMat);
       leg.position.set(x, 0.425, z);
       leg.castShadow = true;
@@ -180,7 +230,7 @@ export class StudioScene {
       const stripMat = new THREE.MeshBasicMaterial({
         color: 0x4488ff,
         transparent: true,
-        opacity: 0.15,
+        opacity: 0.12,
       });
       const strip = new THREE.Mesh(stripGeo, stripMat);
       strip.position.set(-3 + i * 3, 4, -4.7);
@@ -204,7 +254,7 @@ export class StudioScene {
       const lensMat = new THREE.MeshBasicMaterial({
         color: i === 1 ? 0xffeedd : 0x4488ff,
         transparent: true,
-        opacity: 0.4,
+        opacity: 0.3,
       });
       const lens = new THREE.Mesh(lensGeo, lensMat);
       lens.position.y = -0.16;
@@ -246,7 +296,13 @@ export class StudioScene {
     });
 
     if (this.keyLight) {
-      this.keyLight.intensity = 3.0 + Math.sin(elapsed * 0.5) * 0.1;
+      this.keyLight.intensity = 4.0 + Math.sin(elapsed * 0.3) * 0.08;
+    }
+    if (this.warmRimLeft) {
+      this.warmRimLeft.intensity = 0.5 + Math.sin(elapsed * 0.4) * 0.05;
+    }
+    if (this.warmRimRight) {
+      this.warmRimRight.intensity = 0.5 + Math.sin(elapsed * 0.4 + 1) * 0.05;
     }
   }
 

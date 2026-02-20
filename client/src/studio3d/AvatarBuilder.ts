@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import gsap from "gsap";
 import { AgentProfile, AvatarState, SEAT_POSITIONS, SEAT_ROTATIONS } from "./types";
+import { fbm } from "./PerlinNoise";
 
 export class Avatar {
   public group: THREE.Group;
@@ -12,24 +13,52 @@ export class Avatar {
   private jawMesh!: THREE.Mesh;
   private leftEyeLid!: THREE.Mesh;
   private rightEyeLid!: THREE.Mesh;
+  private leftIris!: THREE.Mesh;
+  private rightIris!: THREE.Mesh;
+  private leftPupil!: THREE.Mesh;
+  private rightPupil!: THREE.Mesh;
+  private leftCornea!: THREE.Mesh;
+  private rightCornea!: THREE.Mesh;
+  private leftSpecular!: THREE.Mesh;
+  private rightSpecular!: THREE.Mesh;
   private nameSprite!: THREE.Sprite;
   private speakingIndicator!: THREE.Mesh;
   private chairGroup!: THREE.Group;
+  private leftArm!: THREE.Group;
+  private rightArm!: THREE.Group;
+  private shoulders!: THREE.Mesh;
+  private noiseOffset: number;
 
   constructor(profile: AgentProfile) {
     this.profile = profile;
     this.group = new THREE.Group();
+    this.noiseOffset = Math.random() * 1000;
     this.state = {
       isSpeaking: false,
       audioLevel: 0,
       mouthOpenness: 0,
+      mouthVelocity: 0,
       blinkTimer: 2 + Math.random() * 4,
       blinkState: 0,
+      blinkDuration: 0,
+      nextBlinkLeft: Math.random() > 0.5,
       breathPhase: Math.random() * Math.PI * 2,
       headNodPhase: Math.random() * Math.PI * 2,
       gesturePhase: Math.random() * Math.PI * 2,
       idleSwayPhase: Math.random() * Math.PI * 2,
-    };
+      saccadeTimer: 3 + Math.random() * 4,
+      saccadeTarget: { x: 0, y: 0 },
+      saccadeCurrent: { x: 0, y: 0 },
+      saccadeTimer2: 0,
+      listenTargetId: null,
+      listenNodPhase: 0,
+      listenNodActive: false,
+      listenNodTimer: 0,
+      postureShiftTimer: 8 + Math.random() * 12,
+      postureOffset: { x: 0, z: 0 },
+      lipSyncDelay: 80 + Math.random() * 40,
+      delayedAudioLevel: 0,
+    } as AvatarState;
 
     this.buildAvatar();
     this.positionAtSeat();
@@ -102,21 +131,25 @@ export class Avatar {
       metalness: 0.1,
       roughness: 0.7,
     });
-    const shoulders = new THREE.Mesh(shoulderGeo, shoulderMat);
-    shoulders.position.y = 1.15;
-    shoulders.rotation.x = Math.PI;
-    this.body.add(shoulders);
+    this.shoulders = new THREE.Mesh(shoulderGeo, shoulderMat);
+    this.shoulders.position.y = 1.15;
+    this.shoulders.rotation.x = Math.PI;
+    this.body.add(this.shoulders);
 
     const neckGeo = new THREE.CylinderGeometry(0.08, 0.1, 0.12, 8);
-    const neckMat = new THREE.MeshStandardMaterial({
+    const neckMat = new THREE.MeshPhysicalMaterial({
       color: skinTone,
-      roughness: 0.8,
+      roughness: 0.6,
+      clearcoat: 0.15,
+      clearcoatRoughness: 0.8,
+      sheen: 0.3,
+      sheenColor: new THREE.Color(0xff8866),
     });
     const neck = new THREE.Mesh(neckGeo, neckMat);
     neck.position.y = 1.22;
     this.body.add(neck);
 
-    const buildArm = (side: number) => {
+    const buildArm = (side: number): THREE.Group => {
       const armGroup = new THREE.Group();
 
       const upperArmGeo = new THREE.CylinderGeometry(0.06, 0.05, 0.35, 8);
@@ -132,19 +165,26 @@ export class Avatar {
       armGroup.add(forearm);
 
       const handGeo = new THREE.SphereGeometry(0.04, 8, 6);
-      const handMat = new THREE.MeshStandardMaterial({ color: skinTone, roughness: 0.8 });
+      const handMat = new THREE.MeshPhysicalMaterial({
+        color: skinTone,
+        roughness: 0.6,
+        clearcoat: 0.15,
+        sheen: 0.3,
+        sheenColor: new THREE.Color(0xff8866),
+      });
       const hand = new THREE.Mesh(handGeo, handMat);
       hand.position.set(0, -0.55, 0.15);
       armGroup.add(hand);
 
       armGroup.position.set(side * 0.28, 1.1, 0);
       armGroup.rotation.z = side * 0.15;
-      armGroup.userData.side = side;
       return armGroup;
     };
 
-    this.body.add(buildArm(-1));
-    this.body.add(buildArm(1));
+    this.leftArm = buildArm(-1);
+    this.rightArm = buildArm(1);
+    this.body.add(this.leftArm);
+    this.body.add(this.rightArm);
 
     this.group.add(this.body);
   }
@@ -152,17 +192,21 @@ export class Avatar {
   private buildHead(): void {
     this.head = new THREE.Group();
     const skinTone = this.getSkinTone();
+    const skinColor = new THREE.Color(skinTone);
     const isFemale = this.profile.gender === "female";
 
-    const headGeo = new THREE.SphereGeometry(0.16, 16, 12);
+    const headGeo = new THREE.SphereGeometry(0.16, 24, 18);
     if (isFemale) {
       headGeo.scale(0.95, 1.0, 0.95);
     }
     const headMat = new THREE.MeshPhysicalMaterial({
-      color: skinTone,
-      roughness: 0.7,
-      clearcoat: 0.2,
-      clearcoatRoughness: 0.5,
+      color: skinColor,
+      roughness: 0.55,
+      clearcoat: 0.25,
+      clearcoatRoughness: 0.6,
+      sheen: 0.4,
+      sheenRoughness: 0.5,
+      sheenColor: new THREE.Color(0xff6644).lerp(skinColor, 0.5),
     });
     const headMesh = new THREE.Mesh(headGeo, headMat);
     headMesh.castShadow = true;
@@ -191,55 +235,28 @@ export class Avatar {
       this.head.add(hair);
     }
 
-    const eyeWhiteGeo = new THREE.SphereGeometry(0.025, 8, 6);
-    const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xf5f5f0 });
-    const irisGeo = new THREE.SphereGeometry(0.012, 8, 6);
-    const eyeColor = this.getEyeColor();
-    const irisMat = new THREE.MeshBasicMaterial({ color: eyeColor });
-    const pupilGeo = new THREE.SphereGeometry(0.006, 6, 4);
-    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-
-    [-1, 1].forEach((side) => {
-      const eyeWhite = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
-      eyeWhite.position.set(side * 0.06, 0.02, 0.13);
-      this.head.add(eyeWhite);
-
-      const iris = new THREE.Mesh(irisGeo, irisMat);
-      iris.position.set(side * 0.06, 0.02, 0.155);
-      this.head.add(iris);
-
-      const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-      pupil.position.set(side * 0.06, 0.02, 0.165);
-      this.head.add(pupil);
-    });
-
-    const lidGeo = new THREE.PlaneGeometry(0.06, 0.015);
-    const lidMat = new THREE.MeshBasicMaterial({
-      color: skinTone,
-      side: THREE.DoubleSide,
-    });
-
-    this.leftEyeLid = new THREE.Mesh(lidGeo, lidMat);
-    this.leftEyeLid.position.set(-0.06, 0.035, 0.155);
-    this.leftEyeLid.visible = false;
-    this.head.add(this.leftEyeLid);
-
-    this.rightEyeLid = new THREE.Mesh(lidGeo, lidMat);
-    this.rightEyeLid.position.set(0.06, 0.035, 0.155);
-    this.rightEyeLid.visible = false;
-    this.head.add(this.rightEyeLid);
+    this.buildRealisticEyes(skinColor, isFemale);
 
     const noseGeo = new THREE.ConeGeometry(0.02, 0.04, 6);
-    const noseMat = new THREE.MeshStandardMaterial({ color: skinTone, roughness: 0.8 });
+    const noseMat = new THREE.MeshPhysicalMaterial({
+      color: skinColor,
+      roughness: 0.6,
+      clearcoat: 0.2,
+      sheen: 0.3,
+      sheenColor: new THREE.Color(0xff8866),
+    });
     const nose = new THREE.Mesh(noseGeo, noseMat);
     nose.position.set(0, -0.01, 0.16);
     nose.rotation.x = -Math.PI / 6;
     this.head.add(nose);
 
+    const lipColor = isFemale ? 0xcc6666 : 0xbb7766;
     const lipGeo = new THREE.TorusGeometry(0.03, 0.008, 6, 12, Math.PI);
-    const lipMat = new THREE.MeshStandardMaterial({
-      color: isFemale ? 0xcc6666 : 0xbb7766,
-      roughness: 0.5,
+    const lipMat = new THREE.MeshPhysicalMaterial({
+      color: lipColor,
+      roughness: 0.35,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.3,
     });
     const upperLip = new THREE.Mesh(lipGeo, lipMat);
     upperLip.position.set(0, -0.05, 0.135);
@@ -247,9 +264,10 @@ export class Avatar {
     this.head.add(upperLip);
 
     const jawGeo = new THREE.SphereGeometry(0.03, 8, 4, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.4);
-    const jawMat = new THREE.MeshStandardMaterial({
-      color: isFemale ? 0xcc6666 : 0xbb7766,
-      roughness: 0.5,
+    const jawMat = new THREE.MeshPhysicalMaterial({
+      color: lipColor,
+      roughness: 0.35,
+      clearcoat: 0.5,
     });
     this.jawMesh = new THREE.Mesh(jawGeo, jawMat);
     this.jawMesh.position.set(0, -0.06, 0.125);
@@ -269,6 +287,100 @@ export class Avatar {
 
     this.head.position.y = 1.35;
     this.group.add(this.head);
+  }
+
+  private buildRealisticEyes(skinColor: THREE.Color, isFemale: boolean): void {
+    const eyeColor = this.getEyeColor();
+
+    [-1, 1].forEach((side) => {
+      const eyeGroup = new THREE.Group();
+      eyeGroup.position.set(side * 0.06, 0.02, 0.13);
+
+      const scleraGeo = new THREE.SphereGeometry(0.026, 16, 12);
+      const scleraMat = new THREE.MeshPhysicalMaterial({
+        color: 0xf8f4f0,
+        roughness: 0.3,
+        clearcoat: 0.8,
+        clearcoatRoughness: 0.1,
+        sheen: 0.2,
+        sheenColor: new THREE.Color(0xffe0d0),
+      });
+      const sclera = new THREE.Mesh(scleraGeo, scleraMat);
+      eyeGroup.add(sclera);
+
+      const irisGeo = new THREE.CircleGeometry(0.014, 24);
+      const irisMat = new THREE.MeshPhysicalMaterial({
+        color: eyeColor,
+        roughness: 0.2,
+        metalness: 0.1,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+      });
+      const iris = new THREE.Mesh(irisGeo, irisMat);
+      iris.position.z = 0.025;
+      eyeGroup.add(iris);
+      if (side === -1) this.leftIris = iris;
+      else this.rightIris = iris;
+
+      const pupilGeo = new THREE.CircleGeometry(0.006, 16);
+      const pupilMat = new THREE.MeshBasicMaterial({ color: 0x050505 });
+      const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+      pupil.position.z = 0.0255;
+      eyeGroup.add(pupil);
+      if (side === -1) this.leftPupil = pupil;
+      else this.rightPupil = pupil;
+
+      const corneaGeo = new THREE.SphereGeometry(0.017, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.45);
+      const corneaMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.12,
+        roughness: 0.0,
+        metalness: 0.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        ior: 1.376,
+        transmission: 0.6,
+      });
+      const cornea = new THREE.Mesh(corneaGeo, corneaMat);
+      cornea.position.z = 0.015;
+      cornea.rotation.x = -Math.PI / 2;
+      eyeGroup.add(cornea);
+      if (side === -1) this.leftCornea = cornea;
+      else this.rightCornea = cornea;
+
+      const specGeo = new THREE.CircleGeometry(0.004, 8);
+      const specMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.7,
+      });
+      const spec = new THREE.Mesh(specGeo, specMat);
+      spec.position.set(0.004, 0.005, 0.027);
+      eyeGroup.add(spec);
+      if (side === -1) this.leftSpecular = spec;
+      else this.rightSpecular = spec;
+
+      this.head.add(eyeGroup);
+    });
+
+    const lidGeo = new THREE.PlaneGeometry(0.065, 0.018);
+    const lidMat = new THREE.MeshPhysicalMaterial({
+      color: skinColor,
+      side: THREE.DoubleSide,
+      roughness: 0.5,
+      clearcoat: 0.15,
+    });
+
+    this.leftEyeLid = new THREE.Mesh(lidGeo, lidMat);
+    this.leftEyeLid.position.set(-0.06, 0.035, 0.157);
+    this.leftEyeLid.visible = false;
+    this.head.add(this.leftEyeLid);
+
+    this.rightEyeLid = new THREE.Mesh(lidGeo, lidMat);
+    this.rightEyeLid.position.set(0.06, 0.035, 0.157);
+    this.rightEyeLid.visible = false;
+    this.head.add(this.rightEyeLid);
   }
 
   private buildNameplate(): void {
@@ -333,63 +445,163 @@ export class Avatar {
     });
   }
 
+  setListenTarget(targetId: string | null): void {
+    this.state.listenTargetId = targetId;
+  }
+
   update(dt: number, elapsed: number): void {
+    this.updatePerlinMicroMotion(elapsed);
     this.updateBreathing(elapsed);
-    this.updateBlinking(dt);
-    this.updateMouth(elapsed);
+    this.updateAsymmetricBlinking(dt);
+    this.updateEyeSaccades(dt, elapsed);
+    this.updateMouthWithOvershoot(dt, elapsed);
     this.updateHeadMovement(elapsed);
-    this.updateIdleSway(elapsed);
+    this.updateListeningBehavior(dt, elapsed);
+    this.updatePostureMicroAdjust(dt, elapsed);
+    this.updateSpecularHighlights(elapsed);
     this.updateSpeakingRing(elapsed);
   }
 
-  private updateBreathing(elapsed: number): void {
-    const breath = Math.sin(elapsed * 1.5 + this.state.breathPhase) * 0.003;
-    this.body.position.y = breath;
-    this.head.position.y = 1.35 + breath;
+  private updatePerlinMicroMotion(elapsed: number): void {
+    const t = elapsed * 0.3;
+    const n = this.noiseOffset;
+
+    const headNoiseX = fbm(t + n, 0, 0) * 0.006;
+    const headNoiseY = fbm(0, t + n, 0) * 0.004;
+    const headNoiseZ = fbm(0, 0, t + n) * 0.003;
+    this.head.position.x = headNoiseX;
+    this.head.position.z = headNoiseZ;
+
+    const shoulderNoiseX = fbm(t * 0.5 + n + 100, 0, 0) * 0.003;
+    const shoulderNoiseZ = fbm(0, 0, t * 0.5 + n + 100) * 0.002;
+    this.shoulders.position.x = shoulderNoiseX;
+    this.shoulders.position.z = 0 + shoulderNoiseZ;
   }
 
-  private updateBlinking(dt: number): void {
+  private updateBreathing(elapsed: number): void {
+    const breathCycle = elapsed * 1.2 + this.state.breathPhase;
+    const inhale = Math.pow(Math.sin(breathCycle), 2) * 0.004;
+    const exhale = Math.sin(breathCycle * 2) * 0.001;
+    const breath = inhale + exhale;
+
+    this.body.position.y = breath;
+    this.head.position.y = 1.35 + breath;
+
+    this.shoulders.scale.x = 1 + Math.sin(breathCycle) * 0.008;
+    this.shoulders.scale.z = 1 + Math.sin(breathCycle) * 0.005;
+  }
+
+  private updateAsymmetricBlinking(dt: number): void {
     this.state.blinkTimer -= dt;
     if (this.state.blinkTimer <= 0) {
-      this.state.blinkState = 1;
-      this.state.blinkTimer = 2 + Math.random() * 5;
+      const isDouble = Math.random() < 0.15;
+      const isAsymmetric = Math.random() < 0.25;
+      this.state.blinkDuration = 80 + Math.random() * 60;
+
       this.leftEyeLid.visible = true;
-      this.rightEyeLid.visible = true;
+      if (!isAsymmetric) {
+        this.rightEyeLid.visible = true;
+      }
+
       setTimeout(() => {
         this.leftEyeLid.visible = false;
         this.rightEyeLid.visible = false;
-        this.state.blinkState = 0;
-      }, 100 + Math.random() * 50);
+
+        if (isDouble) {
+          setTimeout(() => {
+            this.leftEyeLid.visible = true;
+            this.rightEyeLid.visible = true;
+            setTimeout(() => {
+              this.leftEyeLid.visible = false;
+              this.rightEyeLid.visible = false;
+            }, 60 + Math.random() * 30);
+          }, 120 + Math.random() * 60);
+        }
+      }, this.state.blinkDuration);
+
+      if (this.state.isSpeaking) {
+        this.state.blinkTimer = 1.5 + Math.random() * 2.5;
+      } else {
+        this.state.blinkTimer = 3 + Math.random() * 4;
+      }
     }
   }
 
-  private updateMouth(elapsed: number): void {
+  private updateEyeSaccades(dt: number, elapsed: number): void {
+    this.state.saccadeTimer -= dt;
+    if (this.state.saccadeTimer <= 0) {
+      this.state.saccadeTarget = {
+        x: (Math.random() - 0.5) * 0.006,
+        y: (Math.random() - 0.5) * 0.004,
+      };
+      this.state.saccadeTimer = 3 + Math.random() * 4;
+    }
+
+    const saccadeSpeed = 0.08;
+    this.state.saccadeCurrent.x += (this.state.saccadeTarget.x - this.state.saccadeCurrent.x) * saccadeSpeed;
+    this.state.saccadeCurrent.y += (this.state.saccadeTarget.y - this.state.saccadeCurrent.y) * saccadeSpeed;
+
+    const microTremor = {
+      x: Math.sin(elapsed * 30 + this.noiseOffset) * 0.0003,
+      y: Math.cos(elapsed * 25 + this.noiseOffset) * 0.0002,
+    };
+
+    const offsetX = this.state.saccadeCurrent.x + microTremor.x;
+    const offsetY = this.state.saccadeCurrent.y + microTremor.y;
+
+    if (this.leftIris) {
+      this.leftIris.position.x = offsetX;
+      this.leftIris.position.y = offsetY;
+    }
+    if (this.rightIris) {
+      this.rightIris.position.x = offsetX;
+      this.rightIris.position.y = offsetY;
+    }
+    if (this.leftPupil) {
+      this.leftPupil.position.x = offsetX;
+      this.leftPupil.position.y = offsetY;
+    }
+    if (this.rightPupil) {
+      this.rightPupil.position.x = offsetX;
+      this.rightPupil.position.y = offsetY;
+    }
+  }
+
+  private updateMouthWithOvershoot(dt: number, elapsed: number): void {
     if (this.state.isSpeaking) {
       const speed = 8 + this.state.audioLevel * 4;
-      const openness =
+      const targetOpenness =
         (Math.sin(elapsed * speed) * 0.5 + 0.5) * 0.4 +
         (Math.sin(elapsed * speed * 1.7) * 0.5 + 0.5) * 0.3 +
         this.state.audioLevel * 0.3;
-      this.state.mouthOpenness = THREE.MathUtils.lerp(
-        this.state.mouthOpenness,
-        openness,
-        0.15
-      );
+
+      const overshoot = 1.15;
+      const damping = 0.12;
+      const diff = targetOpenness * overshoot - this.state.mouthOpenness;
+      this.state.mouthVelocity += diff * 0.3;
+      this.state.mouthVelocity *= (1 - damping);
+      this.state.mouthOpenness += this.state.mouthVelocity;
+      this.state.mouthOpenness = THREE.MathUtils.clamp(this.state.mouthOpenness, 0, 1);
     } else {
-      this.state.mouthOpenness = THREE.MathUtils.lerp(this.state.mouthOpenness, 0, 0.1);
+      this.state.mouthVelocity *= 0.85;
+      this.state.mouthOpenness = THREE.MathUtils.lerp(this.state.mouthOpenness, 0, 0.08);
     }
-    this.jawMesh.position.y = -0.06 - this.state.mouthOpenness * 0.02;
-    this.jawMesh.scale.y = 1 + this.state.mouthOpenness * 0.5;
+
+    this.jawMesh.position.y = -0.06 - this.state.mouthOpenness * 0.025;
+    this.jawMesh.scale.y = 1 + this.state.mouthOpenness * 0.6;
+    this.jawMesh.scale.x = 1 + this.state.mouthOpenness * 0.15;
   }
 
   private updateHeadMovement(elapsed: number): void {
     if (this.state.isSpeaking) {
-      const nodX = Math.sin(elapsed * 2.5 + this.state.headNodPhase) * 0.04;
-      const nodY = Math.sin(elapsed * 1.8) * 0.03;
+      const t = elapsed + this.state.headNodPhase;
+      const nodX = Math.sin(t * 2.5) * 0.04 + fbm(t, 0.5, 0) * 0.02;
+      const nodY = Math.sin(t * 1.8) * 0.03 + fbm(0, t, 0.5) * 0.02;
+      const nodZ = Math.sin(t * 1.2) * 0.02;
       this.head.rotation.x = nodX;
       this.head.rotation.y = nodY;
-      this.head.rotation.z = Math.sin(elapsed * 1.2) * 0.02;
-    } else {
+      this.head.rotation.z = nodZ;
+    } else if (!this.state.listenTargetId) {
       const lookX = Math.sin(elapsed * 0.5 + this.state.headNodPhase) * 0.02;
       const lookY = Math.sin(elapsed * 0.3) * 0.04;
       this.head.rotation.x = THREE.MathUtils.lerp(this.head.rotation.x, lookX, 0.02);
@@ -398,10 +610,74 @@ export class Avatar {
     }
   }
 
-  private updateIdleSway(elapsed: number): void {
-    if (!this.state.isSpeaking) {
-      const sway = Math.sin(elapsed * 0.4 + this.state.idleSwayPhase) * 0.005;
-      this.body.rotation.z = sway;
+  private updateListeningBehavior(dt: number, elapsed: number): void {
+    if (!this.state.listenTargetId || this.state.isSpeaking) return;
+
+    const speakerSeatIdx = this.getSpeakerSeatIndex(this.state.listenTargetId);
+    if (speakerSeatIdx < 0) return;
+
+    const mySeat = SEAT_POSITIONS[this.profile.seatIndex];
+    const theirSeat = SEAT_POSITIONS[speakerSeatIdx];
+    const dir = new THREE.Vector3().subVectors(theirSeat, mySeat);
+    const targetAngleY = Math.atan2(dir.x, dir.z) - SEAT_ROTATIONS[this.profile.seatIndex];
+    const clampedAngle = THREE.MathUtils.clamp(targetAngleY, -0.4, 0.4);
+
+    this.head.rotation.y = THREE.MathUtils.lerp(this.head.rotation.y, clampedAngle, 0.03);
+    this.head.rotation.x = THREE.MathUtils.lerp(this.head.rotation.x, -0.02, 0.02);
+
+    this.state.listenNodTimer -= dt;
+    if (this.state.listenNodTimer <= 0 && !this.state.listenNodActive) {
+      this.state.listenNodActive = true;
+      this.state.listenNodPhase = elapsed;
+      this.state.listenNodTimer = 2 + Math.random() * 5;
+    }
+
+    if (this.state.listenNodActive) {
+      const nodElapsed = elapsed - this.state.listenNodPhase;
+      if (nodElapsed < 1.2) {
+        const nod = Math.sin(nodElapsed * Math.PI * 2.5) * 0.03;
+        this.head.rotation.x += nod;
+      } else {
+        this.state.listenNodActive = false;
+      }
+    }
+
+    this.state.saccadeTarget = {
+      x: clampedAngle * 0.3 + (Math.random() - 0.5) * 0.002,
+      y: (Math.random() - 0.5) * 0.002,
+    };
+  }
+
+  private updatePostureMicroAdjust(dt: number, elapsed: number): void {
+    if (this.state.isSpeaking) return;
+
+    this.state.postureShiftTimer -= dt;
+    if (this.state.postureShiftTimer <= 0) {
+      this.state.postureOffset = {
+        x: (Math.random() - 0.5) * 0.008,
+        z: (Math.random() - 0.5) * 0.006,
+      };
+      this.state.postureShiftTimer = 8 + Math.random() * 12;
+    }
+
+    this.body.rotation.z = THREE.MathUtils.lerp(this.body.rotation.z, this.state.postureOffset.x, 0.005);
+    this.body.rotation.x = THREE.MathUtils.lerp(this.body.rotation.x, this.state.postureOffset.z, 0.005);
+
+    const armSway = fbm(elapsed * 0.2 + this.noiseOffset + 200, 0, 0) * 0.015;
+    this.leftArm.rotation.z = -0.15 + armSway;
+    this.rightArm.rotation.z = 0.15 - armSway;
+  }
+
+  private updateSpecularHighlights(elapsed: number): void {
+    const sx = Math.sin(elapsed * 0.4) * 0.003 + 0.004;
+    const sy = Math.cos(elapsed * 0.3) * 0.002 + 0.005;
+    if (this.leftSpecular) {
+      this.leftSpecular.position.x = sx;
+      this.leftSpecular.position.y = sy;
+    }
+    if (this.rightSpecular) {
+      this.rightSpecular.position.x = sx;
+      this.rightSpecular.position.y = sy;
     }
   }
 
@@ -410,6 +686,10 @@ export class Avatar {
       const scale = 1 + Math.sin(elapsed * 6) * 0.1 + this.state.audioLevel * 0.2;
       this.speakingIndicator.scale.set(scale, scale, 1);
     }
+  }
+
+  private getSpeakerSeatIndex(speakerId: string): number {
+    return -1;
   }
 
   private getSkinTone(): number {

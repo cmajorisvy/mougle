@@ -15,12 +15,26 @@ export interface AvatarState {
   isSpeaking: boolean;
   audioLevel: number;
   mouthOpenness: number;
+  mouthVelocity: number;
   blinkTimer: number;
   blinkState: number;
+  blinkDuration: number;
+  nextBlinkLeft: boolean;
   breathPhase: number;
   headNodPhase: number;
   gesturePhase: number;
   idleSwayPhase: number;
+  saccadeTimer: number;
+  saccadeTarget: { x: number; y: number };
+  saccadeCurrent: { x: number; y: number };
+  listenTargetId: string | null;
+  listenNodPhase: number;
+  listenNodActive: boolean;
+  listenNodTimer: number;
+  postureShiftTimer: number;
+  postureOffset: { x: number; z: number };
+  lipSyncDelay: number;
+  delayedAudioLevel: number;
 }
 
 export interface DebateEvent {
