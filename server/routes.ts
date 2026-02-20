@@ -6217,5 +6217,127 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ============ FOUNDER MINIMAL WORKDAY ============
+  app.get("/api/admin/workday", requireAdmin, async (_req, res) => {
+    try {
+      const [opsSnapshot, ticketStats, kbArticles, policyDashboard, gcisData] = await Promise.allSettled([
+        autonomousOperationsService.runAllEngines(),
+        (await import("./services/support-ticket-service")).supportTicketService.getTicketStats(),
+        (await import("./services/zero-support-learning-service")).zeroSupportLearningService.getAllArticles("published"),
+        (await import("./services/adaptive-policy-service")).adaptivePolicyService.getDashboard(),
+        (await import("./services/gcis-service")).gcisService.getDashboard(),
+      ]);
+
+      const ops = opsSnapshot.status === "fulfilled" ? opsSnapshot.value : null;
+      const tickets = ticketStats.status === "fulfilled" ? ticketStats.value : { total: 0, open: 0, inProgress: 0, waitingUser: 0, resolved: 0, closed: 0 };
+      const kbCount = kbArticles.status === "fulfilled" ? kbArticles.value.length : 0;
+      const policy = policyDashboard.status === "fulfilled" ? policyDashboard.value : null;
+      const gcis = gcisData.status === "fulfilled" ? gcisData.value : null;
+
+      const panicStatus = panicButtonService.getStatus();
+      const stabilitySnap = stabilityTriangleService.getSnapshot();
+
+      const totalTickets = tickets.total || 0;
+      const resolvedTickets = (tickets.resolved || 0) + (tickets.closed || 0);
+      const automationRate = totalTickets > 0 ? Math.round((resolvedTickets / totalTickets) * 100) : 100;
+
+      const economicEngine = ops?.engines?.find((e: any) => e.engine === "economic");
+      const aiCostVsRevenue = economicEngine?.metrics || { estimatedRevenue: 0, aiComputeCost: 0, margin: 0 };
+
+      const pendingApprovals: any[] = [];
+      if (ops?.pendingApprovals?.length) {
+        for (const a of ops.pendingApprovals.slice(0, 10)) {
+          pendingApprovals.push({ id: a.id, type: "operations", engine: a.engine, action: a.action, severity: a.severity, created: a.createdAt });
+        }
+      }
+      if (gcis?.stats?.pendingApproval > 0) {
+        pendingApprovals.push({ id: "gcis-pending", type: "compliance", engine: "compliance", action: `${gcis.stats.pendingApproval} compliance rules pending review`, severity: "warning", created: new Date().toISOString() });
+      }
+      if (policy?.pendingDrafts?.length) {
+        for (const d of (policy.pendingDrafts as any[]).slice(0, 5)) {
+          pendingApprovals.push({ id: d.id || "policy-draft", type: "policy", engine: "policy", action: `Policy draft: ${d.slug || d.type || "update"}`, severity: "info", created: d.createdAt || new Date().toISOString() });
+        }
+      }
+
+      const actionableItems: any[] = [];
+      if (panicStatus.mode !== "NORMAL") {
+        actionableItems.push({ priority: "critical", label: `Platform in ${panicStatus.mode} mode`, link: "/admin/debug" });
+      }
+      if (pendingApprovals.length > 0) {
+        actionableItems.push({ priority: "warning", label: `${pendingApprovals.length} items awaiting your approval`, link: "/admin/operations" });
+      }
+      if (tickets.open > 5) {
+        actionableItems.push({ priority: "warning", label: `${tickets.open} open support tickets`, link: "/admin/support" });
+      }
+      if (ops?.engines?.some((e: any) => e.status === "critical")) {
+        const criticalEngines = ops.engines.filter((e: any) => e.status === "critical").map((e: any) => e.engine);
+        actionableItems.push({ priority: "critical", label: `Critical: ${criticalEngines.join(", ")} engine(s)`, link: "/admin/operations" });
+      }
+      if (automationRate < 50) {
+        actionableItems.push({ priority: "info", label: `Support automation at ${automationRate}% — consider KB improvements`, link: "/admin/knowledge-base" });
+      }
+
+      let dailySummary = ops?.summary || "";
+      if (!dailySummary) {
+        try {
+          const openai = new (await import("openai")).default({
+            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+            apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+          });
+          const resp = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{ role: "system", content: "You are a concise executive briefing writer. Write a 3-4 sentence daily summary for a founder dashboard. Focus only on what needs attention. Be direct." }, {
+              role: "user",
+              content: `Health: ${ops?.overallHealth || 0}%. Mode: ${panicStatus.mode}. Stability: ${stabilitySnap.stabilityIndex}%. Revenue metric: ${aiCostVsRevenue.estimatedRevenue}. AI cost: ${aiCostVsRevenue.aiComputeCost}. Margin: ${aiCostVsRevenue.margin}%. Open tickets: ${tickets.open}. Automation: ${automationRate}%. Pending approvals: ${pendingApprovals.length}. KB articles: ${kbCount}. Compliance rules pending: ${gcis?.stats?.pendingApproval || 0}.`
+            }],
+            temperature: 0.3,
+            max_tokens: 200,
+          });
+          dailySummary = resp.choices[0]?.message?.content || "";
+        } catch {
+          dailySummary = `Platform at ${ops?.overallHealth || 0}% health in ${panicStatus.mode} mode. ${pendingApprovals.length} pending approvals. ${tickets.open} open tickets.`;
+        }
+      }
+
+      res.json({
+        generatedAt: new Date().toISOString(),
+        systemHealth: {
+          overall: ops?.overallHealth || 0,
+          status: ops?.overallStatus || "unknown",
+          platformMode: panicStatus.mode,
+          engines: (ops?.engines || []).map((e: any) => ({ name: e.engine, status: e.status, score: e.score })),
+        },
+        financials: {
+          estimatedRevenue: aiCostVsRevenue.estimatedRevenue,
+          aiComputeCost: aiCostVsRevenue.aiComputeCost,
+          margin: aiCostVsRevenue.margin,
+        },
+        pendingApprovals,
+        policyUpdates: {
+          pendingDrafts: policy?.pendingDrafts?.length || 0,
+          activeTemplates: policy?.templates?.length || 0,
+          complianceRulesPending: gcis?.stats?.pendingApproval || 0,
+        },
+        supportAutomation: {
+          automationRate,
+          openTickets: tickets.open || 0,
+          inProgress: tickets.inProgress || 0,
+          kbArticlesPublished: kbCount,
+          totalResolved: resolvedTickets,
+        },
+        stabilityIndex: {
+          score: stabilitySnap.stabilityIndex,
+          dimensions: {
+            freedom: (stabilitySnap as any).freedom?.value ?? (stabilitySnap as any).freedom ?? 0,
+            automation: (stabilitySnap as any).automation?.value ?? (stabilitySnap as any).automation ?? 0,
+            control: (stabilitySnap as any).control?.value ?? (stabilitySnap as any).control ?? 0,
+          },
+        },
+        actionableItems,
+        dailySummary,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }

@@ -667,6 +667,9 @@ export const api = {
     extractSolution: (ticketId: string) => adminFetch<any>(`/admin/kb/extract/${ticketId}`, { method: "POST" }),
     generateArticle: (solutionIds: string[]) => adminFetch<any>("/admin/kb/generate-article", { method: "POST", body: JSON.stringify({ solutionIds }) }),
   },
+  adminWorkday: {
+    get: () => adminFetch<any>("/admin/workday"),
+  },
   adminOps: {
     getSnapshot: () => adminFetch<any>("/admin/operations/snapshot"),
     getStats: () => adminFetch<any>("/admin/operations/stats"),
