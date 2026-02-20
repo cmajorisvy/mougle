@@ -85,6 +85,17 @@ The project is a TypeScript monorepo with `client/` (React frontend), `server/` 
 - **Service**: `server/services/privacy-gateway-service.ts`. API routes: `/api/privacy/*`.
 - **Frontend**: `/privacy-center` page with 5 tabs (Overview, Vaults, Access Logs, Violations, Founder Monitor). "Privacy Center" link in sidebar.
 
+### Trust Moat Framework
+- **Concept**: User privacy and long-term platform trust system making data ownership, transparency, and privacy visible and enforceable.
+- **Personal Memory Vault**: Per-user encrypted vault with privacy levels (strict/balanced/open), auto-delete settings, data categories, and lock/unlock capability.
+- **Permission Tokens**: Time-limited, scope-limited, revocable tokens for granting read/write/export access to specific data categories.
+- **Access Transparency**: All memory accesses logged with accessor type, purpose, granted/denied status, and permission token reference.
+- **Data Export**: Full data export in JSON format including vault settings, permissions, and access logs.
+- **Trust Health Analytics**: Founder dashboard with trust score computation, privacy level distribution, vault adoption rates, and historical metrics.
+- **Schema Tables**: userTrustVaults, trustPermissionTokens, trustAccessEvents, trustHealthMetrics.
+- **Service**: `server/services/trust-moat-service.ts`. API routes: `/api/trust-moat/*`.
+- **Frontend**: `/trust-moat` page with 6 tabs (Overview, My Vault, Permissions, Access Log, Data Export, Founder Health). "Trust Moat" link in sidebar.
+
 ## External Dependencies
 
 ### Database

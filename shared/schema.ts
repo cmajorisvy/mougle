@@ -1998,4 +1998,78 @@ export type InsertPersonalAgentFinanceEntry = z.infer<typeof insertPersonalAgent
 export type PersonalAgentUsage = typeof personalAgentUsage.$inferSelect;
 export type InsertPersonalAgentUsage = z.infer<typeof insertPersonalAgentUsageSchema>;
 
+// Trust Moat Framework
+export const userTrustVaults = pgTable("user_trust_vaults", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  encryptionKeyHash: text("encryption_key_hash").notNull(),
+  dataCategories: text("data_categories").array().notNull().default(sql`ARRAY['personal','conversations','preferences','activity']::text[]`),
+  storageUsedBytes: integer("storage_used_bytes").notNull().default(0),
+  privacyLevel: text("privacy_level").notNull().default("strict"),
+  autoDeleteDays: integer("auto_delete_days"),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  isLocked: boolean("is_locked").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const trustPermissionTokens = pgTable("trust_permission_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vaultId: varchar("vault_id").notNull(),
+  grantedTo: varchar("granted_to").notNull(),
+  grantedBy: varchar("granted_by").notNull(),
+  permissionType: text("permission_type").notNull(),
+  resourceScope: text("resource_scope").notNull(),
+  expiresAt: timestamp("expires_at"),
+  isRevoked: boolean("is_revoked").notNull().default(false),
+  revokedAt: timestamp("revoked_at"),
+  accessCount: integer("access_count").notNull().default(0),
+  maxAccessCount: integer("max_access_count"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const trustAccessEvents = pgTable("trust_access_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vaultId: varchar("vault_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  accessorId: varchar("accessor_id").notNull(),
+  accessorType: text("accessor_type").notNull(),
+  resourceAccessed: text("resource_accessed").notNull(),
+  purpose: text("purpose").notNull(),
+  granted: boolean("granted").notNull(),
+  permissionTokenId: varchar("permission_token_id"),
+  ipHash: text("ip_hash"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const trustHealthMetrics = pgTable("trust_health_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  metricDate: timestamp("metric_date").notNull(),
+  totalVaults: integer("total_vaults").notNull().default(0),
+  activeVaults: integer("active_vaults").notNull().default(0),
+  totalPermissionTokens: integer("total_permission_tokens").notNull().default(0),
+  revokedTokens: integer("revoked_tokens").notNull().default(0),
+  totalAccessEvents: integer("total_access_events").notNull().default(0),
+  deniedAccessEvents: integer("denied_access_events").notNull().default(0),
+  dataExportRequests: integer("data_export_requests").notNull().default(0),
+  averagePrivacyLevel: real("average_privacy_level").notNull().default(0),
+  trustScore: real("trust_score").notNull().default(0),
+  userRetentionRate: real("user_retention_rate").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertUserTrustVaultSchema = createInsertSchema(userTrustVaults).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTrustPermissionTokenSchema = createInsertSchema(trustPermissionTokens).omit({ id: true, createdAt: true, revokedAt: true });
+export const insertTrustAccessEventSchema = createInsertSchema(trustAccessEvents).omit({ id: true, createdAt: true });
+export const insertTrustHealthMetricSchema = createInsertSchema(trustHealthMetrics).omit({ id: true, createdAt: true });
+
+export type UserTrustVault = typeof userTrustVaults.$inferSelect;
+export type InsertUserTrustVault = z.infer<typeof insertUserTrustVaultSchema>;
+export type TrustPermissionToken = typeof trustPermissionTokens.$inferSelect;
+export type InsertTrustPermissionToken = z.infer<typeof insertTrustPermissionTokenSchema>;
+export type TrustAccessEvent = typeof trustAccessEvents.$inferSelect;
+export type InsertTrustAccessEvent = z.infer<typeof insertTrustAccessEventSchema>;
+export type TrustHealthMetric = typeof trustHealthMetrics.$inferSelect;
+export type InsertTrustHealthMetric = z.infer<typeof insertTrustHealthMetricSchema>;
+
 export * from "./models/chat";

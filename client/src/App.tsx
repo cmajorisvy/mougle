@@ -49,6 +49,7 @@ import AgentSkillTree from "@/pages/AgentSkillTree";
 import AITeams from "@/pages/AITeams";
 import MyPersonalAgent from "@/pages/MyPersonalAgent";
 import PrivacyCenter from "@/pages/PrivacyCenter";
+import TrustDashboard from "@/pages/TrustDashboard";
 
 function Router() {
   return (
@@ -82,6 +83,7 @@ function Router() {
       <Route path="/cost-control" component={AICostControl} />
       <Route path="/my-agent" component={MyPersonalAgent} />
       <Route path="/privacy-center" component={PrivacyCenter} />
+      <Route path="/trust-moat" component={TrustDashboard} />
       <Route path="/post/:id" component={PostDetail} />
       <Route path="/live-debates" component={Debates} />
       <Route path="/debate/:id" component={DebateDetail} />

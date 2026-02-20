@@ -126,6 +126,11 @@ import {
   type PrivacyViolation, type InsertPrivacyViolation,
   type PrivacyGatewayRule, type InsertPrivacyGatewayRule,
   agentPrivacyVaults, privacyAccessLogs, privacyViolations, privacyGatewayRules,
+  type UserTrustVault, type InsertUserTrustVault,
+  type TrustPermissionToken, type InsertTrustPermissionToken,
+  type TrustAccessEvent, type InsertTrustAccessEvent,
+  type TrustHealthMetric, type InsertTrustHealthMetric,
+  userTrustVaults, trustPermissionTokens, trustAccessEvents, trustHealthMetrics,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -2619,6 +2624,78 @@ export class DatabaseStorage implements IStorage {
   }
   async deletePrivacyGatewayRule(id: string): Promise<void> {
     await db.delete(privacyGatewayRules).where(eq(privacyGatewayRules.id, id));
+  }
+
+  // Trust Moat Framework
+  async createUserTrustVault(data: InsertUserTrustVault): Promise<UserTrustVault> {
+    const [vault] = await db.insert(userTrustVaults).values(data).returning();
+    return vault;
+  }
+  async getUserTrustVault(id: string): Promise<UserTrustVault | undefined> {
+    const [vault] = await db.select().from(userTrustVaults).where(eq(userTrustVaults.id, id));
+    return vault;
+  }
+  async getUserTrustVaultByUserId(userId: string): Promise<UserTrustVault | undefined> {
+    const [vault] = await db.select().from(userTrustVaults).where(eq(userTrustVaults.userId, userId));
+    return vault;
+  }
+  async updateUserTrustVault(id: string, data: Partial<UserTrustVault>): Promise<UserTrustVault> {
+    const [updated] = await db.update(userTrustVaults).set({ ...data, updatedAt: new Date() }).where(eq(userTrustVaults.id, id)).returning();
+    return updated;
+  }
+  async deleteUserTrustVault(id: string): Promise<void> {
+    await db.delete(userTrustVaults).where(eq(userTrustVaults.id, id));
+  }
+  async getAllUserTrustVaults(): Promise<UserTrustVault[]> {
+    return db.select().from(userTrustVaults).orderBy(desc(userTrustVaults.createdAt));
+  }
+
+  async createTrustPermissionToken(data: InsertTrustPermissionToken): Promise<TrustPermissionToken> {
+    const [token] = await db.insert(trustPermissionTokens).values(data).returning();
+    return token;
+  }
+  async getTrustPermissionToken(id: string): Promise<TrustPermissionToken | undefined> {
+    const [token] = await db.select().from(trustPermissionTokens).where(eq(trustPermissionTokens.id, id));
+    return token;
+  }
+  async getTrustPermissionTokensByVault(vaultId: string): Promise<TrustPermissionToken[]> {
+    return db.select().from(trustPermissionTokens).where(eq(trustPermissionTokens.vaultId, vaultId)).orderBy(desc(trustPermissionTokens.createdAt));
+  }
+  async getTrustPermissionTokensByGrantee(grantedTo: string): Promise<TrustPermissionToken[]> {
+    return db.select().from(trustPermissionTokens).where(and(eq(trustPermissionTokens.grantedTo, grantedTo), eq(trustPermissionTokens.isRevoked, false))).orderBy(desc(trustPermissionTokens.createdAt));
+  }
+  async revokeTrustPermissionToken(id: string): Promise<TrustPermissionToken> {
+    const [revoked] = await db.update(trustPermissionTokens).set({ isRevoked: true, revokedAt: new Date() }).where(eq(trustPermissionTokens.id, id)).returning();
+    return revoked;
+  }
+  async incrementTokenAccessCount(id: string): Promise<void> {
+    await db.update(trustPermissionTokens).set({ accessCount: sql`${trustPermissionTokens.accessCount} + 1` }).where(eq(trustPermissionTokens.id, id));
+  }
+
+  async createTrustAccessEvent(data: InsertTrustAccessEvent): Promise<TrustAccessEvent> {
+    const [event] = await db.insert(trustAccessEvents).values(data).returning();
+    return event;
+  }
+  async getTrustAccessEventsByVault(vaultId: string, limit = 100): Promise<TrustAccessEvent[]> {
+    return db.select().from(trustAccessEvents).where(eq(trustAccessEvents.vaultId, vaultId)).orderBy(desc(trustAccessEvents.createdAt)).limit(limit);
+  }
+  async getTrustAccessEventsByUser(userId: string, limit = 100): Promise<TrustAccessEvent[]> {
+    return db.select().from(trustAccessEvents).where(eq(trustAccessEvents.userId, userId)).orderBy(desc(trustAccessEvents.createdAt)).limit(limit);
+  }
+  async getTrustAccessEventsCount(vaultId: string): Promise<{ total: number; denied: number }> {
+    const [result] = await db.select({
+      total: sql<number>`count(*)::int`,
+      denied: sql<number>`count(*) filter (where not ${trustAccessEvents.granted})::int`,
+    }).from(trustAccessEvents).where(eq(trustAccessEvents.vaultId, vaultId));
+    return result || { total: 0, denied: 0 };
+  }
+
+  async createTrustHealthMetric(data: InsertTrustHealthMetric): Promise<TrustHealthMetric> {
+    const [metric] = await db.insert(trustHealthMetrics).values(data).returning();
+    return metric;
+  }
+  async getLatestTrustHealthMetrics(limit = 30): Promise<TrustHealthMetric[]> {
+    return db.select().from(trustHealthMetrics).orderBy(desc(trustHealthMetrics.metricDate)).limit(limit);
   }
 }
 

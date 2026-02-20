@@ -49,6 +49,7 @@ import { industries, industryCategories, agentRoles as agentRolesTable, knowledg
 import { agentTrustEngine } from "./services/agent-trust-engine";
 import { personalAgentService } from "./services/personal-agent-service";
 import { privacyGatewayService } from "./services/privacy-gateway-service";
+import { trustMoatService } from "./services/trust-moat-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -4020,6 +4021,128 @@ Keep under 200 words.`
     try {
       await privacyGatewayService.deleteGatewayRule(req.params.id);
       res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // Trust Moat Framework
+  app.get("/api/trust-moat/dashboard", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const dashboard = await trustMoatService.getUserDashboard(userId);
+      res.json(dashboard);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/trust-moat/vault", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const vault = await trustMoatService.getOrCreateVault(userId);
+      const { encryptionKeyHash, ...safe } = vault;
+      res.json(safe);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.put("/api/trust-moat/vault/settings", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const vault = await trustMoatService.updateVaultSettings(userId, req.body);
+      const { encryptionKeyHash, ...safe } = vault;
+      res.json(safe);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/trust-moat/vault/lock", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const vault = await trustMoatService.lockVault(userId);
+      const { encryptionKeyHash, ...safe } = vault;
+      res.json(safe);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/trust-moat/vault/unlock", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const vault = await trustMoatService.unlockVault(userId);
+      const { encryptionKeyHash, ...safe } = vault;
+      res.json(safe);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/trust-moat/permissions", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const permissions = await trustMoatService.getPermissions(userId);
+      res.json(permissions);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/trust-moat/permissions", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const token = await trustMoatService.grantPermission(userId, req.body);
+      res.json(token);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/trust-moat/permissions/:id", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const revoked = await trustMoatService.revokePermission(userId, req.params.id);
+      res.json(revoked);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/trust-moat/validate-access", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const { accessorId, accessorType, resourceAccessed, purpose } = req.body;
+      const result = await trustMoatService.validateAndLogAccess(userId, accessorId, accessorType, { resourceAccessed, purpose });
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/trust-moat/access-log", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const logs = await trustMoatService.getAccessLog(userId, limit);
+      res.json(logs);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/trust-moat/export", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const data = await trustMoatService.exportUserData(userId);
+      res.json(data);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.delete("/api/trust-moat/data", async (req, res) => {
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId) return res.status(401).json({ message: "User ID required" });
+    try {
+      const result = await trustMoatService.deleteUserData(userId);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/trust-moat/founder/health", async (req, res) => {
+    try {
+      const health = await trustMoatService.computeFounderTrustHealth();
+      res.json(health);
     } catch (err) { handleServiceError(res, err); }
   });
 
