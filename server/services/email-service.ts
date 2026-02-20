@@ -34,6 +34,7 @@ async function getCredentials() {
   const fromEmail = connectorFromEmail && connectorFromEmail.includes("@mougle.com")
     ? connectorFromEmail
     : "noreply@mougle.com";
+  console.log(`[Email] Connector from_email: "${connectorFromEmail}" → using: "${fromEmail}"`);
   return {
     apiKey: connectionSettings.settings.api_key,
     fromEmail,
