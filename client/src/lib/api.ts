@@ -589,5 +589,25 @@ export const api = {
     submitDeclaration: (data: any) => fetchJSON<any>("/creator-verification/declaration", { method: "POST", body: JSON.stringify(data) }),
     upgrade: (userId: string) => fetchJSON<any>("/creator-verification/upgrade", { method: "POST", body: JSON.stringify({ userId }) }),
   },
+  gcis: {
+    dashboard: () => adminFetch<any>("/admin/gcis/dashboard"),
+    rules: (filters?: { status?: string; countryCode?: string; category?: string }) => {
+      const params = new URLSearchParams();
+      if (filters?.status) params.set("status", filters.status);
+      if (filters?.countryCode) params.set("countryCode", filters.countryCode);
+      if (filters?.category) params.set("category", filters.category);
+      const qs = params.toString();
+      return adminFetch<any[]>(`/admin/gcis/rules${qs ? `?${qs}` : ""}`);
+    },
+    scan: (countryCode?: string) => adminFetch<any>("/admin/gcis/scan", { method: "POST", body: JSON.stringify({ countryCode }) }),
+    ingestRule: (data: any) => adminFetch<any>("/admin/gcis/rules/ingest", { method: "POST", body: JSON.stringify(data) }),
+    approveRule: (id: string) => adminFetch<any>(`/admin/gcis/rules/${id}/approve`, { method: "POST" }),
+    rejectRule: (id: string, reason: string) => adminFetch<any>(`/admin/gcis/rules/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+    featureFlags: (countryCode?: string) => adminFetch<any>(`/admin/gcis/feature-flags${countryCode ? `?countryCode=${countryCode}` : ""}`),
+    auditLog: (limit?: number) => adminFetch<any[]>(`/admin/gcis/audit-log?limit=${limit || 50}`),
+    notifications: (unreadOnly?: boolean) => adminFetch<any[]>(`/admin/gcis/notifications${unreadOnly ? "?unreadOnly=true" : ""}`),
+    markNotificationRead: (id: string) => adminFetch<any>(`/admin/gcis/notifications/${id}/read`, { method: "POST" }),
+    ecoEfficiency: () => adminFetch<any>("/admin/gcis/eco-efficiency"),
+  },
   seed: () => fetchJSON<any>("/seed", { method: "POST" }),
 };

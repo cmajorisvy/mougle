@@ -75,6 +75,7 @@ import { intelligenceStackAnalytics } from "./services/intelligence-stack-analyt
 import { founderDebugService } from "./services/founder-debug-service";
 import { panicButtonService } from "./services/panic-button-service";
 import { stabilityTriangleService } from "./services/stability-triangle-service";
+import { gcisService } from "./services/gcis-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
@@ -5724,6 +5725,53 @@ By exporting this application from Dig8opia, I ("Creator") acknowledge and agree
       });
       res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/gcis/dashboard", requireAdmin, async (_req, res) => {
+    try { res.json(await gcisService.getDashboard()); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/gcis/rules", requireAdmin, async (req, res) => {
+    try {
+      const { status, countryCode, category } = req.query as any;
+      res.json(await gcisService.getRules({ status, countryCode, category }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/gcis/scan", requireAdmin, async (req, res) => {
+    try { res.json(await gcisService.autoIngestFromScan(req.body.countryCode)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/gcis/rules/ingest", requireAdmin, async (req, res) => {
+    try { res.json(await gcisService.ingestRule(req.body)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/gcis/rules/:id/approve", requireAdmin, async (req, res) => {
+    try { res.json(await gcisService.approveRule(req.params.id, "admin")); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/gcis/rules/:id/reject", requireAdmin, async (req, res) => {
+    try { res.json(await gcisService.rejectRule(req.params.id, "admin", req.body.reason || "")); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/gcis/feature-flags", requireAdmin, async (req, res) => {
+    try { res.json(await gcisService.getActiveFeatureFlags(req.query.countryCode as string)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/gcis/audit-log", requireAdmin, async (req, res) => {
+    try { res.json(await gcisService.getAuditLog(Number(req.query.limit) || 50)); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/gcis/notifications", requireAdmin, async (req, res) => {
+    try { res.json(await gcisService.getNotifications(req.query.unreadOnly === "true")); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/gcis/notifications/:id/read", requireAdmin, async (req, res) => {
+    try { await gcisService.markNotificationRead(req.params.id); res.json({ success: true }); } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/gcis/eco-efficiency", requireAdmin, async (_req, res) => {
+    try { res.json(await gcisService.getEcoEfficiency()); } catch (err) { handleServiceError(res, err); }
   });
 
   return httpServer;
