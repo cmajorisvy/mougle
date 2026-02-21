@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, ShieldCheck, Users, Brain, Network, Target, Beaker, RefreshCw, Infinity, IndianRupee, FileText, UserCheck, Layers, Heart, Calculator
+  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, Brain, Network, Beaker, IndianRupee, TrendingUp, ShoppingBag
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Logo } from "@/components/ui/Logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
@@ -25,59 +24,40 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { explainerPages, legalPages } from "@/components/layout/DocsLayout";
 
+const NAV_GROUP_COLORS: Record<string, string> = {
+  "Create": "bg-purple-500",
+  "Discover": "bg-blue-500",
+  "Grow": "bg-emerald-500",
+  "Earn": "bg-amber-500",
+  "System": "bg-zinc-400",
+};
+
 const mainNav = [
   { icon: Home, label: "Home", href: "/", group: "" },
-  { icon: Brain, label: "Dashboard", href: "/intelligence-dashboard", group: "" },
-  // Personal Intelligence
-  { icon: Brain, label: "Personal Intelligence", href: "/my-agent", group: "Personal Intelligence" },
-  { icon: Sparkles, label: "Intelligence Path", href: "/intelligence", group: "Personal Intelligence" },
-  { icon: Brain, label: "Growth Insights", href: "/psychology", group: "Personal Intelligence" },
-  // Collective Intelligence
-  { icon: MessageSquare, label: "Interactions", href: "/discussions", group: "Collective Intelligence" },
-  { icon: Newspaper, label: "AI News", href: "/ai-news-updates", group: "Collective Intelligence" },
-  { icon: Brain, label: "AI Debates", href: "/ai-debates", group: "Collective Intelligence" },
-  { icon: Network, label: "Network", href: "/network", group: "Collective Intelligence" },
-  { icon: Trophy, label: "Rankings", href: "/ranking", group: "Collective Intelligence" },
-  // Agent Ecosystem
-  { icon: Bot, label: "Intelligent Entities", href: "/agent-dashboard", group: "Agent Ecosystem" },
-  { icon: Wrench, label: "Entity Builder", href: "/agent-builder", group: "Agent Ecosystem" },
-  { icon: Globe, label: "My Entities", href: "/my-agents", group: "Agent Ecosystem" },
-  { icon: Store, label: "Intelligence Exchange", href: "/agent-marketplace", group: "Agent Ecosystem" },
-  { icon: Sparkles, label: "Entity Store", href: "/agent-store", group: "Agent Ecosystem" },
-  { icon: Users, label: "Intelligence Teams", href: "/ai-teams", group: "Agent Ecosystem" },
-  { icon: Activity, label: "Creator Hub", href: "/creator-dashboard", group: "Agent Ecosystem" },
-  // Labs
-  { icon: Beaker, label: "Labs", href: "/labs", group: "Labs" },
-  { icon: Store, label: "Labs App Store", href: "/labs/apps", group: "Labs" },
-  { icon: RefreshCw, label: "Labs Flywheel", href: "/labs/flywheel", group: "Labs" },
-  { icon: Infinity, label: "Super-Loop", href: "/super-loop", group: "Labs" },
-  { icon: Calculator, label: "Pricing Engine", href: "/pricing-engine", group: "Labs" },
-  // Trust & Privacy
-  { icon: Shield, label: "Privacy Center", href: "/privacy-center", group: "Trust & Privacy" },
-  { icon: ShieldCheck, label: "Trust Moat", href: "/trust-moat", group: "Trust & Privacy" },
-  { icon: Target, label: "Monetization", href: "/monetization", group: "Trust & Privacy" },
-  // Creator Tools
-  { icon: IndianRupee, label: "Creator Earnings", href: "/creator-earnings", group: "Creator Tools" },
-  { icon: Brain, label: "AI CFO", href: "/creator-finance", group: "Creator Tools" },
-  { icon: FileText, label: "Publisher Responsibility", href: "/publisher", group: "Creator Tools" },
-  { icon: UserCheck, label: "Creator Verification", href: "/creator-verification", group: "Creator Tools" },
-  { icon: Layers, label: "Trust Ladder", href: "/trust-ladder", group: "Trust & Privacy" },
-  { icon: Heart, label: "Healthy Engagement", href: "/healthy-engagement", group: "Trust & Privacy" },
-];
-
-const bottomNav = [
-  { icon: Wallet, label: "Credits", href: "/credits" },
-  { icon: CreditCard, label: "Billing", href: "/billing" },
-  { icon: Shield, label: "Cost Control", href: "/cost-control" },
-  { icon: Bell, label: "Notifications", href: "/notifications" },
-  { icon: User, label: "Profile", href: "/profile" },
-  { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: Bot, label: "Personal Agent", href: "/my-agent", group: "Create" },
+  { icon: Wrench, label: "Entity Builder", href: "/agent-builder", group: "Create" },
+  { icon: Beaker, label: "Labs", href: "/labs", group: "Create" },
+  { icon: Globe, label: "My Entities", href: "/my-agents", group: "Create" },
+  { icon: MessageSquare, label: "Discussions", href: "/discussions", group: "Discover" },
+  { icon: Newspaper, label: "AI News", href: "/ai-news-updates", group: "Discover" },
+  { icon: Brain, label: "Debates", href: "/ai-debates", group: "Discover" },
+  { icon: Network, label: "Network", href: "/network", group: "Discover" },
+  { icon: Sparkles, label: "Intelligence Path", href: "/intelligence", group: "Grow" },
+  { icon: Trophy, label: "Rankings", href: "/ranking", group: "Grow" },
+  { icon: TrendingUp, label: "Growth Insights", href: "/psychology", group: "Grow" },
+  { icon: Store, label: "Intelligence Exchange", href: "/agent-marketplace", group: "Earn" },
+  { icon: IndianRupee, label: "Creator Earnings", href: "/creator-earnings", group: "Earn" },
+  { icon: ShoppingBag, label: "Marketplace", href: "/agent-store", group: "Earn" },
+  { icon: Shield, label: "Trust Center", href: "/trust-moat", group: "System" },
+  { icon: CreditCard, label: "Billing", href: "/billing", group: "System" },
+  { icon: Settings, label: "Settings", href: "/settings", group: "System" },
 ];
 
 const mobileNav = [
   { icon: Home, label: "Home", href: "/" },
-  { icon: MessageSquare, label: "Interact", href: "/discussions" },
-  { icon: Newspaper, label: "News", href: "/ai-news-updates" },
+  { icon: MessageSquare, label: "Discover", href: "/discussions" },
+  { icon: Plus, label: "Create", href: "/my-agent" },
+  { icon: TrendingUp, label: "Grow", href: "/intelligence" },
   { icon: User, label: "Profile", href: "/profile" },
 ];
 
@@ -227,12 +207,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           "hidden md:flex flex-col glass-sidebar transition-all duration-300 ease-in-out flex-shrink-0",
           sidebarWidth
         )}>
-          <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-            <div className="space-y-0.5">
+          <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
               {mainNav.map((item, idx) => {
                 const prevGroup = idx > 0 ? mainNav[idx - 1].group : "";
                 const showGroupHeader = item.group && item.group !== prevGroup;
                 const active = isActive(item.href);
+                const groupColor = item.group ? NAV_GROUP_COLORS[item.group] : "";
                 const navItem = (
                   <Link key={item.href} href={item.href}>
                     <div className={cn(
@@ -254,7 +234,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 const elements: React.ReactNode[] = [];
                 if (showGroupHeader && !sidebarCollapsed) {
                   elements.push(
-                    <div key={`group-${item.group}`} className="px-2.5 pt-3 pb-1">
+                    <div key={`group-${item.group}`} className="px-2.5 pt-4 pb-1 flex items-center gap-2">
+                      <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", groupColor)} />
                       <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">{item.group}</span>
                     </div>
                   );
@@ -273,44 +254,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 }
                 return elements;
               })}
-            </div>
-
-            <div className="h-px bg-white/[0.06] my-3" />
-
-            <div className="space-y-0.5">
-              {!sidebarCollapsed && (
-                <span className="px-2.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Account</span>
-              )}
-              {bottomNav.map((item) => {
-                const active = isActive(item.href);
-                const navItem = (
-                  <Link key={item.href} href={item.href}>
-                    <div className={cn(
-                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all cursor-pointer relative",
-                      active 
-                        ? "bg-primary/10 text-primary active-indicator" 
-                        : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
-                      sidebarCollapsed && "justify-center px-0"
-                    )} data-testid={`link-nav-${item.label.toLowerCase()}`}>
-                      <item.icon className={cn("w-4 h-4 flex-shrink-0", active && "text-primary")} />
-                      {!sidebarCollapsed && <span>{item.label}</span>}
-                      {item.label === "Notifications" && !sidebarCollapsed && (
-                        <Badge className="ml-auto h-4 px-1.5 text-[9px] bg-red-500/20 text-red-400 border-0 animate-pulse">3</Badge>
-                      )}
-                    </div>
-                  </Link>
-                );
-                if (sidebarCollapsed) {
-                  return (
-                    <Tooltip key={item.href} delayDuration={0}>
-                      <TooltipTrigger asChild>{navItem}</TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs glass-panel">{item.label}</TooltipContent>
-                    </Tooltip>
-                  );
-                }
-                return navItem;
-              })}
-            </div>
 
             {currentUser?.role === "admin" && (
               <>
@@ -393,22 +336,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <X className="w-4 h-4" />
                 </Button>
               </div>
-              <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1">
-                {[...mainNav, ...bottomNav].map((item) => {
+              <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+                {mainNav.map((item, idx) => {
+                  const prevGroup = idx > 0 ? mainNav[idx - 1].group : "";
+                  const showGroupHeader = item.group && item.group !== prevGroup;
                   const active = isActive(item.href);
+                  const groupColor = item.group ? NAV_GROUP_COLORS[item.group] : "";
                   return (
-                    <Link key={item.href} href={item.href}>
-                      <div 
-                        className={cn(
-                          "flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer relative",
-                          active ? "bg-primary/10 text-primary active-indicator" : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
-                        )}
-                        onClick={() => setSidebarOpen(false)}
-                      >
-                        <item.icon className="w-4 h-4" />
-                        {item.label}
-                      </div>
-                    </Link>
+                    <div key={item.href}>
+                      {showGroupHeader && (
+                        <div className="px-2.5 pt-4 pb-1 flex items-center gap-2">
+                          <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", groupColor)} />
+                          <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">{item.group}</span>
+                        </div>
+                      )}
+                      <Link href={item.href}>
+                        <div 
+                          className={cn(
+                            "flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer relative",
+                            active ? "bg-primary/10 text-primary active-indicator" : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                          )}
+                          onClick={() => setSidebarOpen(false)}
+                        >
+                          <item.icon className="w-4 h-4" />
+                          {item.label}
+                        </div>
+                      </Link>
+                    </div>
                   );
                 })}
               </nav>
