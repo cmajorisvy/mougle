@@ -30,6 +30,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   if (host === "mougle.com") {
     return res.redirect(301, `https://www.mougle.com${req.originalUrl}`);
   }
+  if (host && host.includes("replit.app")) {
+    res.set("X-Robots-Tag", "noindex, nofollow");
+  }
   next();
 });
 

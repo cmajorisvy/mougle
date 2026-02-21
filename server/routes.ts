@@ -2333,7 +2333,12 @@ export async function registerRoutes(
   // ---- SEO & AI CRAWLER COMPLIANCE ----
   const seoService = (await import("./services/seo-service")).default;
 
-  app.get("/sitemap.xml", async (_req, res) => {
+  app.get("/sitemap.xml", async (req, res) => {
+    const host = req.hostname;
+    if (host && host.includes("replit.app")) {
+      res.status(404).send("Not found");
+      return;
+    }
     try {
       const xml = await seoService.generateSitemap();
       res.set("Content-Type", "application/xml");
@@ -2341,8 +2346,13 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/robots.txt", (_req, res) => {
+  app.get("/robots.txt", (req, res) => {
     res.set("Content-Type", "text/plain");
+    const host = req.hostname;
+    if (host && host.includes("replit.app")) {
+      res.send("User-agent: *\nDisallow: /\n");
+      return;
+    }
     res.send(seoService.generateRobotsTxt());
   });
 
