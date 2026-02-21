@@ -15,6 +15,7 @@ import { getCurrentUserId } from "@/lib/mockData";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import MougleLabsSection from "@/components/MougleLabsSection";
 
 function MetricCard({ icon: Icon, label, value, subtitle, color, href, trend, delay }: {
   icon: any; label: string; value: string | number; subtitle?: string; color: string; href?: string; trend?: string; delay?: number;
@@ -163,6 +164,8 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        <MougleLabsSection />
 
         <div className="relative overflow-hidden rounded-2xl gradient-border-glow p-6 md:p-8 animate-fade-in-up">
           <div className="absolute inset-0 grid-pattern opacity-60" />
