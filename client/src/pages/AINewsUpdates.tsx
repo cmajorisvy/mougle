@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Newspaper, Clock, ExternalLink, Hash, Sparkles, Filter, ChevronLeft, ChevronRight, Heart, MessageCircle, Share2, Swords, AlertTriangle } from "lucide-react";
+import { Loader2, Newspaper, Clock, ExternalLink, Sparkles, Filter, ChevronLeft, ChevronRight, Heart, MessageCircle, Share2, Swords, AlertTriangle, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Link } from "wouter";
@@ -12,93 +12,134 @@ import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
   { value: "", label: "All" },
+  { value: "research", label: "Research" },
+  { value: "product", label: "Product" },
+  { value: "funding", label: "Funding" },
+  { value: "policy", label: "Policy" },
+  { value: "opensource", label: "Open Source" },
+  { value: "breakthrough", label: "Breakthrough" },
   { value: "ai", label: "AI" },
   { value: "tech", label: "Tech" },
-  { value: "science", label: "Science" },
-  { value: "business", label: "Business" },
-  { value: "policy", label: "Policy" },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
+  research: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  product: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  funding: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  policy: "bg-red-500/10 text-red-400 border-red-500/30",
+  opensource: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+  breakthrough: "bg-purple-500/10 text-purple-400 border-purple-500/30",
   ai: "bg-purple-500/10 text-purple-400 border-purple-500/30",
   tech: "bg-blue-500/10 text-blue-400 border-blue-500/30",
   science: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
   business: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  policy: "bg-red-500/10 text-red-400 border-red-500/30",
   general: "bg-white/5 text-muted-foreground border-white/10",
 };
 
-const SOURCE_ICONS: Record<string, string> = {
-  rss: "RSS",
-  reddit: "Reddit",
-  trends: "Trends",
+const CATEGORY_LABELS: Record<string, string> = {
+  research: "Research",
+  product: "Product",
+  funding: "Funding",
+  policy: "Policy",
+  opensource: "Open Source",
+  breakthrough: "Breakthrough",
+  ai: "AI",
+  tech: "Tech",
+  science: "Science",
+  business: "Business",
+  general: "General",
 };
 
+function getImpactLabel(score: number | null | undefined): { label: string; color: string; icon: typeof TrendingUp } {
+  if (!score || score <= 0) return { label: "Low", color: "text-gray-400", icon: Minus };
+  if (score >= 75) return { label: "High", color: "text-red-400", icon: TrendingUp };
+  if (score >= 45) return { label: "Medium", color: "text-amber-400", icon: Minus };
+  return { label: "Low", color: "text-gray-400", icon: TrendingDown };
+}
+
+function getAiCategory(article: any): string {
+  if (article.hashtags?.length > 0) {
+    const aiCats = ["Research", "Product", "Funding", "Policy", "Open Source", "Breakthrough"];
+    const match = article.hashtags.find((h: string) => aiCats.includes(h));
+    if (match) return match;
+  }
+  return CATEGORY_LABELS[article.category] || article.category?.toUpperCase() || "General";
+}
+
 function NewsCard({ article }: { article: any }) {
+  const impact = getImpactLabel(article.impactScore);
+  const ImpactIcon = impact.icon;
+  const displayCategory = getAiCategory(article);
+
   return (
-    <Link href={`/ai-news-updates/${article.slug || article.id}`}>
-      <Card className="bg-card/50 border-white/5 hover:border-primary/30 transition-all cursor-pointer group" data-testid={`card-news-${article.id}`}>
-        <CardHeader className="pb-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className={cn("text-xs", CATEGORY_COLORS[article.category] || CATEGORY_COLORS.general)}>
-                  {article.category?.toUpperCase()}
+    <Card className="bg-card/50 border-white/5 hover:border-primary/30 transition-all group" data-testid={`card-news-${article.id}`}>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <Badge variant="outline" className={cn("text-xs", CATEGORY_COLORS[article.category] || CATEGORY_COLORS.general)}>
+                {displayCategory}
+              </Badge>
+              {article.impactScore && (
+                <Badge variant="outline" className={cn("text-xs border-white/10", impact.color)}>
+                  <ImpactIcon className="w-3 h-3 mr-1" />
+                  {impact.label} Impact
                 </Badge>
-                {article.isBreakingNews && (
-                  <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30 animate-pulse">
-                    <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> BREAKING
-                  </Badge>
-                )}
-                <span className="text-xs text-muted-foreground">{article.sourceName}</span>
-                {article.sourceType && article.sourceType !== "rss" && (
-                  <Badge variant="outline" className="text-xs bg-white/5 border-white/10">
-                    {SOURCE_ICONS[article.sourceType] || article.sourceType}
-                  </Badge>
-                )}
-              </div>
-              <h3 className="font-display font-semibold text-base group-hover:text-primary transition-colors line-clamp-2" data-testid={`text-news-title-${article.id}`}>
-                {article.title}
-              </h3>
-            </div>
-            {article.imageUrl && (
-              <img
-                src={article.imageUrl}
-                alt=""
-                className="w-20 h-20 rounded-lg object-cover flex-shrink-0 bg-white/5"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-            {article.summary}
-          </p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {article.publishedAt ? formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true }) : "Recently"}
-              </span>
-              <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {article.likesCount || 0}</span>
-              <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {article.commentsCount || 0}</span>
-              <span className="flex items-center gap-1"><Share2 className="w-3 h-3" /> {article.sharesCount || 0}</span>
-              {article.debateId && (
-                <span className="flex items-center gap-1 text-primary"><Swords className="w-3 h-3" /> Debate</span>
+              )}
+              {article.isBreakingNews && (
+                <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30 animate-pulse">
+                  <AlertTriangle className="w-2.5 h-2.5 mr-0.5" /> BREAKING
+                </Badge>
               )}
             </div>
-            <div className="flex items-center gap-1 flex-wrap">
-              {article.hashtags?.slice(0, 3).map((tag: string) => (
-                <span key={tag} className="text-xs text-primary/70">
-                  <Hash className="w-3 h-3 inline" />{tag}
-                </span>
-              ))}
-            </div>
+            <Link href={`/ai-news-updates/${article.slug || article.id}`}>
+              <h3 className="font-display font-semibold text-base group-hover:text-primary transition-colors line-clamp-2 cursor-pointer" data-testid={`text-news-title-${article.id}`}>
+                {article.title}
+              </h3>
+            </Link>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+          {article.imageUrl && (
+            <img
+              src={article.imageUrl}
+              alt=""
+              className="w-20 h-20 rounded-lg object-cover flex-shrink-0 bg-white/5"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+          {article.summary || article.originalContent?.substring(0, 200)}
+        </p>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="font-medium text-white/60">{article.sourceName}</span>
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {article.publishedAt ? formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true }) : "Recently"}
+            </span>
+            <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {article.likesCount || 0}</span>
+            <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {article.commentsCount || 0}</span>
+            {article.debateId && (
+              <span className="flex items-center gap-1 text-primary"><Swords className="w-3 h-3" /> Debate</span>
+            )}
+          </div>
+          {article.sourceUrl && (
+            <a
+              href={article.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1 text-xs text-primary/70 hover:text-primary transition-colors"
+              data-testid={`link-original-${article.id}`}
+            >
+              <ExternalLink className="w-3 h-3" /> Original
+            </a>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -129,8 +170,8 @@ export default function AINewsUpdates() {
             <Sparkles className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-display font-bold" data-testid="text-page-title">AI News Updates</h1>
-            <p className="text-sm text-muted-foreground">Latest AI news, automatically collected and processed from multiple sources</p>
+            <h1 className="text-2xl font-display font-bold" data-testid="text-page-title">Latest AI News</h1>
+            <p className="text-sm text-muted-foreground">Automated AI news from 10+ sources, summarized and classified every 30 minutes</p>
           </div>
         </div>
 

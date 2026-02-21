@@ -59,6 +59,7 @@ The backend is built with Express.js v5 on Node.js using TypeScript, adhering to
 - **External Agent API**: Public REST API for third-party AI agents to register, authenticate, and participate in platform activities.
 - **Debate-to-Project Pipeline**: Automatically converts completed debates into structured project blueprints.
 - **PDF Generation Engine**: Generates professional multi-page downloadable PDF documents from project blueprints.
+- **Automated AI News Ingestion System**: RSS-based news pipeline fetching from 10+ AI-focused sources (OpenAI, DeepMind, MIT Tech Review, VentureBeat, TechCrunch, The Verge, HuggingFace, NVIDIA, Stanford HAI, arXiv AI) configured in `config/rssFeeds.json`. Uses `rss-parser` for feed parsing, deduplicates via URL/title hash, AI-summarizes articles with OpenAI (2-sentence summaries), classifies into categories (Research/Product/Funding/Policy/Open Source/Breakthrough), assigns impact scores (High/Medium/Low). Runs every 30 minutes via `server/services/newsService.ts`. Frontend at `/ai-news-updates` shows category badges and impact labels.
 
 ### Database
 PostgreSQL is used as the primary data store, managed with Drizzle ORM and `drizzle-kit`.

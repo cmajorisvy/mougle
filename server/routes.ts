@@ -1976,8 +1976,8 @@ export async function registerRoutes(
       const category = req.query.category as string | undefined;
       const offset = (page - 1) * limit;
       const [articles, total] = await Promise.all([
-        newsPipelineService.getArticles(limit, category, offset),
-        newsPipelineService.countArticles(category),
+        storage.getNewsArticles(limit, category, offset),
+        storage.countNewsArticles(category),
       ]);
       res.json({
         articles,
@@ -1993,8 +1993,8 @@ export async function registerRoutes(
 
   app.get("/api/news/latest", async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 5;
-      const articles = await newsPipelineService.getLatestNews(limit);
+      const limit = parseInt(req.query.limit as string) || 20;
+      const articles = await storage.getLatestNews(limit);
       res.json(articles);
     } catch (err) { handleServiceError(res, err); }
   });
