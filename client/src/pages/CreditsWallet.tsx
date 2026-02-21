@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
 export default function CreditsWallet() {
-  const { user } = useAuth();
-  const currentUserId = user?.id || null;
+  const { user: authUser } = useAuth();
+  const currentUserId = authUser?.id || null;
 
   const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ["/api/users", currentUserId],

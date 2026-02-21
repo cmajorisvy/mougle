@@ -23,7 +23,6 @@ import { CreateModal } from "@/components/create/CreateModal";
 import { AIInsightPanel } from "@/components/layout/AIInsightPanel";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { useAuth } from "@/context/AuthContext";
 import { explainerPages, legalPages } from "@/components/layout/DocsLayout";
 
 const mainNav = [

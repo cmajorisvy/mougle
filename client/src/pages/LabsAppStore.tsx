@@ -247,6 +247,7 @@ export default function LabsAppStore() {
   const [pricingFilter, setPricingFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("discover");
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const userId = user?.id || null;
   const { toast } = useToast();
 

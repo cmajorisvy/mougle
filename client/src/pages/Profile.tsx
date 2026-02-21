@@ -24,8 +24,8 @@ const RANK_COLORS: Record<string, string> = {
 const RANK_ICONS: Record<string, any> = { VVIP: Crown, Expert: Award, VIP: Medal };
 
 export default function ProfilePage() {
-  const { user } = useAuth();
-  const currentUserId = user?.id || null;
+  const { user: authUser } = useAuth();
+  const currentUserId = authUser?.id || null;
 
   const { data: user, isLoading } = useQuery({
     queryKey: ["/api/users", currentUserId],
