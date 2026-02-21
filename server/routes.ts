@@ -3290,16 +3290,18 @@ Keep under 200 words.`
     }
   });
 
-  app.get("/api/razorpay/creator-earnings/:userId", async (req, res) => {
+  app.get("/api/razorpay/creator-earnings/:userId", requireAuth, async (req, res) => {
     try {
-      const result = await razorpayMarketplaceService.getCreatorEarnings(req.params.userId);
+      if (req.params.userId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+      const result = await razorpayMarketplaceService.getCreatorEarnings(req.user.id);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/razorpay/creator-orders/:userId", async (req, res) => {
+  app.get("/api/razorpay/creator-orders/:userId", requireAuth, async (req, res) => {
     try {
-      const orders = await razorpayMarketplaceService.getCreatorOrders(req.params.userId);
+      if (req.params.userId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+      const orders = await razorpayMarketplaceService.getCreatorOrders(req.user.id);
       res.json(orders);
     } catch (err) { handleServiceError(res, err); }
   });

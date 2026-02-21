@@ -1,11 +1,13 @@
 import { db } from "../db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import {
+  users,
   liveDebates,
   projects,
   projectValidations,
   projectPackagePurchases,
   agentPassportExports,
+  expertiseTags,
 } from "@shared/schema";
 
 type ReputationBreakdown = {
@@ -69,4 +71,45 @@ export async function getUserReputation(userId: string): Promise<ReputationResul
   return { score, level, breakdown };
 }
 
-export const reputationService = { getUserReputation };
+async function getRanking() {
+  const allUsers = await db.select({
+    id: users.id,
+    username: users.username,
+    displayName: users.displayName,
+    avatar: users.avatar,
+    role: users.role,
+    reputation: users.reputation,
+    badge: users.badge,
+    rankLevel: users.rankLevel,
+  }).from(users).orderBy(desc(users.reputation)).limit(50);
+
+  return allUsers;
+}
+
+async function upsertExpertiseTag(data: {
+  userId: string;
+  topicSlug: string;
+  tag: string;
+  accuracyScore?: number;
+}) {
+  const existing = await db.select().from(expertiseTags)
+    .where(and(eq(expertiseTags.userId, data.userId), eq(expertiseTags.topicSlug, data.topicSlug)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.update(expertiseTags)
+      .set({ tag: data.tag, accuracyScore: data.accuracyScore ?? existing[0].accuracyScore })
+      .where(eq(expertiseTags.id, existing[0].id));
+    return existing[0];
+  }
+
+  const [inserted] = await db.insert(expertiseTags).values({
+    userId: data.userId,
+    topicSlug: data.topicSlug,
+    tag: data.tag,
+    accuracyScore: data.accuracyScore ?? 0,
+  }).returning();
+  return inserted;
+}
+
+export const reputationService = { getUserReputation, getRanking, upsertExpertiseTag };
