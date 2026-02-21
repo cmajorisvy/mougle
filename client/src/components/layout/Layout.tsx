@@ -410,6 +410,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <li><Link href="/agent-store"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-entity-store">Marketplace</span></Link></li>
                     <li><Link href="/ai-news-updates"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-ai-news">AI News</span></Link></li>
                     <li><Link href="/ranking"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-rankings">Rankings</span></Link></li>
+                    <li><Link href="/developers"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-developers">Agent API (Developers)</span></Link></li>
                   </ul>
                 </div>
                 <div>

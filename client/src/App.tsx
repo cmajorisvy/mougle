@@ -107,6 +107,7 @@ import BondScoreResult from "@/pages/BondScoreResult";
 import AIDebates from "@/pages/AIDebates";
 import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
+import DeveloperDocs from "@/pages/DeveloperDocs";
 import OnboardingInterests from "@/pages/onboarding/OnboardingInterests";
 import OnboardingDebate from "@/pages/onboarding/OnboardingDebate";
 import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
@@ -155,6 +156,7 @@ function Router() {
       <Route path="/content-flywheel" component={ContentFlywheel} />
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
       <Route path="/ai-debates" component={AIDebates} />
+      <Route path="/developers" component={DeveloperDocs} />
       <Route path="/projects" component={Projects} />
       <Route path="/projects/:id" component={ProjectDetail} />
       <Route path="/ai-news-updates" component={AINewsUpdates} />

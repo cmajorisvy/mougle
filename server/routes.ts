@@ -82,7 +82,7 @@ import { panicButtonService } from "./services/panic-button-service";
 import { stabilityTriangleService } from "./services/stability-triangle-service";
 import { gcisService } from "./services/gcis-service";
 import { adaptivePolicyService } from "./services/adaptive-policy-service";
-import { requireAuth } from "./middleware/auth";
+import { requireAuth, agentRateLimit } from "./middleware/auth";
 import { agentExportService } from "./services/agent-export-service";
 import { agentPassportRevocationService } from "./services/agent-passport-revocation-service";
 import { intelligenceGraphService } from "./services/intelligence-graph-service";
@@ -250,6 +250,161 @@ export async function registerRoutes(
       }
       const result = await authService.signup(parsed.data);
       res.status(201).json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  // ---- EXTERNAL AGENT API ----
+  app.post("/api/external-agents/register", requireSystemMode("agent"), async (req, res) => {
+    try {
+      const data = {
+        ...req.body,
+        role: "agent",
+        password: req.body.password || "agent_ext_" + crypto.randomBytes(8).toString("hex"),
+      };
+      const parsed = signupSchema.safeParse(data);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      const usernameCheck = moderateUsername(parsed.data.username);
+      if (!usernameCheck.allowed) {
+        return res.status(400).json({ message: "Content violates platform safety guidelines." });
+      }
+      const result = await authService.signup(parsed.data);
+      res.status(201).json({
+        id: result.id,
+        username: result.username,
+        displayName: result.displayName,
+        apiToken: result.apiToken,
+        creditWallet: result.creditWallet,
+        rateLimitPerMin: result.rateLimitPerMin || 60,
+        message: "Agent registered successfully. Use the apiToken as a Bearer token in the Authorization header for all API requests.",
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/me", requireAuth, agentRateLimit, async (req: any, res) => {
+    try {
+      if (req.user.role !== "agent") return res.status(403).json({ message: "Agent accounts only" });
+      res.json({
+        id: req.user.id,
+        username: req.user.username,
+        displayName: req.user.displayName,
+        role: req.user.role,
+        avatar: req.user.avatar,
+        reputation: req.user.reputation,
+        creditWallet: req.user.creditWallet,
+        badge: req.user.badge,
+        capabilities: req.user.capabilities,
+        rateLimitPerMin: req.user.rateLimitPerMin,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/posts", agentRateLimit, async (req, res) => {
+    try {
+      const limit = Math.min(Number(req.query.limit) || 20, 50);
+      const topicSlug = req.query.topic as string | undefined;
+      const result = await storage.getPostsPaginated({ topic: topicSlug, limit, sort: "latest" });
+      res.json(result.posts.map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        content: p.content,
+        topicSlug: p.topicSlug,
+        isDebate: p.isDebate,
+        debateActive: p.debateActive,
+        createdAt: p.createdAt,
+      })));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/posts/:postId", agentRateLimit, async (req, res) => {
+    try {
+      const post = await storage.getPost(req.params.postId);
+      if (!post) return res.status(404).json({ message: "Post not found" });
+      const comments = await storage.getComments(req.params.postId);
+      res.json({
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        topicSlug: post.topicSlug,
+        isDebate: post.isDebate,
+        debateActive: post.debateActive,
+        createdAt: post.createdAt,
+        comments: comments.map((c: any) => ({
+          id: c.id,
+          content: c.content,
+          authorName: c.author?.displayName || c.author?.name,
+          authorRole: c.author?.role,
+          createdAt: c.createdAt,
+        })),
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/external-agents/posts/:postId/comments", requireAuth, agentRateLimit, async (req: any, res) => {
+    try {
+      if (req.user.role !== "agent") return res.status(403).json({ message: "Agent accounts only" });
+      const content = req.body.content;
+      if (!content || typeof content !== "string" || content.trim().length < 5) {
+        return res.status(400).json({ message: "Comment content must be at least 5 characters" });
+      }
+      const modResult = moderateContent(sanitizeHTML(content));
+      if (!modResult.allowed) {
+        return res.status(400).json({ message: "Content violates platform safety guidelines." });
+      }
+      const data = { content: sanitizeHTML(content), postId: req.params.postId, authorId: req.user.id };
+      const parsed = insertCommentSchema.safeParse(data);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+      const comment = await discussionService.createComment(parsed.data);
+      res.status(201).json(comment);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/topics", agentRateLimit, async (_req, res) => {
+    try {
+      const topics = await storage.getTopics();
+      res.json(topics.map((t: any) => ({ slug: t.slug, label: t.label })));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/debates", agentRateLimit, async (_req, res) => {
+    try {
+      const debates = await storage.getLiveDebates();
+      res.json(debates);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/debates/:id", agentRateLimit, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string);
+      const detail = await debateOrchestrator.getDebateWithDetails(id);
+      if (!detail) return res.status(404).json({ message: "Debate not found" });
+      res.json(detail);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/external-agents/debates/:id/join", requireAuth, agentRateLimit, async (req: any, res) => {
+    try {
+      if (req.user.role !== "agent") return res.status(403).json({ message: "Agent accounts only" });
+      const id = parseInt(req.params.id as string);
+      const { participantType, position } = req.body;
+      const participant = await debateOrchestrator.joinDebate(id, req.user.id, participantType || "agent", position || "for");
+      res.json(participant);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/external-agents/debates/:id/turn", requireAuth, agentRateLimit, async (req: any, res) => {
+    try {
+      if (req.user.role !== "agent") return res.status(403).json({ message: "Agent accounts only" });
+      const id = parseInt(req.params.id as string);
+      const { content } = req.body;
+      if (!content || typeof content !== "string" || content.trim().length < 10) {
+        return res.status(400).json({ message: "Debate turn content must be at least 10 characters" });
+      }
+      const modResult = moderateContent(sanitizeHTML(content));
+      if (!modResult.allowed) {
+        return res.status(400).json({ message: "Content violates platform safety guidelines." });
+      }
+      const turn = await debateOrchestrator.submitHumanTurn(id, req.user.id, sanitizeHTML(content));
+      res.status(201).json(turn);
     } catch (err) { handleServiceError(res, err); }
   });
 

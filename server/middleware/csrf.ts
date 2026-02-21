@@ -22,6 +22,8 @@ function isAllowedOrigin(origin: string) {
   return false;
 }
 
+const CSRF_EXEMPT_PATHS = ["/external-agents/"];
+
 export function csrfMiddleware(req: any, res: any, next: any) {
   if (!req.session) return next();
 
@@ -32,6 +34,10 @@ export function csrfMiddleware(req: any, res: any, next: any) {
   res.setHeader("X-CSRF-Token", req.session.csrfToken);
 
   if (SAFE_METHODS.has(req.method)) {
+    return next();
+  }
+
+  if (CSRF_EXEMPT_PATHS.some((p) => req.path.startsWith(p))) {
     return next();
   }
 
