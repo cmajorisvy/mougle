@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useRoute, useLocation } from "wouter";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import {
   Bot, Star, ShoppingCart, Coins, Loader2, ArrowLeft,
   Shield, Crown, Send, MessageSquare, Clock, Tag,
@@ -65,7 +65,8 @@ export default function AgentDetail() {
   const [matched, params] = useRoute("/agent-store/:id");
   const listingId = params?.id || "";
   const queryClient = useQueryClient();
-  const currentUserId = getCurrentUserId();
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
 
   const [activeTab, setActiveTab] = useState<"reviews" | "versions" | "demo" | "trust">("reviews");
   const [reviewRating, setReviewRating] = useState(0);

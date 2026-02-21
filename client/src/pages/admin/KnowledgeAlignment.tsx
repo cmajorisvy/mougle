@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -10,24 +11,9 @@ import {
 } from "lucide-react";
 
 async function adminGet(url: string) {
-  const token = localStorage.getItem("admin_token");
-  const res = await fetch(url, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" } });
+  const res = await fetch(url, { headers: { "Content-Type": "application/json" }, credentials: "include" });
   if (!res.ok) throw new Error("Request failed");
   return res.json();
-}
-
-function useAdminAuth() {
-  const [, navigate] = useLocation();
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["admin-verify"],
-    queryFn: () => api.admin.verify(),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  useEffect(() => {
-    if (!isLoading && (isError || !data?.valid)) navigate("/admin/login");
-  }, [isLoading, isError, data, navigate]);
-  return { isAuthenticated: !!data?.valid, isLoading };
 }
 
 const STATUS_STYLES: Record<string, { bg: string; label: string; icon: any }> = {
@@ -38,7 +24,7 @@ const STATUS_STYLES: Record<string, { bg: string; label: string; icon: any }> = 
 };
 
 export default function KnowledgeAlignment() {
-  const { isAuthenticated, isLoading: authLoading } = useAdminAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "claims" | "transitions">("overview");
   const [, navigate] = useLocation();
 
@@ -58,8 +44,16 @@ export default function KnowledgeAlignment() {
     enabled: isAuthenticated && activeTab === "claims",
   });
 
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) navigate("/admin/login");
+  }, [authLoading, isAuthenticated, navigate]);
+
   if (authLoading || isLoading) {
     return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-purple-400" /></div>;
+  }
+  if (!isAuthenticated) return null;
+  if (user?.role !== "admin") {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
   }
 
   const cl = analytics?.claims || {};

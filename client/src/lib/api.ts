@@ -1,14 +1,35 @@
 import { queryClient } from "./queryClient";
 
 const API_BASE = "/api";
+let csrfToken: string | null = null;
 
-function getAdminToken(): string | null {
-  return localStorage.getItem("admin_token");
+async function fetchCsrfToken(): Promise<string | null> {
+  const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  if (data?.csrfToken) {
+    csrfToken = data.csrfToken;
+    return csrfToken;
+  }
+  return null;
+}
+
+async function ensureCsrfToken(method?: string) {
+  const verb = (method || "GET").toUpperCase();
+  if (verb === "GET" || verb === "HEAD" || verb === "OPTIONS") return;
+  if (!csrfToken) {
+    await fetchCsrfToken();
+  }
 }
 
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
+  await ensureCsrfToken(options?.method);
   const res = await fetch(`${API_BASE}${url}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+    },
+    credentials: "include",
     ...options,
   });
   if (!res.ok) {
@@ -19,12 +40,13 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 async function adminFetch<T>(url: string, options?: RequestInit): Promise<T> {
-  const token = getAdminToken();
+  await ensureCsrfToken(options?.method);
   const res = await fetch(`${API_BASE}${url}`, {
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
     },
+    credentials: "include",
     ...options,
   });
   if (!res.ok) {
@@ -34,10 +56,15 @@ async function adminFetch<T>(url: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export function setCsrfToken(token: string | null) {
+  csrfToken = token;
+}
+
 export const api = {
   auth: {
     signup: (data: any) => fetchJSON<any>("/auth/signup", { method: "POST", body: JSON.stringify(data) }),
     signin: (data: any) => fetchJSON<any>("/auth/signin", { method: "POST", body: JSON.stringify(data) }),
+    fetchCsrfToken: () => fetchCsrfToken(),
     verifyEmail: (userId: string, code: string) => 
       fetchJSON<any>("/auth/verify-email", { method: "POST", body: JSON.stringify({ userId, code }) }),
     resendCode: (userId: string) => 
@@ -48,6 +75,12 @@ export const api = {
       fetchJSON<any>("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
     resetPassword: (token: string, newPassword: string) =>
       fetchJSON<any>("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, newPassword }) }),
+  },
+  onboarding: {
+    state: () => fetchJSON<{ state: string; interest: string | null }>("/onboarding/state"),
+    setInterest: (interest: string) =>
+      fetchJSON<any>("/onboarding/interest", { method: "POST", body: JSON.stringify({ interest }) }),
+    complete: () => fetchJSON<any>("/onboarding/complete", { method: "POST" }),
   },
   topics: {
     list: () => fetchJSON<any[]>("/topics"),
@@ -329,16 +362,16 @@ export const api = {
     trigger: () => adminFetch<any>("/news/trigger", { method: "POST" }),
   },
   social: {
-    accounts: () => adminFetch<any[]>("/social/accounts"),
-    createAccount: (data: any) => adminFetch<any>("/social/accounts", { method: "POST", body: JSON.stringify(data) }),
-    updateAccount: (id: number, data: any) => adminFetch<any>(`/social/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    deleteAccount: (id: number) => adminFetch<any>(`/social/accounts/${id}`, { method: "DELETE" }),
-    posts: (limit?: number, status?: string) => adminFetch<any[]>(`/social/posts?limit=${limit || 50}${status ? `&status=${status}` : ""}`),
-    createPost: (data: any) => adminFetch<any>("/social/posts", { method: "POST", body: JSON.stringify(data) }),
-    publishPost: (id: number) => adminFetch<any>(`/social/posts/${id}/publish`, { method: "POST" }),
+    accounts: () => adminFetch<any[]>("/admin/social/accounts"),
+    createAccount: (data: any) => adminFetch<any>("/admin/social/accounts", { method: "POST", body: JSON.stringify(data) }),
+    updateAccount: (id: number, data: any) => adminFetch<any>(`/admin/social/accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    deleteAccount: (id: number) => adminFetch<any>(`/admin/social/accounts/${id}`, { method: "DELETE" }),
+    posts: (limit?: number, status?: string) => adminFetch<any[]>(`/admin/social/posts?limit=${limit || 50}${status ? `&status=${status}` : ""}`),
+    createPost: (data: any) => adminFetch<any>("/admin/social/posts", { method: "POST", body: JSON.stringify(data) }),
+    publishPost: (id: number) => adminFetch<any>(`/admin/social/posts/${id}/publish`, { method: "POST" }),
     generateCaption: (data: { contentType: string; contentId: string; platform?: string }) =>
-      adminFetch<any>("/social/generate-caption", { method: "POST", body: JSON.stringify(data) }),
-    triggerPublish: () => adminFetch<any>("/social/trigger-publish", { method: "POST" }),
+      adminFetch<any>("/admin/social/generate-caption", { method: "POST", body: JSON.stringify(data) }),
+    triggerPublish: () => adminFetch<any>("/admin/social/trigger-publish", { method: "POST" }),
   },
   billing: {
     plans: () => fetchJSON<any[]>("/billing/plans"),

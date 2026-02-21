@@ -13,7 +13,7 @@ import {
   Plus, Check, X, ShieldAlert, ShieldCheck, Globe, Users, UserX,
   Download, Trash2, FileText, Loader2, Clock
 } from "lucide-react";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 
 const PRIVACY_MODES = [
   { value: "ultra_private", label: "Ultra Private", icon: Lock, color: "text-red-400", desc: "No external access. Maximum isolation." },
@@ -23,17 +23,18 @@ const PRIVACY_MODES = [
 ];
 
 function fetchWithAuth(url: string, opts: any = {}) {
-  const userId = getCurrentUserId();
   return fetch(url, {
     ...opts,
-    headers: { "Content-Type": "application/json", "x-user-id": userId || "", ...opts.headers },
+    headers: { "Content-Type": "application/json", ...opts.headers },
+    credentials: "include",
   }).then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); });
 }
 
 export default function PrivacyCenter() {
   const [activeTab, setActiveTab] = useState("overview");
   const queryClient = useQueryClient();
-  const userId = getCurrentUserId();
+  const { user } = useAuth();
+  const userId = user?.id || null;
 
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ["/api/privacy/dashboard"],

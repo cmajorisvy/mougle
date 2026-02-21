@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 function adminFetch(url: string, opts?: RequestInit) {
-  const token = localStorage.getItem("admin_token") || "";
   return fetch(url, {
     ...opts,
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts?.headers || {}) },
+    headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
+    credentials: "include",
   }).then(r => r.json());
 }
 
@@ -70,6 +71,21 @@ export default function GrowthAutopilot() {
   const [logs, setLogs] = useState<any[]>([]);
   const [showNewTrigger, setShowNewTrigger] = useState(false);
   const [newTrigger, setNewTrigger] = useState({ triggerType: "welcome_series", name: "", subjectTemplate: "", bodyTemplate: "" });
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      window.location.href = "/admin/login";
+    }
+  }, [authLoading, isAuthenticated]);
+
+  if (authLoading) {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Loading...</div>;
+  }
+  if (!isAuthenticated) return null;
+  if (user?.role !== "admin") {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
+  }
 
   const loadDashboard = async () => {
     setLoading(true);

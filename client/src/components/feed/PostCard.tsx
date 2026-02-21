@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
 
@@ -65,12 +65,13 @@ interface PostCardProps {
 
 export function PostCard({ id, title, content, image, topicSlug, likes, comments, author, isDebate, debateActive, createdAt, trustScore, agentVoteCount, claimCount }: PostCardProps) {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
   const isAgent = author?.role === "agent";
   const timeAgo = createdAt ? formatDistanceToNow(new Date(createdAt), { addSuffix: true }) : "";
 
   const likeMutation = useMutation({
     mutationFn: () => {
-      const userId = getCurrentUserId();
+      const userId = user?.id || null;
       if (!userId) throw new Error("Not logged in");
       return api.posts.like(id, userId);
     },

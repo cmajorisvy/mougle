@@ -77,7 +77,7 @@ async function decideAction(agent: User, post: Post, hasClaims: boolean): Promis
   return "skip";
 }
 
-async function generateAIResponse(agent: User, post: Post): Promise<{ content: string; confidence: number; reasoningType: string }> {
+async function generateAIResponse(agent: User, post: Post, billToUserId?: string): Promise<{ content: string; confidence: number; reasoningType: string }> {
   const reasoningTypes = ["Analysis", "Evidence", "Counterpoint", "Synthesis"];
   const reasoningType = reasoningTypes[Math.floor(Math.random() * reasoningTypes.length)]!;
   const agentPersonality = agent.bio || "an analytical AI agent";
@@ -85,14 +85,13 @@ async function generateAIResponse(agent: User, post: Post): Promise<{ content: s
 
   try {
     const result = await aiGateway.processRequest({
-      callerId: agent.id,
+      callerId: billToUserId || agent.id,
       callerType: "agent",
       actionType: "orchestrator",
       model: "gpt-4o-mini",
       agentId: agent.id,
       chainId: `orch-comment-${agent.id}-${post.id}`,
       maxTokens: 200,
-      skipCreditCheck: true,
       messages: [
         {
           role: "system",
@@ -128,21 +127,20 @@ function generateTemplateResponse(agent: User, post: Post): { content: string; c
   return { content, confidence, reasoningType: reasoningTypes[Math.floor(Math.random() * reasoningTypes.length)]! };
 }
 
-async function generateAIVerification(agent: User, post: Post): Promise<{ score: number; rationale: string }> {
+async function generateAIVerification(agent: User, post: Post, billToUserId?: string): Promise<{ score: number; rationale: string }> {
   const baseScore = 0.4 + Math.random() * 0.5;
   const agentWeight = agent.verificationWeight || 1.0;
   const score = Math.min(1, baseScore * agentWeight);
 
   try {
     const result = await aiGateway.processRequest({
-      callerId: agent.id,
+      callerId: billToUserId || agent.id,
       callerType: "agent",
       actionType: "verify",
       model: "gpt-4o-mini",
       agentId: agent.id,
       chainId: `orch-verify-${agent.id}-${post.id}`,
       maxTokens: 100,
-      skipCreditCheck: true,
       messages: [
         {
           role: "system",
@@ -206,7 +204,7 @@ const POST_TOPICS = [
   ]},
 ];
 
-async function maybeCreatePost(agent: User): Promise<boolean> {
+async function maybeCreatePost(agent: User, billToUserId?: string): Promise<boolean> {
   if (Math.random() > POST_CREATION_CHANCE) return false;
 
   const agentTags = agent.industryTags || (agent.capabilities as string[]) || ["tech"];
@@ -219,14 +217,13 @@ async function maybeCreatePost(agent: User): Promise<boolean> {
 
   try {
     const postResult = await aiGateway.processRequest({
-      callerId: agent.id,
+      callerId: billToUserId || agent.id,
       callerType: "agent",
       actionType: "orchestrator",
       model: "gpt-4o-mini",
       agentId: agent.id,
       chainId: `orch-post-${agent.id}`,
       maxTokens: 250,
-      skipCreditCheck: true,
       messages: [
         {
           role: "system",
@@ -243,13 +240,12 @@ async function maybeCreatePost(agent: User): Promise<boolean> {
     if (!content || content.length < 30) return false;
 
     const titleResult = await aiGateway.processRequest({
-      callerId: agent.id,
+      callerId: billToUserId || agent.id,
       callerType: "agent",
       actionType: "orchestrator",
       model: "gpt-4o-mini",
       agentId: agent.id,
       maxTokens: 30,
-      skipCreditCheck: true,
       messages: [
         {
           role: "system",
@@ -293,7 +289,7 @@ async function maybeCreatePost(agent: User): Promise<boolean> {
   }
 }
 
-async function processAgent(agent: User, posts: Post[]): Promise<void> {
+async function processAgent(agent: User, posts: Post[], billToUserId?: string): Promise<void> {
   const oneHourAgo = new Date(Date.now() - 60 * 60_000);
   const recentActions = await storage.getAgentActionCountSince(agent.id, oneHourAgo);
   if (recentActions >= MAX_ACTIONS_PER_HOUR) return;
@@ -304,7 +300,7 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
     if (elapsed < COOLDOWN_MS) return;
   }
 
-  const created = await maybeCreatePost(agent);
+  const created = await maybeCreatePost(agent, billToUserId);
   if (created) {
     if (!status.activeAgentIds.includes(agent.id)) {
       status.activeAgentIds.push(agent.id);
@@ -345,7 +341,7 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
       const cost = economyService.getActionCost("comment");
       try { await economyService.spendCredits(agent.id, cost, "agent_comment", post.id, `Comment on post "${post.title?.substring(0, 30)}..."`); } catch { continue; }
 
-      const response = await generateAIResponse(agent, post);
+      const response = await generateAIResponse(agent, post, billToUserId);
       await storage.createComment({
         postId: post.id,
         authorId: agent.id,
@@ -389,7 +385,7 @@ async function processAgent(agent: User, posts: Post[]): Promise<void> {
       const cost = economyService.getActionCost("verify");
       try { await economyService.spendCredits(agent.id, cost, "agent_verify", post.id, `Verify post "${post.title?.substring(0, 30)}..."`); } catch { continue; }
 
-      const { score, rationale } = await generateAIVerification(agent, post);
+      const { score, rationale } = await generateAIVerification(agent, post, billToUserId);
 
       await storage.createAgentVote({
         postId: post.id,
@@ -459,7 +455,7 @@ async function runCollaborationCycle(posts: Post[]): Promise<void> {
   }
 }
 
-async function runCycle(): Promise<void> {
+async function runCycle(billToUserId?: string): Promise<void> {
   try {
     const { founderControlService } = await import("./founder-control-service");
     if (await founderControlService.isEmergencyStopped()) {
@@ -495,7 +491,7 @@ async function runCycle(): Promise<void> {
 
     for (const agent of shuffledAgents) {
       const shuffledPosts = posts.sort(() => Math.random() - 0.5);
-      await processAgent(agent, shuffledPosts);
+      await processAgent(agent, shuffledPosts, billToUserId);
     }
 
     await runCollaborationCycle(posts);
@@ -556,7 +552,7 @@ export const agentOrchestrator = {
     return { ...status };
   },
 
-  async triggerCycle(): Promise<void> {
-    await runCycle();
+  async triggerCycle(billToUserId?: string): Promise<void> {
+    await runCycle(billToUserId);
   },
 };

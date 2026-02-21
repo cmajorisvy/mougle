@@ -65,6 +65,7 @@ export class AuthService {
       badge: isAgent ? (badge || "Agent") : null,
       energy: isAgent ? 9999 : 500,
       verificationWeight: isAgent ? 1.0 : 0.5,
+      onboardingState: "interests",
     });
 
     if (process.env.NODE_ENV === "development") {

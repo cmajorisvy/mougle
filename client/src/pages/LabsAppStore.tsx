@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -40,7 +40,8 @@ function ReportModal({ appId, appName, onClose }: { appId: string; appName: stri
   const [reason, setReason] = useState("");
   const [description, setDescription] = useState("");
   const { toast } = useToast();
-  const userId = getCurrentUserId();
+  const { user } = useAuth();
+  const userId = user?.id || null;
 
   const { data: categories } = useQuery({
     queryKey: ["report-categories"],
@@ -246,7 +247,7 @@ export default function LabsAppStore() {
   const [pricingFilter, setPricingFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("discover");
   const queryClient = useQueryClient();
-  const userId = getCurrentUserId();
+  const userId = user?.id || null;
   const { toast } = useToast();
 
   const { data: apps, isLoading } = useQuery<LabsApp[]>({

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/context/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -14,24 +15,6 @@ import {
   AlertTriangle, Share2, Send, Clock, ToggleLeft, ToggleRight,
   Sparkles, ExternalLink, Sliders, CheckCircle, Star
 } from "lucide-react";
-
-function useAdminAuth() {
-  const [, navigate] = useLocation();
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["admin-verify"],
-    queryFn: () => api.admin.verify(),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  useEffect(() => {
-    if (!isLoading && (isError || !data?.valid)) {
-      navigate("/admin/login");
-    }
-  }, [isLoading, isError, data, navigate]);
-
-  return { isAuthenticated: !!data?.valid, isLoading };
-}
 
 type Tab = "overview" | "users" | "posts" | "topics" | "debates" | "agents" | "flywheel" | "social" | "promotion" | "growth" | "systems" | "moderation" | "seo" | "authority" | "gravity" | "civilization" | "trust" | "teams" | "stability" | "autonomous";
 
@@ -2658,16 +2641,14 @@ function TrustNetworkTab() {
   const { data: trustNetwork, isLoading } = useQuery({
     queryKey: ["admin-trust-network"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/trust/network", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch("/api/admin/trust/network", { credentials: "include" });
       return res.json();
     },
   });
 
   const recalcAllMutation = useMutation({
     mutationFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/trust/recalculate-all", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+      const res = await fetch("/api/admin/trust/recalculate-all", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include" });
       return res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-trust-network"] }),
@@ -2891,8 +2872,7 @@ function AITeamsTab() {
   const { data: teamsData, isLoading } = useQuery({
     queryKey: ["admin-teams"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/teams/analytics", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch("/api/admin/teams/analytics", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch team analytics");
       return res.json();
     },
@@ -2976,8 +2956,7 @@ function StabilityTab() {
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ["admin-stability"],
     queryFn: async () => {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/civilization/stability", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch("/api/admin/civilization/stability", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch stability data");
       return res.json();
     },
@@ -2985,10 +2964,9 @@ function StabilityTab() {
 
   const recomputeMutation = useMutation({
     mutationFn: async () => {
-      const token = localStorage.getItem("admin_token");
       const res = await fetch("/api/admin/civilization/stability/recompute", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to recompute");
       return res.json();
@@ -2998,10 +2976,9 @@ function StabilityTab() {
 
   const toggleRuleMutation = useMutation({
     mutationFn: async (ruleId: string) => {
-      const token = localStorage.getItem("admin_token");
       const res = await fetch(`/api/admin/civilization/policies/${ruleId}/toggle`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to toggle rule");
       return res.json();
@@ -3202,11 +3179,10 @@ function StabilityTab() {
 }
 
 function AutonomousControlTab() {
-  const token = localStorage.getItem("admin_token");
   const { data, isLoading, isError } = useQuery({
     queryKey: ["admin-flywheel-overview"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/flywheel/overview", { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch("/api/admin/flywheel/overview", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -3215,7 +3191,7 @@ function AutonomousControlTab() {
 
   const runCycleMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/admin/flywheel/run", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch("/api/admin/flywheel/run", { method: "POST", credentials: "include" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -3226,7 +3202,8 @@ function AutonomousControlTab() {
     mutationFn: async (mode: string) => {
       const res = await fetch("/api/admin/flywheel/config", {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ mode }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -3449,17 +3426,23 @@ function LoadingSpinner() {
 }
 
 export default function AdminDashboard() {
-  const { isAuthenticated, isLoading } = useAdminAuth();
+  const { user, loading, isAuthenticated, refreshUser } = useAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
-  const handleLogout = () => {
-    api.admin.logout().catch(() => {});
-    localStorage.removeItem("admin_token");
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate("/admin/login");
+    }
+  }, [loading, isAuthenticated, navigate]);
+
+  const handleLogout = async () => {
+    await api.admin.logout().catch(() => {});
+    await refreshUser();
     navigate("/admin/login");
   };
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#060611] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
@@ -3468,6 +3451,13 @@ export default function AdminDashboard() {
   }
 
   if (!isAuthenticated) return null;
+  if (user?.role !== "admin") {
+    return (
+      <div className="min-h-screen bg-[#060611] flex items-center justify-center text-gray-400">
+        Unauthorized
+      </div>
+    );
+  }
 
   const TabContent = {
     overview: OverviewTab,

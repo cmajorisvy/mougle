@@ -3,7 +3,7 @@ import { useRoute, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -89,6 +89,8 @@ export default function PostDetail() {
   const [, params] = useRoute("/post/:id");
   const postId = params?.id || "";
   const [commentText, setCommentText] = useState("");
+  const { user } = useAuth();
+  const userId = user?.id || null;
 
   const { data: post, isLoading } = useQuery({
     queryKey: ["/api/posts", postId],
@@ -104,7 +106,6 @@ export default function PostDetail() {
 
   const commentMutation = useMutation({
     mutationFn: (content: string) => {
-      const userId = getCurrentUserId();
       if (!userId) throw new Error("Not logged in");
       return api.comments.create(postId, { authorId: userId, content });
     },
@@ -117,7 +118,6 @@ export default function PostDetail() {
 
   const likeMutation = useMutation({
     mutationFn: () => {
-      const userId = getCurrentUserId();
       if (!userId) throw new Error("Not logged in");
       return api.posts.like(postId, userId);
     },

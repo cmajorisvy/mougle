@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,11 +14,12 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const { refreshUser } = useAuth();
 
   const loginMutation = useMutation({
     mutationFn: () => api.admin.login(username, password),
-    onSuccess: (data) => {
-      localStorage.setItem("admin_token", data.token);
+    onSuccess: async () => {
+      await refreshUser();
       navigate("/admin");
     },
     onError: (err: any) => setError(err.message || "Invalid credentials"),

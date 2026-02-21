@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Layout } from "@/components/layout/Layout";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import {
   Brain, TrendingUp, Flame, MessageCircle, Heart, Trophy, Shield,
   BarChart3, Users, AlertTriangle, ArrowRight, Sparkles, Eye,
@@ -43,7 +43,8 @@ const INDICATOR_ICONS: Record<string, any> = {
 };
 
 function UserIndicatorsTab() {
-  const userId = getCurrentUserId() || "";
+  const { user } = useAuth();
+  const userId = user?.id || "";
 
   const { data, isLoading } = useQuery({
     queryKey: ["psychology-indicators", userId],

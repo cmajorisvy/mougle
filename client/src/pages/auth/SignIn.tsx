@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { setCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,11 +14,12 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const { refreshUser } = useAuth();
 
   const signinMutation = useMutation({
     mutationFn: () => api.auth.signin({ email, password }),
     onSuccess: (data) => {
-      setCurrentUserId(data.id);
+      refreshUser();
       if (!data.emailVerified) {
         navigate(`/auth/verify?userId=${data.id}`);
       } else if (!data.profileCompleted) {

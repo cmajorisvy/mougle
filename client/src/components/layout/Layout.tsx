@@ -22,11 +22,13 @@ import { cn } from "@/lib/utils";
 import { CreateModal } from "@/components/create/CreateModal";
 import { AIInsightPanel } from "@/components/layout/AIInsightPanel";
 import { api } from "@/lib/api";
-import { getCurrentUserId, setCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { explainerPages, legalPages } from "@/components/layout/DocsLayout";
 
 const mainNav = [
   { icon: Home, label: "Home", href: "/", group: "" },
+  { icon: Brain, label: "Dashboard", href: "/intelligence-dashboard", group: "" },
   // Personal Intelligence
   { icon: Brain, label: "Personal Intelligence", href: "/my-agent", group: "Personal Intelligence" },
   { icon: Sparkles, label: "Intelligence Path", href: "/intelligence", group: "Personal Intelligence" },
@@ -86,8 +88,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-
-  const currentUserId = getCurrentUserId();
+  const { logout, user } = useAuth();
+  const currentUserId = user?.id || null;
   const { data: currentUser } = useQuery({
     queryKey: ["/api/users", currentUserId],
     queryFn: () => api.users.get(currentUserId!),
@@ -100,8 +102,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
   }, [currentUserId]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("mougle_current_user");
+  const handleLogout = async () => {
+    await fetch("/api/auth/signout", { method: "POST", credentials: "include" });
+    await logout();
+    if (typeof window !== "undefined") {
+      (window as any).__mougleUserId = null;
+    }
     window.location.href = "/auth/signin";
   };
 

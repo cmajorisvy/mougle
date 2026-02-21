@@ -8,6 +8,8 @@ import { discussionService } from "./services/discussion-service";
 import { trustEngine } from "./services/trust-engine";
 import { agentService } from "./services/agent-service";
 import { reputationService } from "./services/reputation-service";
+import { capabilityService } from "./services/capability-service";
+import { journeyService } from "./services/journey-service";
 import { agentOrchestrator } from "./services/agent-orchestrator";
 import { economyService } from "./services/economy-service";
 import { agentLearningService } from "./services/agent-learning-service";
@@ -33,10 +35,12 @@ import {
   marketplaceListings as marketplaceListings_table,
   agentPurchases as agentPurchases_table,
   transactions as transactions_table,
+  creditUsageLog,
+  projectPackagePurchases,
   agentReviews as agentReviews_table,
   appExports as appExports_table,
 } from "@shared/schema";
-import { eq, desc, asc, sql } from "drizzle-orm";
+import { eq, desc, asc, sql, and, gte } from "drizzle-orm";
 import * as debateOrchestrator from "./services/debate-orchestrator";
 import * as contentFlywheel from "./services/content-flywheel-service";
 import { newsPipelineService } from "./services/news-pipeline-service";
@@ -78,33 +82,69 @@ import { panicButtonService } from "./services/panic-button-service";
 import { stabilityTriangleService } from "./services/stability-triangle-service";
 import { gcisService } from "./services/gcis-service";
 import { adaptivePolicyService } from "./services/adaptive-policy-service";
+import { requireAuth } from "./middleware/auth";
+import { agentExportService } from "./services/agent-export-service";
+import { agentPassportRevocationService } from "./services/agent-passport-revocation-service";
+import { intelligenceGraphService } from "./services/intelligence-graph-service";
+import { reputationService } from "./services/reputation-service";
 
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || bcrypt.hashSync("SunValue@1978", 10);
-const adminSessions = new Map<string, { expiresAt: number }>();
-
-function generateAdminToken(): string {
-  return `admin_${crypto.randomBytes(32).toString("hex")}`;
-}
-
-function verifyAdminToken(req: any): boolean {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) return false;
-  const token = authHeader.slice(7);
-  const session = adminSessions.get(token);
-  if (!session) return false;
-  if (Date.now() > session.expiresAt) {
-    adminSessions.delete(token);
-    return false;
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+function assertAdminConfig() {
+  if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
+    throw new Error("ADMIN_USERNAME and ADMIN_PASSWORD_HASH must be set in the environment.");
   }
-  return true;
 }
 
 function requireAdmin(req: any, res: any, next: any) {
-  if (!verifyAdminToken(req)) {
+  if (!req.session?.isAdmin) {
     return res.status(401).json({ message: "Unauthorized" });
   }
   next();
+}
+
+async function requirePaidAiAccess(
+  req: any,
+  res: any,
+  actionType: string,
+  actionLabel?: string,
+  referenceId?: string,
+) {
+  const userId = req.session?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Authentication required" });
+    return null;
+  }
+
+  const { plan, isActive } = await billingService.getSubscriptionStatus(userId);
+  const isPro = !!(isActive && plan && (plan.name === "pro" || plan.name === "expert"));
+
+  if (!isPro) {
+    const afford = await billingService.canAfford(userId, actionType);
+    if (!afford.canAfford) {
+      res.status(402).json({ error: "Insufficient credits" });
+      return null;
+    }
+  }
+
+  const cost = isPro ? 0 : (CREDIT_COSTS[actionType] || 5);
+  if (cost > 0) {
+    const ok = await billingService.useCredits(userId, cost, actionType, actionLabel, referenceId);
+    if (!ok) {
+      res.status(402).json({ error: "Insufficient credits" });
+      return null;
+    }
+  } else {
+    await storage.createCreditUsage({
+      userId,
+      creditsUsed: 0,
+      actionType,
+      actionLabel: actionLabel || null,
+      referenceId: referenceId || null,
+    }).catch(() => {});
+  }
+
+  return { userId, cost, isPro };
 }
 
 const DEV_USER = {
@@ -123,6 +163,34 @@ function resolveUser(req: any, res: any, next: any) {
   }
 
   return res.status(401).json({ message: "Authentication required" });
+}
+
+function getSessionUserId(req: any): string | null {
+  if (req.user?.id) return req.user.id;
+  return null;
+}
+
+function getFallbackUserId(req: any): string | null {
+  return (
+    req.body?.userId ||
+    req.body?.authorId ||
+    req.body?.creatorId ||
+    req.query?.userId ||
+    null
+  );
+}
+
+function requireUserId(req: any, res: any): string | null {
+  const sessionUserId = getSessionUserId(req);
+  if (sessionUserId) return sessionUserId;
+
+  if (process.env.NODE_ENV !== "production") {
+    const fallback = getFallbackUserId(req);
+    if (fallback) return fallback;
+  }
+
+  res.status(401).json({ message: "Authentication required" });
+  return null;
 }
 
 function requireSystemMode(actionType: "ai" | "agent" | "publishing") {
@@ -147,6 +215,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  assertAdminConfig();
 
   // Initialize panic button system
   panicButtonService.initialize().catch(err => console.error("[PanicButton] Init error:", err));
@@ -187,7 +256,82 @@ export async function registerRoutes(
   app.post("/api/auth/signin", async (req, res) => {
     try {
       const result = await authService.signin(req.body.email, req.body.password);
+      if (req.session) {
+        req.session.userId = result.id;
+      }
       res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/auth/csrf-token", (req, res) => {
+    if (!req.session?.csrfToken) {
+      return res.status(500).json({ message: "CSRF token not initialized" });
+    }
+    res.json({ csrfToken: req.session.csrfToken });
+  });
+
+  app.post("/api/auth/signout", (req, res) => {
+    if (req.session) {
+      req.session.destroy(() => {
+        res.json({ success: true });
+      });
+      return;
+    }
+    res.json({ success: true });
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req: any, res) => {
+    res.json(req.user);
+  });
+
+  app.get("/api/onboarding/state", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.user.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json({ state: user.onboardingState, interest: user.onboardingInterest || null });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/onboarding/interest", requireAuth, async (req, res) => {
+    try {
+      const interest = String(req.body?.interest || "").trim();
+      if (!interest) return res.status(400).json({ error: "interest required" });
+
+      await storage.updateUser(req.user.id, {
+        onboardingState: "debate",
+        onboardingInterest: interest,
+      });
+
+      const existingAgents = await storage.getUserAgentsByOwner(req.user.id);
+      if (existingAgents.length === 0) {
+        await storage.createUserAgent({
+          ownerId: req.user.id,
+          type: "personal",
+          agentType: "personal",
+          name: `${interest} Guide`,
+          persona: `Personal intelligence companion focused on ${interest}.`,
+          model: "gpt-4o",
+          provider: "openai",
+          systemPrompt: null,
+          temperature: 0.7,
+          visibility: "private",
+          marketplaceEnabled: false,
+          exportable: true,
+          deploymentModes: ["private"],
+          rateLimitPerMin: 30,
+          tags: [interest],
+          status: "active",
+        });
+      }
+
+      res.json({ success: true, next: "debate" });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/onboarding/complete", requireAuth, async (req, res) => {
+    try {
+      await storage.updateUser(req.user.id, { onboardingState: "complete" });
+      res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -262,36 +406,47 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/posts", postCooldownMiddleware, async (req, res) => {
+  app.post("/api/posts", requireAuth, postCooldownMiddleware, async (req, res) => {
     try {
-      const parsed = insertPostSchema.safeParse(req.body);
+      const payload = { ...req.body };
+      delete payload.userId;
+      delete payload.authorId;
+      delete payload.creatorId;
+      const parsed = insertPostSchema.safeParse(payload);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
 
-      if (parsed.data.authorId && await isUserSpammer(parsed.data.authorId)) {
+      if (await isUserSpammer(req.user.id)) {
         return res.status(403).json({ message: "Your account has been flagged for spam. You cannot create posts." });
       }
 
       const modResult = moderateContent(sanitizeHTML(parsed.data.content), parsed.data.title);
       if (!modResult.allowed) {
-        if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam, modResult.category, "post", parsed.data.content?.substring(0, 200));
-        founderDebugService.trackModerationAction("content_blocked", parsed.data.authorId);
+        await recordViolation(req.user.id, modResult.isSpam, modResult.category, "post", parsed.data.content?.substring(0, 200));
+        founderDebugService.trackModerationAction("content_blocked", req.user.id);
         return res.status(400).json({ message: "Content violates platform safety guidelines." });
       }
 
-      res.status(201).json(await discussionService.createPost(parsed.data));
+      res.status(201).json(await discussionService.createPost({ ...parsed.data, authorId: req.user.id }));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/posts/:id/like", async (req, res) => {
+  app.post("/api/posts/:id/like", requireAuth, async (req, res) => {
     try {
-      res.json(await discussionService.toggleLike(req.params.id, req.body.userId));
+      if (req.body?.userId) {
+        delete req.body.userId;
+      }
+      res.json(await discussionService.toggleLike(req.params.id, req.user.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
   // ---- CLAIMS ----
-  app.post("/api/posts/:postId/claims", async (req, res) => {
+  app.post("/api/posts/:postId/claims", requireAuth, async (req, res) => {
     try {
-      const data = { ...req.body, postId: req.params.postId };
+      const payload = { ...req.body };
+      delete payload.userId;
+      delete payload.authorId;
+      delete payload.creatorId;
+      const data = { ...payload, postId: req.params.postId, authorId: req.user.id };
       const parsed = insertClaimSchema.safeParse(data);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
       res.status(201).json(await discussionService.createClaim(parsed.data));
@@ -299,9 +454,13 @@ export async function registerRoutes(
   });
 
   // ---- EVIDENCE ----
-  app.post("/api/posts/:postId/evidence", async (req, res) => {
+  app.post("/api/posts/:postId/evidence", requireAuth, async (req, res) => {
     try {
-      const data = { ...req.body, postId: req.params.postId };
+      const payload = { ...req.body };
+      delete payload.userId;
+      delete payload.authorId;
+      delete payload.creatorId;
+      const data = { ...payload, postId: req.params.postId, authorId: req.user.id };
       const parsed = insertEvidenceSchema.safeParse(data);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
       const ev = await discussionService.createEvidence(parsed.data);
@@ -339,20 +498,24 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/posts/:postId/comments", postCooldownMiddleware, async (req, res) => {
+  app.post("/api/posts/:postId/comments", requireAuth, postCooldownMiddleware, async (req, res) => {
     try {
-      const data = { ...req.body, postId: req.params.postId };
+      const payload = { ...req.body };
+      delete payload.userId;
+      delete payload.authorId;
+      delete payload.creatorId;
+      const data = { ...payload, postId: req.params.postId, authorId: req.user.id };
       const parsed = insertCommentSchema.safeParse(data);
       if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
 
-      if (parsed.data.authorId && await isUserSpammer(parsed.data.authorId)) {
+      if (await isUserSpammer(req.user.id)) {
         return res.status(403).json({ message: "Your account has been flagged for spam. You cannot post comments." });
       }
 
       const modResult = moderateContent(sanitizeHTML(parsed.data.content));
       if (!modResult.allowed) {
-        if (parsed.data.authorId) await recordViolation(parsed.data.authorId, modResult.isSpam, modResult.category, "comment", parsed.data.content?.substring(0, 200));
-        founderDebugService.trackModerationAction("content_blocked", parsed.data.authorId);
+        await recordViolation(req.user.id, modResult.isSpam, modResult.category, "comment", parsed.data.content?.substring(0, 200));
+        founderDebugService.trackModerationAction("content_blocked", req.user.id);
         return res.status(400).json({ message: "Content violates platform safety guidelines." });
       }
 
@@ -374,7 +537,7 @@ export async function registerRoutes(
   });
 
   // ---- AGENT ORCHESTRATOR ----
-  app.get("/api/agent-orchestrator/status", async (_req, res) => {
+  app.get("/api/agent-orchestrator/status", requireAuth, async (_req, res) => {
     try {
       const orchestratorStatus = agentOrchestrator.getStatus();
       const agents = await storage.getAgentUsers();
@@ -402,7 +565,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/agent-orchestrator/activity", async (req, res) => {
+  app.get("/api/agent-orchestrator/activity", requireAuth, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const activities = await storage.getAgentActivityLog(Math.min(limit, 200));
@@ -423,64 +586,67 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/agent-orchestrator/trigger", async (_req, res) => {
+  app.post("/api/agent-orchestrator/trigger", requireAuth, async (_req, res) => {
     try {
-      await agentOrchestrator.triggerCycle();
+      await agentOrchestrator.triggerCycle(req.user.id);
       res.json({ message: "Cycle triggered", status: agentOrchestrator.getStatus() });
     } catch (err) { handleServiceError(res, err); }
   });
 
   // ---- ECONOMY ----
-  app.get("/api/economy/wallet/:userId", async (req, res) => {
+  app.get("/api/economy/wallet/:userId", requireAuth, async (req, res) => {
     try {
+      if (req.params.userId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       res.json(await economyService.getWallet(req.params.userId));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/economy/transactions/:userId", async (req, res) => {
+  app.get("/api/economy/transactions/:userId", requireAuth, async (req, res) => {
     try {
+      if (req.params.userId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       const limit = parseInt(req.query.limit as string) || 50;
       res.json(await economyService.getTransactionHistory(req.params.userId, Math.min(limit, 200)));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/economy/spend", async (req, res) => {
+  app.post("/api/economy/spend", requireAuth, async (req, res) => {
     try {
-      const { userId, amount, type, referenceId, description } = req.body;
-      if (!userId || typeof amount !== "number" || amount <= 0 || !type) {
-        return res.status(400).json({ message: "Valid userId, positive amount, and type required" });
+      const payload = { ...req.body };
+      delete payload.userId;
+      delete payload.authorId;
+      delete payload.creatorId;
+      const { amount, type, referenceId, description } = payload;
+      if (typeof amount !== "number" || amount <= 0 || !type) {
+        return res.status(400).json({ message: "Positive amount and type required" });
       }
-      const user = await storage.getUser(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
-      if (user.role !== "agent") return res.status(403).json({ message: "Only agents can spend credits via API" });
-      const apiToken = req.headers["x-api-token"] as string;
-      if (!apiToken || apiToken !== user.apiToken) {
-        return res.status(401).json({ message: "Invalid or missing API token" });
-      }
-      await economyService.spendCredits(userId, amount, type, referenceId, description);
-      const wallet = await economyService.getWallet(userId);
+      if (req.user.role !== "agent") return res.status(403).json({ message: "Only agents can spend credits via API" });
+      await economyService.spendCredits(req.user.id, amount, type, referenceId, description);
+      const wallet = await economyService.getWallet(req.user.id);
       res.json({ success: true, wallet });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/economy/transfer", async (req, res) => {
+  app.post("/api/economy/transfer", requireAuth, async (req, res) => {
     try {
-      const { senderId, receiverId, amount, serviceType, referenceId } = req.body;
-      if (!senderId || !receiverId || typeof amount !== "number" || amount <= 0 || !serviceType) {
-        return res.status(400).json({ message: "Valid senderId, receiverId, positive amount, and serviceType required" });
+      const payload = { ...req.body };
+      delete payload.userId;
+      delete payload.authorId;
+      delete payload.creatorId;
+      delete payload.senderId;
+      const { receiverId, amount, serviceType, referenceId } = payload;
+      if (!receiverId || typeof amount !== "number" || amount <= 0 || !serviceType) {
+        return res.status(400).json({ message: "Valid receiverId, positive amount, and serviceType required" });
       }
-      const sender = await storage.getUser(senderId);
-      if (!sender) return res.status(404).json({ message: "Sender not found" });
-      const apiToken = req.headers["x-api-token"] as string;
-      if (!apiToken || apiToken !== sender.apiToken) {
-        return res.status(401).json({ message: "Invalid or missing API token" });
-      }
-      const tx = await economyService.transferCredits(senderId, receiverId, amount, serviceType, referenceId);
+      const tx = await economyService.transferCredits(req.user.id, receiverId, amount, serviceType, referenceId);
       res.json(tx);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/economy/metrics", async (_req, res) => {
+  app.get("/api/economy/metrics", requireAuth, async (_req, res) => {
     try {
       res.json(await economyService.getEconomyMetrics());
     } catch (err) { handleServiceError(res, err); }
@@ -1102,8 +1268,10 @@ export async function registerRoutes(
   });
 
   // ---- AI TEXT GENERATION ----
-  app.post("/api/ai/generate", async (req, res) => {
+  app.post("/api/ai/generate", requireAuth, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "AI generate", "ai-generate");
+      if (!paid) return;
       const { prompt, maxTokens } = req.body;
       if (!prompt || typeof prompt !== "string") return res.status(400).json({ message: "Prompt is required" });
       if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
@@ -1128,7 +1296,7 @@ export async function registerRoutes(
   });
 
   // ---- LIVE DEBATES ----
-  app.post("/api/debates", async (req, res) => {
+  app.post("/api/debates", requireAuth, async (req, res) => {
     try {
       const { topic, description } = req.body;
       if (topic || description) {
@@ -1137,7 +1305,11 @@ export async function registerRoutes(
           return res.status(400).json({ message: "Content violates platform safety guidelines." });
         }
       }
-      const debate = await debateOrchestrator.createDebate(req.body);
+      const payload = { ...req.body };
+      delete payload.userId;
+      delete payload.authorId;
+      delete payload.creatorId;
+      const debate = await debateOrchestrator.createDebate({ ...payload, createdBy: req.user.id });
       res.status(201).json(debate);
     } catch (err) { handleServiceError(res, err); }
   });
@@ -1159,16 +1331,19 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/join", async (req, res) => {
+  app.post("/api/debates/:id/join", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
-      const { userId, participantType, position } = req.body;
-      const participant = await debateOrchestrator.joinDebate(id, userId, participantType, position);
+      if (req.body?.userId) {
+        delete req.body.userId;
+      }
+      const { participantType, position } = req.body;
+      const participant = await debateOrchestrator.joinDebate(id, req.user.id, participantType, position);
       res.json(participant);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/auto-populate", async (req, res) => {
+  app.post("/api/debates/:id/auto-populate", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
       const count = parseInt(req.body.count) || 3;
@@ -1177,7 +1352,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/start", async (req, res) => {
+  app.post("/api/debates/:id/start", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
       const debate = await debateOrchestrator.startDebate(id);
@@ -1185,16 +1360,19 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/turn", async (req, res) => {
+  app.post("/api/debates/:id/turn", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
-      const { userId, content } = req.body;
-      const turn = await debateOrchestrator.submitHumanTurn(id, userId, content);
+      if (req.body?.userId) {
+        delete req.body.userId;
+      }
+      const { content } = req.body;
+      const turn = await debateOrchestrator.submitHumanTurn(id, req.user.id, content);
       res.json(turn);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/quick-run", async (req, res) => {
+  app.post("/api/debates/:id/quick-run", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
       const agentCount = parseInt(req.body.agentCount) || 3;
@@ -1204,7 +1382,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/end", async (req, res) => {
+  app.post("/api/debates/:id/end", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
       const debate = await debateOrchestrator.endDebate(id);
@@ -1229,7 +1407,7 @@ export async function registerRoutes(
   });
 
   // ---- LIVE STUDIO ----
-  app.post("/api/debates/:id/studio/setup", async (req, res) => {
+  app.post("/api/debates/:id/studio/setup", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
       const { youtubeStreamKey } = req.body;
@@ -1295,7 +1473,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/studio/override-speaker", async (req, res) => {
+  app.post("/api/debates/:id/studio/override-speaker", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
       const { speakerId } = req.body;
@@ -1305,7 +1483,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/studio/speech", async (req, res) => {
+  app.post("/api/debates/:id/studio/speech", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
       const { transcript, userId } = req.body;
@@ -1315,7 +1493,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/debates/:id/studio/tts", async (req, res) => {
+  app.post("/api/debates/:id/studio/tts", requireAuth, async (req, res) => {
     try {
       const { text, voice } = req.body;
       if (!text) return res.status(400).json({ message: "text required" });
@@ -1326,9 +1504,24 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  // ---- CONTENT FLYWHEEL (VIDEO GENERATION TEMPORARILY DISABLED) ----
-  app.post("/api/flywheel/trigger/:debateId", async (_req, res) => {
-    res.status(503).json({ message: "Video generation is temporarily disabled" });
+  // ---- CONTENT FLYWHEEL ----
+  app.get("/api/flywheel/status", async (_req, res) => {
+    const enabled = process.env.ENABLE_FLYWHEEL_VIDEO === "true";
+    res.json({
+      enabled,
+      reason: enabled ? null : "Video generation is disabled. Set ENABLE_FLYWHEEL_VIDEO=true to enable.",
+    });
+  });
+
+  app.post("/api/flywheel/trigger/:debateId", async (req, res) => {
+    try {
+      if (process.env.ENABLE_FLYWHEEL_VIDEO !== "true") {
+        return res.status(503).json({ message: "Video generation is temporarily disabled" });
+      }
+      const debateId = parseInt(req.params.debateId as string);
+      const job = await contentFlywheel.runFlywheelPipeline(debateId);
+      res.json(job);
+    } catch (err) { handleServiceError(res, err); }
   });
 
   app.get("/api/flywheel/jobs", async (req, res) => {
@@ -1383,19 +1576,20 @@ export async function registerRoutes(
   // ---- ADMIN ----
   app.post("/api/admin/login", async (req, res) => {
     try {
+      assertAdminConfig();
       const { username, password } = req.body;
       if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
-      const token = generateAdminToken();
-      adminSessions.set(token, { expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
-      res.json({ token, expiresIn: 86400 });
+      if (req.session) {
+        req.session.isAdmin = true;
+      }
+      res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/logout", requireAdmin, (req, res) => {
-    const token = req.headers.authorization?.slice(7);
-    if (token) adminSessions.delete(token);
+    if (req.session) req.session.isAdmin = false;
     res.json({ message: "Logged out" });
   });
 
@@ -1715,30 +1909,34 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/news/:id/comments", postCooldownMiddleware, async (req, res) => {
+  app.post("/api/news/:id/comments", requireAuth, postCooldownMiddleware, async (req, res) => {
     try {
       const articleId = parseInt(req.params.id);
-      const { authorId, content, parentId, commentType } = req.body;
-      if (!authorId || !content) return res.status(400).json({ message: "authorId and content required" });
+      const payload = { ...req.body };
+      delete payload.userId;
+      delete payload.authorId;
+      delete payload.creatorId;
+      const { content, parentId, commentType } = payload;
+      if (!content) return res.status(400).json({ message: "content required" });
 
-      if (await isUserSpammer(authorId)) {
+      if (await isUserSpammer(req.user.id)) {
         return res.status(403).json({ message: "Your account has been flagged for spam. You cannot post comments." });
       }
 
       const modResult = moderateContent(sanitizeHTML(content));
       if (!modResult.allowed) {
-        await recordViolation(authorId, modResult.isSpam, modResult.category, "news_comment", content?.substring(0, 200));
+        await recordViolation(req.user.id, modResult.isSpam, modResult.category, "news_comment", content?.substring(0, 200));
         return res.status(400).json({ message: "Content violates platform safety guidelines." });
       }
 
       const comment = await storage.createNewsComment({
         articleId,
-        authorId,
+        authorId: req.user.id,
         content,
         parentId: parentId || null,
         commentType: commentType || "general",
       });
-      const author = await storage.getUser(authorId);
+      const author = await storage.getUser(req.user.id);
       res.json({
         ...comment,
         author: author ? { id: author.id, displayName: author.displayName, avatar: author.avatar, role: author.role } : null,
@@ -1747,39 +1945,40 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/news/:id/like", async (req, res) => {
+  app.post("/api/news/:id/like", requireAuth, async (req, res) => {
     try {
       const articleId = parseInt(req.params.id);
-      const { userId } = req.body;
-      if (!userId) return res.status(400).json({ message: "userId required" });
-      const liked = await storage.toggleNewsReaction(articleId, userId, "like");
+      if (req.body?.userId) {
+        delete req.body.userId;
+      }
+      const liked = await storage.toggleNewsReaction(articleId, req.user.id, "like");
       const article = await storage.getNewsArticle(articleId);
       res.json({ liked, likesCount: article?.likesCount || 0 });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/news/:id/liked", async (req, res) => {
+  app.get("/api/news/:id/liked", requireAuth, async (req, res) => {
     try {
       const articleId = parseInt(req.params.id);
-      const userId = req.query.userId as string;
-      if (!userId) return res.json({ liked: false });
-      const reaction = await storage.getNewsReaction(articleId, userId);
+      const reaction = await storage.getNewsReaction(articleId, req.user.id);
       res.json({ liked: !!reaction });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/news/:id/share", async (req, res) => {
+  app.post("/api/news/:id/share", requireAuth, async (req, res) => {
     try {
       const articleId = parseInt(req.params.id);
-      const { userId, platform } = req.body;
-      if (!userId) return res.status(400).json({ message: "userId required" });
-      await storage.createNewsShare({ articleId, userId, platform: platform || "internal" });
+      if (req.body?.userId) {
+        delete req.body.userId;
+      }
+      const { platform } = req.body;
+      await storage.createNewsShare({ articleId, userId: req.user.id, platform: platform || "internal" });
       const article = await storage.getNewsArticle(articleId);
       res.json({ sharesCount: article?.sharesCount || 0 });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/news/comments/:id/like", async (req, res) => {
+  app.post("/api/news/comments/:id/like", requireAuth, async (req, res) => {
     try {
       const commentId = parseInt(req.params.id);
       await storage.likeNewsComment(commentId);
@@ -1853,6 +2052,8 @@ export async function registerRoutes(
 
   app.post("/api/admin/social/generate-caption", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin social caption", "admin-social-caption");
+      if (!paid) return;
       const { contentType, contentId, platform } = req.body;
       if (!contentType || !contentId) return res.status(400).json({ message: "contentType and contentId required" });
       const { socialCaptionAgent } = await import("./services/social-caption-agent");
@@ -2223,72 +2424,79 @@ export async function registerRoutes(
   const subscribeSchema = z.object({ userId: z.string().min(1), planName: z.string().min(1), billingCycle: z.enum(["monthly", "yearly"]).default("monthly") });
   const cancelSubSchema = z.object({ userId: z.string().min(1) });
 
-  app.post("/api/billing/purchase-credits", async (req, res) => {
+  app.post("/api/billing/purchase-credits", requireAuth, async (req, res) => {
     try {
       const parsed = purchaseCreditsSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.issues });
-      const user = await storage.getUser(parsed.data.userId);
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
       if (!user) return res.status(404).json({ message: "User not found" });
-      const result = await billingService.purchaseCredits(parsed.data.userId, parsed.data.packageId);
+      const result = await billingService.purchaseCredits(userId, parsed.data.packageId);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/billing/use-credits", async (req, res) => {
+  app.post("/api/billing/use-credits", requireAuth, async (req, res) => {
     try {
       const parsed = useCreditsSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.issues });
-      const user = await storage.getUser(parsed.data.userId);
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
       if (!user) return res.status(404).json({ message: "User not found" });
       const cost = CREDIT_COSTS[parsed.data.actionType as keyof typeof CREDIT_COSTS] || 5;
-      const result = await billingService.useCredits(parsed.data.userId, cost, parsed.data.actionType, parsed.data.actionLabel, parsed.data.referenceId);
+      const result = await billingService.useCredits(userId, cost, parsed.data.actionType, parsed.data.actionLabel, parsed.data.referenceId);
       if (!result) return res.status(402).json({ message: "Insufficient credits" });
       res.json({ success: true, cost });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/billing/can-afford/:userId/:actionType", async (req, res) => {
+  app.get("/api/billing/can-afford/:userId/:actionType", requireAuth, async (req, res) => {
     try {
-      const user = await storage.getUser(req.params.userId);
+      if (req.params.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
+      const user = await storage.getUser(req.user.id);
       if (!user) return res.status(404).json({ message: "User not found" });
-      res.json(await billingService.canAfford(req.params.userId, req.params.actionType));
+      res.json(await billingService.canAfford(req.user.id, req.params.actionType));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/billing/summary/:userId", async (req, res) => {
+  app.get("/api/billing/summary/:userId", requireAuth, async (req, res) => {
     try {
-      const user = await storage.getUser(req.params.userId);
+      if (req.params.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
+      const user = await storage.getUser(req.user.id);
       if (!user) return res.status(404).json({ message: "User not found" });
-      res.json(await billingService.getBillingSummary(req.params.userId));
+      res.json(await billingService.getBillingSummary(req.user.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/billing/subscription/:userId", async (req, res) => {
+  app.get("/api/billing/subscription/:userId", requireAuth, async (req, res) => {
     try {
-      const user = await storage.getUser(req.params.userId);
+      if (req.params.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
+      const user = await storage.getUser(req.user.id);
       if (!user) return res.status(404).json({ message: "User not found" });
-      res.json(await billingService.getSubscriptionStatus(req.params.userId));
+      res.json(await billingService.getSubscriptionStatus(req.user.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/billing/subscribe", async (req, res) => {
+  app.post("/api/billing/subscribe", requireAuth, async (req, res) => {
     try {
       const parsed = subscribeSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.issues });
-      const user = await storage.getUser(parsed.data.userId);
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
       if (!user) return res.status(404).json({ message: "User not found" });
-      const result = await billingService.subscribeToPlan(parsed.data.userId, parsed.data.planName, parsed.data.billingCycle);
+      const result = await billingService.subscribeToPlan(userId, parsed.data.planName, parsed.data.billingCycle);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/billing/cancel-subscription", async (req, res) => {
+  app.post("/api/billing/cancel-subscription", requireAuth, async (req, res) => {
     try {
       const parsed = cancelSubSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid input", errors: parsed.error.issues });
-      const user = await storage.getUser(parsed.data.userId);
+      const userId = req.user.id;
+      const user = await storage.getUser(userId);
       if (!user) return res.status(404).json({ message: "User not found" });
-      await billingService.cancelSubscription(parsed.data.userId);
+      await billingService.cancelSubscription(userId);
       res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
@@ -2413,6 +2621,8 @@ export async function registerRoutes(
 
   app.post("/api/admin/gravity/generate-insights", requireAdmin, async (_req, res) => {
     try {
+      const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin gravity insights", "admin-gravity-insights");
+      if (!paid) return;
       const trends = await seoService.getGravityTrends();
       if (trends.records < 1) {
         return res.json({ insight: "Calculate gravity first to generate AI insights." });
@@ -2505,6 +2715,8 @@ Keep total response under 200 words.`
 
   app.post("/api/admin/civilization/generate-insights", requireAdmin, async (_req, res) => {
     try {
+      const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin civilization insights", "admin-civilization-insights");
+      if (!paid) return;
       const trends = await seoService.getCivilizationTrends();
       if (trends.records < 1) {
         return res.json({ insight: "Calculate civilization health first to generate AI insights." });
@@ -2606,6 +2818,8 @@ Keep under 200 words.`
 
   app.post("/api/admin/seo/generate-post-seo", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO post", "admin-seo-post");
+      if (!paid) return;
       const postId = req.body?.postId;
       if (!postId || typeof postId !== "string") return res.status(400).json({ error: "Valid postId string required" });
       const result = await aiContentService.generatePostSEO(postId);
@@ -2615,6 +2829,8 @@ Keep under 200 words.`
 
   app.post("/api/admin/seo/generate-debate-consensus", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO debate consensus", "admin-seo-consensus");
+      if (!paid) return;
       const debateId = Number(req.body?.debateId);
       if (!debateId || isNaN(debateId)) return res.status(400).json({ error: "Valid numeric debateId required" });
       const result = await aiContentService.generateDebateConsensus(debateId);
@@ -2624,6 +2840,8 @@ Keep under 200 words.`
 
   app.post("/api/admin/seo/batch-generate", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO batch", "admin-seo-batch");
+      if (!paid) return;
       const limit = Math.max(1, Math.min(50, Number(req.body?.limit) || 10));
       const result = await aiContentService.batchGeneratePostSEO(limit);
       res.json(result);
@@ -2632,15 +2850,35 @@ Keep under 200 words.`
 
   // ---- USER-OWNED AI AGENT PLATFORM ROUTES ----
 
-  app.post("/api/user-agents", async (req, res) => {
+  app.post("/api/user-agents", requireAuth, async (req, res) => {
     try {
-      const { ownerId, name, persona, skills, avatarUrl, voiceId, model, provider, systemPrompt, temperature, visibility, deploymentModes, rateLimitPerMin, tags } = req.body;
-      if (!ownerId || !name) return res.status(400).json({ error: "ownerId and name are required" });
+      const { name, persona, skills, avatarUrl, voiceId, model, provider, systemPrompt, temperature, visibility, deploymentModes, rateLimitPerMin, tags } = req.body;
+      if (!name) return res.status(400).json({ error: "name is required" });
+      const type = req.body?.type === "personal" ? "personal" : "business";
+      const desiredModes = Array.isArray(deploymentModes) ? deploymentModes : ["private"];
+      const wantsMarketplace = desiredModes.includes("marketplace");
+      const ownerId = req.user.id;
+      const effectiveModes = type === "personal" ? ["private"] : desiredModes;
+      const effectiveVisibility = type === "personal"
+        ? "private"
+        : (visibility || (effectiveModes.includes("public") || effectiveModes.includes("marketplace") ? "public" : "private"));
+      const marketplaceEnabled = type === "personal"
+        ? false
+        : (typeof req.body?.marketplaceEnabled === "boolean" ? req.body.marketplaceEnabled : wantsMarketplace);
+      const exportable = type === "personal"
+        ? true
+        : (typeof req.body?.exportable === "boolean" ? req.body.exportable : false);
+
       const agent = await storage.createUserAgent({
-        ownerId, name, persona, skills, avatarUrl, voiceId,
+        ownerId,
+        type,
+        agentType: type,
+        name, persona, skills, avatarUrl, voiceId,
         model: model || "gpt-4o", provider: provider || "openai",
-        systemPrompt, temperature, visibility, status: "draft",
-        deploymentModes: deploymentModes || ["private"],
+        systemPrompt, temperature, visibility: effectiveVisibility, status: "draft",
+        marketplaceEnabled,
+        exportable,
+        deploymentModes: effectiveModes,
         rateLimitPerMin: rateLimitPerMin || 30, tags,
       });
       res.json(agent);
@@ -2651,6 +2889,8 @@ Keep under 200 words.`
     try {
       const ownerId = req.query.ownerId as string;
       if (ownerId) {
+        if (!req.session?.userId) return res.status(401).json({ error: "Authentication required" });
+        if (ownerId !== req.session.userId) return res.status(403).json({ error: "Forbidden" });
         res.json(await storage.getUserAgentsByOwner(ownerId));
       } else {
         res.json(await storage.getPublicAgents());
@@ -2662,51 +2902,82 @@ Keep under 200 words.`
     try {
       const agent = await storage.getUserAgent(req.params.id);
       if (!agent) return res.status(404).json({ error: "Agent not found" });
+      const sessionUserId = req.session?.userId || null;
+      if (agent.type === "personal" && agent.ownerId !== sessionUserId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      if (agent.visibility === "private" && agent.ownerId !== sessionUserId) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       res.json(agent);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/user-agents/:id", async (req, res) => {
+  app.patch("/api/user-agents/:id", requireAuth, async (req, res) => {
     try {
       const agent = await storage.getUserAgent(req.params.id);
       if (!agent) return res.status(404).json({ error: "Agent not found" });
-      const updated = await storage.updateUserAgent(req.params.id, req.body);
+      if (agent.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+      const updates = { ...req.body };
+      delete (updates as any).ownerId;
+      if (updates.type === "personal" || agent.type === "personal") {
+        updates.type = "personal";
+        updates.agentType = "personal";
+        updates.visibility = "private";
+        updates.marketplaceEnabled = false;
+        updates.exportable = true;
+        updates.deploymentModes = ["private"];
+      }
+      const updated = await storage.updateUserAgent(req.params.id, updates);
       res.json(updated);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/user-agents/:id", async (req, res) => {
+  app.delete("/api/user-agents/:id", requireAuth, async (req, res) => {
     try {
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      if (agent.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
       await storage.deleteUserAgent(req.params.id);
       res.json({ success: true });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/user-agents/:id/deploy", async (req, res) => {
+  app.post("/api/user-agents/:id/deploy", requireAuth, async (req, res) => {
     try {
       const agent = await storage.getUserAgent(req.params.id);
       if (!agent) return res.status(404).json({ error: "Agent not found" });
+      if (agent.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
       const { modes } = req.body;
       const validModes = ["private", "public", "debate", "api", "marketplace"];
       const filtered = (modes || []).filter((m: string) => validModes.includes(m));
-      const visibility = filtered.includes("public") || filtered.includes("marketplace") ? "public" : "private";
+      const effectiveModes = agent.type === "personal" ? ["private"] : filtered;
+      const visibility = effectiveModes.includes("public") || effectiveModes.includes("marketplace") ? "public" : "private";
+      const marketplaceEnabled = agent.type === "personal" ? false : effectiveModes.includes("marketplace");
       const updated = await storage.updateUserAgent(req.params.id, {
-        deploymentModes: filtered,
+        deploymentModes: effectiveModes,
         visibility,
         status: "active",
+        marketplaceEnabled,
       });
       res.json(updated);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/user-agents/:id/knowledge", async (req, res) => {
+  app.get("/api/user-agents/:id/knowledge", requireAuth, async (req, res) => {
     try {
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      if (agent.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
       res.json(await storage.getAgentKnowledgeSources(req.params.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/user-agents/:id/knowledge", async (req, res) => {
+  app.post("/api/user-agents/:id/knowledge", requireAuth, async (req, res) => {
     try {
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      if (agent.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
       const { sourceType, title, content, uri, metadata } = req.body;
       if (!sourceType || !title) return res.status(400).json({ error: "sourceType and title required" });
       const source = await storage.createAgentKnowledgeSource({
@@ -2718,10 +2989,120 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/user-agents/knowledge/:sourceId", async (req, res) => {
+  app.delete("/api/user-agents/knowledge/:sourceId", requireAuth, async (req, res) => {
     try {
+      const source = await storage.getAgentKnowledgeSource(req.params.sourceId);
+      if (!source) return res.status(404).json({ error: "Knowledge source not found" });
+      const agent = await storage.getUserAgent(source.agentId);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      if (agent.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
       await storage.deleteAgentKnowledgeSource(req.params.sourceId);
       res.json({ success: true });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agents/:id/export", requireAuth, async (req, res) => {
+    try {
+      const agentId = req.params.id;
+      const result = await agentExportService.exportAgent(agentId, req.user.id);
+      res.setHeader("Content-Type", "application/vnd.mougle-agent+json");
+      res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
+      res.send(result.content);
+    } catch (err: any) {
+      if (err?.status === 429) {
+        res.setHeader("Retry-After", String(err.retryAfter || 60));
+        return res.status(429).json({ error: "Export rate limit exceeded", retryAfter: err.retryAfter || 60 });
+      }
+      handleServiceError(res, err);
+    }
+  });
+
+  app.get("/api/agents/passport/exports", requireAuth, async (req, res) => {
+    try {
+      const exports = await storage.getAgentPassportExportsByOwner(req.user.id);
+      res.json(exports);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agents/passport/:exportId/revoke", requireAuth, async (req, res) => {
+    try {
+      const revoked = await agentPassportRevocationService.revokePassport(
+        req.params.exportId,
+        req.user.id,
+        req.body?.reason || null
+      );
+      res.json({ success: true, revoked });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/agents/import", requireAuth, async (req, res) => {
+    try {
+      const passport = req.body?.passport;
+      if (!passport || typeof passport !== "string") {
+        return res.status(400).json({ error: "passport content required" });
+      }
+      const exportHash = crypto.createHash("sha256").update(passport).digest("hex");
+      const exportRecord = await storage.getAgentPassportExportByHash(exportHash);
+      if (!exportRecord) return res.json({ valid: false, revoked: false });
+      return res.json({ valid: !exportRecord.revoked, revoked: exportRecord.revoked });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/passport/verify/:exportId", async (req, res) => {
+    try {
+      const exportId = req.params.exportId;
+      const match = await storage.getAgentPassportExportById(exportId);
+      if (!match) {
+        res.setHeader("Cache-Control", "public, max-age=300");
+        return res.json({ valid: false, revoked: false, origin: "mougle.com", standard: "MAP-1" });
+      }
+      const etagBase = JSON.stringify({
+        id: match.id,
+        revoked: match.revoked,
+        revokedAt: match.revokedAt,
+        exportedAt: match.exportedAt,
+        exportVersion: match.exportVersion,
+      });
+      const etag = `"${crypto.createHash("sha256").update(etagBase).digest("hex")}"`;
+      res.setHeader("ETag", etag);
+      if (req.headers["if-none-match"] === etag) {
+        return res.status(304).end();
+      }
+      res.setHeader("Cache-Control", match.revoked ? "public, max-age=60" : "public, max-age=300");
+      return res.json({
+        valid: !match.revoked,
+        revoked: !!match.revoked,
+        origin: "mougle.com",
+        standard: "MAP-1",
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/intelligence-graph", requireAuth, async (req, res) => {
+    try {
+      const graph = await intelligenceGraphService.buildIntelligenceGraph(req.user.id);
+      res.json(graph);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/reputation/me", requireAuth, async (req, res) => {
+    try {
+      const result = await reputationService.getUserReputation(req.user.id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/capabilities/me", requireAuth, async (req, res) => {
+    try {
+      const result = await capabilityService.getUserCapabilities(req.user.id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/journey/me", requireAuth, async (req, res) => {
+    try {
+      const result = await journeyService.getUserJourney(req.user.id);
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -2748,10 +3129,11 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/marketplace/listings", async (req, res) => {
+  app.post("/api/marketplace/listings", requireAuth, async (req, res) => {
     try {
-      const { agentId, sellerId, title, description, pricingModel, priceCredits, monthlyCredits, category } = req.body;
-      if (!agentId || !sellerId || !title) return res.status(400).json({ error: "agentId, sellerId, and title required" });
+      const { agentId, title, description, pricingModel, priceCredits, monthlyCredits, category } = req.body;
+      const sellerId = req.user.id;
+      if (!agentId || !title) return res.status(400).json({ error: "agentId and title required" });
       const agent = await storage.getUserAgent(agentId);
       if (!agent || agent.ownerId !== sellerId) return res.status(403).json({ error: "Not authorized" });
       await storage.updateUserAgent(agentId, {
@@ -2770,27 +3152,35 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/marketplace/purchase", async (req, res) => {
+  app.post("/api/marketplace/purchase", requireAuth, async (req, res) => {
     try {
-      const { buyerId, listingId } = req.body;
-      if (!buyerId || !listingId) return res.status(400).json({ error: "buyerId and listingId required" });
+      const { listingId } = req.body;
+      const buyerId = req.user.id;
+      if (!listingId) return res.status(400).json({ error: "listingId required" });
       const listing = await storage.getMarketplaceListing(listingId);
       if (!listing) return res.status(404).json({ error: "Listing not found" });
       const already = await storage.hasUserPurchasedAgent(buyerId, listing.agentId);
       if (already) return res.status(400).json({ error: "Already purchased" });
-      const buyer = await storage.getUser(buyerId);
-      if (!buyer || (buyer.creditWallet || 0) < listing.priceCredits) {
-        return res.status(400).json({ error: "Insufficient credits" });
-      }
       const sellerEarnings = Math.floor(listing.priceCredits * listing.revenueSplit);
       const platformFee = listing.priceCredits - sellerEarnings;
       const purchase = await db.transaction(async (tx) => {
-        await tx.update(users_table).set({ creditWallet: sql`COALESCE(${users_table.creditWallet}, 0) - ${listing.priceCredits}` }).where(eq(users_table.id, buyerId));
+        const [buyerUpdated] = await tx.update(users_table)
+          .set({ creditWallet: sql`COALESCE(${users_table.creditWallet}, 0) - ${listing.priceCredits}` })
+          .where(and(eq(users_table.id, buyerId), gte(users_table.creditWallet, listing.priceCredits)))
+          .returning({ id: users_table.id });
+        if (!buyerUpdated) throw new Error("Insufficient credits");
         await tx.update(users_table).set({ creditWallet: sql`COALESCE(${users_table.creditWallet}, 0) + ${sellerEarnings}` }).where(eq(users_table.id, listing.sellerId));
         await tx.insert(transactions_table).values({
           senderId: buyerId, receiverId: listing.sellerId,
           amount: sellerEarnings, transactionType: "agent_purchase",
           referenceId: listingId, description: `Agent purchase: ${listing.title}`,
+        });
+        await tx.insert(creditUsageLog).values({
+          userId: buyerId,
+          creditsUsed: listing.priceCredits,
+          actionType: "agent_purchase",
+          actionLabel: `Agent purchase: ${listing.title}`,
+          referenceId: listingId,
         });
         const [purchaseRecord] = await tx.insert(agentPurchases_table).values({
           buyerId, listingId, agentId: listing.agentId, sellerId: listing.sellerId,
@@ -2807,12 +3197,18 @@ Keep under 200 words.`
         return purchaseRecord;
       });
       res.json(purchase);
-    } catch (err) { handleServiceError(res, err); }
+    } catch (err: any) {
+      if (err.message?.includes("Insufficient credits")) {
+        return res.status(402).json({ error: err.message });
+      }
+      handleServiceError(res, err);
+    }
   });
 
-  app.get("/api/marketplace/purchases/:userId", async (req, res) => {
+  app.get("/api/marketplace/purchases/:userId", requireAuth, async (req, res) => {
     try {
-      const purchases = await storage.getAgentPurchasesByBuyer(req.params.userId);
+      if (req.params.userId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+      const purchases = await storage.getAgentPurchasesByBuyer(req.user.id);
       const enriched = await Promise.all(purchases.map(async (p) => {
         const agent = await storage.getUserAgent(p.agentId);
         return { ...p, agentName: agent?.name, agentAvatarUrl: agent?.avatarUrl };
@@ -2821,19 +3217,21 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/marketplace/earnings/:userId", async (req, res) => {
+  app.get("/api/marketplace/earnings/:userId", requireAuth, async (req, res) => {
     try {
-      const sales = await storage.getAgentPurchasesBySeller(req.params.userId);
+      if (req.params.userId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+      const sales = await storage.getAgentPurchasesBySeller(req.user.id);
       const totalEarnings = sales.reduce((sum, s) => sum + s.sellerEarnings, 0);
       const totalSales = sales.length;
       res.json({ totalEarnings, totalSales, sales });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/razorpay/onboard-creator", async (req, res) => {
+  app.post("/api/razorpay/onboard-creator", requireAuth, async (req, res) => {
     try {
-      const { userId, businessName, email, contactName, phone } = req.body;
-      if (!userId || !businessName || !email || !contactName) {
+      const { businessName, email, contactName, phone } = req.body;
+      const userId = req.user.id;
+      if (!businessName || !email || !contactName) {
         return res.status(400).json({ error: "userId, businessName, email, and contactName are required" });
       }
       const result = await razorpayMarketplaceService.onboardCreator(userId, { businessName, email, contactName, phone });
@@ -2841,17 +3239,19 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/razorpay/creator-account/:userId", async (req, res) => {
+  app.get("/api/razorpay/creator-account/:userId", requireAuth, async (req, res) => {
     try {
-      const account = await razorpayMarketplaceService.getCreatorAccount(req.params.userId);
+      if (req.params.userId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+      const account = await razorpayMarketplaceService.getCreatorAccount(req.user.id);
       res.json({ account });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/razorpay/create-order", async (req, res) => {
+  app.post("/api/razorpay/create-order", requireAuth, async (req, res) => {
     try {
-      const { buyerId, listingId } = req.body;
-      if (!buyerId || !listingId) {
+      const { listingId } = req.body;
+      const buyerId = req.user.id;
+      if (!listingId) {
         return res.status(400).json({ error: "buyerId and listingId are required" });
       }
       const result = await razorpayMarketplaceService.createOrder(buyerId, listingId);
@@ -2970,8 +3370,10 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/legal-safety/generate-disclaimer", async (req, res) => {
+  app.post("/api/legal-safety/generate-disclaimer", requireAuth, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Legal safety disclaimer", "legal-safety-disclaimer");
+      if (!paid) return;
       const { appId, industry, category } = req.body;
       if (!appId || !industry) return res.status(400).json({ error: "appId and industry required" });
       const disclaimer = await legalSafetyService.generateRiskDisclaimer(appId, industry, category);
@@ -3477,12 +3879,16 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/user-agents/:id/use", async (req, res) => {
+  app.post("/api/user-agents/:id/use", requireAuth, async (req, res) => {
     try {
-      const { userId, actionType, creditsSpent } = req.body;
-      if (!userId || !actionType) return res.status(400).json({ error: "userId and actionType required" });
+      const { actionType, creditsSpent } = req.body;
+      if (!actionType) return res.status(400).json({ error: "actionType required" });
       const agent = await storage.getUserAgent(req.params.id);
       if (!agent) return res.status(404).json({ error: "Agent not found" });
+      if (agent.type === "personal" && agent.ownerId !== req.user.id) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const userId = req.user.id;
       const log = await storage.createAgentUsageLog({
         agentId: req.params.id, userId, actionType, creditsSpent: creditsSpent || 0,
       });
@@ -3493,8 +3899,11 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/user-agents/:id/usage", async (req, res) => {
+  app.get("/api/user-agents/:id/usage", requireAuth, async (req, res) => {
     try {
+      const agent = await storage.getUserAgent(req.params.id);
+      if (!agent) return res.status(404).json({ error: "Agent not found" });
+      if (agent.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
       const limit = parseInt(req.query.limit as string) || 50;
       res.json(await storage.getAgentUsageLogs(req.params.id, limit));
     } catch (err) { handleServiceError(res, err); }
@@ -3648,10 +4057,11 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- AGENT RUNNER (Cost-Controlled AI Execution) ----
 
-  app.post("/api/agent-runner/run", async (req, res) => {
+  app.post("/api/agent-runner/run", requireAuth, async (req, res) => {
     try {
-      const { agentId, message, callerId } = req.body;
-      if (!agentId || !message || !callerId) return res.status(400).json({ error: "agentId, message, and callerId required" });
+      const { agentId, message } = req.body;
+      const callerId = req.session.userId;
+      if (!agentId || !message || !callerId) return res.status(400).json({ error: "agentId and message required" });
       const result = await agentRunnerService.runAgent(agentId, message, callerId);
       res.json(result);
     } catch (err: any) {
@@ -3662,10 +4072,12 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     }
   });
 
-  app.post("/api/agent-runner/demo", async (req, res) => {
+  app.post("/api/agent-runner/demo", requireAuth, async (req, res) => {
     try {
       const { agentId, message } = req.body;
       if (!agentId || !message) return res.status(400).json({ error: "agentId and message required" });
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Agent demo", `agent-demo:${agentId}`);
+      if (!paid) return;
       const result = await agentRunnerService.runDemoInteraction(agentId, message);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
@@ -3688,8 +4100,9 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- COST CONTROL & CREATOR ANALYTICS ----
 
-  app.get("/api/agent-costs/:ownerId", async (req, res) => {
+  app.get("/api/agent-costs/:ownerId", requireAuth, async (req, res) => {
     try {
+      if (req.params.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
       const limit = parseInt(req.query.limit as string) || 50;
       const logs = await storage.getAgentCostLogs(req.params.ownerId, limit);
       const totalSpent = logs.reduce((sum, l) => sum + l.creditsCharged, 0);
@@ -3703,9 +4116,10 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/creator-analytics/:userId", async (req, res) => {
+  app.get("/api/creator-analytics/:userId", requireAuth, async (req, res) => {
     try {
       const userId = req.params.userId;
+      if (userId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
       const agents = await storage.getUserAgentsByOwner(userId);
       const sales = await storage.getAgentPurchasesBySeller(userId);
       const costLogs = await storage.getAgentCostLogs(userId, 200);
@@ -3754,11 +4168,12 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- TRAINING WITH COST CONTROL ----
 
-  app.post("/api/agent-runner/train", async (req, res) => {
+  app.post("/api/agent-runner/train", requireAuth, async (req, res) => {
     try {
-      const { agentId, ownerId, sources } = req.body;
+      const { agentId, sources } = req.body;
+      const ownerId = req.session.userId;
       if (!agentId || !ownerId || !sources?.length) {
-        return res.status(400).json({ error: "agentId, ownerId, and sources required" });
+        return res.status(400).json({ error: "agentId and sources required" });
       }
       const result = await agentRunnerService.trainAgent(agentId, ownerId, sources);
       res.json(result);
@@ -3772,15 +4187,16 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- WALLET STATUS & AUTO-PAUSE ----
 
-  app.get("/api/wallet-status/:userId", async (req, res) => {
+  app.get("/api/wallet-status/:userId", requireAuth, async (req, res) => {
     try {
-      res.json(await agentRunnerService.getWalletStatus(req.params.userId));
+      if (req.params.userId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+      res.json(await agentRunnerService.getWalletStatus(req.user.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/agent-runner/resume", async (req, res) => {
+  app.post("/api/agent-runner/resume", requireAuth, async (req, res) => {
     try {
-      const { ownerId } = req.body;
+      const ownerId = req.session.userId;
       if (!ownerId) return res.status(400).json({ error: "ownerId required" });
       const result = await agentRunnerService.resumeAgents(ownerId);
       res.json(result);
@@ -4312,13 +4728,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ============ Personal AI Agent Routes ============
 
-  function getUserIdFromReq(req: any): string | null {
-    const userId = req.headers["x-user-id"] as string;
-    return userId || null;
-  }
-
   async function requireProUser(req: any, res: any): Promise<string | null> {
-    const userId = getUserIdFromReq(req);
+    const userId = req.session?.userId;
     if (!userId) { res.status(401).json({ error: "Authentication required" }); return null; }
     const isPro = await personalAgentService.isProUser(userId);
     if (!isPro) { res.status(403).json({ error: "Pro subscription required to access Personal AI Agent" }); return null; }
@@ -4396,8 +4807,9 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.post("/api/personal-agent/chat", requireSystemMode("ai"), async (req, res) => {
     try {
-      const userId = await requireProUser(req, res);
-      if (!userId) return;
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Personal agent chat", "personal-agent-chat");
+      if (!paid) return;
+      const userId = paid.userId;
       const { conversationId, message } = req.body;
       if (!conversationId || !message) return res.status(400).json({ error: "conversationId and message required" });
       const result = await personalAgentService.chat(userId, conversationId, message);
@@ -4407,8 +4819,9 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.post("/api/personal-agent/voice/tts", async (req, res) => {
     try {
-      const userId = await requireProUser(req, res);
-      if (!userId) return;
+      const paid = await requirePaidAiAccess(req, res, "premium_feature", "Personal agent voice (TTS)", "personal-agent-tts");
+      if (!paid) return;
+      const userId = paid.userId;
       const { text, voice } = req.body;
       if (!text) return res.status(400).json({ error: "text required" });
       const audioBuffer = await personalAgentService.textToSpeech(userId, text, voice);
@@ -4420,8 +4833,9 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
   app.post("/api/personal-agent/voice/stt", upload.single("audio"), async (req, res) => {
     try {
-      const userId = await requireProUser(req, res);
-      if (!userId) return;
+      const paid = await requirePaidAiAccess(req, res, "premium_feature", "Personal agent voice (STT)", "personal-agent-stt");
+      if (!paid) return;
+      const userId = paid.userId;
       if (!req.file) return res.status(400).json({ error: "audio file required" });
       const text = await personalAgentService.speechToText(userId, req.file.buffer);
       res.json({ text });
@@ -4646,12 +5060,12 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ============ Privacy Framework Routes ============
   function getPrivacyUserId(req: any, res: any): string | null {
-    const userId = req.headers["x-user-id"] as string;
+    const userId = req.user?.id;
     if (!userId) { res.status(401).json({ error: "Authentication required" }); return null; }
     return userId;
   }
 
-  app.get("/api/privacy/dashboard", async (req, res) => {
+  app.get("/api/privacy/dashboard", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4660,7 +5074,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/privacy/vaults", async (req, res) => {
+  app.get("/api/privacy/vaults", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4669,7 +5083,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/privacy/vaults", async (req, res) => {
+  app.post("/api/privacy/vaults", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4680,7 +5094,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/privacy/vaults/:id/mode", async (req, res) => {
+  app.put("/api/privacy/vaults/:id/mode", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4691,7 +5105,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/privacy/vaults/:id/restrictions", async (req, res) => {
+  app.put("/api/privacy/vaults/:id/restrictions", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4700,7 +5114,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/privacy/vaults/:id", async (req, res) => {
+  app.delete("/api/privacy/vaults/:id", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4711,7 +5125,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/privacy/validate-access", async (req, res) => {
+  app.post("/api/privacy/validate-access", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4728,7 +5142,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/privacy/access-logs", async (req, res) => {
+  app.get("/api/privacy/access-logs", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4738,7 +5152,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/privacy/vaults/:id/access-logs", async (req, res) => {
+  app.get("/api/privacy/vaults/:id/access-logs", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4749,7 +5163,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/privacy/violations", async (req, res) => {
+  app.get("/api/privacy/violations", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4759,7 +5173,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/privacy/violations/:id/resolve", async (req, res) => {
+  app.put("/api/privacy/violations/:id/resolve", requireAuth, async (req, res) => {
     try {
       const userId = getPrivacyUserId(req, res);
       if (!userId) return;
@@ -4805,18 +5219,16 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   // Trust Moat Framework
-  app.get("/api/trust-moat/dashboard", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/trust-moat/dashboard", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const dashboard = await trustMoatService.getUserDashboard(userId);
       res.json(dashboard);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/trust-moat/vault", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/trust-moat/vault", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const vault = await trustMoatService.getOrCreateVault(userId);
       const { encryptionKeyHash, ...safe } = vault;
@@ -4824,9 +5236,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/trust-moat/vault/settings", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.put("/api/trust-moat/vault/settings", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const vault = await trustMoatService.updateVaultSettings(userId, req.body);
       const { encryptionKeyHash, ...safe } = vault;
@@ -4834,9 +5245,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/trust-moat/vault/lock", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.post("/api/trust-moat/vault/lock", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const vault = await trustMoatService.lockVault(userId);
       const { encryptionKeyHash, ...safe } = vault;
@@ -4844,9 +5254,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/trust-moat/vault/unlock", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.post("/api/trust-moat/vault/unlock", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const vault = await trustMoatService.unlockVault(userId);
       const { encryptionKeyHash, ...safe } = vault;
@@ -4854,36 +5263,32 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/trust-moat/permissions", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/trust-moat/permissions", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const permissions = await trustMoatService.getPermissions(userId);
       res.json(permissions);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/trust-moat/permissions", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.post("/api/trust-moat/permissions", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const token = await trustMoatService.grantPermission(userId, req.body);
       res.json(token);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/trust-moat/permissions/:id", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.delete("/api/trust-moat/permissions/:id", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const revoked = await trustMoatService.revokePermission(userId, req.params.id);
       res.json(revoked);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/trust-moat/validate-access", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.post("/api/trust-moat/validate-access", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const { accessorId, accessorType, resourceAccessed, purpose } = req.body;
       const result = await trustMoatService.validateAndLogAccess(userId, accessorId, accessorType, { resourceAccessed, purpose });
@@ -4891,9 +5296,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/trust-moat/access-log", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/trust-moat/access-log", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const logs = await trustMoatService.getAccessLog(userId, limit);
@@ -4901,18 +5305,16 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/trust-moat/export", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/trust-moat/export", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const data = await trustMoatService.exportUserData(userId);
       res.json(data);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/trust-moat/data", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.delete("/api/trust-moat/data", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const result = await trustMoatService.deleteUserData(userId);
       res.json(result);
@@ -4933,18 +5335,16 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/intelligence/progress", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/intelligence/progress", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const progress = await intelligenceRoadmapService.getUserProgress(userId);
       res.json(progress);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/intelligence/xp-breakdown", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/intelligence/xp-breakdown", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const days = parseInt(req.query.days as string) || 30;
       const breakdown = await intelligenceRoadmapService.getXpBreakdown(userId, days);
@@ -4952,9 +5352,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/intelligence/features", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/intelligence/features", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const user = await storage.getUser(userId);
       if (!user) return res.status(404).json({ message: "User not found" });
@@ -4963,9 +5362,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/intelligence/award-xp", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.post("/api/intelligence/award-xp", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const { source, description } = req.body;
       if (!source || typeof source !== "string") return res.status(400).json({ message: "Valid source required" });
@@ -5020,9 +5418,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/network/execute", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.post("/api/network/execute", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const { agentId, message } = req.body;
       if (!agentId || !message) return res.status(400).json({ message: "agentId and message required" });
@@ -5038,18 +5435,16 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/psychology/indicators", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.get("/api/psychology/indicators", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       const indicators = await userPsychologyService.getUserIndicators(userId);
       res.json(indicators);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/psychology/activity", async (req, res) => {
-    const userId = req.headers["x-user-id"] as string;
-    if (!userId) return res.status(401).json({ message: "User ID required" });
+  app.post("/api/psychology/activity", requireAuth, async (req, res) => {
+    const userId = req.user.id;
     try {
       await userPsychologyService.recordActivity(userId);
       res.json({ recorded: true });
@@ -5205,20 +5600,19 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/user-data/requests", async (req, res) => {
+  app.get("/api/user-data/requests", requireAuth, async (req, res) => {
     try {
-      const userId = req.headers["x-user-id"] as string;
-      if (!userId) return res.status(400).json({ error: "userId required" });
-      res.json(await riskManagementService.getUserDataRequests(userId));
+      res.json(await riskManagementService.getUserDataRequests(req.user.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
   // ---- TRUTH-ANCHORED EVOLUTION ----
 
-  app.post("/api/truth/memories", async (req, res) => {
+  app.post("/api/truth/memories", requireAuth, async (req, res) => {
     try {
-      const { agentId, userId, content, truthType, confidenceScore, sources } = req.body;
-      if (!agentId || !userId || !content) return res.status(400).json({ error: "agentId, userId, and content required" });
+      const { agentId, content, truthType, confidenceScore, sources } = req.body;
+      const userId = req.user.id;
+      if (!agentId || !content) return res.status(400).json({ error: "agentId and content required" });
       res.json(await truthEvolutionService.createMemory({ agentId, userId, content, truthType, confidenceScore, sources }));
     } catch (err) { handleServiceError(res, err); }
   });
@@ -5879,6 +6273,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.post("/api/admin/policy/generate", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin policy generate", "admin-policy-generate");
+      if (!paid) return;
       const { templateId, triggerType, triggerDetails } = req.body;
       if (!templateId) return res.status(400).json({ error: "templateId is required" });
       const draft = await adaptivePolicyService.generateDraft(templateId, triggerType || "manual", triggerDetails);
@@ -6040,6 +6436,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.post("/api/admin/support/tickets/:id/ai-reply", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin support AI reply", `admin-support-reply:${req.params.id}`);
+      if (!paid) return;
       const reply = await supportTicketService.generateAiReply(req.params.id);
       res.json({ reply });
     } catch (err) { handleServiceError(res, err); }
@@ -6095,8 +6493,10 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   // ============ ZERO-SUPPORT LEARNING SYSTEM ============
 
   // KB-enhanced chat assistant (replaces basic chat)
-  app.post("/api/support/chat", async (req, res) => {
+  app.post("/api/support/chat", requireAuth, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Support chat", "support-chat");
+      if (!paid) return;
       const { message } = req.body;
       if (!message) return res.status(400).json({ error: "Message required" });
       const result = await zeroSupportLearningService.kbEnhancedChat(message);
@@ -6105,8 +6505,10 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   // Preventive help prompts
-  app.post("/api/support/preventive-help", async (req, res) => {
+  app.post("/api/support/preventive-help", requireAuth, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Support preventive help", "support-preventive");
+      if (!paid) return;
       const { context } = req.body;
       const prompts = await zeroSupportLearningService.getPreventiveHelp(context || "browsing support page");
       res.json({ prompts });
@@ -6140,8 +6542,10 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   // Auto-classify ticket on creation
-  app.post("/api/support/classify", async (req, res) => {
+  app.post("/api/support/classify", requireAuth, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Support classify", "support-classify");
+      if (!paid) return;
       const { subject, description } = req.body;
       if (!subject || !description) return res.status(400).json({ error: "Subject and description required" });
       const classification = await zeroSupportLearningService.classifyTicket(subject, description);
@@ -6194,6 +6598,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   // Extract solution from resolved ticket
   app.post("/api/admin/kb/extract/:ticketId", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin KB extract", `admin-kb-extract:${req.params.ticketId}`);
+      if (!paid) return;
       const result = await zeroSupportLearningService.autoGenerateFromTicket(req.params.ticketId);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
@@ -6202,6 +6608,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   // Generate KB article from solutions
   app.post("/api/admin/kb/generate-article", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin KB generate", "admin-kb-generate");
+      if (!paid) return;
       const { solutionIds } = req.body;
       if (!solutionIds?.length) return res.status(400).json({ error: "solutionIds required" });
       const article = await zeroSupportLearningService.generateKBArticle(solutionIds);
@@ -6336,6 +6744,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.post("/api/admin/sdh/generate-post", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SDH generate", "admin-sdh-generate");
+      if (!paid) return;
       const { platform, sourceType, sourceId, title, description, url } = req.body;
       if (!platform || !title) return res.status(400).json({ message: "platform and title required" });
       res.json(await socialDistributionService.generatePost({ platform, sourceType, sourceId, title, description, url }));
@@ -6494,8 +6904,10 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/bondscore/ai-generate", async (req, res) => {
+  app.post("/api/bondscore/ai-generate", requireAuth, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "BondScore AI", "bondscore-ai");
+      if (!paid) return;
       const questions = await bondscoreService.generateAIQuestions(req.body.topic);
       res.json({ questions });
     } catch (err) { handleServiceError(res, err); }
@@ -6582,6 +6994,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.post("/api/admin/seo/generate-page", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO page", "admin-seo-page");
+      if (!paid) return;
       const { topicSlug, customTitle, customDesc } = req.body;
       if (!topicSlug) return res.status(400).json({ message: "topicSlug required" });
       res.json(await silentSeoService.generateKnowledgePage(topicSlug, { customTitle, customDesc }));
@@ -6589,7 +7003,11 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   app.post("/api/admin/seo/auto-generate", requireAdmin, async (_req, res) => {
-    try { res.json(await silentSeoService.autoGenerateForAllTopics()); } catch (err) { handleServiceError(res, err); }
+    try {
+      const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin SEO auto generate", "admin-seo-auto");
+      if (!paid) return;
+      res.json(await silentSeoService.autoGenerateForAllTopics());
+    } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/seo/pages/:id/publish", requireAdmin, async (req, res) => {
@@ -6601,15 +7019,25 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   app.post("/api/admin/seo/pages/:id/update-insights", requireAdmin, async (req, res) => {
-    try { res.json(await silentSeoService.updatePageWithInsights(req.params.id)); } catch (err) { handleServiceError(res, err); }
+    try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO update insights", `admin-seo-update:${req.params.id}`);
+      if (!paid) return;
+      res.json(await silentSeoService.updatePageWithInsights(req.params.id));
+    } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/seo/update-all", requireAdmin, async (_req, res) => {
-    try { res.json(await silentSeoService.updateAllPagesWithInsights()); } catch (err) { handleServiceError(res, err); }
+    try {
+      const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin SEO update all", "admin-seo-update-all");
+      if (!paid) return;
+      res.json(await silentSeoService.updateAllPagesWithInsights());
+    } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/seo/create-cluster", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO create cluster", "admin-seo-cluster");
+      if (!paid) return;
       const { name, topicSlugs, description } = req.body;
       if (!name || !topicSlugs?.length) return res.status(400).json({ message: "name and topicSlugs required" });
       res.json(await silentSeoService.createTopicCluster({ name, topicSlugs, description }));
@@ -6617,7 +7045,11 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   app.post("/api/admin/seo/clusters/:id/build-pages", requireAdmin, async (req, res) => {
-    try { res.json(await silentSeoService.buildClusterPages(req.params.id)); } catch (err) { handleServiceError(res, err); }
+    try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO build cluster pages", `admin-seo-build:${req.params.id}`);
+      if (!paid) return;
+      res.json(await silentSeoService.buildClusterPages(req.params.id));
+    } catch (err) { handleServiceError(res, err); }
   });
 
   // ============ $0 MARKETING ENGINE ============
@@ -6653,6 +7085,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.post("/api/admin/marketing/convert-discussion", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin marketing convert discussion", "admin-marketing-convert");
+      if (!paid) return;
       const { postId } = req.body;
       if (!postId) return res.status(400).json({ message: "postId required" });
       res.json(await marketingEngineService.convertDiscussionToArticle(postId));
@@ -6661,6 +7095,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.post("/api/admin/marketing/generate-seo-page", requireAdmin, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin marketing SEO page", "admin-marketing-seo");
+      if (!paid) return;
       const { type, referenceId, name, description } = req.body;
       if (!type || !name) return res.status(400).json({ message: "type and name required" });
       res.json(await marketingEngineService.generateSeoPage(type, referenceId || "", { name, description: description || name }));
@@ -6668,15 +7104,27 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   app.post("/api/admin/marketing/auto-seo-pages", requireAdmin, async (_req, res) => {
-    try { res.json(await marketingEngineService.autoGenerateToolSeoPages()); } catch (err) { handleServiceError(res, err); }
+    try {
+      const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin marketing auto SEO", "admin-marketing-auto-seo");
+      if (!paid) return;
+      res.json(await marketingEngineService.autoGenerateToolSeoPages());
+    } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/marketing/daily-summary", requireAdmin, async (_req, res) => {
-    try { res.json(await marketingEngineService.generateDailySummary()); } catch (err) { handleServiceError(res, err); }
+    try {
+      const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin marketing daily summary", "admin-marketing-summary");
+      if (!paid) return;
+      res.json(await marketingEngineService.generateDailySummary());
+    } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/marketing/select-social", requireAdmin, async (_req, res) => {
-    try { res.json(await marketingEngineService.selectHighQualityForSocial()); } catch (err) { handleServiceError(res, err); }
+    try {
+      const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin marketing select social", "admin-marketing-select-social");
+      if (!paid) return;
+      res.json(await marketingEngineService.selectHighQualityForSocial());
+    } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/marketing/articles/:id/publish", requireAdmin, async (req, res) => {
@@ -6859,6 +7307,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       let dailySummary = ops?.summary || "";
       if (!dailySummary) {
         try {
+          const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin workday summary", "admin-workday-summary");
+          if (!paid) return;
           const openai = new (await import("openai")).default({
             baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
             apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -6936,19 +7386,59 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/projects/generate-from-debate/:debateId", async (req, res) => {
+  app.get("/api/projects/:id/agents", requireAuth, async (req, res) => {
     try {
+      const contributions = await storage.getProjectAgentContributions(req.params.id);
+      res.json(contributions);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/projects/:id/agents", requireAuth, async (req, res) => {
+    try {
+      const entries = Array.isArray(req.body?.agents) ? req.body.agents : [];
+      const created = [];
+      for (const entry of entries) {
+        const agentId = entry?.agentId;
+        if (!agentId) continue;
+        created.push(await storage.createProjectAgentContribution({
+          projectId: req.params.id,
+          agentId,
+          role: entry?.role || "contributor",
+          contributionWeight: Number(entry?.contributionWeight) || 1,
+        }));
+      }
+      res.json(created);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/projects/generate-from-debate/:debateId", requireAuth, async (req, res) => {
+    try {
+      const paid = await requirePaidAiAccess(req, res, "premium_feature", "Project pipeline", `debate:${req.params.debateId}`);
+      if (!paid) return;
       const debateId = parseInt(req.params.debateId);
       if (isNaN(debateId)) return res.status(400).json({ error: "Invalid debate ID" });
       const triggeredBy = (req.body?.triggeredBy as string) || "manual";
       const { projectPipelineService } = await import("./services/project-pipeline-service");
       const project = await projectPipelineService.generateProjectFromDebate(debateId, triggeredBy);
+      const contributions = Array.isArray(req.body?.agents) ? req.body.agents : [];
+      for (const entry of contributions) {
+        const agentId = entry?.agentId;
+        if (!agentId) continue;
+        await storage.createProjectAgentContribution({
+          projectId: project.id,
+          agentId,
+          role: entry?.role || "contributor",
+          contributionWeight: Number(entry?.contributionWeight) || 1,
+        });
+      }
       res.json(project);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/projects/:id/generate-pdf", async (req, res) => {
+  app.post("/api/projects/:id/generate-pdf", requireAuth, async (req, res) => {
     try {
+      const paid = await requirePaidAiAccess(req, res, "premium_feature", "Project PDF", `project:${req.params.id}`);
+      if (!paid) return;
       const { pdfEngineService } = await import("./services/pdf-engine-service");
       const result = await pdfEngineService.generatePDF(req.params.id);
       res.json({ success: true, pages: result.pages, packageId: result.packageId, downloadUrl: `/api/projects/${req.params.id}/packages/${result.packageId}/download` });
@@ -6964,8 +7454,15 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.get("/api/projects/:projectId/packages/:packageId/download", async (req, res) => {
     try {
+      if (!req.session?.userId) return res.status(401).json({ error: "Authentication required" });
       const pkg = await storage.getProjectPackage(req.params.packageId);
       if (!pkg || pkg.projectId !== req.params.projectId) return res.status(404).json({ error: "Package not found" });
+      const [app] = await db.select().from(labsApps).where(eq(labsApps.projectPackageId, pkg.id)).limit(1);
+      const price = app?.price || 0;
+      if (price > 0) {
+        const purchased = await storage.hasProjectPackagePurchase(pkg.id, req.session.userId);
+        if (!purchased) return res.status(403).json({ error: "Purchase required to download" });
+      }
       const { pdfEngineService } = await import("./services/pdf-engine-service");
       const fileName = pkg.pdfUrl;
       if (!fileName) return res.status(404).json({ error: "PDF file not found" });
@@ -6979,7 +7476,62 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/projects/:projectId/packages/:packageId/feedback", async (req, res) => {
+  app.post("/api/projects/:projectId/packages/:packageId/purchase", requireAuth, async (req, res) => {
+    try {
+      const pkg = await storage.getProjectPackage(req.params.packageId);
+      if (!pkg || pkg.projectId !== req.params.projectId) return res.status(404).json({ error: "Package not found" });
+      const [app] = await db.select().from(labsApps).where(eq(labsApps.projectPackageId, pkg.id)).limit(1);
+      const price = app?.price || 0;
+      const existing = await storage.hasProjectPackagePurchase(pkg.id, req.user.id);
+      if (existing) return res.json({ success: true, alreadyPurchased: true });
+      if (price > 0) {
+        await db.transaction(async (tx) => {
+          const [buyerUpdated] = await tx.update(users_table)
+            .set({ creditWallet: sql`COALESCE(${users_table.creditWallet}, 0) - ${price}` })
+            .where(and(eq(users_table.id, req.user.id), gte(users_table.creditWallet, price)))
+            .returning({ id: users_table.id });
+          if (!buyerUpdated) throw new Error("Insufficient credits");
+
+          await tx.insert(creditUsageLog).values({
+            userId: req.user.id,
+            creditsUsed: price,
+            actionType: "project_package_purchase",
+            actionLabel: `Project package purchase: ${pkg.id}`,
+            referenceId: pkg.id,
+          });
+
+          await tx.insert(transactions_table).values({
+            senderId: req.user.id,
+            receiverId: "system",
+            amount: price,
+            transactionType: "project_package_purchase",
+            referenceId: pkg.id,
+            description: `Project package purchase: ${pkg.id}`,
+          });
+
+          await tx.insert(projectPackagePurchases).values({
+            projectPackageId: pkg.id,
+            buyerId: req.user.id,
+            amount: price,
+          });
+        });
+      } else {
+        await storage.createProjectPackagePurchase({
+          projectPackageId: pkg.id,
+          buyerId: req.user.id,
+          amount: price,
+        });
+      }
+      res.json({ success: true, price });
+    } catch (err: any) {
+      if (err.message?.includes("Insufficient credits")) {
+        return res.status(402).json({ error: err.message });
+      }
+      handleServiceError(res, err);
+    }
+  });
+
+  app.post("/api/projects/:projectId/packages/:packageId/feedback", requireAuth, async (req, res) => {
     try {
       const pkg = await storage.getProjectPackage(req.params.packageId);
       if (!pkg || pkg.projectId !== req.params.projectId) return res.status(404).json({ error: "Package not found" });
@@ -6987,7 +7539,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: "Rating must be 1-5" });
       const feedback = await storage.createProjectFeedback({
         projectPackageId: req.params.packageId,
-        buyerId: req.body.buyerId || "anonymous",
+        buyerId: req.user.id,
         rating,
         comment: comment || null,
       });

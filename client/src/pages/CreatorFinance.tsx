@@ -9,7 +9,7 @@ import {
   Wallet, AlertTriangle, ChevronRight, Sparkles
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
 
@@ -28,7 +28,8 @@ const severityBadge: Record<string, string> = {
 };
 
 export default function CreatorFinance() {
-  const userId = getCurrentUserId() || "current-user";
+  const { user } = useAuth();
+  const userId = user?.id || "current-user";
 
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ["/api/ai-cfo/creator-dashboard", userId],

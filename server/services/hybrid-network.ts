@@ -2,6 +2,7 @@ import { storage } from "../storage";
 import { privacyGatewayService } from "./privacy-gateway-service";
 import { trustMoatService } from "./trust-moat-service";
 import { runAgent, estimateCost } from "./agent-runner-service";
+import { billingService } from "./billing-service";
 import type { User } from "@shared/schema";
 
 type AgentType = "conversational" | "analytical" | "creative" | "verification" | "orchestrator" | "personal" | "specialized";
@@ -175,7 +176,9 @@ class HybridIntelligenceNetwork {
         }
 
         const usingByoai = !!(caller.byoaiProvider && caller.byoaiApiKey);
-        if (!usingByoai) {
+        const { plan, isActive } = await billingService.getSubscriptionStatus(callerId);
+        const isPro = !!(isActive && plan && (plan.name === "pro" || plan.name === "expert"));
+        if (!usingByoai && !isPro) {
           const cost = estimateCost(agent?.model || "gpt-4o-mini", "chat");
           if ((caller.creditWallet || 0) < cost) {
             pipeline.stages[2].status = "failed";
@@ -189,7 +192,7 @@ class HybridIntelligenceNetwork {
           }
         }
         pipeline.stages[2].status = "passed";
-        pipeline.stages[2].detail = "Credits verified";
+        pipeline.stages[2].detail = (usingByoai || isPro) ? "Access verified" : "Credits verified";
       } else {
         pipeline.stages[2].status = "skipped";
       }

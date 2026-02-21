@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 const PLATFORMS: Record<string, { icon: string; color: string; label: string }> = {
   twitter: { icon: "𝕏", color: "#1d9bf0", label: "Twitter/X" },
@@ -34,10 +35,10 @@ function Badge({ text, bg, color }: { text: string; bg: string; color: string })
 }
 
 function adminFetch(url: string, opts?: RequestInit) {
-  const token = localStorage.getItem("admin_token") || "";
   return fetch(url, {
     ...opts,
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts?.headers || {}) },
+    headers: { "Content-Type": "application/json", ...(opts?.headers || {}) },
+    credentials: "include",
   }).then(r => r.json());
 }
 
@@ -52,6 +53,7 @@ export default function SocialDistributionHub() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState("");
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
 
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccount, setNewAccount] = useState({ platform: "twitter", accountName: "", accountHandle: "", apiKey: "", apiSecret: "", accessToken: "" });
@@ -60,6 +62,20 @@ export default function SocialDistributionHub() {
   const [generatePlatform, setGeneratePlatform] = useState("twitter");
   const [selectedContent, setSelectedContent] = useState<any>(null);
   const [generatedPost, setGeneratedPost] = useState<any>(null);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      window.location.href = "/admin/login";
+    }
+  }, [authLoading, isAuthenticated]);
+
+  if (authLoading) {
+    return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>Loading...</div>;
+  }
+  if (!isAuthenticated) return null;
+  if (user?.role !== "admin") {
+    return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>Unauthorized</div>;
+  }
 
   const load = async () => {
     setLoading(true);

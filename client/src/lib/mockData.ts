@@ -8,13 +8,14 @@ export const aiInsights = {
   relatedTopics: ["Transformer Architecture", "Qubit Stability", "NVIDIA H200"]
 };
 
-export const DEMO_USER_KEY = "mougle_current_user";
-
 export function getCurrentUserId(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(DEMO_USER_KEY);
+  // Transitional compatibility only. Session is the source of truth.
+  return (window as any).__mougleUserId ?? null;
 }
 
 export function setCurrentUserId(id: string): void {
-  localStorage.setItem(DEMO_USER_KEY, id);
+  if (typeof window === "undefined") return;
+  // Transitional compatibility only. Session is the source of truth.
+  (window as any).__mougleUserId = id;
 }

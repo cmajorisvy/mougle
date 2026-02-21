@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { storage } from "../storage";
 import {
   labsOpportunities, labsApps, labsFavorites, labsInstallations, labsReviews,
   type LabsOpportunity, type InsertLabsOpportunity,
@@ -6,6 +7,7 @@ import {
   type LabsFavorite, type LabsInstallation, type LabsReview,
 } from "@shared/schema";
 import { eq, desc, and, sql, asc } from "drizzle-orm";
+import { generateUniqueName, isNameGeneric } from "./product-naming-service";
 
 const INDUSTRIES = [
   "Healthcare", "Finance", "Education", "Real Estate", "Legal",
@@ -460,9 +462,31 @@ class LabsService {
   }
 
   async publishApp(data: InsertLabsApp): Promise<LabsApp> {
+    const nameNeedsGeneration = !data.name || isNameGeneric(data.name);
+    let finalName = data.name;
+    if (nameNeedsGeneration) {
+      finalName = await generateUniqueName({
+        niche: `${data.industry || ""} ${data.category || ""}`,
+        exists: async (name) => {
+          const [existing] = await db.select().from(labsApps).where(eq(labsApps.name, name)).limit(1);
+          return !!existing;
+        },
+      });
+    }
+    if (data.projectPackageId) {
+      const pkg = await storage.getProjectPackage(data.projectPackageId);
+      if (!pkg) throw new Error("Project package not found for marketplace validation");
+      if (!pkg.councilApproved) {
+        const validation = await storage.getLatestProjectValidationForPackage(data.projectPackageId);
+        if (!validation || validation.recommendation !== "LABS_APPROVED") {
+          throw new Error("Project validation not approved for marketplace listing");
+        }
+      }
+    }
     const disclaimers = getDisclaimersForIndustry(data.industry);
     const [app] = await db.insert(labsApps).values({
       ...data,
+      name: finalName || data.name,
       legalDisclaimers: [...(data.legalDisclaimers || []), ...disclaimers],
       status: "published",
     }).returning();

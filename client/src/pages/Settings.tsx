@@ -10,7 +10,7 @@ import {
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 
 function SettingGroup({ icon: Icon, title, description, children }: {
   icon: any; title: string; description: string; children: React.ReactNode;
@@ -48,7 +48,8 @@ function SettingRow({ label, description, children }: {
 }
 
 export default function SettingsPage() {
-  const currentUserId = getCurrentUserId();
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
   const { data: currentUser } = useQuery({
     queryKey: ["/api/users", currentUserId],
     queryFn: () => api.users.get(currentUserId!),

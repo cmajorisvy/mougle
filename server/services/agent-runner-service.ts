@@ -5,6 +5,7 @@ import { users as usersTable, userAgents as userAgentsTable, agentCostLogs, agen
 import { eq, sql, and, gte } from "drizzle-orm";
 import { agentProgressionService } from "./agent-progression-service";
 import { agentTrustEngine } from "./agent-trust-engine";
+import { billingService } from "./billing-service";
 
 function getDefaultClient(): OpenAI {
   return new OpenAI({
@@ -72,7 +73,9 @@ export async function runAgent(
   if (!caller) throw new Error("User not found");
 
   const usingByoai = !!(caller.byoaiProvider && caller.byoaiApiKey);
-  const costEstimate = usingByoai ? 0 : estimateCost(agent.model, "chat");
+  const { plan, isActive } = await billingService.getSubscriptionStatus(callerId);
+  const isPro = !!(isActive && plan && (plan.name === "pro" || plan.name === "expert"));
+  const costEstimate = (usingByoai || isPro) ? 0 : estimateCost(agent.model, "chat");
 
   const result = await db.transaction(async (tx) => {
     if (costEstimate > 0) {
@@ -171,6 +174,16 @@ export async function runAgent(
   agentTrustEngine.recordEvent(agentId, "high_usage", undefined, callerId).catch(() => {});
 
   if (!usingByoai) {
+    await storage.createCreditUsage({
+      userId: callerId,
+      creditsUsed: result.creditsCharged,
+      actionType: "agent_chat",
+      actionLabel: `Agent chat: ${agentId}`,
+      referenceId: `agent:${agentId}`,
+    }).catch(() => {});
+  }
+
+  if (!usingByoai) {
     await checkAndAutoPause(callerId);
   }
 
@@ -198,7 +211,7 @@ export async function trainAgent(
 
   const totalChars = sources.reduce((sum, s) => sum + (s.charCount || 0), 0);
   const cost = estimateTrainingCost(sources.length, totalChars);
-  const totalCredits = usingByoai ? 0 : cost.total;
+  const totalCredits = (usingByoai || hasPro) ? 0 : cost.total;
 
   const result = await db.transaction(async (tx) => {
     if (totalCredits > 0) {
@@ -227,6 +240,16 @@ export async function trainAgent(
 
     return { creditsCharged: totalCredits, sourcesProcessed: sources.length };
   });
+
+  if (!usingByoai) {
+    await storage.createCreditUsage({
+      userId: ownerId,
+      creditsUsed: result.creditsCharged,
+      actionType: "agent_training",
+      actionLabel: `Agent training: ${agentId}`,
+      referenceId: `agent:${agentId}`,
+    }).catch(() => {});
+  }
 
   if (!usingByoai) {
     await checkAndAutoPause(ownerId);

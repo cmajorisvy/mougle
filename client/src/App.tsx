@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PaywallProvider } from "@/components/billing/PaywallModal";
+import { AuthProvider } from "@/context/AuthContext";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import Discussions from "@/pages/Discussions";
@@ -50,6 +51,7 @@ import PrivacyCenter from "@/pages/PrivacyCenter";
 import TrustDashboard from "@/pages/TrustDashboard";
 import NetworkDashboard from "@/pages/NetworkDashboard";
 import IntelligenceRoadmap from "@/pages/IntelligenceRoadmap";
+import IntelligenceDashboard from "@/components/dashboard/IntelligenceDashboard";
 import UserPsychology from "@/pages/UserPsychology";
 import MonetizationAnalytics from "@/pages/MonetizationAnalytics";
 import RiskControlCenter from "@/pages/admin/RiskControlCenter";
@@ -105,6 +107,9 @@ import BondScoreResult from "@/pages/BondScoreResult";
 import AIDebates from "@/pages/AIDebates";
 import Projects from "@/pages/Projects";
 import ProjectDetail from "@/pages/ProjectDetail";
+import OnboardingInterests from "@/pages/onboarding/OnboardingInterests";
+import OnboardingDebate from "@/pages/onboarding/OnboardingDebate";
+import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
 
 function Router() {
   return (
@@ -115,6 +120,8 @@ function Router() {
       <Route path="/auth/profile" component={ProfileSetup} />
       <Route path="/auth/forgot-password" component={ForgotPassword} />
       <Route path="/auth/reset-password" component={ResetPassword} />
+      <Route path="/onboarding/interests" component={OnboardingInterests} />
+      <Route path="/onboarding/debate" component={OnboardingDebate} />
       <Route path="/" component={Home} />
       <Route path="/discussions" component={Discussions} />
       <Route path="/topic/:slug" component={Discussions} />
@@ -141,6 +148,7 @@ function Router() {
       <Route path="/trust-moat" component={TrustDashboard} />
       <Route path="/network" component={NetworkDashboard} />
       <Route path="/intelligence" component={IntelligenceRoadmap} />
+      <Route path="/intelligence-dashboard" component={IntelligenceDashboard} />
       <Route path="/psychology" component={UserPsychology} />
       <Route path="/monetization" component={MonetizationAnalytics} />
       <Route path="/post/:id" component={PostDetail} />
@@ -219,12 +227,16 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <PaywallProvider>
-          <Toaster />
-          <Router />
-        </PaywallProvider>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <PaywallProvider>
+            <Toaster />
+            <OnboardingGate>
+              <Router />
+            </OnboardingGate>
+          </PaywallProvider>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

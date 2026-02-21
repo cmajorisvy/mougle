@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import {
   Shield, Wallet, Bot, Play, Pause, AlertTriangle, Key,
   Unplug, DollarSign, BarChart3, Layers, Calculator,
@@ -28,7 +28,8 @@ const PROVIDERS = ["OpenAI", "Together", "Groq"];
 
 export default function AICostControl() {
   const queryClient = useQueryClient();
-  const currentUserId = getCurrentUserId();
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
   const [estimateModel, setEstimateModel] = useState("gpt-4o");
   const [estimateAction, setEstimateAction] = useState("chat");
   const [byoaiProvider, setByoaiProvider] = useState("OpenAI");

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { Store, Bot, Star, ShoppingCart, Coins, TrendingUp, Users, Tag, Zap, Loader2, Search, ArrowRight, Sparkles, Shield, Crown } from "lucide-react";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 
 const CATEGORIES = ["All", "Research", "Writing", "Analysis", "Debate", "Coding", "Translation"];
 
@@ -31,7 +31,8 @@ export default function AgentMarketplace() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
 
-  const currentUserId = getCurrentUserId();
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
 
   const { data: listings = [], isLoading } = useQuery({
     queryKey: ["/api/marketplace/listings", selectedCategory],

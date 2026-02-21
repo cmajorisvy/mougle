@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -12,24 +13,9 @@ import {
 import { cn } from "@/lib/utils";
 
 async function adminGet(url: string) {
-  const token = localStorage.getItem("admin_token");
-  const res = await fetch(url, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" } });
+  const res = await fetch(url, { headers: { "Content-Type": "application/json" }, credentials: "include" });
   if (!res.ok) throw new Error("Request failed");
   return res.json();
-}
-
-function useAdminAuth() {
-  const [, navigate] = useLocation();
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["admin-verify"],
-    queryFn: () => api.admin.verify(),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  useEffect(() => {
-    if (!isLoading && (isError || !data?.valid)) navigate("/admin/login");
-  }, [isLoading, isError, data, navigate]);
-  return { isAuthenticated: !!data?.valid, isLoading };
 }
 
 const LAYER_ICONS: Record<string, any> = {
@@ -151,7 +137,7 @@ function LayerCard({ layer, expanded, onToggle }: { layer: any; expanded: boolea
 }
 
 export default function IntelligenceStack() {
-  const { isAuthenticated, isLoading: authLoading } = useAdminAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [expandedLayer, setExpandedLayer] = useState<string | null>(null);
 
@@ -168,8 +154,16 @@ export default function IntelligenceStack() {
     refetchInterval: 30000,
   });
 
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) navigate("/admin/login");
+  }, [authLoading, isAuthenticated, navigate]);
+
   if (authLoading || stackLoading || analyticsLoading) {
     return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-purple-400" /></div>;
+  }
+  if (!isAuthenticated) return null;
+  if (user?.role !== "admin") {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
   }
 
   const overall = analytics?.overall || {};

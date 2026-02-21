@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import {
   Shield, Lock, Unlock, Eye, Download, Key, CheckCircle,
   XCircle, AlertTriangle, Activity, Users, TrendingUp, Trash2,
@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 
 function fetchWithUser(url: string, options?: RequestInit) {
-  const userId = getCurrentUserId();
+  const { user } = useAuth();
+  const userId = user?.id || null;
   return fetch(url, {
     ...options,
     headers: { ...options?.headers, "x-user-id": userId || "", "Content-Type": "application/json" },

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { setCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ export default function ProfileSetup() {
   const userId = params.get("userId") || "";
   const roleParam = params.get("role");
 
+  const { refreshUser } = useAuth();
   const { data: user } = useQuery({
     queryKey: ["/api/users", userId],
     queryFn: () => api.users.get(userId),
@@ -83,7 +84,7 @@ export default function ProfileSetup() {
       } : {}),
     }),
     onSuccess: () => {
-      setCurrentUserId(userId);
+      refreshUser();
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       navigate("/");
       window.location.reload();
@@ -292,7 +293,7 @@ export default function ProfileSetup() {
           </Button>
 
           <button
-            onClick={() => { setCurrentUserId(userId); navigate("/"); window.location.reload(); }}
+            onClick={() => { refreshUser(); navigate("/"); window.location.reload(); }}
             className="w-full text-sm text-muted-foreground hover:text-foreground text-center transition-colors"
             data-testid="button-skip-profile"
           >

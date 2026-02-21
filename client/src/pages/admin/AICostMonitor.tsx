@@ -6,18 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Shield, Activity, Zap, AlertTriangle, CheckCircle, Clock, TrendingUp, RefreshCw, ArrowLeft, Brain, Users, MessageSquare, Gauge, Lock, Eye } from "lucide-react";
-
-function isAdminAuthenticated() {
-  return !!localStorage.getItem("admin_token");
-}
+import { useAuth } from "@/context/AuthContext";
 
 export default function AICostMonitor() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"overview" | "safety" | "limits" | "live">("overview");
+  const { user, loading, isAuthenticated } = useAuth();
 
-  if (!isAdminAuthenticated()) {
+  if (!loading && !isAuthenticated) {
     window.location.href = "/admin/login";
     return null;
+  }
+  if (!loading && user?.role !== "admin") {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
+  }
+
+  if (loading) {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Loading...</div>;
   }
 
   const { data: metrics, isLoading, refetch } = useQuery({

@@ -1,13 +1,18 @@
 import OpenAI from "openai";
 import { storage } from "../storage";
+import { billingService } from "./billing-service";
 import { db } from "../db";
 import { users as usersTable, agentCostLogs } from "@shared/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 
 function getDefaultClient(): OpenAI {
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("AI_INTEGRATIONS_OPENAI_API_KEY must be set in the environment.");
+  }
   return new OpenAI({
-    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    apiKey,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
   });
 }
 
@@ -251,7 +256,12 @@ export async function processRequest(req: GatewayRequest): Promise<GatewayRespon
   }
 
   const model = req.model || "gpt-4o-mini";
-  const creditCost = req.skipCreditCheck ? 0 : (COST_PER_MODEL[model] || ACTION_COSTS[req.actionType] || 3);
+  let isPro = false;
+  if (!req.skipCreditCheck && req.callerType !== "system") {
+    const { plan, isActive } = await billingService.getSubscriptionStatus(req.callerId);
+    isPro = !!(isActive && plan && (plan.name === "pro" || plan.name === "expert"));
+  }
+  const creditCost = req.skipCreditCheck ? 0 : (isPro ? 0 : (COST_PER_MODEL[model] || ACTION_COSTS[req.actionType] || 3));
 
   if (creditCost > 0 && !req.skipCreditCheck) {
     const [updated] = await db.update(usersTable)
@@ -321,6 +331,17 @@ export async function processRequest(req: GatewayRequest): Promise<GatewayRespon
       tokensUsed,
       model,
       status: "completed",
+    }).catch(() => {});
+  }
+
+  if (!req.skipCreditCheck && req.callerType !== "system") {
+    const referenceId = req.agentId ? `agent:${req.agentId}` : (req.debateId ? `debate:${req.debateId}` : (req.chainId || null));
+    await storage.createCreditUsage({
+      userId: req.callerId,
+      creditsUsed: creditCost,
+      actionType: req.actionType,
+      actionLabel: `ai-gateway:${req.actionType}`,
+      referenceId,
     }).catch(() => {});
   }
 

@@ -244,15 +244,14 @@ Rules:
     }
 
     const gatewayResult = await aiGateway.processRequest({
-      callerId: participant.userId,
+      callerId: debate.createdBy || participant.userId,
       callerType: "debate",
       actionType: "debate_turn",
       model: "gpt-4o-mini",
       debateId,
       chainId: `debate-${debateId}`,
       maxTokens: 200,
-      skipCreditCheck: true,
-    messages,
+      messages,
     });
     aiGateway.recordDebateRound(debateId);
 
@@ -457,13 +456,18 @@ Rules:
           messages.push({ role: "user", content: "You are the first speaker. Deliver your opening argument." });
         }
 
-        const response = await getOpenAI().chat.completions.create({
+        const result = await aiGateway.processRequest({
+          callerId: debate.createdBy || participant.userId,
+          callerType: "debate",
+          actionType: "debate_turn",
           model: "gpt-4o-mini",
+          debateId,
+          chainId: `debate-quickrun-${debateId}`,
+          maxTokens: 200,
           messages,
-          max_tokens: 200,
         });
 
-        const content = response.choices[0]?.message?.content || "I have no further arguments at this time.";
+        const content = result.content || "I have no further arguments at this time.";
         const wordCount = content.split(/\s+/).length;
 
         await storage.createDebateTurn({

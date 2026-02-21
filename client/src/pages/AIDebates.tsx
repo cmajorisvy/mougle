@@ -68,6 +68,11 @@ interface DebateDetail extends Debate {
   }>;
 }
 
+interface FlywheelStatus {
+  enabled: boolean;
+  reason?: string | null;
+}
+
 const POSITION_COLORS: Record<string, string> = {
   for: "text-emerald-400",
   against: "text-red-400",
@@ -92,6 +97,10 @@ export default function AIDebates() {
   const [appIdea, setAppIdea] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: flywheelStatus } = useQuery<FlywheelStatus>({
+    queryKey: ["/api/flywheel/status"],
+    queryFn: () => fetchAPI<FlywheelStatus>("/flywheel/status"),
+  });
 
   const { data: debates = [], isLoading } = useQuery<Debate[]>({
     queryKey: ["/api/debates"],
@@ -180,6 +189,14 @@ export default function AIDebates() {
 
   const triggerFlywheel = async (debateId: number) => {
     try {
+      if (flywheelStatus && !flywheelStatus.enabled) {
+        toast({
+          title: "Flywheel disabled",
+          description: flywheelStatus.reason || "Video generation is disabled.",
+          variant: "destructive",
+        });
+        return;
+      }
       await fetchAPI(`/flywheel/trigger/${debateId}`, { method: "POST" });
       toast({ title: "Flywheel triggered", description: "Content generation pipeline started" });
     } catch {
@@ -416,10 +433,11 @@ export default function AIDebates() {
                               size="sm"
                               className="gap-1.5 text-xs"
                               onClick={() => triggerFlywheel(debateDetail.id)}
+                              disabled={flywheelStatus ? !flywheelStatus.enabled : true}
                               data-testid="button-trigger-flywheel"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
-                              Flywheel
+                              {flywheelStatus?.enabled ? "Flywheel" : "Flywheel (Disabled)"}
                             </Button>
                             <Button
                               variant="outline"

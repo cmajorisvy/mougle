@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import {
   MessageSquare, Mic, Brain, CheckSquare, Wifi, DollarSign,
   Send, Plus, Trash2, Check, X, Volume2, AlertTriangle,
@@ -50,14 +50,26 @@ function fetchPA(path: string, userId: string, options?: RequestInit) {
 
 export default function MyPersonalAgent() {
   const [tab, setTab] = useState<Tab>("chat");
-  const userId = getCurrentUserId();
+  const { user } = useAuth();
+  const userId = user?.id || null;
   const queryClient = useQueryClient();
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: dashboard, isLoading, isError, error } = useQuery({
     queryKey: ["pa-dashboard", userId],
     queryFn: () => fetchPA("/dashboard", userId!),
     enabled: !!userId,
     retry: false,
+  });
+
+  const { data: exportHistory, isLoading: isExportHistoryLoading, refetch: refetchExportHistory } = useQuery({
+    queryKey: ["agent-passport-exports", userId],
+    queryFn: async () => {
+      const res = await fetch("/api/agents/passport/exports", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch export history");
+      return res.json();
+    },
+    enabled: !!userId,
   });
 
   if (!userId) {
@@ -110,6 +122,38 @@ export default function MyPersonalAgent() {
               <p className="text-gray-500 text-xs sm:text-sm mt-0.5">{dashboard?.profile?.agentName || "Personal Intelligence"} <span className="text-blue-400">Pro</span></p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
+              <Button
+                variant="outline"
+                className="border-gray-800/40 text-gray-300 hover:text-white hover:bg-[#14142a]"
+                onClick={async () => {
+                  if (!window.confirm("Export your Mougle Agent Passport now? This will download a secure .mougle-agent file.")) return;
+                  try {
+                    setIsExporting(true);
+                    const res = await fetch("/api/agents/personal/export", { method: "POST", credentials: "include" });
+                    if (!res.ok) throw new Error("Export failed");
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "mougle_agent_passport.mougle-agent";
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    refetchExportHistory();
+                  } catch (err) {
+                    console.error(err);
+                    alert("Export failed. Please try again.");
+                  } finally {
+                    setIsExporting(false);
+                  }
+                }}
+                disabled={isExporting}
+                data-testid="button-export-agent"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {isExporting ? "Exporting..." : "Export Passport"}
+              </Button>
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-900/15 border border-green-800/30" data-testid="badge-messages-remaining">
                 <MessageSquare className="w-3 h-3 text-green-400" />
                 <span className="text-xs text-green-400 font-medium">{dashboard?.stats?.messagesRemaining || 0}</span>
@@ -133,6 +177,49 @@ export default function MyPersonalAgent() {
               <StatCard label="Bills" value={dashboard.stats.upcomingBills} icon={DollarSign} color="text-yellow-400" testId="stat-bills" />
             </div>
           )}
+
+          <div className="mb-4 sm:mb-6 shrink-0">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-gray-300">Export History</h2>
+            </div>
+            <div className="bg-[#10101f] border border-gray-800/40 rounded-xl p-3">
+              {isExportHistoryLoading ? (
+                <div className="text-xs text-gray-500">Loading...</div>
+              ) : !exportHistory || exportHistory.length === 0 ? (
+                <div className="text-xs text-gray-500">No exports yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {exportHistory.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between text-xs text-gray-300">
+                      <div>
+                        <div>{new Date(item.createdAt || item.exportedAt).toLocaleString()}</div>
+                        <div className="text-[10px] text-gray-500">v{item.exportVersion || 1}</div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-gray-800/40 text-gray-300 hover:text-white hover:bg-[#14142a]"
+                        onClick={async () => {
+                          if (item.revoked) return;
+                          if (!window.confirm("Revoke this passport export? It will be invalid for future imports.")) return;
+                          const res = await fetch(`/api/agents/passport/${item.id}/revoke`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            credentials: "include",
+                            body: JSON.stringify({ reason: "user_revoked" }),
+                          });
+                          if (res.ok) refetchExportHistory();
+                        }}
+                        disabled={item.revoked}
+                      >
+                        {item.revoked ? "Revoked" : "Revoke"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1 shrink-0 scrollbar-none -mx-1 px-1">
             {TABS.map(t => (

@@ -9,7 +9,7 @@ import {
   Lock, Unlock, ChevronRight, TrendingUp, Star, Trophy,
   Sparkles, ArrowUp, CheckCircle
 } from "lucide-react";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 
 const STAGE_ICONS: Record<string, any> = {
   explorer: Compass,
@@ -145,12 +145,13 @@ function GuestProgressView({ stages, defaultStage }: { stages: any[]; defaultSta
 }
 
 function ProgressTab() {
-  const userId = getCurrentUserId() || "";
+  const { user } = useAuth();
+  const userId = user?.id || "";
   const queryClient = useQueryClient();
 
   const { data: progress, isLoading } = useQuery({
     queryKey: ["intelligence-progress", userId],
-    queryFn: () => fetch("/api/intelligence/progress", { headers: { "x-user-id": userId } }).then(r => r.json()),
+    queryFn: () => fetch("/api/intelligence/progress", { credentials: "include" }).then(r => r.json()),
     enabled: !!userId,
   });
 
@@ -296,11 +297,12 @@ function ProgressTab() {
 }
 
 function XpBreakdownTab() {
-  const userId = getCurrentUserId() || "";
+  const { user } = useAuth();
+  const userId = user?.id || "";
 
   const { data: breakdown, isLoading } = useQuery({
     queryKey: ["intelligence-xp-breakdown", userId],
-    queryFn: () => fetch("/api/intelligence/xp-breakdown", { headers: { "x-user-id": userId } }).then(r => r.json()),
+    queryFn: () => fetch("/api/intelligence/xp-breakdown", { credentials: "include" }).then(r => r.json()),
     enabled: !!userId,
   });
 
@@ -363,11 +365,12 @@ function XpBreakdownTab() {
 }
 
 function FeaturesTab() {
-  const userId = getCurrentUserId() || "";
+  const { user } = useAuth();
+  const userId = user?.id || "";
 
   const { data, isLoading } = useQuery({
     queryKey: ["intelligence-features", userId],
-    queryFn: () => fetch("/api/intelligence/features", { headers: { "x-user-id": userId } }).then(r => r.json()),
+    queryFn: () => fetch("/api/intelligence/features", { credentials: "include" }).then(r => r.json()),
     enabled: !!userId,
   });
 

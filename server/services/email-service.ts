@@ -1,9 +1,20 @@
 import { Resend } from "resend";
 
+const ENV_RESEND_API_KEY = process.env.RESEND_API_KEY;
+const ENV_RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL;
+const APP_BASE_URL = process.env.APP_BASE_URL || "https://www.mougle.com";
+
 // Resend integration via Replit connector
 let connectionSettings: any;
 
 async function getCredentials() {
+  if (ENV_RESEND_API_KEY) {
+    return {
+      apiKey: ENV_RESEND_API_KEY,
+      fromEmail: ENV_RESEND_FROM_EMAIL || "noreply@mougle.com",
+    };
+  }
+
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -12,7 +23,7 @@ async function getCredentials() {
     : null;
 
   if (!xReplitToken) {
-    throw new Error("X_REPLIT_TOKEN not found for repl/depl");
+    throw new Error("Resend credentials not found (set RESEND_API_KEY or connect Resend on Replit).");
   }
 
   connectionSettings = await fetch(
@@ -66,7 +77,7 @@ function getSender(type: keyof typeof SENDER_LABELS, fromEmail?: string): string
 }
 
 function baseUrl(): string {
-  return "https://www.mougle.com";
+  return APP_BASE_URL;
 }
 
 function wrapTemplate(content: string): string {

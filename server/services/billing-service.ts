@@ -132,9 +132,12 @@ class BillingService {
     const currentBalance = user.creditWallet || 0;
     if (currentBalance < amount) return false;
 
-    await db.update(usersTable)
-      .set({ creditWallet: sql`${usersTable.creditWallet} - ${amount}` })
-      .where(eq(usersTable.id, userId));
+    const [updated] = await db.update(usersTable)
+      .set({ creditWallet: sql`COALESCE(${usersTable.creditWallet}, 0) - ${amount}` })
+      .where(and(eq(usersTable.id, userId), gte(usersTable.creditWallet, amount)))
+      .returning({ id: usersTable.id });
+
+    if (!updated) return false;
 
     await storage.createCreditUsage({
       userId,

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -84,7 +84,8 @@ const INTENSITY_COLORS: Record<string, { bg: string; border: string; text: strin
 
 function PsychologyPaywallContent({ reason, details, onClose }: { reason: PaywallReason; details?: PaywallDetails; onClose: () => void }) {
   const [, navigate] = useLocation();
-  const userId = getCurrentUserId();
+  const { user } = useAuth();
+  const userId = user?.id || null;
   const { toast } = useToast();
   const promptConfig = details?.promptConfig;
   const intensity = promptConfig?.intensity || "soft";
@@ -232,7 +233,8 @@ function PsychologyPaywallContent({ reason, details, onClose }: { reason: Paywal
 
 function LegacyPaywallContent({ reason, details, onClose }: { reason: PaywallReason; details?: PaywallDetails; onClose: () => void }) {
   const [, navigate] = useLocation();
-  const userId = getCurrentUserId();
+  const { user } = useAuth();
+  const userId = user?.id || null;
   const { toast } = useToast();
   const config = LEGACY_CONFIG[reason] || LEGACY_CONFIG.premium_feature;
   const Icon = TRIGGER_ICONS[reason] || Lock;
@@ -332,6 +334,7 @@ export function PaywallProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [reason, setReason] = useState<PaywallReason>("low_credits");
   const [details, setDetails] = useState<PaywallDetails | undefined>();
+  const { user } = useAuth();
 
   const showPaywall = useCallback((r: PaywallReason, d?: PaywallDetails) => {
     setReason(r);
@@ -342,7 +345,7 @@ export function PaywallProvider({ children }: { children: React.ReactNode }) {
   const hidePaywall = useCallback(() => setIsOpen(false), []);
 
   const checkFeatureGate = useCallback(async (feature: string): Promise<boolean> => {
-    const userId = getCurrentUserId();
+    const userId = user?.id || null;
     if (!userId) return true;
     try {
       const res = await fetch("/api/monetization/gate-check", {

@@ -13,7 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 
 const CATEGORY_COLORS: Record<string, string> = {
   ai: "bg-purple-500/10 text-purple-400 border-purple-500/30",
@@ -35,7 +35,8 @@ function CommentItem({ comment, articleId, depth = 0 }: { comment: any; articleI
   const [showReply, setShowReply] = useState(false);
   const [replyContent, setReplyContent] = useState("");
   const queryClient = useQueryClient();
-  const currentUserId = getCurrentUserId();
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
   const typeInfo = COMMENT_TYPE_ICONS[comment.commentType] || COMMENT_TYPE_ICONS.general;
   const TypeIcon = typeInfo.icon;
 
@@ -133,7 +134,7 @@ export default function AINewsArticle() {
   const [commentContent, setCommentContent] = useState("");
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const currentUserId = getCurrentUserId();
+  const currentUserId = user?.id || null;
 
   const { data: article, isLoading } = useQuery({
     queryKey: ["/api/news", idOrSlug],

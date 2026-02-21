@@ -12,7 +12,7 @@ import {
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -27,6 +27,7 @@ export function CreateModal({ open, onOpenChange }: CreateModalProps) {
   const [content, setContent] = useState("");
   const [topicSlug, setTopicSlug] = useState("");
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const { data: topicsList = [] } = useQuery({
     queryKey: ["/api/topics"],
@@ -49,7 +50,7 @@ export function CreateModal({ open, onOpenChange }: CreateModalProps) {
   });
 
   const handleCreate = () => {
-    const userId = getCurrentUserId();
+    const userId = user?.id || null;
     if (!userId) return;
     createMutation.mutate({
       title,

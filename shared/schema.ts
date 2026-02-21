@@ -42,6 +42,8 @@ export const users = pgTable("users", {
   spamViolations: integer("spam_violations").notNull().default(0),
   intelligenceStage: text("intelligence_stage").notNull().default("explorer"),
   intelligenceXp: integer("intelligence_xp").notNull().default(0),
+  onboardingState: text("onboarding_state").notNull().default("interests"),
+  onboardingInterest: text("onboarding_interest"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1190,6 +1192,8 @@ export type InsertNetworkGravity = z.infer<typeof insertNetworkGravitySchema>;
 export const userAgents = pgTable("user_agents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   ownerId: varchar("owner_id").notNull(),
+  type: text("type").notNull().default("business"),
+  agentType: text("agent_type").notNull().default("business"),
   name: text("name").notNull(),
   persona: text("persona"),
   skills: text("skills").array(),
@@ -1200,6 +1204,9 @@ export const userAgents = pgTable("user_agents", {
   systemPrompt: text("system_prompt"),
   temperature: real("temperature").notNull().default(0.7),
   visibility: text("visibility").notNull().default("private"),
+  marketplaceEnabled: boolean("marketplace_enabled").notNull().default(false),
+  exportable: boolean("exportable").notNull().default(true),
+  exportVersion: integer("export_version").notNull().default(1),
   status: text("status").notNull().default("draft"),
   deploymentModes: text("deployment_modes").array().notNull().default(sql`ARRAY['private']::text[]`),
   rateLimitPerMin: integer("rate_limit_per_min").notNull().default(30),
@@ -1740,6 +1747,29 @@ export const platformEvents = pgTable("platform_events", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const agentPassports = pgTable("agent_passports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  exportVersion: integer("export_version").notNull().default(1),
+  passportHash: varchar("passport_hash", { length: 128 }).notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentPassportExports = pgTable("agent_passport_exports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  ownerId: varchar("owner_id").notNull(),
+  exportHash: varchar("export_hash", { length: 128 }).notNull(),
+  exportVersion: integer("export_version").notNull().default(1),
+  exportedAt: timestamp("exported_at").defaultNow(),
+  revoked: boolean("revoked").notNull().default(false),
+  revokedAt: timestamp("revoked_at"),
+  revocationReason: text("revocation_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const flywheelAgents = pgTable("flywheel_agents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentType: varchar("agent_type", { length: 50 }).notNull().unique(),
@@ -1785,6 +1815,8 @@ export const flywheelOptimizationOutcomes = pgTable("flywheel_optimization_outco
 });
 
 export const insertPlatformEventSchema = createInsertSchema(platformEvents).omit({ id: true, createdAt: true });
+export const insertAgentPassportSchema = createInsertSchema(agentPassports).omit({ id: true, createdAt: true });
+export const insertAgentPassportExportSchema = createInsertSchema(agentPassportExports).omit({ id: true, createdAt: true });
 export const insertFlywheelAgentSchema = createInsertSchema(flywheelAgents).omit({ id: true, createdAt: true });
 export const insertFlywheelRecommendationSchema = createInsertSchema(flywheelRecommendations).omit({ id: true, createdAt: true, appliedAt: true, dismissedAt: true });
 export const insertFlywheelAutomationConfigSchema = createInsertSchema(flywheelAutomationConfig).omit({ id: true, lastUpdated: true });
@@ -1792,6 +1824,10 @@ export const insertFlywheelOptimizationOutcomeSchema = createInsertSchema(flywhe
 
 export type PlatformEvent = typeof platformEvents.$inferSelect;
 export type InsertPlatformEvent = z.infer<typeof insertPlatformEventSchema>;
+export type AgentPassport = typeof agentPassports.$inferSelect;
+export type InsertAgentPassport = z.infer<typeof insertAgentPassportSchema>;
+export type AgentPassportExport = typeof agentPassportExports.$inferSelect;
+export type InsertAgentPassportExport = z.infer<typeof insertAgentPassportExportSchema>;
 export type FlywheelAgent = typeof flywheelAgents.$inferSelect;
 export type InsertFlywheelAgent = z.infer<typeof insertFlywheelAgentSchema>;
 export type FlywheelRecommendation = typeof flywheelRecommendations.$inferSelect;
@@ -2355,6 +2391,7 @@ export const labsOpportunities = pgTable("labs_opportunities", {
 export const labsApps = pgTable("labs_apps", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   opportunityId: varchar("opportunity_id"),
+  projectPackageId: varchar("project_package_id"),
   creatorId: varchar("creator_id").notNull(),
   name: text("name").notNull(),
   description: text("description").notNull(),
@@ -3429,6 +3466,38 @@ export const projectPackages = pgTable("project_packages", {
   generatedAt: timestamp("generated_at").defaultNow(),
 });
 
+export const projectAgentContributions = pgTable("project_agent_contributions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  agentId: varchar("agent_id").notNull(),
+  role: text("role").notNull().default("contributor"),
+  contributionWeight: real("contribution_weight").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const projectPackagePurchases = pgTable("project_package_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectPackageId: varchar("project_package_id").notNull(),
+  buyerId: varchar("buyer_id").notNull(),
+  amount: integer("amount").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const projectValidations = pgTable("project_validations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  projectPackageId: varchar("project_package_id").notNull(),
+  feasibilityScore: integer("feasibility_score").notNull(),
+  marketDemandScore: integer("market_demand_score").notNull(),
+  usefulnessScore: integer("usefulness_score").notNull(),
+  innovationScore: integer("innovation_score").notNull(),
+  riskLevel: text("risk_level").notNull(),
+  estimatedAudienceRange: text("estimated_audience_range"),
+  reasoningSummary: text("reasoning_summary"),
+  recommendation: text("recommendation").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const projectFeedback = pgTable("project_feedback", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   projectPackageId: varchar("project_package_id").notNull(),
@@ -3441,12 +3510,21 @@ export const projectFeedback = pgTable("project_feedback", {
 
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, version: true, createdAt: true, updatedAt: true });
 export const insertProjectPackageSchema = createInsertSchema(projectPackages).omit({ id: true, generatedAt: true });
+export const insertProjectAgentContributionSchema = createInsertSchema(projectAgentContributions).omit({ id: true, createdAt: true });
+export const insertProjectPackagePurchaseSchema = createInsertSchema(projectPackagePurchases).omit({ id: true, createdAt: true });
+export const insertProjectValidationSchema = createInsertSchema(projectValidations).omit({ id: true, createdAt: true });
 export const insertProjectFeedbackSchema = createInsertSchema(projectFeedback).omit({ id: true, createdAt: true });
 
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type ProjectPackage = typeof projectPackages.$inferSelect;
 export type InsertProjectPackage = z.infer<typeof insertProjectPackageSchema>;
+export type ProjectAgentContribution = typeof projectAgentContributions.$inferSelect;
+export type InsertProjectAgentContribution = z.infer<typeof insertProjectAgentContributionSchema>;
+export type ProjectPackagePurchase = typeof projectPackagePurchases.$inferSelect;
+export type InsertProjectPackagePurchase = z.infer<typeof insertProjectPackagePurchaseSchema>;
+export type ProjectValidation = typeof projectValidations.$inferSelect;
+export type InsertProjectValidation = z.infer<typeof insertProjectValidationSchema>;
 export type ProjectFeedback = typeof projectFeedback.$inferSelect;
 export type InsertProjectFeedback = z.infer<typeof insertProjectFeedbackSchema>;
 

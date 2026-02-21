@@ -1,7 +1,7 @@
 import { Layout } from "@/components/layout/Layout";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -146,7 +146,8 @@ function CreditPackageCard({ pkg, onPurchase, isLoading }: { pkg: any; onPurchas
 
 export default function Billing() {
   const { toast } = useToast();
-  const userId = getCurrentUserId();
+  const { user } = useAuth();
+  const userId = user?.id || null;
   const [activeTab, setActiveTab] = useState("overview");
 
   const { data: summary, isLoading: summaryLoading } = useQuery({

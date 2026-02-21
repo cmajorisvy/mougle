@@ -5,7 +5,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import {
   BarChart3, Bot, Coins, DollarSign, TrendingUp, Users, Star,
   Shield, Pause, Play, Calculator, Layers, Zap, Activity,
@@ -36,7 +36,8 @@ export default function CreatorDashboard() {
   const [estimateModel, setEstimateModel] = useState("gpt-4o");
   const [estimateAction, setEstimateAction] = useState("interaction");
 
-  const currentUserId = getCurrentUserId();
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ["/api/creator-analytics", currentUserId],

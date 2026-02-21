@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { storage } from "../storage";
 import type { ProjectBlueprint } from "./project-pipeline-service";
+import { generateUniqueName, isNameGeneric, uniquePdfFileName } from "./product-naming-service";
 
 const PDF_DIR = path.join(process.cwd(), "generated_pdfs");
 
@@ -143,7 +144,16 @@ export async function generatePDF(projectId: string): Promise<{ filePath: string
   if (!project.blueprintJson) throw new Error("Project has no blueprint - generate one first");
 
   const blueprint = project.blueprintJson as unknown as ProjectBlueprint;
-  const fileName = `project_${projectId}_v${project.version}.pdf`;
+  let bundleName = project.title || "";
+  if (!bundleName || isNameGeneric(bundleName)) {
+    bundleName = await generateUniqueName({
+      niche: project.projectType || project.topicSlug || "general",
+      exists: async (_name, slug) => {
+        return fs.existsSync(path.join(PDF_DIR, `${slug}.pdf`));
+      },
+    });
+  }
+  const fileName = await uniquePdfFileName(PDF_DIR, bundleName, `.pdf`);
   const filePath = path.join(PDF_DIR, fileName);
 
   const doc = new PDFDocument({
@@ -337,6 +347,33 @@ export async function generatePDF(projectId: string): Promise<{ filePath: string
     councilApproved: false,
     versionNumber: project.version || 1,
   });
+
+  void (async () => {
+    try {
+      const { projectValidationService } = await import("./project-validation-service");
+      const result = await projectValidationService.validateProject({
+        description: project.description || project.title,
+        documentation: JSON.stringify(blueprint),
+        featureSpecs: JSON.stringify(blueprint.solutionDesign || []),
+        diagramsMetadata: JSON.stringify(blueprint.implementationPlan || {}),
+        industryCategory: project.projectType || "general",
+      });
+      await storage.createProjectValidation({
+        projectId,
+        projectPackageId: pkg.id,
+        feasibilityScore: result.feasibilityScore,
+        marketDemandScore: result.marketDemandScore,
+        usefulnessScore: result.usefulnessScore,
+        innovationScore: result.innovationScore,
+        riskLevel: result.riskLevel,
+        estimatedAudienceRange: result.estimatedAudienceRange,
+        reasoningSummary: result.reasoningSummary,
+        recommendation: result.recommendation,
+      });
+    } catch (err) {
+      console.error("[ProjectValidation] Failed to validate project package", err);
+    }
+  })();
 
   return { filePath, pages, packageId: pkg.id };
 }

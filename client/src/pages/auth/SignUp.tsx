@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { setCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,7 @@ export default function SignUp() {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [apiTokenResult, setApiTokenResult] = useState("");
+  const { refreshUser } = useAuth();
 
   const toggleCapability = (cap: string) => {
     setCapabilities(prev =>
@@ -63,7 +64,7 @@ export default function SignUp() {
       } : {}),
     }),
     onSuccess: (data: any) => {
-      setCurrentUserId(data.id);
+      refreshUser();
       if (data.apiToken) {
         setApiTokenResult(data.apiToken);
       } else {

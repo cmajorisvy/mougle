@@ -105,11 +105,13 @@ import {
   type CivilizationHealthSnapshot, type InsertCivilizationHealthSnapshot,
   agentComputeBudgets, agentVisibilityScores, policyRules, policyViolations, creditSinks, civilizationHealthSnapshots,
   type PlatformEvent, type InsertPlatformEvent,
+  type AgentPassport, type InsertAgentPassport,
+  type AgentPassportExport, type InsertAgentPassportExport,
   type FlywheelAgent, type InsertFlywheelAgent,
   type FlywheelRecommendation, type InsertFlywheelRecommendation,
   type FlywheelAutomationConfig, type InsertFlywheelAutomationConfig,
   type FlywheelOptimizationOutcome, type InsertFlywheelOptimizationOutcome,
-  platformEvents, flywheelAgents, flywheelRecommendations, flywheelAutomationConfig, flywheelOptimizationOutcomes,
+  platformEvents, agentPassports, agentPassportExports, flywheelAgents, flywheelRecommendations, flywheelAutomationConfig, flywheelOptimizationOutcomes,
   type PersonalAgentProfile, type InsertPersonalAgentProfile,
   type PersonalAgentMemory, type InsertPersonalAgentMemory,
   type PersonalAgentConversation, type InsertPersonalAgentConversation,
@@ -133,8 +135,11 @@ import {
   userTrustVaults, trustPermissionTokens, trustAccessEvents, trustHealthMetrics,
   type Project, type InsertProject,
   type ProjectPackage, type InsertProjectPackage,
+  type ProjectAgentContribution, type InsertProjectAgentContribution,
+  type ProjectPackagePurchase, type InsertProjectPackagePurchase,
+  type ProjectValidation, type InsertProjectValidation,
   type ProjectFeedback, type InsertProjectFeedback,
-  projects, projectPackages, projectFeedback,
+  projects, projectPackages, projectAgentContributions, projectPackagePurchases, projectValidations, projectFeedback,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -467,6 +472,7 @@ export interface IStorage {
 
   createAgentKnowledgeSource(source: InsertAgentKnowledgeSource): Promise<AgentKnowledgeSource>;
   getAgentKnowledgeSources(agentId: string): Promise<AgentKnowledgeSource[]>;
+  getAgentKnowledgeSource(id: string): Promise<AgentKnowledgeSource | undefined>;
   deleteAgentKnowledgeSource(id: string): Promise<void>;
 
   createMarketplaceListing(listing: InsertMarketplaceListing): Promise<MarketplaceListing>;
@@ -544,6 +550,15 @@ export interface IStorage {
   getPlatformEventsByType(eventType: string, limit?: number): Promise<PlatformEvent[]>;
   getPlatformEventsSince(since: Date): Promise<PlatformEvent[]>;
   getPlatformEventCounts(): Promise<{ eventType: string; count: number }[]>;
+  createAgentPassport(data: InsertAgentPassport): Promise<AgentPassport>;
+  getAgentPassportsByOwner(ownerId: string): Promise<AgentPassport[]>;
+  revokeAgentPassport(id: string, ownerId: string): Promise<AgentPassport | undefined>;
+  getAgentPassportByHash(hash: string): Promise<AgentPassport | undefined>;
+  createAgentPassportExport(data: InsertAgentPassportExport): Promise<AgentPassportExport>;
+  getAgentPassportExportsByOwner(ownerId: string): Promise<AgentPassportExport[]>;
+  revokeAgentPassportExport(id: string, ownerId: string, reason?: string | null): Promise<AgentPassportExport | undefined>;
+  getAgentPassportExportByHash(hash: string): Promise<AgentPassportExport | undefined>;
+  getAgentPassportExportById(id: string): Promise<AgentPassportExport | undefined>;
 
   createFlywheelAgent(data: InsertFlywheelAgent): Promise<FlywheelAgent>;
   getFlywheelAgents(): Promise<FlywheelAgent[]>;
@@ -591,6 +606,13 @@ export interface IStorage {
   createProjectPackage(data: InsertProjectPackage): Promise<ProjectPackage>;
   getProjectPackages(projectId: string): Promise<ProjectPackage[]>;
   getProjectPackage(id: string): Promise<ProjectPackage | undefined>;
+  createProjectAgentContribution(data: InsertProjectAgentContribution): Promise<ProjectAgentContribution>;
+  getProjectAgentContributions(projectId: string): Promise<ProjectAgentContribution[]>;
+  createProjectPackagePurchase(data: InsertProjectPackagePurchase): Promise<ProjectPackagePurchase>;
+  hasProjectPackagePurchase(projectPackageId: string, buyerId: string): Promise<boolean>;
+  createProjectValidation(data: InsertProjectValidation): Promise<ProjectValidation>;
+  getProjectValidation(id: string): Promise<ProjectValidation | undefined>;
+  getLatestProjectValidationForPackage(projectPackageId: string): Promise<ProjectValidation | undefined>;
   createProjectFeedback(data: InsertProjectFeedback): Promise<ProjectFeedback>;
   getProjectFeedback(projectPackageId: string): Promise<ProjectFeedback[]>;
 }
@@ -2086,13 +2108,13 @@ export class DatabaseStorage implements IStorage {
 
   async getPublicAgents(): Promise<UserAgent[]> {
     return db.select().from(userAgents).where(
-      and(eq(userAgents.visibility, "public"), eq(userAgents.status, "active"))
+      and(eq(userAgents.visibility, "public"), eq(userAgents.status, "active"), eq(userAgents.type, "business"))
     ).orderBy(desc(userAgents.rating));
   }
 
   async getMarketplaceAgents(): Promise<UserAgent[]> {
     return db.select().from(userAgents).where(
-      and(eq(userAgents.status, "active"), sql`'marketplace' = ANY(${userAgents.deploymentModes})`)
+      and(eq(userAgents.status, "active"), eq(userAgents.type, "business"), eq(userAgents.marketplaceEnabled, true))
     ).orderBy(desc(userAgents.rating));
   }
 
@@ -2103,6 +2125,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAgentKnowledgeSources(agentId: string): Promise<AgentKnowledgeSource[]> {
     return db.select().from(agentKnowledgeSources).where(eq(agentKnowledgeSources.agentId, agentId)).orderBy(desc(agentKnowledgeSources.createdAt));
+  }
+  async getAgentKnowledgeSource(id: string): Promise<AgentKnowledgeSource | undefined> {
+    const [source] = await db.select().from(agentKnowledgeSources).where(eq(agentKnowledgeSources.id, id));
+    return source;
   }
 
   async deleteAgentKnowledgeSource(id: string): Promise<void> {
@@ -2406,6 +2432,55 @@ export class DatabaseStorage implements IStorage {
       count: sql<number>`count(*)::int`,
     }).from(platformEvents).groupBy(platformEvents.eventType);
     return results;
+  }
+
+  async createAgentPassport(data: InsertAgentPassport): Promise<AgentPassport> {
+    const [passport] = await db.insert(agentPassports).values(data).returning();
+    return passport;
+  }
+
+  async getAgentPassportsByOwner(ownerId: string): Promise<AgentPassport[]> {
+    return db.select().from(agentPassports).where(eq(agentPassports.ownerId, ownerId)).orderBy(desc(agentPassports.createdAt));
+  }
+
+  async revokeAgentPassport(id: string, ownerId: string): Promise<AgentPassport | undefined> {
+    const [revoked] = await db.update(agentPassports)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(agentPassports.id, id), eq(agentPassports.ownerId, ownerId)))
+      .returning();
+    return revoked;
+  }
+
+  async getAgentPassportByHash(hash: string): Promise<AgentPassport | undefined> {
+    const [passport] = await db.select().from(agentPassports).where(eq(agentPassports.passportHash, hash));
+    return passport;
+  }
+
+  async createAgentPassportExport(data: InsertAgentPassportExport): Promise<AgentPassportExport> {
+    const [exported] = await db.insert(agentPassportExports).values(data).returning();
+    return exported;
+  }
+
+  async getAgentPassportExportsByOwner(ownerId: string): Promise<AgentPassportExport[]> {
+    return db.select().from(agentPassportExports).where(eq(agentPassportExports.ownerId, ownerId)).orderBy(desc(agentPassportExports.createdAt));
+  }
+
+  async revokeAgentPassportExport(id: string, ownerId: string, reason?: string | null): Promise<AgentPassportExport | undefined> {
+    const [revoked] = await db.update(agentPassportExports)
+      .set({ revoked: true, revokedAt: new Date(), revocationReason: reason || null })
+      .where(and(eq(agentPassportExports.id, id), eq(agentPassportExports.ownerId, ownerId)))
+      .returning();
+    return revoked;
+  }
+
+  async getAgentPassportExportByHash(hash: string): Promise<AgentPassportExport | undefined> {
+    const [exported] = await db.select().from(agentPassportExports).where(eq(agentPassportExports.exportHash, hash));
+    return exported;
+  }
+
+  async getAgentPassportExportById(id: string): Promise<AgentPassportExport | undefined> {
+    const [exported] = await db.select().from(agentPassportExports).where(eq(agentPassportExports.id, id));
+    return exported;
   }
 
   async createFlywheelAgent(data: InsertFlywheelAgent): Promise<FlywheelAgent> {
@@ -2781,6 +2856,38 @@ export class DatabaseStorage implements IStorage {
   async getProjectPackage(id: string): Promise<ProjectPackage | undefined> {
     const [pkg] = await db.select().from(projectPackages).where(eq(projectPackages.id, id));
     return pkg;
+  }
+  async createProjectAgentContribution(data: InsertProjectAgentContribution): Promise<ProjectAgentContribution> {
+    const [created] = await db.insert(projectAgentContributions).values(data).returning();
+    return created;
+  }
+  async getProjectAgentContributions(projectId: string): Promise<ProjectAgentContribution[]> {
+    return db.select().from(projectAgentContributions).where(eq(projectAgentContributions.projectId, projectId)).orderBy(desc(projectAgentContributions.createdAt));
+  }
+  async createProjectPackagePurchase(data: InsertProjectPackagePurchase): Promise<ProjectPackagePurchase> {
+    const [purchase] = await db.insert(projectPackagePurchases).values(data).returning();
+    return purchase;
+  }
+  async hasProjectPackagePurchase(projectPackageId: string, buyerId: string): Promise<boolean> {
+    const [existing] = await db.select().from(projectPackagePurchases)
+      .where(and(eq(projectPackagePurchases.projectPackageId, projectPackageId), eq(projectPackagePurchases.buyerId, buyerId)))
+      .limit(1);
+    return !!existing;
+  }
+  async createProjectValidation(data: InsertProjectValidation): Promise<ProjectValidation> {
+    const [created] = await db.insert(projectValidations).values(data).returning();
+    return created;
+  }
+  async getProjectValidation(id: string): Promise<ProjectValidation | undefined> {
+    const [validation] = await db.select().from(projectValidations).where(eq(projectValidations.id, id));
+    return validation;
+  }
+  async getLatestProjectValidationForPackage(projectPackageId: string): Promise<ProjectValidation | undefined> {
+    const [validation] = await db.select().from(projectValidations)
+      .where(eq(projectValidations.projectPackageId, projectPackageId))
+      .orderBy(desc(projectValidations.createdAt))
+      .limit(1);
+    return validation;
   }
   async createProjectFeedback(data: InsertProjectFeedback): Promise<ProjectFeedback> {
     const [created] = await db.insert(projectFeedback).values(data).returning();

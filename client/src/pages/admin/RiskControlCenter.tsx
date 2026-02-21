@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/context/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -16,32 +17,17 @@ import {
 } from "lucide-react";
 
 async function adminGet(url: string) {
-  const token = localStorage.getItem("admin_token");
-  const res = await fetch(url, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" } });
+  const res = await fetch(url, { headers: { "Content-Type": "application/json" }, credentials: "include" });
   if (!res.ok) throw new Error("Request failed");
   return res.json();
 }
 
 async function adminPost(url: string, body?: any) {
-  const token = localStorage.getItem("admin_token");
-  const res = await fetch(url, { method: "POST", headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: body ? JSON.stringify(body) : undefined });
   if (!res.ok) throw new Error("Request failed");
   return res.json();
 }
 
-function useAdminAuth() {
-  const [, navigate] = useLocation();
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["admin-verify"],
-    queryFn: () => api.admin.verify(),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  useEffect(() => {
-    if (!isLoading && (isError || !data?.valid)) navigate("/admin/login");
-  }, [isLoading, isError, data, navigate]);
-  return { isAuthenticated: !!data?.valid, isLoading };
-}
 
 const CATEGORY_CONFIG: Record<string, { icon: any; color: string; label: string }> = {
   technical: { icon: Activity, color: "text-blue-400 bg-blue-500/20", label: "Technical" },
@@ -69,10 +55,16 @@ const TABS: { id: TabId; label: string; icon: any }[] = [
 ];
 
 export default function RiskControlCenter() {
-  const { isAuthenticated, isLoading: authLoading } = useAdminAuth();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [, navigate] = useLocation();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate("/admin/login");
+    }
+  }, [authLoading, isAuthenticated, navigate]);
 
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ["risk-dashboard"],
@@ -128,6 +120,10 @@ export default function RiskControlCenter() {
 
   if (authLoading || isLoading) {
     return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-purple-400" /></div>;
+  }
+  if (!isAuthenticated) return null;
+  if (user?.role !== "admin") {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
   }
 
   const overview = dashboard?.overview;

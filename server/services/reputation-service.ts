@@ -1,69 +1,72 @@
-import { storage } from "../storage";
+import { db } from "../db";
+import { eq, and, inArray } from "drizzle-orm";
+import {
+  liveDebates,
+  projects,
+  projectValidations,
+  projectPackagePurchases,
+  agentPassportExports,
+} from "@shared/schema";
 
-const RANK_THRESHOLDS = [
-  { min: 1000, rank: "VVIP" },
-  { min: 600, rank: "Expert" },
-  { min: 300, rank: "VIP" },
-  { min: 100, rank: "Premium" },
-  { min: 0, rank: "Basic" },
-] as const;
+type ReputationBreakdown = {
+  debates: number;
+  validations: number;
+  projects: number;
+  purchases: number;
+  passports: number;
+};
 
-export class ReputationService {
-  computeRank(reputation: number): string {
-    for (const { min, rank } of RANK_THRESHOLDS) {
-      if (reputation >= min) return rank;
-    }
-    return "Basic";
-  }
+type ReputationResult = {
+  score: number;
+  level: string;
+  breakdown: ReputationBreakdown;
+};
 
-  async applyVerificationDelta(authorId: string, postId: string, score: number) {
-    const author = await storage.getUser(authorId);
-    if (!author) return;
+const WEIGHTS = {
+  debates: 5,
+  validations: 25,
+  projects: 40,
+  purchases: 15,
+  passports: 15,
+};
 
-    const delta = score >= 0.7 ? 10 : score >= 0.4 ? 2 : -5;
-    const newReputation = Math.max(0, author.reputation + delta);
-    await storage.updateUser(author.id, { reputation: newReputation });
-    await storage.addReputationHistory({
-      userId: author.id,
-      delta,
-      reason: `Agent verification: ${score >= 0.7 ? "High confidence" : score >= 0.4 ? "Moderate" : "Low confidence"}`,
-      sourcePostId: postId,
-    });
-  }
+export async function getUserReputation(userId: string): Promise<ReputationResult> {
+  const debates = await db.select().from(liveDebates).where(eq(liveDebates.createdBy, userId));
+  const projectsList = await db.select().from(projects).where(eq(projects.createdBy, userId));
+  const projectIds = projectsList.map(p => p.id);
+  const validations = projectIds.length > 0
+    ? await db.select().from(projectValidations).where(inArray(projectValidations.projectId, projectIds))
+    : [];
+  const purchases = await db.select().from(projectPackagePurchases).where(eq(projectPackagePurchases.buyerId, userId));
+  const passports = await db.select().from(agentPassportExports).where(and(eq(agentPassportExports.ownerId, userId), eq(agentPassportExports.revoked, false)));
 
-  async getRanking() {
-    const rankedUsers = await storage.getUsersRanked();
-    return Promise.all(
-      rankedUsers.map(async (u) => {
-        const tags = await storage.getExpertiseTags(u.id);
-        return {
-          id: u.id,
-          displayName: u.displayName,
-          username: u.username,
-          avatar: u.avatar,
-          role: u.role,
-          reputation: u.reputation,
-          rankLevel: u.rankLevel,
-          badge: u.badge,
-          confidence: u.confidence,
-          expertiseTags: tags,
-        };
-      })
-    );
-  }
+  const breakdown = {
+    debates: debates.length,
+    validations: validations.length,
+    projects: projectsList.length,
+    purchases: purchases.length,
+    passports: passports.length,
+  };
 
-  async getReputationHistory(userId: string) {
-    return storage.getReputationHistory(userId);
-  }
+  const score = Math.min(
+    1000,
+    Math.round(
+      breakdown.debates * WEIGHTS.debates
+      + breakdown.validations * WEIGHTS.validations
+      + breakdown.projects * WEIGHTS.projects
+      + breakdown.purchases * WEIGHTS.purchases
+      + breakdown.passports * WEIGHTS.passports
+    )
+  );
 
-  async upsertExpertiseTag(data: {
-    userId: string;
-    topicSlug: string;
-    tag: string;
-    accuracyScore: number;
-  }) {
-    return storage.upsertExpertiseTag(data);
-  }
+  const level =
+    score >= 800 ? "Architect" :
+    score >= 600 ? "Strategist" :
+    score >= 400 ? "Builder" :
+    score >= 200 ? "Explorer" :
+    "Initiate";
+
+  return { score, level, breakdown };
 }
 
-export const reputationService = new ReputationService();
+export const reputationService = { getUserReputation };

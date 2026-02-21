@@ -8,7 +8,7 @@ import {
   Eye, Compass, MessageSquare, BadgeCheck, ShieldCheck, Brain, Crown,
   RefreshCw, Lock, Unlock, TrendingUp, Shield, Star, AlertTriangle, CheckCircle2, ChevronRight
 } from "lucide-react";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 
 const LEVEL_ICONS: Record<string, any> = {
   Eye, Compass, MessageSquare, BadgeCheck, ShieldCheck, Brain, Crown,
@@ -26,7 +26,8 @@ const LEVEL_ORDER = ["visitor", "explorer", "participant", "verified_creator", "
 export default function TrustLadder() {
   const queryClient = useQueryClient();
   const [showAllLevels, setShowAllLevels] = useState(false);
-  const userId = getCurrentUserId();
+  const { user } = useAuth();
+  const userId = user?.id || null;
 
   const { data: status, isLoading } = useQuery({
     queryKey: ["/api/trust-ladder/status", userId],

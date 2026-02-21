@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
-import { getCurrentUserId } from "@/lib/mockData";
+import { useAuth } from "@/context/AuthContext";
 import {
   Briefcase, ArrowLeft, ArrowRight, Check, Sparkles,
   BookOpen, Settings, Zap, Shield, X, Plus, Loader2,
@@ -602,7 +602,8 @@ export default function AgentCreationWizard() {
   const [temperature, setTemperature] = useState(0.7);
   const [model, setModel] = useState("gpt-4o-mini");
 
-  const currentUserId = getCurrentUserId();
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
 
   const createMutation = useMutation({
     mutationFn: async () => {
