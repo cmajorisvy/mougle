@@ -52,28 +52,24 @@ async function getCredentials() {
 }
 
 async function getResendClient() {
-  const { apiKey, fromEmail } = await getCredentials();
-  return {
-    client: new Resend(apiKey),
-    fromEmail,
-  };
+  const { apiKey } = await getCredentials();
+  return { client: new Resend(apiKey) };
 }
 
-const SENDER_LABELS: Record<string, string> = {
-  verify: "Mougle Verification",
-  notify: "Mougle Notifications",
-  billing: "Mougle Billing",
-  support: "Mougle Support",
-  noreply: "Mougle",
-  admin: "Mougle Admin",
+console.log(`[Email] Sender addresses configured → noreply: ${process.env.EMAIL_NOREPLY || "noreply@mougle.com"}, verify: ${process.env.EMAIL_VERIFY || "verify@mougle.com"}, support: ${process.env.EMAIL_SUPPORT || "support@mougle.com"}`);
+
+const SENDER_CONFIG: Record<string, { label: string; address: string }> = {
+  noreply: { label: "Mougle", address: process.env.EMAIL_NOREPLY || "noreply@mougle.com" },
+  notify: { label: "Mougle Notifications", address: process.env.EMAIL_NOREPLY || "noreply@mougle.com" },
+  verify: { label: "Mougle Verification", address: process.env.EMAIL_VERIFY || "verify@mougle.com" },
+  support: { label: "Mougle Support", address: process.env.EMAIL_SUPPORT || "support@mougle.com" },
+  billing: { label: "Mougle Billing", address: process.env.EMAIL_NOREPLY || "noreply@mougle.com" },
+  admin: { label: "Mougle Admin", address: process.env.EMAIL_NOREPLY || "noreply@mougle.com" },
 };
 
-function getSender(type: keyof typeof SENDER_LABELS, fromEmail?: string): string {
-  const label = SENDER_LABELS[type] || "Mougle";
-  if (fromEmail) {
-    return `${label} <${fromEmail}>`;
-  }
-  return `${label} <noreply@mougle.com>`;
+function getSender(type: keyof typeof SENDER_CONFIG): string {
+  const config = SENDER_CONFIG[type] || SENDER_CONFIG.noreply;
+  return `${config.label} <${config.address}>`;
 }
 
 function baseUrl(): string {
@@ -112,9 +108,9 @@ function cardWrap(inner: string): string {
 export class EmailService {
   async sendVerificationEmail(to: string, code: string, displayName: string) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const result = await client.emails.send({
-        from: getSender("verify", fromEmail),
+        from: getSender("verify"),
         to,
         subject: `${code} is your Mougle verification code`,
         html: wrapTemplate(cardWrap(`
@@ -135,9 +131,9 @@ export class EmailService {
 
   async sendWelcomeEmail(to: string, displayName: string) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const result = await client.emails.send({
-        from: getSender("noreply", fromEmail),
+        from: getSender("noreply"),
         to,
         subject: "Welcome to Mougle — Your Intelligence Journey Starts Now",
         html: wrapTemplate(cardWrap(`
@@ -164,9 +160,9 @@ export class EmailService {
 
   async sendAccountVerifiedEmail(to: string, displayName: string) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const result = await client.emails.send({
-        from: getSender("verify", fromEmail),
+        from: getSender("verify"),
         to,
         subject: "Your Mougle Account is Verified!",
         html: wrapTemplate(cardWrap(`
@@ -188,9 +184,9 @@ export class EmailService {
 
   async sendPurchaseConfirmation(to: string, displayName: string, purchase: { plan: string; amount: string; transactionId: string; date: string }) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const result = await client.emails.send({
-        from: getSender("billing", fromEmail),
+        from: getSender("billing"),
         to,
         subject: `Payment Confirmed — ${purchase.plan} Plan`,
         html: wrapTemplate(cardWrap(`
@@ -227,12 +223,12 @@ export class EmailService {
 
   async sendInvoiceEmail(to: string, displayName: string, invoice: { invoiceId: string; amount: string; period: string; items: { name: string; amount: string }[] }) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const itemsHtml = invoice.items.map(i =>
         `<tr><td style="color:#9ca3af;font-size:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">${i.name}</td><td style="color:#e5e7eb;font-size:12px;padding:8px 0;text-align:right;border-bottom:1px solid rgba(255,255,255,0.04);">${i.amount}</td></tr>`
       ).join("");
       const result = await client.emails.send({
-        from: getSender("billing", fromEmail),
+        from: getSender("billing"),
         to,
         subject: `Invoice ${invoice.invoiceId} — Mougle`,
         html: wrapTemplate(cardWrap(`
@@ -257,9 +253,9 @@ export class EmailService {
 
   async sendPolicyNotification(to: string, displayName: string, policy: { title: string; summary: string; effectiveDate: string }) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const result = await client.emails.send({
-        from: getSender("notify", fromEmail),
+        from: getSender("notify"),
         to,
         subject: `Policy Update: ${policy.title} — Mougle`,
         html: wrapTemplate(cardWrap(`
@@ -283,10 +279,10 @@ export class EmailService {
 
   async sendAdminAlert(to: string, alert: { title: string; severity: string; message: string; actionUrl?: string }) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const severityColor = alert.severity === "critical" ? "#ef4444" : alert.severity === "high" ? "#f97316" : "#eab308";
       const result = await client.emails.send({
-        from: getSender("admin", fromEmail),
+        from: getSender("admin"),
         to,
         subject: `[${alert.severity.toUpperCase()}] ${alert.title} — Mougle Admin`,
         html: wrapTemplate(cardWrap(`
@@ -307,10 +303,10 @@ export class EmailService {
 
   async sendPasswordResetEmail(to: string, resetToken: string, displayName: string) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const resetLink = `${baseUrl()}/auth/reset-password?token=${resetToken}`;
       const result = await client.emails.send({
-        from: getSender("verify", fromEmail),
+        from: getSender("verify"),
         to,
         subject: "Reset your Mougle password",
         html: wrapTemplate(cardWrap(`
@@ -330,9 +326,9 @@ export class EmailService {
 
   async sendSupportTicketReply(to: string, displayName: string, ticket: { ticketId: string; subject: string; replyContent: string }) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const result = await client.emails.send({
-        from: getSender("support", fromEmail),
+        from: getSender("support"),
         to,
         subject: `Re: ${ticket.subject} [Ticket #${ticket.ticketId}]`,
         html: wrapTemplate(cardWrap(`
@@ -354,9 +350,9 @@ export class EmailService {
 
   async sendTicketCreatedNotification(to: string, displayName: string, ticket: { ticketId: string; subject: string }) {
     try {
-      const { client, fromEmail } = await getResendClient();
+      const { client } = await getResendClient();
       const result = await client.emails.send({
-        from: getSender("support", fromEmail),
+        from: getSender("support"),
         to,
         subject: `Support Ticket Created [#${ticket.ticketId}]`,
         html: wrapTemplate(cardWrap(`
