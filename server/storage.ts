@@ -131,6 +131,10 @@ import {
   type TrustAccessEvent, type InsertTrustAccessEvent,
   type TrustHealthMetric, type InsertTrustHealthMetric,
   userTrustVaults, trustPermissionTokens, trustAccessEvents, trustHealthMetrics,
+  type Project, type InsertProject,
+  type ProjectPackage, type InsertProjectPackage,
+  type ProjectFeedback, type InsertProjectFeedback,
+  projects, projectPackages, projectFeedback,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
@@ -577,6 +581,18 @@ export interface IStorage {
   getPrivacyGatewayRules(): Promise<PrivacyGatewayRule[]>;
   updatePrivacyGatewayRule(id: string, data: Partial<PrivacyGatewayRule>): Promise<PrivacyGatewayRule>;
   deletePrivacyGatewayRule(id: string): Promise<void>;
+
+  // Projects & Pipeline
+  createProject(data: InsertProject): Promise<Project>;
+  getProject(id: string): Promise<Project | undefined>;
+  getProjects(limit?: number): Promise<Project[]>;
+  getProjectByDebateId(debateId: number): Promise<Project | undefined>;
+  updateProject(id: string, data: Partial<Project>): Promise<Project>;
+  createProjectPackage(data: InsertProjectPackage): Promise<ProjectPackage>;
+  getProjectPackages(projectId: string): Promise<ProjectPackage[]>;
+  getProjectPackage(id: string): Promise<ProjectPackage | undefined>;
+  createProjectFeedback(data: InsertProjectFeedback): Promise<ProjectFeedback>;
+  getProjectFeedback(projectPackageId: string): Promise<ProjectFeedback[]>;
 }
 
 function computeRank(reputation: number): string {
@@ -2733,6 +2749,45 @@ export class DatabaseStorage implements IStorage {
   }
   async getLatestTrustHealthMetrics(limit = 30): Promise<TrustHealthMetric[]> {
     return db.select().from(trustHealthMetrics).orderBy(desc(trustHealthMetrics.metricDate)).limit(limit);
+  }
+
+  // Projects & Pipeline
+  async createProject(data: InsertProject): Promise<Project> {
+    const [created] = await db.insert(projects).values(data).returning();
+    return created;
+  }
+  async getProject(id: string): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project;
+  }
+  async getProjects(limit = 50): Promise<Project[]> {
+    return db.select().from(projects).orderBy(desc(projects.createdAt)).limit(limit);
+  }
+  async getProjectByDebateId(debateId: number): Promise<Project | undefined> {
+    const [project] = await db.select().from(projects).where(eq(projects.debateId, debateId));
+    return project;
+  }
+  async updateProject(id: string, data: Partial<Project>): Promise<Project> {
+    const [updated] = await db.update(projects).set({ ...data, updatedAt: new Date() }).where(eq(projects.id, id)).returning();
+    return updated;
+  }
+  async createProjectPackage(data: InsertProjectPackage): Promise<ProjectPackage> {
+    const [created] = await db.insert(projectPackages).values(data).returning();
+    return created;
+  }
+  async getProjectPackages(projectId: string): Promise<ProjectPackage[]> {
+    return db.select().from(projectPackages).where(eq(projectPackages.projectId, projectId)).orderBy(desc(projectPackages.generatedAt));
+  }
+  async getProjectPackage(id: string): Promise<ProjectPackage | undefined> {
+    const [pkg] = await db.select().from(projectPackages).where(eq(projectPackages.id, id));
+    return pkg;
+  }
+  async createProjectFeedback(data: InsertProjectFeedback): Promise<ProjectFeedback> {
+    const [created] = await db.insert(projectFeedback).values(data).returning();
+    return created;
+  }
+  async getProjectFeedback(projectPackageId: string): Promise<ProjectFeedback[]> {
+    return db.select().from(projectFeedback).where(eq(projectFeedback.projectPackageId, projectPackageId)).orderBy(desc(projectFeedback.createdAt));
   }
 }
 
