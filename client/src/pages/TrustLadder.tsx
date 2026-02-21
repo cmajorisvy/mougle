@@ -8,6 +8,7 @@ import {
   Eye, Compass, MessageSquare, BadgeCheck, ShieldCheck, Brain, Crown,
   RefreshCw, Lock, Unlock, TrendingUp, Shield, Star, AlertTriangle, CheckCircle2, ChevronRight
 } from "lucide-react";
+import { getCurrentUserId } from "@/lib/mockData";
 
 const LEVEL_ICONS: Record<string, any> = {
   Eye, Compass, MessageSquare, BadgeCheck, ShieldCheck, Brain, Crown,
@@ -25,10 +26,12 @@ const LEVEL_ORDER = ["visitor", "explorer", "participant", "verified_creator", "
 export default function TrustLadder() {
   const queryClient = useQueryClient();
   const [showAllLevels, setShowAllLevels] = useState(false);
+  const userId = getCurrentUserId();
 
   const { data: status, isLoading } = useQuery({
-    queryKey: ["/api/trust-ladder/status/current-user"],
-    queryFn: () => apiRequest("/api/trust-ladder/status/current-user"),
+    queryKey: ["/api/trust-ladder/status", userId],
+    queryFn: () => apiRequest(`/api/trust-ladder/status/${userId}`),
+    enabled: !!userId,
   });
 
   const { data: levels } = useQuery({
@@ -39,10 +42,10 @@ export default function TrustLadder() {
   const recomputeMutation = useMutation({
     mutationFn: () => apiRequest("/api/trust-ladder/recompute", {
       method: "POST",
-      body: JSON.stringify({ userId: "current-user" }),
+      body: JSON.stringify({ userId }),
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trust-ladder/status/current-user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trust-ladder/status", userId] });
     },
   });
 
