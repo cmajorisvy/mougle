@@ -102,47 +102,54 @@ export default function MyPersonalAgent() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-[#0a0a0f] flex flex-col">
-        <div className="max-w-7xl mx-auto px-4 py-6 w-full flex flex-col flex-1 min-h-0">
-          <div className="flex items-center justify-between mb-6 shrink-0">
+      <div className="min-h-screen bg-gradient-to-b from-[#0a0a14] via-[#0a0a0f] to-[#080810] flex flex-col">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 w-full flex flex-col flex-1 min-h-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6 shrink-0">
             <div>
-              <h1 className="text-2xl font-bold text-white" data-testid="text-pa-title">Personal Intelligence</h1>
-              <p className="text-gray-400 text-sm mt-1">{dashboard?.profile?.agentName || "Personal Intelligence"} • Pro</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight" data-testid="text-pa-title">Personal Intelligence</h1>
+              <p className="text-gray-500 text-xs sm:text-sm mt-0.5">{dashboard?.profile?.agentName || "Personal Intelligence"} <span className="text-blue-400">Pro</span></p>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="text-green-400 border-green-800" data-testid="badge-messages-remaining">
-                <MessageSquare className="w-3 h-3 mr-1" />{dashboard?.stats?.messagesRemaining || 0} msgs left
-              </Badge>
-              <Badge variant="outline" className="text-purple-400 border-purple-800" data-testid="badge-voice-remaining">
-                <Mic className="w-3 h-3 mr-1" />{dashboard?.stats?.voiceRemaining || 0} voice left
-              </Badge>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-green-900/15 border border-green-800/30" data-testid="badge-messages-remaining">
+                <MessageSquare className="w-3 h-3 text-green-400" />
+                <span className="text-xs text-green-400 font-medium">{dashboard?.stats?.messagesRemaining || 0}</span>
+                <span className="text-xs text-green-600 hidden sm:inline">msgs</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-900/15 border border-purple-800/30" data-testid="badge-voice-remaining">
+                <Mic className="w-3 h-3 text-purple-400" />
+                <span className="text-xs text-purple-400 font-medium">{dashboard?.stats?.voiceRemaining || 0}</span>
+                <span className="text-xs text-purple-600 hidden sm:inline">voice</span>
+              </div>
             </div>
           </div>
 
           {dashboard?.stats && (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6 shrink-0">
+            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3 mb-4 sm:mb-6 shrink-0">
               <StatCard label="Memories" value={dashboard.stats.confirmedMemories} icon={Brain} color="text-blue-400" testId="stat-memories" />
-              <StatCard label="Conversations" value={dashboard.stats.totalConversations} icon={MessageSquare} color="text-cyan-400" testId="stat-conversations" />
-              <StatCard label="Pending Tasks" value={dashboard.stats.pendingTasks} icon={CheckSquare} color="text-orange-400" testId="stat-pending-tasks" />
-              <StatCard label="Completed" value={dashboard.stats.completedTasks} icon={Check} color="text-green-400" testId="stat-completed-tasks" />
+              <StatCard label="Chats" value={dashboard.stats.totalConversations} icon={MessageSquare} color="text-cyan-400" testId="stat-conversations" />
+              <StatCard label="Pending" value={dashboard.stats.pendingTasks} icon={CheckSquare} color="text-orange-400" testId="stat-pending-tasks" />
+              <StatCard label="Done" value={dashboard.stats.completedTasks} icon={Check} color="text-green-400" testId="stat-completed-tasks" />
               <StatCard label="Devices" value={dashboard.stats.connectedDevices} icon={Wifi} color="text-purple-400" testId="stat-devices" />
-              <StatCard label="Upcoming Bills" value={dashboard.stats.upcomingBills} icon={DollarSign} color="text-yellow-400" testId="stat-bills" />
+              <StatCard label="Bills" value={dashboard.stats.upcomingBills} icon={DollarSign} color="text-yellow-400" testId="stat-bills" />
             </div>
           )}
 
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2 shrink-0">
+          <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto pb-1 shrink-0 scrollbar-none -mx-1 px-1">
             {TABS.map(t => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 data-testid={`tab-${t.id}`}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all",
-                  tab === t.id ? "bg-blue-600 text-white" : "bg-[#1a1a2e] text-gray-400 hover:bg-[#252545] hover:text-white"
+                  "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all",
+                  tab === t.id
+                    ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-600/20"
+                    : "bg-[#12122a] text-gray-500 hover:bg-[#1a1a35] hover:text-gray-300 border border-gray-800/30"
                 )}
               >
-                <t.icon className="w-4 h-4" />
-                {t.label}
+                <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">{t.label}</span>
+                <span className="sm:hidden">{t.label.length > 6 ? t.label.substring(0, 5) + '.' : t.label}</span>
               </button>
             ))}
           </div>
@@ -163,14 +170,39 @@ export default function MyPersonalAgent() {
 
 function StatCard({ label, value, icon: Icon, color, testId }: { label: string; value: number; icon: any; color: string; testId: string }) {
   return (
-    <div className="bg-[#1a1a2e] rounded-lg p-3 border border-gray-800" data-testid={testId}>
-      <div className="flex items-center gap-2 mb-1">
-        <Icon className={cn("w-4 h-4", color)} />
-        <span className="text-xs text-gray-500">{label}</span>
+    <div className="bg-gradient-to-br from-[#12122a] to-[#0d0d1a] rounded-xl p-2.5 sm:p-3 border border-gray-800/30 hover:border-gray-700/40 transition-colors" data-testid={testId}>
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon className={cn("w-3.5 h-3.5", color)} />
+        <span className="text-[10px] sm:text-xs text-gray-500 truncate">{label}</span>
       </div>
-      <p className="text-xl font-bold text-white">{value}</p>
+      <p className="text-lg sm:text-xl font-bold text-white">{value}</p>
     </div>
   );
+}
+
+function speakText(text: string) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length > 0) {
+    const preferred = voices.find(v => v.lang.startsWith("en") && v.name.toLowerCase().includes("female")) ||
+      voices.find(v => v.lang.startsWith("en")) || voices[0];
+    if (preferred) utterance.voice = preferred;
+  }
+  window.speechSynthesis.speak(utterance);
+  return utterance;
+}
+
+function hasSpeechRecognition() {
+  return !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition;
+}
+
+function hasSpeechSynthesis() {
+  return "speechSynthesis" in window;
 }
 
 function ChatTab({ userId }: { userId: string }) {
@@ -178,30 +210,24 @@ function ChatTab({ userId }: { userId: string }) {
   const [activeConv, setActiveConv] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [voiceMode, setVoiceMode] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const pendingRecordRef = useRef(false);
+  const recognitionRef = useRef<any>(null);
+  const pendingListenRef = useRef(false);
 
-  const { data: dashboard } = useQuery({
-    queryKey: ["pa-dashboard", userId],
-    queryFn: () => fetchPA("/dashboard", userId),
-  });
-
-  const currentVoice = dashboard?.profile?.voicePreference || "alloy";
-
-  const voicePrefMutation = useMutation({
-    mutationFn: (voice: string) => fetchPA("/profile", userId, {
-      method: "PATCH",
-      body: JSON.stringify({ voicePreference: voice }),
-    }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
-    },
-  });
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
+      }
+      if (hasSpeechSynthesis()) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   const { data: conversations = [] } = useQuery({
     queryKey: ["pa-conversations", userId],
@@ -219,29 +245,11 @@ function ChatTab({ userId }: { userId: string }) {
     onSuccess: (conv) => {
       queryClient.invalidateQueries({ queryKey: ["pa-conversations"] });
       setActiveConv(conv.id);
-      if (pendingRecordRef.current) {
-        pendingRecordRef.current = false;
-        setTimeout(() => startRecordingImpl(), 100);
+      setShowSidebar(false);
+      if (pendingListenRef.current) {
+        pendingListenRef.current = false;
+        setTimeout(() => startListeningImpl(), 200);
       }
-    },
-  });
-
-  const ttsMutation = useMutation({
-    mutationFn: async ({ inputText, voice }: { inputText: string; voice: string }) => {
-      const res = await fetch("/api/personal-agent/voice/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": userId },
-        body: JSON.stringify({ text: inputText, voice }),
-      });
-      if (!res.ok) throw new Error("TTS failed");
-      return res.blob();
-    },
-    onSuccess: (blob) => {
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      setIsPlaying(true);
-      audio.play();
-      audio.onended = () => { setIsPlaying(false); URL.revokeObjectURL(url); };
     },
   });
 
@@ -251,7 +259,14 @@ function ChatTab({ userId }: { userId: string }) {
       queryClient.invalidateQueries({ queryKey: ["pa-messages", activeConv] });
       queryClient.invalidateQueries({ queryKey: ["pa-dashboard"] });
       if (voiceMode && result.reply) {
-        ttsMutation.mutate({ inputText: result.reply, voice: currentVoice });
+        setIsSpeaking(true);
+        const utt = speakText(result.reply);
+        if (utt) {
+          utt.onend = () => setIsSpeaking(false);
+          utt.onerror = () => setIsSpeaking(false);
+        } else {
+          setIsSpeaking(false);
+        }
       }
     },
   });
@@ -268,6 +283,12 @@ function ChatTab({ userId }: { userId: string }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.getVoices();
+    }
+  }, []);
+
   const handleSend = () => {
     if (!message.trim() || !activeConv) return;
     const msg = message;
@@ -275,96 +296,106 @@ function ChatTab({ userId }: { userId: string }) {
     chatMutation.mutate(msg);
   };
 
-  const startRecording = async () => {
+  const startListeningImpl = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      if (transcript && activeConv) {
+        chatMutation.mutate(transcript);
+      }
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
+
+  const startListening = () => {
     if (!activeConv) {
-      pendingRecordRef.current = true;
+      pendingListenRef.current = true;
       createConvMutation.mutate();
       return;
     }
-    startRecordingImpl();
+    startListeningImpl();
   };
 
-  const startRecordingImpl = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) audioChunksRef.current.push(event.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const formData = new FormData();
-        formData.append("audio", audioBlob, "recording.webm");
-        setTranscribing(true);
-
-        try {
-          const res = await fetch("/api/personal-agent/voice/stt", {
-            method: "POST",
-            headers: { "x-user-id": userId },
-            body: formData,
-          });
-          if (res.ok) {
-            const { text: transcribedText } = await res.json();
-            if (transcribedText && activeConv) {
-              chatMutation.mutate(transcribedText);
-            }
-          }
-        } catch (err) {
-          console.error("STT failed:", err);
-        } finally {
-          setTranscribing(false);
-        }
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error("Microphone access denied:", err);
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+  const replayMessage = (text: string) => {
+    setIsSpeaking(true);
+    const utt = speakText(text);
+    if (utt) {
+      utt.onend = () => setIsSpeaking(false);
+      utt.onerror = () => setIsSpeaking(false);
+    } else {
+      setIsSpeaking(false);
     }
   };
 
   return (
-    <div className="grid grid-cols-12 gap-4 h-[calc(100vh-22rem)] min-h-[400px]" data-testid="chat-tab-content">
-      <div className="col-span-12 md:col-span-3 bg-[#1a1a2e] rounded-lg border border-gray-800 flex flex-col max-h-[200px] md:max-h-none">
-        <div className="p-3 border-b border-gray-800 flex items-center justify-between shrink-0">
-          <span className="text-sm font-medium text-white">Conversations</span>
-          <button onClick={() => createConvMutation.mutate()} className="text-blue-400 hover:text-blue-300" data-testid="button-new-conversation">
-            <Plus className="w-4 h-4" />
+    <div className="flex h-[calc(100vh-22rem)] min-h-[350px] gap-0 md:gap-4 relative" data-testid="chat-tab-content">
+      <button
+        onClick={() => setShowSidebar(!showSidebar)}
+        className="md:hidden absolute top-2 left-2 z-20 p-2 bg-[#1a1a2e] rounded-lg border border-gray-700 text-gray-400"
+        data-testid="button-toggle-sidebar"
+      >
+        <MessageSquare className="w-4 h-4" />
+      </button>
+
+      <div className={cn(
+        "absolute md:relative z-10 md:z-auto w-72 md:w-auto md:min-w-[220px] md:max-w-[260px] bg-[#0d0d1a] md:bg-[#1a1a2e] rounded-xl border border-gray-800/60 flex flex-col transition-transform duration-200",
+        "h-full md:flex",
+        showSidebar ? "translate-x-0 shadow-2xl" : "-translate-x-[120%] md:translate-x-0"
+      )}>
+        <div className="p-3 border-b border-gray-800/50 flex items-center justify-between shrink-0">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Chats</span>
+          <button onClick={() => { createConvMutation.mutate(); setShowSidebar(false); }} className="p-1.5 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition-colors" data-testid="button-new-conversation">
+            <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {conversations.length === 0 ? (
-            <p className="text-gray-500 text-xs text-center py-6">No conversations yet</p>
+            <div className="text-center py-8 px-4">
+              <MessageSquare className="w-8 h-8 text-gray-700 mx-auto mb-2" />
+              <p className="text-gray-600 text-xs">No conversations yet</p>
+            </div>
           ) : (
             conversations.map((conv: any) => (
               <div
                 key={conv.id}
-                onClick={() => setActiveConv(conv.id)}
+                onClick={() => { setActiveConv(conv.id); setShowSidebar(false); }}
                 data-testid={`conv-item-${conv.id}`}
                 className={cn(
-                  "px-3 py-2 cursor-pointer border-b border-gray-800/50 flex items-center justify-between group",
-                  activeConv === conv.id ? "bg-blue-900/30" : "hover:bg-[#252545]"
+                  "px-3 py-2.5 cursor-pointer border-b border-gray-800/30 flex items-center justify-between group transition-colors",
+                  activeConv === conv.id
+                    ? "bg-gradient-to-r from-blue-900/40 to-blue-900/20 border-l-2 border-l-blue-500"
+                    : "hover:bg-white/[0.03]"
                 )}
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-white truncate">{conv.title}</p>
-                  <p className="text-xs text-gray-500">{new Date(conv.createdAt).toLocaleDateString()}</p>
+                  <p className="text-[10px] text-gray-600 mt-0.5">{new Date(conv.createdAt).toLocaleDateString()}</p>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteConvMutation.mutate(conv.id); }}
-                  className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400"
+                  className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 p-1 transition-opacity"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
@@ -374,69 +405,114 @@ function ChatTab({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <div className="col-span-12 md:col-span-9 bg-[#1a1a2e] rounded-lg border border-gray-800 flex flex-col min-h-[300px]">
+      <div className="flex-1 bg-gradient-to-b from-[#12122a] to-[#0d0d1a] rounded-xl border border-gray-800/40 flex flex-col min-w-0 overflow-hidden">
         {!activeConv ? (
-          <div className="flex-1 flex items-center justify-center text-center">
-            <div>
-              <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-400 mb-2">Select or start a conversation</p>
-              <Button size="sm" onClick={() => createConvMutation.mutate()} data-testid="button-start-chat">
-                <Plus className="w-4 h-4 mr-1" /> New Interaction
+          <div className="flex-1 flex items-center justify-center text-center p-6">
+            <div className="max-w-xs">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center mx-auto mb-4">
+                <MessageSquare className="w-8 h-8 text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Start a conversation</h3>
+              <p className="text-gray-500 text-sm mb-5">Chat with your personal AI using text or voice</p>
+              <Button onClick={() => createConvMutation.mutate()} className="bg-blue-600 hover:bg-blue-700 rounded-xl px-6" data-testid="button-start-chat">
+                <Plus className="w-4 h-4 mr-2" /> New Chat
               </Button>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
-              {messages.map((msg: any) => (
-                <div key={msg.id} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")} data-testid={`message-${msg.id}`}>
-                  <div className={cn(
-                    "max-w-[75%] rounded-lg px-4 py-2 text-sm",
-                    msg.role === "user" ? "bg-blue-600 text-white" : "bg-[#252545] text-gray-200"
-                  )}>
-                    {msg.role === "assistant" && voiceMode && (
-                      <button
-                        onClick={() => ttsMutation.mutate({ inputText: msg.content, voice: currentVoice })}
-                        className="inline-flex mr-1 text-blue-400 hover:text-blue-300"
-                        data-testid={`button-replay-${msg.id}`}
-                      >
-                        <Volume2 className="w-3 h-3" />
-                      </button>
-                    )}
-                    {msg.content}
-                    <div className="text-xs mt-1 opacity-50">{new Date(msg.createdAt).toLocaleTimeString()}</div>
-                  </div>
-                </div>
-              ))}
-              {(chatMutation.isPending || transcribing) && (
-                <div className="flex justify-start">
-                  <div className="bg-[#252545] rounded-lg px-4 py-2 flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-                    <span className="text-xs text-gray-400">{transcribing ? "Transcribing..." : "Thinking..."}</span>
+            <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 space-y-3 min-h-0">
+              {messages.length === 0 && !chatMutation.isPending && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Zap className="w-10 h-10 text-gray-700 mx-auto mb-2" />
+                    <p className="text-gray-600 text-sm">Send a message to begin</p>
                   </div>
                 </div>
               )}
-              {isPlaying && (
+              {messages.map((msg: any) => (
+                <div key={msg.id} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")} data-testid={`message-${msg.id}`}>
+                  <div className={cn(
+                    "max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                    msg.role === "user"
+                      ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-md"
+                      : "bg-[#1e1e3a] text-gray-200 rounded-bl-md border border-gray-800/30"
+                  )}>
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <div className="flex items-center justify-between mt-1.5 gap-2">
+                      <span className="text-[10px] opacity-40">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      {msg.role === "assistant" && voiceMode && (
+                        <button
+                          onClick={() => replayMessage(msg.content)}
+                          className="text-blue-400/60 hover:text-blue-400 transition-colors"
+                          data-testid={`button-replay-${msg.id}`}
+                        >
+                          <Volume2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {chatMutation.isPending && (
                 <div className="flex justify-start">
-                  <div className="bg-[#252545] rounded-lg px-4 py-2 flex items-center gap-2">
-                    <Volume2 className="w-4 h-4 text-blue-400 animate-pulse" />
-                    <span className="text-xs text-gray-400">Speaking...</span>
+                  <div className="bg-[#1e1e3a] rounded-2xl rounded-bl-md px-4 py-3 border border-gray-800/30">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </div>
+                      <span className="text-xs text-gray-500">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {isSpeaking && (
+                <div className="flex justify-start">
+                  <div className="bg-[#1e1e3a] rounded-2xl rounded-bl-md px-4 py-2.5 border border-blue-800/30 flex items-center gap-2">
+                    <div className="flex gap-0.5 items-end h-4">
+                      <div className="w-1 bg-blue-400 rounded-full animate-pulse" style={{ height: "60%", animationDelay: "0ms" }} />
+                      <div className="w-1 bg-blue-400 rounded-full animate-pulse" style={{ height: "100%", animationDelay: "100ms" }} />
+                      <div className="w-1 bg-blue-400 rounded-full animate-pulse" style={{ height: "40%", animationDelay: "200ms" }} />
+                      <div className="w-1 bg-blue-400 rounded-full animate-pulse" style={{ height: "80%", animationDelay: "300ms" }} />
+                    </div>
+                    <span className="text-xs text-blue-400">Speaking...</span>
                   </div>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
-            <div className="p-3 border-t border-gray-800 shrink-0">
-              <div className="flex gap-2 items-center">
+
+            <div className="p-3 sm:p-4 border-t border-gray-800/30 bg-[#0d0d1a]/80 backdrop-blur-sm shrink-0">
+              {isListening && (
+                <div className="flex items-center justify-center gap-3 mb-3 py-3 bg-red-600/10 rounded-xl border border-red-600/20">
+                  <div className="relative">
+                    <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                    <div className="absolute inset-0 w-3 h-3 bg-red-500 rounded-full animate-ping opacity-50" />
+                  </div>
+                  <span className="text-sm text-red-400 font-medium">Listening...</span>
+                  <button onClick={stopListening} className="text-xs text-red-400 border border-red-600/30 px-2 py-0.5 rounded-lg hover:bg-red-600/20" data-testid="button-stop-listening">
+                    Stop
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2 items-end">
                 <button
-                  onClick={() => setVoiceMode(!voiceMode)}
+                  onClick={() => {
+                    if (!voiceMode && !hasSpeechSynthesis() && !hasSpeechRecognition()) {
+                      alert("Voice features are not supported in this browser. Please use Chrome, Edge, or Safari.");
+                      return;
+                    }
+                    setVoiceMode(!voiceMode);
+                  }}
                   data-testid="button-toggle-voice"
-                  title={voiceMode ? "Voice mode on — responses will be spoken" : "Voice mode off — tap to enable"}
+                  title={voiceMode ? "Voice mode on" : "Voice mode off"}
                   className={cn(
-                    "p-2 rounded-lg transition-all shrink-0",
+                    "p-2.5 rounded-xl transition-all shrink-0",
                     voiceMode
-                      ? "bg-blue-600/20 text-blue-400 border border-blue-600/50"
-                      : "bg-[#252545] text-gray-500 hover:text-gray-300 border border-transparent"
+                      ? "bg-gradient-to-br from-blue-600/30 to-purple-600/30 text-blue-400 border border-blue-500/30 shadow-lg shadow-blue-600/10"
+                      : "bg-[#1a1a2e] text-gray-500 hover:text-gray-300 border border-gray-800/50 hover:border-gray-700"
                   )}
                 >
                   <Volume2 className="w-4 h-4" />
@@ -444,63 +520,40 @@ function ChatTab({ userId }: { userId: string }) {
 
                 {voiceMode && (
                   <button
-                    onMouseDown={startRecording}
-                    onMouseUp={stopRecording}
-                    onMouseLeave={() => isRecording && stopRecording()}
-                    onTouchStart={startRecording}
-                    onTouchEnd={stopRecording}
-                    disabled={chatMutation.isPending || isPlaying || transcribing}
+                    onClick={isListening ? stopListening : startListening}
+                    disabled={chatMutation.isPending || isSpeaking}
                     data-testid="button-voice-record"
-                    title="Hold to record"
+                    title={isListening ? "Stop listening" : "Tap to speak"}
                     className={cn(
-                      "p-2 rounded-lg transition-all shrink-0",
-                      isRecording
-                        ? "bg-red-600 text-white animate-pulse"
-                        : "bg-[#252545] text-gray-400 hover:text-white hover:bg-[#353565]"
+                      "p-2.5 rounded-xl transition-all shrink-0",
+                      isListening
+                        ? "bg-red-600 text-white shadow-lg shadow-red-600/30 animate-pulse"
+                        : "bg-[#1a1a2e] text-gray-400 hover:text-white hover:bg-[#252545] border border-gray-800/50 hover:border-gray-700"
                     )}
                   >
                     <Mic className="w-4 h-4" />
                   </button>
                 )}
 
-                <input
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                  placeholder={voiceMode ? "Type or hold mic to speak..." : "Type a message..."}
-                  className="flex-1 bg-[#0a0a0f] border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  data-testid="input-chat-message"
-                />
-                <Button onClick={handleSend} disabled={!message.trim() || chatMutation.isPending} size="sm" data-testid="button-send-message">
+                <div className="flex-1 relative">
+                  <input
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                    placeholder={voiceMode ? "Type or tap mic..." : "Type a message..."}
+                    className="w-full bg-[#1a1a2e] border border-gray-800/50 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/30 transition-all"
+                    data-testid="input-chat-message"
+                  />
+                </div>
+                <Button
+                  onClick={handleSend}
+                  disabled={!message.trim() || chatMutation.isPending}
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700 p-2.5 h-auto shrink-0"
+                  data-testid="button-send-message"
+                >
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
-              {voiceMode && (
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-gray-500">Voice:</span>
-                  <div className="flex gap-1 flex-wrap">
-                    {VOICE_OPTIONS.map(v => (
-                      <button
-                        key={v.id}
-                        onClick={() => voicePrefMutation.mutate(v.id)}
-                        disabled={voicePrefMutation.isPending}
-                        data-testid={`voice-pick-${v.id}`}
-                        className={cn(
-                          "px-2 py-0.5 rounded text-xs transition-all",
-                          currentVoice === v.id
-                            ? "bg-blue-600 text-white"
-                            : "bg-[#0a0a0f] text-gray-400 hover:text-white border border-gray-700"
-                        )}
-                      >
-                        {v.label}
-                      </button>
-                    ))}
-                  </div>
-                  {isRecording && (
-                    <span className="text-xs text-red-400 animate-pulse ml-auto">Recording...</span>
-                  )}
-                </div>
-              )}
             </div>
           </>
         )}
