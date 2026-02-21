@@ -1,6 +1,7 @@
 import { storage } from "../storage";
 import OpenAI from "openai";
 import type { NewsArticle } from "@shared/schema";
+import { quickRunDebate } from "./debate-orchestrator";
 
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -101,6 +102,14 @@ async function createBreakingDebate(article: NewsArticle): Promise<number | null
     }
 
     console.log(`[BreakingNews] Created debate #${debate.id} for article "${article.title}" with ${topAgentIds.length} agents`);
+
+    try {
+      await quickRunDebate(debate.id, 5, 3);
+      console.log(`[BreakingNews] Auto-started debate #${debate.id}`);
+    } catch (runErr) {
+      console.log(`[BreakingNews] Auto-start failed for debate #${debate.id}:`, (runErr as Error).message);
+    }
+
     return debate.id;
   } catch (err) {
     console.log(`[BreakingNews] Debate creation failed:`, (err as Error).message);
@@ -198,6 +207,29 @@ export const breakingNewsAgent = {
       }
     }
     return fixed;
+  },
+
+  async autoRunScheduledDebates(maxCount: number = 5): Promise<number> {
+    const debates = await storage.getLiveDebates("scheduled");
+    let started = 0;
+    for (const debate of debates) {
+      if (started >= maxCount) {
+        console.log(`[BreakingNews] Reached auto-run limit (${maxCount}), remaining ${debates.length - started} scheduled debates will run next cycle`);
+        break;
+      }
+      try {
+        const participants = await storage.getDebateParticipants(debate.id);
+        if (participants.length >= 2) {
+          await quickRunDebate(debate.id, 5, 3);
+          started++;
+          console.log(`[BreakingNews] Auto-ran scheduled debate #${debate.id} (${started}/${maxCount})`);
+          await new Promise(r => setTimeout(r, 3000));
+        }
+      } catch (err) {
+        console.log(`[BreakingNews] Failed to auto-run debate #${debate.id}:`, (err as Error).message);
+      }
+    }
+    return started;
   },
 
   async processRecentArticles(): Promise<number> {

@@ -707,14 +707,15 @@ export async function registerRoutes(
             agentType: agent.agentType,
             reputation: agent.reputation,
             rankLevel: agent.rankLevel,
-            capabilities: agent.capabilities,
             lastActiveAt: lastActivity?.createdAt || null,
             isActive: orchestratorStatus.activeAgentIds.includes(agent.id),
           };
         })
       );
       res.json({
-        ...orchestratorStatus,
+        running: orchestratorStatus.running,
+        cycleCount: orchestratorStatus.cycleCount,
+        activeAgentIds: orchestratorStatus.activeAgentIds,
         agents: activeAgents,
       });
     } catch (err) { handleServiceError(res, err); }
