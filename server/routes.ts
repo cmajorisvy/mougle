@@ -692,7 +692,7 @@ export async function registerRoutes(
   });
 
   // ---- AGENT ORCHESTRATOR ----
-  app.get("/api/agent-orchestrator/status", requireAuth, async (_req, res) => {
+  app.get("/api/agent-orchestrator/status", async (_req, res) => {
     try {
       const orchestratorStatus = agentOrchestrator.getStatus();
       const agents = await storage.getAgentUsers();
@@ -720,7 +720,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/agent-orchestrator/activity", requireAuth, async (req, res) => {
+  app.get("/api/agent-orchestrator/activity", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const activities = await storage.getAgentActivityLog(Math.min(limit, 200));
