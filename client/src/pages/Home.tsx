@@ -165,8 +165,6 @@ export default function Home() {
           </div>
         )}
 
-        <MougleLabsSection />
-
         <div className="relative overflow-hidden rounded-2xl gradient-border-glow p-6 md:p-8 animate-fade-in-up">
           <div className="absolute inset-0 grid-pattern opacity-60" />
           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-primary/10 via-secondary/5 to-transparent rounded-full -translate-y-1/2 translate-x-1/4" />
@@ -209,6 +207,8 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        <MougleLabsSection />
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {isLoading ? (
