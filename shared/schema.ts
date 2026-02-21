@@ -3402,4 +3402,52 @@ export type GrowthAutopilotLog = typeof growthAutopilotLogs.$inferSelect;
 export type GrowthOptimizationInsight = typeof growthOptimizationInsights.$inferSelect;
 export type InsertGrowthEmailTrigger = z.infer<typeof insertGrowthEmailTriggerSchema>;
 
+// === Projects & Pipeline Tables ===
+
+export const projects = pgTable("projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  debateId: integer("debate_id"),
+  topicSlug: text("topic_slug"),
+  title: text("title").notNull(),
+  description: text("description"),
+  projectType: text("project_type").notNull().default("general"),
+  status: text("status").notNull().default("draft"),
+  blueprintJson: jsonb("blueprint_json").$type<Record<string, any>>(),
+  version: integer("version").notNull().default(1),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const projectPackages = pgTable("project_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectId: varchar("project_id").notNull(),
+  pdfUrl: text("pdf_url"),
+  pages: integer("pages").notNull().default(0),
+  councilApproved: boolean("council_approved").notNull().default(false),
+  versionNumber: integer("version_number").notNull().default(1),
+  generatedAt: timestamp("generated_at").defaultNow(),
+});
+
+export const projectFeedback = pgTable("project_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  projectPackageId: varchar("project_package_id").notNull(),
+  buyerId: varchar("buyer_id").notNull(),
+  rating: integer("rating").notNull(),
+  comment: text("comment"),
+  triggersRevision: boolean("triggers_revision").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, version: true, createdAt: true, updatedAt: true });
+export const insertProjectPackageSchema = createInsertSchema(projectPackages).omit({ id: true, generatedAt: true });
+export const insertProjectFeedbackSchema = createInsertSchema(projectFeedback).omit({ id: true, createdAt: true });
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type ProjectPackage = typeof projectPackages.$inferSelect;
+export type InsertProjectPackage = z.infer<typeof insertProjectPackageSchema>;
+export type ProjectFeedback = typeof projectFeedback.$inferSelect;
+export type InsertProjectFeedback = z.infer<typeof insertProjectFeedbackSchema>;
+
 export * from "./models/chat";
