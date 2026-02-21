@@ -10,10 +10,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
 import {
-  Calculator, Cpu, Server, Wifi, HeadphonesIcon, IndianRupee,
+  Calculator, Cpu, Server, Wifi, HeadphonesIcon, DollarSign,
   TrendingUp, AlertTriangle, CheckCircle2, XCircle, Sparkles,
   BarChart3, Shield, ArrowRight, Loader2, Code, Receipt,
-  Globe, Package, FileCheck, ExternalLink, Download
+  Globe, Package, FileCheck, ExternalLink, Download,
+  Megaphone, Users, Target, Percent, Plus, Trash2,
+  ThumbsUp, ThumbsDown, Minus, Lightbulb
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -27,9 +29,8 @@ interface CostItem {
   details: string;
 }
 
-interface GstCostItem extends CostItem {
+interface TaxCostItem extends CostItem {
   rate: number;
-  itcApplied: boolean;
 }
 
 interface CostBreakdown {
@@ -39,7 +40,7 @@ interface CostBreakdown {
   support: CostItem;
   platformFee: CostItem;
   devAmortization: CostItem;
-  gst: GstCostItem;
+  tax: TaxCostItem;
   totalPerUser: number;
   totalMonthly: number;
 }
@@ -48,7 +49,7 @@ interface DevCostEstimate {
   replitAiHours: number;
   replitPlanCost: number;
   totalDevCost: number;
-  gstOnDev: number;
+  taxOnDev: number;
   effectiveDevCost: number;
   amortizationMonths: number;
   monthlyAmortized: number;
@@ -103,6 +104,24 @@ interface ValidationResult {
   warnings: string[];
 }
 
+interface MarketingChannel {
+  platform: string;
+  followers: number;
+  engagementRate?: number;
+}
+
+interface MarketingResult {
+  channelBreakdown: { platform: string; followers: number; estimatedReach: number; conversionEstimate: number; score: number }[];
+  totalReach: number;
+  totalEstimatedConversions: number;
+  adConversions: number;
+  monthlyRevenueEstimate: number;
+  successScore: number;
+  verdict: "high_potential" | "moderate" | "needs_improvement" | "risky";
+  verdictMessage: string;
+  recommendations: string[];
+}
+
 const costIcons: Record<string, typeof Cpu> = {
   aiCompute: Cpu,
   hosting: Server,
@@ -110,7 +129,7 @@ const costIcons: Record<string, typeof Cpu> = {
   support: HeadphonesIcon,
   platformFee: Shield,
   devAmortization: Code,
-  gst: Receipt,
+  tax: Receipt,
 };
 
 const costLabels: Record<string, string> = {
@@ -120,7 +139,7 @@ const costLabels: Record<string, string> = {
   support: "Support",
   platformFee: "Platform Fee",
   devAmortization: "Dev Amortization",
-  gst: "GST (18%)",
+  tax: "VAT / Tax",
 };
 
 const costColors: Record<string, string> = {
@@ -130,7 +149,7 @@ const costColors: Record<string, string> = {
   support: "text-amber-400",
   platformFee: "text-rose-400",
   devAmortization: "text-cyan-400",
-  gst: "text-orange-400",
+  tax: "text-orange-400",
 };
 
 const barColors: Record<string, string> = {
@@ -140,7 +159,35 @@ const barColors: Record<string, string> = {
   support: "bg-amber-500",
   platformFee: "bg-rose-500",
   devAmortization: "bg-cyan-500",
-  gst: "bg-orange-500",
+  tax: "bg-orange-500",
+};
+
+const PLATFORM_OPTIONS = [
+  { value: "facebook", label: "Facebook", placeholder: "Followers" },
+  { value: "instagram", label: "Instagram", placeholder: "Followers" },
+  { value: "youtube", label: "YouTube", placeholder: "Subscribers" },
+  { value: "twitter", label: "X (Twitter)", placeholder: "Followers" },
+  { value: "tiktok", label: "TikTok", placeholder: "Followers" },
+  { value: "linkedin", label: "LinkedIn", placeholder: "Connections" },
+  { value: "podcast", label: "Podcast", placeholder: "Subscribers" },
+  { value: "newsletter", label: "Newsletter", placeholder: "Subscribers" },
+  { value: "other", label: "Other", placeholder: "Audience size" },
+];
+
+const AD_TYPES = [
+  { value: "banner", label: "Banner Ads" },
+  { value: "retargeting", label: "Retargeting Ads" },
+  { value: "social_ads", label: "Social Media Ads" },
+  { value: "search_ads", label: "Search Ads (Google)" },
+  { value: "influencer", label: "Influencer Marketing" },
+  { value: "content", label: "Content Marketing" },
+];
+
+const verdictConfig: Record<string, { color: string; bg: string; border: string; icon: typeof ThumbsUp }> = {
+  high_potential: { color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", icon: ThumbsUp },
+  moderate: { color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30", icon: Minus },
+  needs_improvement: { color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30", icon: AlertTriangle },
+  risky: { color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30", icon: ThumbsDown },
 };
 
 
@@ -150,7 +197,7 @@ export default function PricingEngine() {
   const [estimatedUsers, setEstimatedUsers] = useState(100);
   const [pricingModel, setPricingModel] = useState("subscription");
   const [devHours, setDevHours] = useState(40);
-  const [gstItcEnabled, setGstItcEnabled] = useState(false);
+  const [vatRate, setVatRate] = useState(0);
   const [amortizationMonths, setAmortizationMonths] = useState(12);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [customPrice, setCustomPrice] = useState("");
@@ -160,6 +207,11 @@ export default function PricingEngine() {
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const [disclaimerChecked, setDisclaimerChecked] = useState(false);
 
+  const [channels, setChannels] = useState<MarketingChannel[]>([]);
+  const [monthlyAdBudget, setMonthlyAdBudget] = useState(0);
+  const [selectedAdTypes, setSelectedAdTypes] = useState<string[]>([]);
+  const [marketingResult, setMarketingResult] = useState<MarketingResult | null>(null);
+
   const analyzeMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("POST", "/api/pricing-engine/analyze", {
@@ -168,7 +220,7 @@ export default function PricingEngine() {
         estimatedUsers,
         pricingModel,
         devHours,
-        gstItcEnabled,
+        vatRate: vatRate / 100,
         amortizationMonths,
       });
       return res.json();
@@ -181,6 +233,7 @@ export default function PricingEngine() {
       setExportResult(null);
       setShowDisclaimer(false);
       setDisclaimerChecked(false);
+      setMarketingResult(null);
     },
   });
 
@@ -216,7 +269,46 @@ export default function PricingEngine() {
     },
   });
 
-  const allCostKeys = ["aiCompute", "hosting", "bandwidth", "support", "platformFee", "devAmortization", "gst"] as const;
+  const marketingMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/pricing-engine/evaluate-marketing", {
+        channels,
+        monthlyAdBudget,
+        adTypes: selectedAdTypes,
+        estimatedUsers: result?.estimatedUsers || estimatedUsers,
+        recommendedPrice: result?.recommendedPrice || 5,
+      });
+      return res.json();
+    },
+    onSuccess: (data: MarketingResult) => {
+      setMarketingResult(data);
+    },
+  });
+
+  const addChannel = () => {
+    setChannels([...channels, { platform: "facebook", followers: 0 }]);
+  };
+
+  const removeChannel = (index: number) => {
+    setChannels(channels.filter((_, i) => i !== index));
+    setMarketingResult(null);
+  };
+
+  const updateChannel = (index: number, field: keyof MarketingChannel, value: any) => {
+    const updated = [...channels];
+    updated[index] = { ...updated[index], [field]: value };
+    setChannels(updated);
+    setMarketingResult(null);
+  };
+
+  const toggleAdType = (type: string) => {
+    setSelectedAdTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+    setMarketingResult(null);
+  };
+
+  const allCostKeys = ["aiCompute", "hosting", "bandwidth", "support", "platformFee", "devAmortization", "tax"] as const;
   const maxCost = result ? Math.max(
     ...allCostKeys.map(k => (result.costs[k] as CostItem)?.perUser || 0),
     0.01
@@ -231,7 +323,7 @@ export default function PricingEngine() {
           </div>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-page-title">Intelligent Pricing Engine</h1>
-            <p className="text-zinc-400 text-sm">Sustainable pricing with India-based operational economics</p>
+            <p className="text-zinc-400 text-sm">Global pricing analysis for apps, tools, and products</p>
           </div>
         </div>
 
@@ -291,7 +383,7 @@ export default function PricingEngine() {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Replit AI Dev Hours</label>
+              <label className="text-sm font-medium text-zinc-300">Dev Hours</label>
               <div className="flex items-center gap-3">
                 <Slider
                   value={[devHours]}
@@ -323,16 +415,24 @@ export default function PricingEngine() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center justify-between bg-zinc-900/60 rounded-lg p-3 border border-zinc-700">
-              <div>
-                <p className="text-sm font-medium text-zinc-300">GST Input Tax Credit</p>
-                <p className="text-xs text-zinc-500">If enabled, 18% GST is excluded from cost base</p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
+                <Percent className="w-3.5 h-3.5 text-zinc-500" />
+                VAT / Tax Rate
+                <span className="text-[10px] text-zinc-500 font-normal">(optional)</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={[vatRate]}
+                  onValueChange={([v]) => setVatRate(v)}
+                  min={0}
+                  max={30}
+                  step={0.5}
+                  className="flex-1"
+                  data-testid="slider-vat-rate"
+                />
+                <span className="text-sm font-mono text-zinc-300 w-12 text-right" data-testid="text-vat-rate">{vatRate}%</span>
               </div>
-              <Switch
-                checked={gstItcEnabled}
-                onCheckedChange={setGstItcEnabled}
-                data-testid="switch-gst-itc"
-              />
             </div>
           </div>
 
@@ -355,13 +455,13 @@ export default function PricingEngine() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="section-price-summary">
               <Card className="glass-card rounded-xl p-5 border-zinc-700/50">
                 <div className="flex items-center gap-2 mb-2">
-                  <IndianRupee className="w-4 h-4 text-zinc-400" />
+                  <DollarSign className="w-4 h-4 text-zinc-400" />
                   <span className="text-xs text-zinc-400 uppercase tracking-wider">Cost / User</span>
                 </div>
                 <p className="text-2xl font-bold text-zinc-200" data-testid="text-cost-per-user">
-                  ₹{result.costs.totalPerUser.toFixed(2)}
+                  ${result.costs.totalPerUser.toFixed(2)}
                 </p>
-                <p className="text-xs text-zinc-500 mt-1">per user per month (incl. dev + GST)</p>
+                <p className="text-xs text-zinc-500 mt-1">per user per month{vatRate > 0 ? ` (incl. ${vatRate}% tax)` : ""}</p>
               </Card>
 
               <Card className="glass-card rounded-xl p-5 border-emerald-500/30 bg-emerald-500/5">
@@ -370,9 +470,9 @@ export default function PricingEngine() {
                   <span className="text-xs text-emerald-400 uppercase tracking-wider">Minimum Price</span>
                 </div>
                 <p className="text-2xl font-bold text-emerald-300" data-testid="text-minimum-price">
-                  ₹{result.minimumPrice}
+                  ${result.minimumPrice}
                 </p>
-                <p className="text-xs text-zinc-500 mt-1">ensures 50% margin (Web)</p>
+                <p className="text-xs text-zinc-500 mt-1">ensures 50% margin</p>
               </Card>
 
               <Card className="glass-card rounded-xl p-5 border-primary/30 bg-primary/5">
@@ -381,41 +481,38 @@ export default function PricingEngine() {
                   <span className="text-xs text-primary uppercase tracking-wider">Recommended</span>
                 </div>
                 <p className="text-2xl font-bold text-primary" data-testid="text-recommended-price">
-                  ₹{result.recommendedPrice}
+                  ${result.recommendedPrice}
                 </p>
-                <p className="text-xs text-zinc-500 mt-1">optimal for growth (Web)</p>
+                <p className="text-xs text-zinc-500 mt-1">optimal for growth</p>
               </Card>
             </div>
 
             <Card className="glass-card rounded-xl p-6" data-testid="section-dev-cost">
               <div className="flex items-center gap-2 mb-4">
                 <Code className="w-5 h-5 text-cyan-400" />
-                <h2 className="text-lg font-semibold">Replit Development Cost</h2>
-                {gstItcEnabled && (
-                  <Badge className="bg-emerald-500/20 text-emerald-400 text-[10px] ml-auto">ITC Applied</Badge>
-                )}
+                <h2 className="text-lg font-semibold">Development Cost</h2>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-ai-hours">
-                  <p className="text-[11px] text-zinc-500 uppercase">AI Dev Hours</p>
+                  <p className="text-[11px] text-zinc-500 uppercase">Dev Hours</p>
                   <p className="text-lg font-bold font-mono">{result.devCostEstimate.replitAiHours}h</p>
-                  <p className="text-[10px] text-zinc-600">@ ₹{25}/hr</p>
+                  <p className="text-[10px] text-zinc-600">@ $0.30/hr</p>
                 </div>
                 <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-total-cost">
                   <p className="text-[11px] text-zinc-500 uppercase">Dev Cost</p>
-                  <p className="text-lg font-bold font-mono">₹{result.devCostEstimate.totalDevCost.toLocaleString()}</p>
-                  <p className="text-[10px] text-zinc-600">AI usage + plan</p>
+                  <p className="text-lg font-bold font-mono">${result.devCostEstimate.totalDevCost.toFixed(2)}</p>
+                  <p className="text-[10px] text-zinc-600">Development + plan</p>
                 </div>
-                <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-gst">
-                  <p className="text-[11px] text-zinc-500 uppercase">GST (18%)</p>
-                  <p className={cn("text-lg font-bold font-mono", gstItcEnabled ? "text-zinc-500 line-through" : "text-orange-400")}>
-                    ₹{result.devCostEstimate.gstOnDev.toLocaleString()}
+                <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-tax">
+                  <p className="text-[11px] text-zinc-500 uppercase">Tax ({vatRate}%)</p>
+                  <p className={cn("text-lg font-bold font-mono", vatRate > 0 ? "text-orange-400" : "text-zinc-500")}>
+                    ${result.devCostEstimate.taxOnDev.toFixed(2)}
                   </p>
-                  <p className="text-[10px] text-zinc-600">{gstItcEnabled ? "ITC credited" : "Added to cost"}</p>
+                  <p className="text-[10px] text-zinc-600">{vatRate > 0 ? "Added to cost" : "No tax applied"}</p>
                 </div>
                 <div className="bg-zinc-900/60 rounded-lg p-3" data-testid="dev-amortized">
                   <p className="text-[11px] text-zinc-500 uppercase">Monthly Amortized</p>
-                  <p className="text-lg font-bold font-mono text-cyan-400">₹{result.devCostEstimate.monthlyAmortized.toLocaleString()}</p>
+                  <p className="text-lg font-bold font-mono text-cyan-400">${result.devCostEstimate.monthlyAmortized.toFixed(2)}</p>
                   <p className="text-[10px] text-zinc-600">over {result.devCostEstimate.amortizationMonths} months</p>
                 </div>
               </div>
@@ -436,29 +533,29 @@ export default function PricingEngine() {
                   if (!item) return null;
                   const Icon = costIcons[key];
                   const pct = maxCost > 0 ? (item.perUser / maxCost) * 100 : 0;
-                  const isGstZero = key === "gst" && gstItcEnabled;
+                  const isTaxZero = key === "tax" && vatRate === 0;
                   return (
-                    <div key={key} className={cn("space-y-1.5", isGstZero && "opacity-50")} data-testid={`cost-item-${key}`}>
+                    <div key={key} className={cn("space-y-1.5", isTaxZero && "opacity-40")} data-testid={`cost-item-${key}`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Icon className={cn("w-4 h-4", costColors[key])} />
-                          <span className="text-sm font-medium">{costLabels[key]}</span>
-                          {isGstZero && <Badge className="text-[9px] bg-emerald-500/20 text-emerald-400">ITC</Badge>}
+                          <span className="text-sm font-medium">{costLabels[key]}{key === "tax" && vatRate > 0 ? ` (${vatRate}%)` : ""}</span>
+                          {isTaxZero && <Badge className="text-[9px] bg-zinc-700/50 text-zinc-400">N/A</Badge>}
                         </div>
                         <div className="text-right">
-                          <span className={cn("text-sm font-mono font-semibold", isGstZero && "line-through")} data-testid={`cost-per-user-${key}`}>
-                            ₹{item.perUser.toFixed(2)}
+                          <span className="text-sm font-mono font-semibold" data-testid={`cost-per-user-${key}`}>
+                            ${item.perUser.toFixed(2)}
                           </span>
                           <span className="text-xs text-zinc-500 ml-1">/user</span>
                           <span className="text-xs text-zinc-600 ml-3">
-                            ₹{item.monthly.toFixed(0)}/mo
+                            ${item.monthly.toFixed(0)}/mo
                           </span>
                         </div>
                       </div>
                       <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                         <div
                           className={cn("h-full rounded-full transition-all", barColors[key])}
-                          style={{ width: `${Math.max(isGstZero ? 0 : pct, 2)}%` }}
+                          style={{ width: `${Math.max(isTaxZero ? 0 : pct, 2)}%` }}
                         />
                       </div>
                       <p className="text-[11px] text-zinc-500">{item.details}</p>
@@ -469,10 +566,239 @@ export default function PricingEngine() {
                 <div className="border-t border-zinc-700/50 pt-3 mt-4 flex items-center justify-between">
                   <span className="text-sm font-semibold text-zinc-300">Total Cost / User / Month</span>
                   <span className="text-lg font-bold font-mono" data-testid="text-total-cost">
-                    ₹{result.costs.totalPerUser.toFixed(2)}
+                    ${result.costs.totalPerUser.toFixed(2)}
                   </span>
                 </div>
               </div>
+            </Card>
+
+            {/* Marketing Capability Evaluator */}
+            <Card className="glass-card rounded-xl p-6 space-y-5" data-testid="section-marketing-evaluator">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
+                  <Megaphone className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">Marketing Capability Evaluator</h2>
+                  <p className="text-xs text-zinc-500">Evaluate whether your marketing reach can sustain this product</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-zinc-500" />
+                    Your Marketing Channels
+                  </label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={addChannel}
+                    className="h-7 text-xs border-zinc-700 gap-1"
+                    data-testid="button-add-channel"
+                  >
+                    <Plus className="w-3 h-3" /> Add Channel
+                  </Button>
+                </div>
+
+                {channels.length === 0 && (
+                  <div className="text-center py-6 bg-zinc-900/40 rounded-xl border border-dashed border-zinc-700/50">
+                    <Users className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                    <p className="text-sm text-zinc-500">No channels added yet</p>
+                    <p className="text-xs text-zinc-600 mt-1">Add your social media, podcast, or newsletter channels</p>
+                  </div>
+                )}
+
+                {channels.map((ch, i) => {
+                  const platformInfo = PLATFORM_OPTIONS.find(p => p.value === ch.platform);
+                  return (
+                    <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end bg-zinc-900/40 rounded-lg p-3 border border-zinc-800" data-testid={`channel-row-${i}`}>
+                      <div className="space-y-1">
+                        <label className="text-[11px] text-zinc-500">Platform</label>
+                        <Select value={ch.platform} onValueChange={(v) => updateChannel(i, "platform", v)}>
+                          <SelectTrigger className="bg-zinc-900/60 border-zinc-700 h-9 text-xs" data-testid={`channel-platform-${i}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLATFORM_OPTIONS.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] text-zinc-500">{platformInfo?.placeholder || "Followers"}</label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={ch.followers || ""}
+                          onChange={(e) => updateChannel(i, "followers", Number(e.target.value))}
+                          placeholder="e.g. 5000"
+                          className="bg-zinc-900/60 border-zinc-700 h-9 text-xs"
+                          data-testid={`channel-followers-${i}`}
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeChannel(i)}
+                        className="h-9 w-9 p-0 text-zinc-500 hover:text-red-400"
+                        data-testid={`channel-remove-${i}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-zinc-500" />
+                  Digital Marketing (Paid Ads)
+                </label>
+                <div className="space-y-2">
+                  <label className="text-[11px] text-zinc-500">Monthly Ad Budget ($)</label>
+                  <div className="flex items-center gap-3">
+                    <Slider
+                      value={[monthlyAdBudget]}
+                      onValueChange={([v]) => { setMonthlyAdBudget(v); setMarketingResult(null); }}
+                      min={0}
+                      max={5000}
+                      step={50}
+                      className="flex-1"
+                      data-testid="slider-ad-budget"
+                    />
+                    <span className="text-sm font-mono text-zinc-300 w-16 text-right" data-testid="text-ad-budget">${monthlyAdBudget}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {AD_TYPES.map(ad => (
+                    <button
+                      key={ad.value}
+                      onClick={() => toggleAdType(ad.value)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                        selectedAdTypes.includes(ad.value)
+                          ? "bg-pink-500/20 border-pink-500/40 text-pink-300"
+                          : "bg-zinc-900/40 border-zinc-700 text-zinc-400 hover:border-zinc-600"
+                      )}
+                      data-testid={`ad-type-${ad.value}`}
+                    >
+                      {ad.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                onClick={() => marketingMutation.mutate()}
+                disabled={channels.length === 0 || marketingMutation.isPending}
+                className="w-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500"
+                data-testid="button-evaluate-marketing"
+              >
+                {marketingMutation.isPending ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Evaluating...</>
+                ) : (
+                  <><Target className="w-4 h-4 mr-2" /> Evaluate Marketing Success</>
+                )}
+              </Button>
+
+              {marketingResult && (
+                <div className="space-y-4 pt-2" data-testid="section-marketing-result">
+                  {/* Verdict */}
+                  {(() => {
+                    const vc = verdictConfig[marketingResult.verdict];
+                    const VerdictIcon = vc.icon;
+                    return (
+                      <div className={cn("rounded-xl p-5 border", vc.bg, vc.border)} data-testid="marketing-verdict">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", vc.bg)}>
+                            <VerdictIcon className={cn("w-5 h-5", vc.color)} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className={cn("text-lg font-bold", vc.color)} data-testid="text-success-score">
+                                {marketingResult.successScore}/100
+                              </span>
+                              <Badge className={cn("text-[10px]", vc.bg, vc.color)}>
+                                {marketingResult.verdict.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-zinc-400 mt-1" data-testid="text-verdict-message">{marketingResult.verdictMessage}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Channel Breakdown */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="bg-zinc-900/40 rounded-xl p-4 border border-zinc-800" data-testid="marketing-overview">
+                      <h3 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-1.5">
+                        <BarChart3 className="w-3.5 h-3.5 text-zinc-500" /> Overview
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-500">Total Reach</span>
+                          <span className="font-mono font-semibold text-zinc-300">{marketingResult.totalReach.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-500">Est. Conversions (Organic)</span>
+                          <span className="font-mono font-semibold text-emerald-400">{(marketingResult.totalEstimatedConversions - marketingResult.adConversions).toLocaleString()}</span>
+                        </div>
+                        {marketingResult.adConversions > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-zinc-500">Est. Conversions (Paid)</span>
+                            <span className="font-mono font-semibold text-pink-400">{marketingResult.adConversions.toLocaleString()}</span>
+                          </div>
+                        )}
+                        <div className="border-t border-zinc-700/50 pt-2 flex justify-between text-xs">
+                          <span className="text-zinc-400 font-medium">Est. Monthly Revenue</span>
+                          <span className="font-mono font-bold text-emerald-400">${marketingResult.monthlyRevenueEstimate.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-zinc-900/40 rounded-xl p-4 border border-zinc-800" data-testid="marketing-channels-breakdown">
+                      <h3 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-zinc-500" /> Channel Performance
+                      </h3>
+                      <div className="space-y-2">
+                        {marketingResult.channelBreakdown.map((ch, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-xs text-zinc-400 w-20 truncate">{ch.platform}</span>
+                            <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-500"
+                                style={{ width: `${ch.score}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-mono text-zinc-400 w-8 text-right">{ch.score}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recommendations */}
+                  {marketingResult.recommendations.length > 0 && (
+                    <div className="bg-zinc-900/40 rounded-xl p-4 border border-zinc-800" data-testid="marketing-recommendations">
+                      <h3 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-1.5">
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-400" /> Recommendations
+                      </h3>
+                      <ul className="space-y-2">
+                        {marketingResult.recommendations.map((rec, i) => (
+                          <li key={i} className="text-xs text-zinc-400 flex items-start gap-2">
+                            <ArrowRight className="w-3 h-3 text-amber-400 mt-0.5 shrink-0" />
+                            {rec}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
 
             <Card className="glass-card rounded-xl p-6" data-testid="section-distribution">
@@ -659,16 +985,16 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
             <Card className="glass-card rounded-xl p-6 space-y-4" data-testid="section-set-price">
               <h2 className="text-lg font-semibold flex items-center gap-2">
-                <IndianRupee className="w-5 h-5 text-zinc-400" />
+                <DollarSign className="w-5 h-5 text-zinc-400" />
                 Set Your Price
               </h2>
               <p className="text-sm text-zinc-400">
-                You can set any price at or above the minimum (₹{result.minimumPrice}).
+                You can set any price at or above the minimum (${result.minimumPrice}).
                 Prices below minimum will be blocked to ensure sustainability.
               </p>
               <div className="flex items-center gap-3">
                 <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">₹</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">$</span>
                   <Input
                     type="number"
                     min={1}
@@ -714,7 +1040,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
                   <div className="grid grid-cols-3 gap-3 mt-3">
                     <div className="text-center">
                       <p className="text-[11px] text-zinc-500 uppercase">Your Price</p>
-                      <p className="text-lg font-bold" data-testid="text-validated-price">₹{validation.creatorSetPrice}</p>
+                      <p className="text-lg font-bold" data-testid="text-validated-price">${validation.creatorSetPrice}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-[11px] text-zinc-500 uppercase">Margin</p>
@@ -743,9 +1069,9 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
             </Card>
 
             <div className="text-center text-xs text-zinc-600 pb-4" data-testid="section-footer">
-              Pricing includes Replit AI development cost amortization + 18% Indian GST.
+              All prices in USD. {vatRate > 0 ? `Includes ${vatRate}% VAT/Tax. ` : ""}
               Mougle is an infrastructure provider only. External distribution responsibility lies with the creator.
-              Creators keep 70% of revenue through Razorpay Route split.
+              Creators keep 70% of revenue.
             </div>
           </>
         )}
@@ -753,3 +1079,4 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     </Layout>
   );
 }
+

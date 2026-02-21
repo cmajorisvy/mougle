@@ -3246,7 +3246,7 @@ Keep under 200 words.`
     targetMargin: z.number().min(0.1).max(0.95).optional(),
     pricingModel: z.enum(["subscription", "one_time", "usage"]).optional(),
     devHours: z.number().int().min(1).max(10000).optional(),
-    gstItcEnabled: z.boolean().optional(),
+    vatRate: z.number().min(0).max(1).optional(),
     amortizationMonths: z.number().int().min(1).max(60).optional(),
   });
 
@@ -3300,7 +3300,7 @@ Keep under 200 words.`
     estimatedUsers: z.number().int().min(1).max(100000).optional(),
     targetMargin: z.number().min(0.1).max(0.95).optional(),
     devHours: z.number().int().min(1).max(10000).optional(),
-    gstItcEnabled: z.boolean().optional(),
+    vatRate: z.number().min(0).max(1).optional(),
     amortizationMonths: z.number().int().min(1).max(60).optional(),
   });
 
@@ -3313,8 +3313,33 @@ Keep under 200 words.`
         parsed.data.estimatedUsers,
         parsed.data.targetMargin,
         parsed.data.devHours,
-        parsed.data.gstItcEnabled,
+        parsed.data.vatRate,
         parsed.data.amortizationMonths
+      );
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  const marketingEvalSchema = z.object({
+    channels: z.array(z.object({
+      platform: z.string().min(1),
+      followers: z.number().int().min(0),
+      engagementRate: z.number().min(0).max(1).optional(),
+    })),
+    monthlyAdBudget: z.number().min(0).default(0),
+    adTypes: z.array(z.string()).default([]),
+    estimatedUsers: z.number().int().min(1).default(100),
+    recommendedPrice: z.number().min(0).default(5),
+  });
+
+  app.post("/api/pricing-engine/evaluate-marketing", async (req, res) => {
+    try {
+      const parsed = marketingEvalSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+      const result = pricingEngineService.evaluateMarketing(
+        { channels: parsed.data.channels, monthlyAdBudget: parsed.data.monthlyAdBudget, adTypes: parsed.data.adTypes },
+        parsed.data.estimatedUsers,
+        parsed.data.recommendedPrice
       );
       res.json(result);
     } catch (err) { handleServiceError(res, err); }

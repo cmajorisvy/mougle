@@ -16,7 +16,7 @@ interface CostBreakdown {
   support: { monthly: number; perUser: number; details: string };
   platformFee: { monthly: number; perUser: number; details: string };
   devAmortization: { monthly: number; perUser: number; details: string };
-  gst: { monthly: number; perUser: number; details: string; rate: number; itcApplied: boolean };
+  tax: { monthly: number; perUser: number; details: string; rate: number };
   totalPerUser: number;
   totalMonthly: number;
 }
@@ -25,16 +25,14 @@ interface DevCostEstimate {
   replitAiHours: number;
   replitPlanCost: number;
   totalDevCost: number;
-  gstOnDev: number;
+  taxOnDev: number;
   effectiveDevCost: number;
   amortizationMonths: number;
   monthlyAmortized: number;
 }
 
-const GST_RATE = 0.18;
-
-const REPLIT_COST_PER_AI_HOUR = 25;
-const REPLIT_PLAN_MONTHLY = 1500;
+const REPLIT_COST_PER_AI_HOUR = 0.30;
+const REPLIT_PLAN_MONTHLY = 25;
 
 const DEV_HOURS_BY_COMPLEXITY: Record<string, number> = {
   none: 20,
@@ -136,20 +134,20 @@ function analyzePrompt(prompt: string): AppAnalysis {
   return { aiUsage, hostingTier, bandwidthTier, supportLevel };
 }
 
-function estimateDevCost(analysis: AppAnalysis, devHoursOverride?: number, gstItcEnabled = false, amortizationMonths = 12): DevCostEstimate {
+function estimateDevCost(analysis: AppAnalysis, devHoursOverride?: number, vatRate = 0, amortizationMonths = 12): DevCostEstimate {
   const replitAiHours = devHoursOverride || DEV_HOURS_BY_COMPLEXITY[analysis.aiUsage] || 40;
   const aiUsageCost = replitAiHours * REPLIT_COST_PER_AI_HOUR;
   const replitPlanCost = REPLIT_PLAN_MONTHLY * Math.ceil(replitAiHours / 160);
   const totalDevCost = aiUsageCost + replitPlanCost;
-  const gstOnDev = Math.round(totalDevCost * GST_RATE * 100) / 100;
-  const effectiveDevCost = gstItcEnabled ? totalDevCost : totalDevCost + gstOnDev;
+  const taxOnDev = vatRate > 0 ? Math.round(totalDevCost * vatRate * 100) / 100 : 0;
+  const effectiveDevCost = totalDevCost + taxOnDev;
   const monthlyAmortized = Math.round((effectiveDevCost / amortizationMonths) * 100) / 100;
 
   return {
     replitAiHours,
     replitPlanCost,
     totalDevCost,
-    gstOnDev,
+    taxOnDev,
     effectiveDevCost,
     amortizationMonths,
     monthlyAmortized,
@@ -160,7 +158,7 @@ function calculateCosts(
   analysis: AppAnalysis,
   estimatedUsers: number,
   devHoursOverride?: number,
-  gstItcEnabled = false,
+  vatRate = 0,
   amortizationMonths = 12
 ): CostBreakdown {
   const ai = AI_COST_MAP[analysis.aiUsage];
@@ -178,15 +176,14 @@ function calculateCosts(
 
   const operationalSubtotal = aiMonthly + hostingMonthly + bandwidthMonthly + supportMonthly + platformFeeMonthly;
 
-  const dev = estimateDevCost(analysis, devHoursOverride, gstItcEnabled, amortizationMonths);
+  const dev = estimateDevCost(analysis, devHoursOverride, vatRate, amortizationMonths);
   const devAmortizationMonthly = dev.monthlyAmortized;
   const devAmortizationPerUser = Math.round((devAmortizationMonthly / estimatedUsers) * 100) / 100;
 
-  const gstOnOperational = Math.round(operationalSubtotal * GST_RATE * 100) / 100;
-  const effectiveGst = gstItcEnabled ? 0 : gstOnOperational;
-  const gstPerUser = Math.round((effectiveGst / estimatedUsers) * 100) / 100;
+  const taxOnOperational = vatRate > 0 ? Math.round(operationalSubtotal * vatRate * 100) / 100 : 0;
+  const taxPerUser = vatRate > 0 ? Math.round((taxOnOperational / estimatedUsers) * 100) / 100 : 0;
 
-  const totalMonthly = operationalSubtotal + devAmortizationMonthly + effectiveGst;
+  const totalMonthly = operationalSubtotal + devAmortizationMonthly + taxOnOperational;
   const totalPerUser = Math.round((totalMonthly / estimatedUsers) * 100) / 100;
 
   return {
@@ -195,15 +192,14 @@ function calculateCosts(
     bandwidth: { monthly: Math.round(bandwidthMonthly * 100) / 100, perUser: bandwidth.perUser, details: bandwidth.details },
     support: { monthly: Math.round(supportMonthly * 100) / 100, perUser: support.perUser, details: support.details },
     platformFee: { monthly: Math.round(platformFeeMonthly * 100) / 100, perUser: platformFeePerUser, details: "Mougle platform fee (infrastructure, marketplace, billing)" },
-    devAmortization: { monthly: devAmortizationMonthly, perUser: devAmortizationPerUser, details: `Replit AI dev cost (${dev.replitAiHours}hrs) amortized over ${amortizationMonths} months` },
-    gst: {
-      monthly: effectiveGst,
-      perUser: gstPerUser,
-      details: gstItcEnabled
-        ? "GST Input Tax Credit applied — GST excluded from cost base"
-        : `18% GST on operational expenses (₹${Math.round(gstOnOperational)}/mo). Dev GST (₹${Math.round(dev.gstOnDev)}) included in amortization.`,
-      rate: GST_RATE,
-      itcApplied: gstItcEnabled,
+    devAmortization: { monthly: devAmortizationMonthly, perUser: devAmortizationPerUser, details: `Dev cost (${dev.replitAiHours}hrs) amortized over ${amortizationMonths} months` },
+    tax: {
+      monthly: taxOnOperational,
+      perUser: taxPerUser,
+      details: vatRate > 0
+        ? `${Math.round(vatRate * 100)}% VAT/Tax on operational expenses ($${Math.round(taxOnOperational)}/mo)`
+        : "No VAT/Tax applied",
+      rate: vatRate,
     },
     totalPerUser,
     totalMonthly: Math.round(totalMonthly * 100) / 100,
@@ -220,6 +216,115 @@ function calculatePricing(costs: CostBreakdown, targetMargin: number) {
   };
 }
 
+interface MarketingChannel {
+  platform: string;
+  followers: number;
+  engagementRate?: number;
+}
+
+interface MarketingInput {
+  channels: MarketingChannel[];
+  monthlyAdBudget: number;
+  adTypes: string[];
+}
+
+function evaluateMarketingSuccess(marketing: MarketingInput, estimatedUsers: number, recommendedPrice: number) {
+  let totalReach = 0;
+  const channelBreakdown: { platform: string; followers: number; estimatedReach: number; conversionEstimate: number; score: number }[] = [];
+
+  const conversionRates: Record<string, number> = {
+    facebook: 0.009,
+    instagram: 0.012,
+    youtube: 0.02,
+    twitter: 0.005,
+    tiktok: 0.015,
+    linkedin: 0.025,
+    podcast: 0.03,
+    newsletter: 0.04,
+    other: 0.008,
+  };
+
+  const engagementMultipliers: Record<string, number> = {
+    facebook: 0.06,
+    instagram: 0.08,
+    youtube: 0.15,
+    twitter: 0.03,
+    tiktok: 0.12,
+    linkedin: 0.05,
+    podcast: 0.25,
+    newsletter: 0.30,
+    other: 0.05,
+  };
+
+  for (const ch of marketing.channels) {
+    const platform = ch.platform.toLowerCase();
+    const engRate = ch.engagementRate || (engagementMultipliers[platform] || 0.05);
+    const estimatedReach = Math.round(ch.followers * engRate);
+    const convRate = conversionRates[platform] || 0.008;
+    const conversionEstimate = Math.round(estimatedReach * convRate);
+    const score = Math.min(100, Math.round((ch.followers / 1000) * 10 + engRate * 500));
+
+    totalReach += estimatedReach;
+    channelBreakdown.push({ platform: ch.platform, followers: ch.followers, estimatedReach, conversionEstimate, score });
+  }
+
+  const adConversions = marketing.monthlyAdBudget > 0
+    ? Math.round(marketing.monthlyAdBudget / (recommendedPrice * 8))
+    : 0;
+
+  const totalEstimatedConversions = channelBreakdown.reduce((sum, c) => sum + c.conversionEstimate, 0) + adConversions;
+  const monthlyRevenueEstimate = totalEstimatedConversions * recommendedPrice;
+  const reachToUserRatio = estimatedUsers > 0 ? totalEstimatedConversions / estimatedUsers : 0;
+
+  let successScore = Math.min(100, Math.round(reachToUserRatio * 100 * 1.5));
+  if (marketing.monthlyAdBudget > 0) successScore = Math.min(100, successScore + 10);
+  if (marketing.channels.length >= 3) successScore = Math.min(100, successScore + 5);
+
+  let verdict: "high_potential" | "moderate" | "needs_improvement" | "risky";
+  let verdictMessage: string;
+
+  if (successScore >= 75) {
+    verdict = "high_potential";
+    verdictMessage = "Strong marketing position! Your reach and channels can likely sustain the target user base. Worth building.";
+  } else if (successScore >= 50) {
+    verdict = "moderate";
+    verdictMessage = "Decent foundation. Consider expanding your audience or adding paid campaigns to hit your user target reliably.";
+  } else if (successScore >= 25) {
+    verdict = "needs_improvement";
+    verdictMessage = "Your current reach may not support the target users. Grow your audience first or reduce your user estimates.";
+  } else {
+    verdict = "risky";
+    verdictMessage = "Limited marketing reach. Building may result in low adoption. Strongly recommend growing your audience before investing in development.";
+  }
+
+  return {
+    channelBreakdown,
+    totalReach,
+    totalEstimatedConversions,
+    adConversions,
+    monthlyRevenueEstimate,
+    successScore,
+    verdict,
+    verdictMessage,
+    recommendations: generateRecommendations(marketing, successScore, channelBreakdown),
+  };
+}
+
+function generateRecommendations(marketing: MarketingInput, score: number, channels: any[]): string[] {
+  const recs: string[] = [];
+  if (marketing.channels.length < 2) recs.push("Diversify — add at least 2-3 marketing channels for better reach.");
+  if (marketing.monthlyAdBudget === 0) recs.push("Consider allocating even a small ad budget ($50-200/mo) for targeted campaigns.");
+  if (!marketing.channels.some(c => c.platform.toLowerCase() === "youtube" || c.platform.toLowerCase() === "podcast"))
+    recs.push("YouTube or podcasts have the highest conversion rates — consider creating content there.");
+  if (score < 50 && marketing.channels.some(c => c.followers < 500))
+    recs.push("Some channels have very low follower counts. Focus on growing your strongest channel first.");
+  if (!marketing.adTypes.includes("retargeting") && marketing.monthlyAdBudget > 0)
+    recs.push("Add retargeting ads to your strategy — they convert 3-5x better than cold ads.");
+  if (marketing.channels.length >= 3 && score >= 60)
+    recs.push("Good multi-channel presence! Consider cross-promoting across your platforms for maximum impact.");
+  return recs;
+}
+
 export const pricingEngineService = {
   async analyzeApp(params: {
     creatorId: string;
@@ -230,17 +335,18 @@ export const pricingEngineService = {
     targetMargin?: number;
     pricingModel?: string;
     devHours?: number;
-    gstItcEnabled?: boolean;
+    vatRate?: number;
     amortizationMonths?: number;
   }) {
     const estimatedUsers = params.estimatedUsers || 100;
     const targetMargin = params.targetMargin || 0.5;
     const pricingModel = params.pricingModel || "subscription";
+    const vatRate = params.vatRate || 0;
 
     const analysis = analyzePrompt(params.appPrompt);
-    const costs = calculateCosts(analysis, estimatedUsers, params.devHours, params.gstItcEnabled || false, params.amortizationMonths || 12);
+    const costs = calculateCosts(analysis, estimatedUsers, params.devHours, vatRate, params.amortizationMonths || 12);
     const { minimumPrice, recommendedPrice } = calculatePricing(costs, targetMargin);
-    const devCostEstimate = estimateDevCost(analysis, params.devHours, params.gstItcEnabled || false, params.amortizationMonths || 12);
+    const devCostEstimate = estimateDevCost(analysis, params.devHours, vatRate, params.amortizationMonths || 12);
 
     const warnings: string[] = [];
     if (analysis.aiUsage === "intensive") {
@@ -302,7 +408,7 @@ export const pricingEngineService = {
 
     const warnings: string[] = [];
     if (isBelowMinimum) {
-      warnings.push(`Price ₹${params.creatorSetPrice} is below minimum sustainable price ₹${analysis.minimumPrice}. Publishing will be blocked.`);
+      warnings.push(`Price $${params.creatorSetPrice} is below minimum sustainable price $${analysis.minimumPrice}. Publishing will be blocked.`);
     }
     if (effectiveMargin < 0.3 && !isBelowMinimum) {
       warnings.push(`Margin is only ${Math.round(effectiveMargin * 100)}%, which is below the recommended 50%.`);
@@ -325,11 +431,15 @@ export const pricingEngineService = {
     };
   },
 
-  analyzePromptOnly(prompt: string, estimatedUsers = 100, targetMargin = 0.5, devHours?: number, gstItcEnabled = false, amortizationMonths = 12) {
+  analyzePromptOnly(prompt: string, estimatedUsers = 100, targetMargin = 0.5, devHours?: number, vatRate = 0, amortizationMonths = 12) {
     const analysis = analyzePrompt(prompt);
-    const costs = calculateCosts(analysis, estimatedUsers, devHours, gstItcEnabled, amortizationMonths);
+    const costs = calculateCosts(analysis, estimatedUsers, devHours, vatRate, amortizationMonths);
     const { minimumPrice, recommendedPrice } = calculatePricing(costs, targetMargin);
-    const devCostEstimate = estimateDevCost(analysis, devHours, gstItcEnabled, amortizationMonths);
+    const devCostEstimate = estimateDevCost(analysis, devHours, vatRate, amortizationMonths);
     return { analysis, costs, minimumPrice, recommendedPrice, devCostEstimate };
+  },
+
+  evaluateMarketing(marketing: MarketingInput, estimatedUsers: number, recommendedPrice: number) {
+    return evaluateMarketingSuccess(marketing, estimatedUsers, recommendedPrice);
   },
 };
