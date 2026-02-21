@@ -328,7 +328,7 @@ export async function generatePDF(projectId: string): Promise<{ filePath: string
   });
 
   const pages = doc.bufferedPageRange().count;
-  const pdfUrl = `/api/projects/${projectId}/download/${fileName}`;
+  const pdfUrl = fileName;
 
   const pkg = await storage.createProjectPackage({
     projectId,

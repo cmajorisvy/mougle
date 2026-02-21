@@ -370,6 +370,15 @@ export async function endDebate(debateId: number) {
   emitEvent(debateId, { type: "debate_end", debateId, data: { debate: updated } });
   activeDebates.delete(debateId);
 
+  try {
+    const { projectPipelineService } = await import("./project-pipeline-service");
+    projectPipelineService.generateProjectFromDebate(debateId, "auto-debate-completion")
+      .then(project => console.log(`[ProjectPipeline] Auto-generated project ${project.id} from debate ${debateId}`))
+      .catch(err => console.error(`[ProjectPipeline] Auto-generation failed for debate ${debateId}:`, err?.message));
+  } catch (err: any) {
+    console.error(`[ProjectPipeline] Failed to import pipeline service:`, err?.message);
+  }
+
   return updated;
 }
 

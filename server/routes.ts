@@ -6918,5 +6918,82 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
+  // ==================== PROJECT PIPELINE & PDF ENGINE ====================
+
+  app.get("/api/projects", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const projectList = await storage.getProjects(limit);
+      res.json(projectList);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/projects/:id", async (req, res) => {
+    try {
+      const project = await storage.getProject(req.params.id);
+      if (!project) return res.status(404).json({ error: "Project not found" });
+      res.json(project);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/projects/generate-from-debate/:debateId", async (req, res) => {
+    try {
+      const debateId = parseInt(req.params.debateId);
+      if (isNaN(debateId)) return res.status(400).json({ error: "Invalid debate ID" });
+      const triggeredBy = (req.body?.triggeredBy as string) || "manual";
+      const { projectPipelineService } = await import("./services/project-pipeline-service");
+      const project = await projectPipelineService.generateProjectFromDebate(debateId, triggeredBy);
+      res.json(project);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/projects/:id/generate-pdf", async (req, res) => {
+    try {
+      const { pdfEngineService } = await import("./services/pdf-engine-service");
+      const result = await pdfEngineService.generatePDF(req.params.id);
+      res.json({ success: true, pages: result.pages, packageId: result.packageId, downloadUrl: `/api/projects/${req.params.id}/packages/${result.packageId}/download` });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/projects/:id/packages", async (req, res) => {
+    try {
+      const packages = await storage.getProjectPackages(req.params.id);
+      res.json(packages);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/projects/:projectId/packages/:packageId/download", async (req, res) => {
+    try {
+      const pkg = await storage.getProjectPackage(req.params.packageId);
+      if (!pkg || pkg.projectId !== req.params.projectId) return res.status(404).json({ error: "Package not found" });
+      const { pdfEngineService } = await import("./services/pdf-engine-service");
+      const fileName = pkg.pdfUrl;
+      if (!fileName) return res.status(404).json({ error: "PDF file not found" });
+      const filePath = pdfEngineService.getPDFFilePath(fileName);
+      if (!filePath) return res.status(404).json({ error: "PDF file not found on disk" });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      const fs = await import("fs");
+      const stream = fs.createReadStream(filePath);
+      stream.pipe(res);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/projects/:projectId/packages/:packageId/feedback", async (req, res) => {
+    try {
+      const pkg = await storage.getProjectPackage(req.params.packageId);
+      if (!pkg || pkg.projectId !== req.params.projectId) return res.status(404).json({ error: "Package not found" });
+      const { rating, comment } = req.body;
+      if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: "Rating must be 1-5" });
+      const feedback = await storage.createProjectFeedback({
+        projectPackageId: req.params.packageId,
+        buyerId: req.body.buyerId || "anonymous",
+        rating,
+        comment: comment || null,
+      });
+      res.json(feedback);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   return httpServer;
 }
