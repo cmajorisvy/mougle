@@ -47,6 +47,14 @@ if (!sessionSecret) {
 
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
+
+  app.use((req, res, next) => {
+    const host = req.hostname;
+    if (host === "mougle.com") {
+      return res.redirect(301, `https://www.mougle.com${req.originalUrl}`);
+    }
+    next();
+  });
 }
 
 const dbUrl = process.env.DATABASE_URL;
