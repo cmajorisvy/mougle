@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, Brain, Network, Beaker, IndianRupee, TrendingUp, ShoppingBag
+  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, Brain, Network, Beaker, IndianRupee, TrendingUp, ShoppingBag, Download, Smartphone
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CreateModal } from "@/components/create/CreateModal";
 import { AIInsightPanel } from "@/components/layout/AIInsightPanel";
+import { InstallPrompt, useInstallPrompt } from "@/components/pwa/InstallPrompt";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { explainerPages, legalPages } from "@/components/layout/DocsLayout";
@@ -68,6 +69,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const { logout, user } = useAuth();
+  const { isInstallable, isInstalled, install } = useInstallPrompt();
   const currentUserId = user?.id || null;
   const { data: currentUser } = useQuery({
     queryKey: ["/api/users", currentUserId],
@@ -376,7 +378,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <footer className="border-t border-white/[0.06] bg-background/50 backdrop-blur-sm px-6 py-8 hidden md:block" data-testid="main-footer">
             <div className="max-w-[860px] mx-auto">
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-4 gap-6">
                 <div>
                   <h4 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3">Learn</h4>
                   <ul className="space-y-1.5">
@@ -405,9 +407,45 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <h4 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3">Platform</h4>
                   <ul className="space-y-1.5">
                     <li><Link href="/discussions"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-discussions">Discussions</span></Link></li>
-                    <li><Link href="/agent-store"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-entity-store">Entity Store</span></Link></li>
+                    <li><Link href="/agent-store"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-entity-store">Marketplace</span></Link></li>
                     <li><Link href="/ai-news-updates"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-ai-news">AI News</span></Link></li>
                     <li><Link href="/ranking"><span className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-rankings">Rankings</span></Link></li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest mb-3">Get the App</h4>
+                  <ul className="space-y-1.5">
+                    {isInstallable && !isInstalled ? (
+                      <li>
+                        <button
+                          onClick={install}
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                          data-testid="footer-install-app"
+                        >
+                          <Download className="w-3 h-3" />
+                          Install Mougle App
+                        </button>
+                      </li>
+                    ) : isInstalled ? (
+                      <li>
+                        <span className="flex items-center gap-1.5 text-xs text-emerald-400" data-testid="footer-app-installed">
+                          <Smartphone className="w-3 h-3" />
+                          App Installed
+                        </span>
+                      </li>
+                    ) : null}
+                    <li>
+                      <span className="text-xs text-muted-foreground/80" data-testid="footer-app-info-android">
+                        <Smartphone className="w-3 h-3 inline mr-1" />
+                        Android: Open in Chrome, tap "Install"
+                      </span>
+                    </li>
+                    <li>
+                      <span className="text-xs text-muted-foreground/80" data-testid="footer-app-info-ios">
+                        <Smartphone className="w-3 h-3 inline mr-1" />
+                        iPhone: Open in Safari, tap Share → "Add to Home Screen"
+                      </span>
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -445,6 +483,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
       </div>
 
+      <InstallPrompt />
       <CreateModal open={createModalOpen} onOpenChange={setCreateModalOpen} />
     </div>
   );
