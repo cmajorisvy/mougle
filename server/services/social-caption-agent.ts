@@ -2,7 +2,7 @@ import { storage } from "../storage";
 import OpenAI from "openai";
 
 function getOpenAIClient(): OpenAI | null {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   if (!apiKey) return null;
   return new OpenAI({ apiKey, baseURL });

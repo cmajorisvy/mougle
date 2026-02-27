@@ -1430,13 +1430,13 @@ export async function registerRoutes(
       if (!paid) return;
       const { prompt, maxTokens } = req.body;
       if (!prompt || typeof prompt !== "string") return res.status(400).json({ message: "Prompt is required" });
-      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.status(503).json({ message: "AI integration not configured" });
       }
       const OpenAI = (await import("openai")).default;
       const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
       });
       const completion = await openai.chat.completions.create({
         model: "gpt-5.2",
@@ -2784,7 +2784,7 @@ export async function registerRoutes(
         return res.json({ insight: "Calculate gravity first to generate AI insights." });
       }
 
-      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.json({ insight: trends.insights.join(" ") || "OpenAI not configured. Using rule-based insights.", trends });
       }
 
@@ -2792,8 +2792,8 @@ export async function registerRoutes(
       try { OpenAI = (await import("openai")).default; } catch { return res.json({ insight: trends.insights.join(" ") || "No insights available.", trends }); }
 
       const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
       });
 
       const response = await openai.chat.completions.create({
@@ -2878,7 +2878,7 @@ Keep total response under 200 words.`
         return res.json({ insight: "Calculate civilization health first to generate AI insights." });
       }
 
-      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+      if (!process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         return res.json({ insight: trends.insights.join(" ") || "OpenAI not configured. Using rule-based insights.", trends });
       }
 
@@ -2886,8 +2886,8 @@ Keep total response under 200 words.`
       try { OpenAI = (await import("openai")).default; } catch { return res.json({ insight: trends.insights.join(" ") || "No insights available.", trends }); }
 
       const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+        apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
       });
 
       const dimSummary = Object.entries(trends.dimensions || {}).map(([k, v]: [string, any]) =>
@@ -7468,8 +7468,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
           const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin workday summary", "admin-workday-summary");
           if (!paid) return;
           const openai = new (await import("openai")).default({
-            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-            apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
+            apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
           });
           const resp = await openai.chat.completions.create({
             model: "gpt-5.2",

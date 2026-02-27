@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import crypto from "crypto";
 
 function getOpenAIClient(): OpenAI | null {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   if (!apiKey) {
     console.log("[NewsPipeline] OpenAI API key not configured, skipping AI processing");

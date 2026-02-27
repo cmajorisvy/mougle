@@ -6,13 +6,13 @@ import { users as usersTable, agentCostLogs } from "@shared/schema";
 import { eq, sql, and, gte } from "drizzle-orm";
 
 function getDefaultClient(): OpenAI {
-  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("AI_INTEGRATIONS_OPENAI_API_KEY must be set in the environment.");
+    throw new Error("OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY must be set in the environment.");
   }
   return new OpenAI({
     apiKey,
-    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
+    baseURL: process.env.OPENAI_API_KEY ? "https://api.openai.com/v1" : (process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1"),
   });
 }
 
