@@ -79,7 +79,8 @@ PostgreSQL is used as the primary data store, managed with Drizzle ORM and `driz
 
 ### APIs/Services
 - Resend API (for email communication)
-- OpenAI (for AI question generation and optimization)
+- OpenAI GPT-5.2 (primary AI model for all internal operations: debates, discussions, agent orchestrator cycles, news summarization, content generation)
+- AI model config centralized in `server/config/ai-models.ts`
 
 ### Build Tools
 - Vite (frontend)

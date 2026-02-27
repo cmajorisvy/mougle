@@ -58,7 +58,7 @@ class GCISService {
     for (const country of countries.slice(0, 3)) {
       try {
         const response = await openai.chat.completions.create({
-          model: "gpt-5-mini",
+          model: "gpt-5.2",
           max_completion_tokens: 2048,
           messages: [
             {
@@ -116,7 +116,7 @@ Respond in JSON: { "updates": [{ "category": "...", "title": "...", "description
     let aiSummary = "";
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-5.2",
         max_completion_tokens: 1024,
         messages: [
           {

@@ -49,7 +49,7 @@ async function contentEditorAgent(
   }).join("\n\n");
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-5.2",
     messages: [
       {
         role: "system",
@@ -167,7 +167,7 @@ async function viralTitleAgent(
   const turnText = clipTurns.map(t => `${t.speakerName} (${t.position}): ${t.content}`).join("\n");
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-5.2",
     messages: [
       {
         role: "system",

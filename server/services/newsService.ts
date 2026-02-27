@@ -188,7 +188,7 @@ async function processArticleWithAI(articleId: number): Promise<boolean> {
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [
         { role: "system", content: AI_SUMMARIZATION_PROMPT },
         {

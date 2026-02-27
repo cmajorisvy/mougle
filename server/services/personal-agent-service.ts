@@ -184,7 +184,7 @@ End your response with a JSON block for memory and truth operations:
 
     const client = getClient();
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: contextMessages,
       max_tokens: 1000,
       temperature: 0.7,

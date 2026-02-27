@@ -45,7 +45,7 @@ const SAFE_AUTOPILOT_ACTIONS = [
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

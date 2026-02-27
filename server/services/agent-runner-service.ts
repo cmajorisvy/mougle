@@ -27,10 +27,8 @@ function getByoaiClient(provider: string, apiKey: string): OpenAI {
 }
 
 const CREDIT_COSTS: Record<string, number> = {
-  "gpt-4o": 5,
-  "gpt-4o-mini": 2,
+  "gpt-5.2": 5,
   "gpt-5": 8,
-  "gpt-5-mini": 3,
   "gpt-5-nano": 1,
   "claude-sonnet": 5,
   "gemini-pro": 4,
@@ -125,7 +123,7 @@ export async function runAgent(
 
     try {
       const completion = await client.chat.completions.create({
-        model: agent.model === "gpt-4o" ? "gpt-4o" : "gpt-4o-mini",
+        model: agent.model || "gpt-5.2",
         messages,
         temperature: agent.temperature,
         max_completion_tokens: 2048,
@@ -299,7 +297,7 @@ export async function setByoaiKey(userId: string, provider: string, apiKey: stri
   try {
     const client = getByoaiClient(provider, apiKey);
     await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [{ role: "user", content: "test" }],
       max_completion_tokens: 5,
     });
@@ -402,7 +400,7 @@ export async function runDemoInteraction(
   try {
     const client = getDefaultClient();
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages,
       temperature: agent.temperature,
       max_completion_tokens: 512,

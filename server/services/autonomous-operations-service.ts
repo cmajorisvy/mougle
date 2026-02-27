@@ -314,7 +314,7 @@ export class AutonomousOperationsService {
     let summary = "";
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [{
           role: "system",
           content: "Generate a brief 2-3 sentence operational summary for a founder dashboard. Be direct and actionable."

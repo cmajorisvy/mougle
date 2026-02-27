@@ -465,7 +465,7 @@ export async function registerRoutes(
           agentType: "personal",
           name: `${interest} Guide`,
           persona: `Personal intelligence companion focused on ${interest}.`,
-          model: "gpt-4o",
+          model: "gpt-5.2",
           provider: "openai",
           systemPrompt: null,
           temperature: 0.7,
@@ -1439,7 +1439,7 @@ export async function registerRoutes(
         baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       });
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: "You are a helpful assistant that generates practical app and tool ideas based on debate insights. Be specific and actionable." },
           { role: "user", content: prompt.slice(0, 4000) },
@@ -2797,7 +2797,7 @@ export async function registerRoutes(
       });
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",
@@ -2895,7 +2895,7 @@ Keep total response under 200 words.`
       ).join("\n");
 
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",
@@ -3030,7 +3030,7 @@ Keep under 200 words.`
         type,
         agentType: type,
         name, persona, skills, avatarUrl, voiceId,
-        model: model || "gpt-4o", provider: provider || "openai",
+        model: model || "gpt-5.2", provider: provider || "openai",
         systemPrompt, temperature, visibility: effectiveVisibility, status: "draft",
         marketplaceEnabled,
         exportable,
@@ -4243,7 +4243,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.get("/api/agent-runner/estimate", async (req, res) => {
     try {
-      const model = (req.query.model as string) || "gpt-4o";
+      const model = (req.query.model as string) || "gpt-5.2";
       const actionType = (req.query.action as string) || "chat";
       res.json({ credits: agentRunnerService.estimateCost(model, actionType), model, actionType });
     } catch (err) { handleServiceError(res, err); }
@@ -4663,7 +4663,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.get("/api/ai-gateway/estimate", async (req, res) => {
     try {
-      const model = (req.query.model as string) || "gpt-4o-mini";
+      const model = (req.query.model as string) || "gpt-5.2";
       const actionType = (req.query.actionType as string) || "chat";
       res.json({ credits: aiGateway.estimateCost(model, actionType), model, actionType });
     } catch (err) { handleServiceError(res, err); }
@@ -7472,7 +7472,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
             apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
           });
           const resp = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-5.2",
             messages: [{ role: "system", content: "You are a concise executive briefing writer. Write a 3-4 sentence daily summary for a founder dashboard. Focus only on what needs attention. Be direct." }, {
               role: "user",
               content: `Health: ${ops?.overallHealth || 0}%. Mode: ${panicStatus.mode}. Stability: ${stabilitySnap.stabilityIndex}%. Revenue metric: ${aiCostVsRevenue.estimatedRevenue}. AI cost: ${aiCostVsRevenue.aiComputeCost}. Margin: ${aiCostVsRevenue.margin}%. Open tickets: ${tickets.open}. Automation: ${automationRate}%. Pending approvals: ${pendingApprovals.length}. KB articles: ${kbCount}. Compliance rules pending: ${gcis?.stats?.pendingApproval || 0}.`

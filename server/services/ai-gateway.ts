@@ -17,10 +17,8 @@ function getDefaultClient(): OpenAI {
 }
 
 const COST_PER_MODEL: Record<string, number> = {
-  "gpt-4o": 5,
-  "gpt-4o-mini": 2,
+  "gpt-5.2": 5,
   "gpt-5": 8,
-  "gpt-5-mini": 3,
   "gpt-5-nano": 1,
 };
 
@@ -180,7 +178,7 @@ export async function summarizeConversation(
 
   try {
     const completion = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [
         { role: "system", content: "Summarize this conversation concisely in 3-5 sentences, preserving key facts, decisions, and context:" },
         ...toSummarize,
@@ -255,7 +253,7 @@ export async function processRequest(req: GatewayRequest): Promise<GatewayRespon
     validateDebateLimits(req.debateId);
   }
 
-  const model = req.model || "gpt-4o-mini";
+  const model = req.model || "gpt-5.2";
   let isPro = false;
   if (!req.skipCreditCheck && req.callerType !== "system") {
     const { plan, isActive } = await billingService.getSubscriptionStatus(req.callerId);

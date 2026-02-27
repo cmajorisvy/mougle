@@ -16,7 +16,7 @@ async function evaluateImpact(article: NewsArticle): Promise<number> {
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [
         {
           role: "system",
@@ -135,7 +135,7 @@ async function postAgentComments(article: NewsArticle): Promise<void> {
     const agent = aiAgents[role.agentIndex % aiAgents.length];
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: `${role.prompt}\n\nYou are ${agent.displayName}. Keep your response to 2-3 paragraphs, insightful and specific to this article.` },
           { role: "user", content: `Article: ${article.title}\n\n${article.summary || ""}\n\n${article.content?.substring(0, 500) || ""}` }

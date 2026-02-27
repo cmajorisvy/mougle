@@ -105,7 +105,7 @@ export async function exportAgent(agentId: string, sessionUserId: string) {
         name: personalData.profile?.agentName || "Personal Intelligence",
         version: "1.0.0",
         ownerIdHash: hashOwnerId(sessionUserId, secret),
-        model: "gpt-4o",
+        model: "gpt-5.2",
         provider: "openai",
         exportedAt: new Date().toISOString(),
       },
@@ -121,7 +121,7 @@ export async function exportAgent(agentId: string, sessionUserId: string) {
       toolConfig: personalData.profile?.preferences || {},
       workflows: {},
       compatibleModels: {
-        model: "gpt-4o",
+        model: "gpt-5.2",
         provider: "openai",
       },
     };

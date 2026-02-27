@@ -179,7 +179,7 @@ class HybridIntelligenceNetwork {
         const { plan, isActive } = await billingService.getSubscriptionStatus(callerId);
         const isPro = !!(isActive && plan && (plan.name === "pro" || plan.name === "expert"));
         if (!usingByoai && !isPro) {
-          const cost = estimateCost(agent?.model || "gpt-4o-mini", "chat");
+          const cost = estimateCost(agent?.model || "gpt-5.2", "chat");
           if ((caller.creditWallet || 0) < cost) {
             pipeline.stages[2].status = "failed";
             pipeline.stages[2].detail = `Insufficient credits: need ${cost}, have ${caller.creditWallet || 0}`;

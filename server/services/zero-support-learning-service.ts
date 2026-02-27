@@ -22,7 +22,7 @@ export class ZeroSupportLearningService {
   async classifyTicket(subject: string, description: string): Promise<{ category: string; intent: string; suggestedPriority: string }> {
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",
@@ -59,7 +59,7 @@ Respond with: {"category":"...","intent":"...","suggestedPriority":"..."}`
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",
@@ -106,7 +106,7 @@ Respond with: {"category":"...","intent":"...","suggestedPriority":"..."}`
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",
@@ -165,7 +165,7 @@ Respond with: {"category":"...","intent":"...","suggestedPriority":"..."}`
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",
@@ -201,7 +201,7 @@ Articles:\n${articles.map(a => `ID: ${a.id} | Title: ${a.title} | Problem: ${a.p
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",
@@ -244,7 +244,7 @@ Respond with JSON: {"reply":"your helpful response","preventiveHelp":"optional t
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "system",

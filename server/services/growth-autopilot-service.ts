@@ -433,7 +433,7 @@ class GrowthAutopilotService {
 
     try {
       const resp = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [{
           role: "user",
           content: `Analyze these growth metrics for Mougle platform and provide optimization insights.

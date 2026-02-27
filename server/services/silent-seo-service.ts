@@ -115,7 +115,7 @@ Generate a JSON response with:
 
     try {
       const resp = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         max_tokens: 3000,
@@ -188,7 +188,7 @@ Generate a JSON response with:
 
     try {
       const resp = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         max_tokens: 1500,

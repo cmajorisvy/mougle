@@ -230,7 +230,7 @@ Make questions fun and shareable. Avoid anything too personal or sensitive.`;
 
     try {
       const resp = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         max_tokens: 2000,

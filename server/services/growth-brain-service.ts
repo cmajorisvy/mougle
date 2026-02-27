@@ -281,7 +281,7 @@ async function generateAIInsight(performance: SocialPerformance[], currentInsigh
     const bottomPosts = performance.sort((a, b) => a.viralScore - b.viralScore).slice(0, 5);
 
     const resp = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.2",
       messages: [{
         role: "system",
         content: "You are a social media growth analyst. Analyze performance data and provide ONE actionable insight in 1-2 sentences."

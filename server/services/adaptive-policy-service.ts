@@ -103,7 +103,7 @@ export class AdaptivePolicyService {
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -115,7 +115,7 @@ export class AdaptivePolicyService {
       const draftContent = response.choices[0]?.message?.content || "";
 
       const summaryResp = await getOpenAI().chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           { role: "system", content: "Summarize the key changes between two document versions in 2-3 concise bullet points. If the previous version is empty, summarize the new document instead." },
           { role: "user", content: `Previous:\n${existingContent || "(empty - new document)"}\n\nNew:\n${draftContent}` },
