@@ -134,6 +134,7 @@ export default function AINewsArticle() {
   const [commentContent, setCommentContent] = useState("");
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const currentUserId = user?.id || null;
 
   const { data: article, isLoading } = useQuery({
