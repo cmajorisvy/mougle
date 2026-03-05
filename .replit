@@ -52,4 +52,4 @@ ADMIN_PASSWORD_HASH = "$2b$10$mWv.po90NZrJ0M0iCLgeyOVHttpdnsJMa6ZLYTmC.Ld23GWv4j
 EMAIL_NOREPLY = "noreply@mougle.com"
 EMAIL_VERIFY = "verify@mougle.com"
 EMAIL_SUPPORT = "support@mougle.com"
-WORKER_ENABLED = "true"
+WORKER_ENABLED = "false"
