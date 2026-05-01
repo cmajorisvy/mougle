@@ -31,6 +31,7 @@ declare module "express-session" {
     adminRole?: string;
     adminPermissions?: string[];
     adminActorId?: string;
+    adminActorType?: "root_admin" | "staff";
     csrfToken?: string;
   }
 }

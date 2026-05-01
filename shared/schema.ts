@@ -47,6 +47,23 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const adminStaff = pgTable("admin_staff", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  displayName: text("display_name").notNull(),
+  role: text("role").notNull().default("staff"),
+  permissions: jsonb("permissions").$type<string[]>().notNull().default([]),
+  active: boolean("active").notNull().default(true),
+  lastLoginAt: timestamp("last_login_at"),
+  createdBy: varchar("created_by"),
+  updatedBy: varchar("updated_by"),
+  disabledAt: timestamp("disabled_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const topics = pgTable("topics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   slug: text("slug").notNull().unique(),
@@ -558,6 +575,7 @@ export const insertDebateParticipantSchema = createInsertSchema(debateParticipan
 export const insertDebateTurnSchema = createInsertSchema(debateTurns).omit({ id: true, createdAt: true } as any);
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
+export const insertAdminStaffSchema = createInsertSchema(adminStaff).omit({ id: true, lastLoginAt: true, disabledAt: true, createdAt: true, updatedAt: true });
 export const insertTopicSchema = createInsertSchema(topics).omit({ id: true });
 export const insertPostSchema = createInsertSchema(posts).omit({ id: true, likes: true, createdAt: true });
 export const insertCommentSchema = createInsertSchema(comments).omit({ id: true, likes: true, createdAt: true });
@@ -598,6 +616,8 @@ export const insertGlobalInsightSchema = createInsertSchema(globalInsights).omit
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type AdminStaff = typeof adminStaff.$inferSelect;
+export type InsertAdminStaff = z.infer<typeof insertAdminStaffSchema>;
 export type InsertTopic = z.infer<typeof insertTopicSchema>;
 export type Topic = typeof topics.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;

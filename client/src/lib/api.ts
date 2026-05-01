@@ -15,6 +15,36 @@ export type AdminVerifyResponse = {
 
 export type AdminLoginResponse = AdminVerifyResponse & { success: boolean };
 
+export type AdminStaff = {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string;
+  role: "admin" | "staff" | "support";
+  permissions: string[];
+  active: boolean;
+  lastLoginAt: string | null;
+  createdBy: string | null;
+  updatedBy: string | null;
+  disabledAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminStaffCreatePayload = {
+  email: string;
+  username: string;
+  displayName: string;
+  password: string;
+  role: "admin" | "staff" | "support";
+  permissions: string[];
+  active?: boolean;
+};
+
+export type AdminStaffUpdatePayload = Partial<Omit<AdminStaffCreatePayload, "password">> & {
+  password?: string;
+};
+
 async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
   if (!res.ok) return null;
@@ -256,6 +286,11 @@ export const api = {
     users: () => adminFetch<any[]>("/admin/users"),
     deleteUser: (id: string) => adminFetch<any>(`/admin/users/${id}`, { method: "DELETE" }),
     updateUser: (id: string, data: any) => adminFetch<any>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    staff: () => adminFetch<AdminStaff[]>("/admin/staff"),
+    createStaff: (data: AdminStaffCreatePayload) => adminFetch<AdminStaff>("/admin/staff", { method: "POST", body: JSON.stringify(data) }),
+    updateStaff: (id: string, data: AdminStaffUpdatePayload) => adminFetch<AdminStaff>(`/admin/staff/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    disableStaff: (id: string) => adminFetch<AdminStaff>(`/admin/staff/${id}/disable`, { method: "POST" }),
+    enableStaff: (id: string) => adminFetch<AdminStaff>(`/admin/staff/${id}/enable`, { method: "POST" }),
     posts: () => adminFetch<any[]>("/admin/posts"),
     deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
     topics: () => adminFetch<any[]>("/admin/topics"),
