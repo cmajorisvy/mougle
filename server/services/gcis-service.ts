@@ -6,10 +6,22 @@ import {
 } from "@shared/schema";
 import { eq, desc, sql, gte, count, and } from "drizzle-orm";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
-});
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (openaiClient) return openaiClient;
+
+  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY must be set in the environment.");
+  }
+
+  openaiClient = new OpenAI({
+    apiKey,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
+  });
+  return openaiClient;
+}
 
 const LEGAL_CATEGORIES = [
   "data_privacy", "ai_regulation", "content_moderation", "digital_services",
@@ -57,7 +69,7 @@ class GCISService {
 
     for (const country of countries.slice(0, 3)) {
       try {
-        const response = await openai.chat.completions.create({
+        const response = await getOpenAI().chat.completions.create({
           model: "gpt-5.2",
           max_completion_tokens: 2048,
           messages: [
@@ -115,7 +127,7 @@ Respond in JSON: { "updates": [{ "category": "...", "title": "...", "description
 
     let aiSummary = "";
     try {
-      const response = await openai.chat.completions.create({
+      const response = await getOpenAI().chat.completions.create({
         model: "gpt-5.2",
         max_completion_tokens: 1024,
         messages: [

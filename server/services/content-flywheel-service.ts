@@ -1,5 +1,6 @@
 import { storage } from "../storage";
-import { openai, textToSpeech } from "../replit_integrations/audio/client";
+import { textToSpeech } from "../replit_integrations/audio/client";
+import OpenAI from "openai";
 import { spawn } from "child_process";
 import { writeFile, mkdir, readFile, unlink } from "fs/promises";
 import { existsSync } from "fs";
@@ -9,6 +10,17 @@ import type { DebateTurn, DebateParticipant, FlywheelJob } from "@shared/schema"
 
 const CLIPS_DIR = join(process.cwd(), "generated_clips");
 const TEMP_DIR = join(process.cwd(), "temp_flywheel");
+
+function getOpenAI(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY or AI_INTEGRATIONS_OPENAI_API_KEY must be set in the environment.");
+  }
+  return new OpenAI({
+    apiKey,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  });
+}
 
 interface HighlightSegment {
   title: string;
@@ -48,7 +60,7 @@ async function contentEditorAgent(
     return `[Turn ${i}] ${name} (${pos}): ${t.content}`;
   }).join("\n\n");
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-5.2",
     messages: [
       {
@@ -166,7 +178,7 @@ async function viralTitleAgent(
 ): Promise<ClipMetadata> {
   const turnText = clipTurns.map(t => `${t.speakerName} (${t.position}): ${t.content}`).join("\n");
 
-  const response = await openai.chat.completions.create({
+  const response = await getOpenAI().chat.completions.create({
     model: "gpt-5.2",
     messages: [
       {
