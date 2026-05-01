@@ -5,7 +5,7 @@ let csrfToken: string | null = null;
 
 export type AdminVerifyResponse = {
   valid: boolean;
-  role: "super_admin" | "admin" | "staff" | null;
+  role: "super_admin" | AdminStaffRole | null;
   permissions: string[];
   actor: {
     id: string;
@@ -20,7 +20,7 @@ export type AdminStaff = {
   email: string;
   username: string;
   displayName: string;
-  role: "admin" | "staff" | "support";
+  role: AdminStaffRole;
   permissions: string[];
   active: boolean;
   lastLoginAt: string | null;
@@ -31,18 +31,46 @@ export type AdminStaff = {
   updatedAt: string | null;
 };
 
+export type AdminAccessType = "main_admin" | "staff_admin";
+export type AdminStaffRole = "admin" | "staff" | "support" | "moderator" | "content" | "finance" | "ai_operator";
+
 export type AdminStaffCreatePayload = {
   email: string;
   username: string;
   displayName: string;
   password: string;
-  role: "admin" | "staff" | "support";
+  role: AdminStaffRole;
   permissions: string[];
   active?: boolean;
 };
 
 export type AdminStaffUpdatePayload = Partial<Omit<AdminStaffCreatePayload, "password">> & {
   password?: string;
+};
+
+export type AdminAccessRequestPayload = {
+  fullName: string;
+  email: string;
+  username: string;
+  requestedAccessType: AdminAccessType;
+  requestedRole: AdminStaffRole;
+  reason: string;
+  password: string;
+  confirmPassword: string;
+};
+
+export type AdminAccessRequestResponse = {
+  success: boolean;
+  message: string;
+  request: {
+    id: string;
+    status: string;
+    email: string;
+    username: string;
+    requestedAccessType: AdminAccessType;
+    requestedRole: AdminStaffRole;
+    tokenExpiresAt: string;
+  };
 };
 
 export type AdminSystemAgent = {
@@ -325,6 +353,8 @@ export const api = {
   admin: {
     login: (username: string, password: string) =>
       fetchJSON<AdminLoginResponse>("/admin/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+    requestAccess: (data: AdminAccessRequestPayload) =>
+      fetchJSON<AdminAccessRequestResponse>("/admin/access-requests", { method: "POST", body: JSON.stringify(data) }),
     logout: () => adminFetch<any>("/admin/logout", { method: "POST" }),
     verify: () => adminFetch<AdminVerifyResponse>("/admin/verify"),
     stats: () => adminFetch<any>("/admin/stats"),

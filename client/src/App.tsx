@@ -26,6 +26,7 @@ import CreditsWallet from "@/pages/CreditsWallet";
 import Billing from "@/pages/Billing";
 import NotificationsPage from "@/pages/Notifications";
 import SettingsPage from "@/pages/Settings";
+import AdminAccessRequest from "@/pages/admin/AdminAccessRequest";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import FounderControl from "@/pages/admin/FounderControl";
@@ -211,6 +212,7 @@ function Router() {
       <Route path="/legal/terms" component={TermsOfServicePage} />
       <Route path="/legal/cookies" component={CookiePolicyPage} />
       <Route path="/legal/ai-usage" component={AIUsagePolicyPage} />
+      <Route path="/admin/request-access" component={AdminAccessRequest} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route path="/staff/dashboard" component={StaffDashboard} />

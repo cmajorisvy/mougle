@@ -64,6 +64,33 @@ export const adminStaff = pgTable("admin_staff", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const adminStaffAccessRequests = pgTable("admin_staff_access_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fullName: text("full_name").notNull(),
+  email: text("email").notNull(),
+  username: text("username").notNull(),
+  requestedAccessType: text("requested_access_type").notNull(),
+  requestedRole: text("requested_role").notNull(),
+  requestedPermissions: jsonb("requested_permissions").$type<string[]>().notNull().default([]),
+  passwordHash: text("password_hash").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("pending"),
+  reviewTokenHashes: jsonb("review_token_hashes").$type<{
+    email: string;
+    approvalTokenHash: string;
+    rejectionTokenHash: string;
+  }[]>().notNull().default([]),
+  tokenExpiresAt: timestamp("token_expires_at").notNull(),
+  approvedByEmail: text("approved_by_email"),
+  rejectedByEmail: text("rejected_by_email"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdStaffId: varchar("created_staff_id"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const topics = pgTable("topics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   slug: text("slug").notNull().unique(),
@@ -618,6 +645,8 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type AdminStaff = typeof adminStaff.$inferSelect;
 export type InsertAdminStaff = z.infer<typeof insertAdminStaffSchema>;
+export type AdminStaffAccessRequest = typeof adminStaffAccessRequests.$inferSelect;
+export type InsertAdminStaffAccessRequest = typeof adminStaffAccessRequests.$inferInsert;
 export type InsertTopic = z.infer<typeof insertTopicSchema>;
 export type Topic = typeof topics.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;

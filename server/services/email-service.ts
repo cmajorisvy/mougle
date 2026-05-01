@@ -105,6 +105,15 @@ function cardWrap(inner: string): string {
   return `<div style="background:#12141e;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:32px;text-align:center;">${inner}</div>`;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export class EmailService {
   async sendVerificationEmail(to: string, code: string, displayName: string) {
     try {
@@ -298,6 +307,64 @@ export class EmailService {
       return result;
     } catch (err) {
       console.error(`[Email] Failed admin alert to ${to}:`, err);
+    }
+  }
+
+  async sendAdminAccessRequestReviewEmail(to: string, request: {
+    requestId: string;
+    fullName: string;
+    email: string;
+    username: string;
+    requestedAccessType: string;
+    requestedRole: string;
+    requestedPermissions: string[];
+    reason: string;
+    approveUrl: string;
+    rejectUrl: string;
+    expiresAt: Date;
+  }) {
+    try {
+      const { client } = await getResendClient();
+      const accessLabel = request.requestedAccessType === "main_admin"
+        ? "Main Admin / Admin Control Center"
+        : "Staff Admin / Staff Dashboard";
+      const permissions = request.requestedPermissions.length > 0
+        ? request.requestedPermissions.map((permission) => `<span style="display:inline-block;background:#0a0b10;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:4px 8px;margin:2px;color:#d1d5db;font-size:11px;">${escapeHtml(permission)}</span>`).join("")
+        : `<span style="color:#6b7280;font-size:12px;">No permissions requested</span>`;
+
+      const result = await client.emails.send({
+        from: getSender("admin"),
+        to,
+        subject: `Review Mougle admin access request — ${request.fullName}`,
+        html: wrapTemplate(cardWrap(`
+          <p style="color:#e5e7eb;font-size:16px;margin:0 0 8px;font-weight:600;">Admin/staff access request</p>
+          <p style="color:#9ca3af;font-size:13px;margin:0 0 20px;line-height:1.6;">
+            A requester is asking for internal Mougle access. Approval activates the account; rejection keeps login blocked.
+          </p>
+          <div style="background:#0a0b10;border-radius:12px;padding:16px;text-align:left;margin:0 0 18px;">
+            <p style="color:#6b7280;font-size:10px;text-transform:uppercase;margin:0 0 4px;">Requester</p>
+            <p style="color:#e5e7eb;font-size:13px;margin:0 0 12px;">${escapeHtml(request.fullName)} &lt;${escapeHtml(request.email)}&gt;</p>
+            <p style="color:#6b7280;font-size:10px;text-transform:uppercase;margin:0 0 4px;">Username</p>
+            <p style="color:#e5e7eb;font-size:13px;margin:0 0 12px;font-family:monospace;">${escapeHtml(request.username)}</p>
+            <p style="color:#6b7280;font-size:10px;text-transform:uppercase;margin:0 0 4px;">Requested access</p>
+            <p style="color:#e5e7eb;font-size:13px;margin:0 0 12px;">${escapeHtml(accessLabel)} · ${escapeHtml(request.requestedRole)}</p>
+            <p style="color:#6b7280;font-size:10px;text-transform:uppercase;margin:0 0 6px;">Permissions after approval</p>
+            <div style="margin:0 0 12px;">${permissions}</div>
+            <p style="color:#6b7280;font-size:10px;text-transform:uppercase;margin:0 0 4px;">Reason</p>
+            <p style="color:#d1d5db;font-size:12px;line-height:1.5;white-space:pre-wrap;margin:0;">${escapeHtml(request.reason)}</p>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:0 0 18px;">
+            <a href="${request.approveUrl}" style="display:inline-block;background:#16a34a;color:#fff;font-size:13px;font-weight:700;padding:11px 24px;border-radius:10px;text-decoration:none;">Approve Access</a>
+            <a href="${request.rejectUrl}" style="display:inline-block;background:#dc2626;color:#fff;font-size:13px;font-weight:700;padding:11px 24px;border-radius:10px;text-decoration:none;">Reject Request</a>
+          </div>
+          <p style="color:#6b7280;font-size:11px;margin:0 0 8px;">These per-recipient review links expire at ${escapeHtml(request.expiresAt.toUTCString())}.</p>
+          <p style="color:#4b5563;font-size:10px;margin:0;word-break:break-all;">Request ID: ${escapeHtml(request.requestId)}</p>
+        `)),
+      });
+      console.log(`[Email] Admin access request review sent to ${to}`, result);
+      return result;
+    } catch (err) {
+      console.error(`[Email] Failed admin access request review to ${to}:`, err);
     }
   }
 
