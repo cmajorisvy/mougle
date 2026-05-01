@@ -97,6 +97,24 @@ const ROOT_ADMIN_ROLE = "super_admin";
 const ROOT_ADMIN_ACTOR_ID = "env-root-admin";
 const ROOT_ADMIN_PERMISSIONS = ["*"];
 const STAFF_MANAGE_PERMISSION = "staff:manage";
+const SUPPORT_VIEW_PERMISSIONS = ["support:view", "support:manage"];
+const SUPPORT_MANAGE_PERMISSIONS = ["support:manage"];
+const MODERATION_VIEW_PERMISSIONS = ["moderation:view", "moderation:manage", "legal-safety:view"];
+const MODERATION_MANAGE_PERMISSIONS = ["moderation:manage"];
+const CONTENT_VIEW_PERMISSIONS = ["content:view", "content:manage", "news:manage"];
+const CONTENT_MANAGE_PERMISSIONS = ["content:manage", "news:manage"];
+const KNOWLEDGE_VIEW_PERMISSIONS = ["knowledge:view", "knowledge:manage", ...SUPPORT_VIEW_PERMISSIONS, ...CONTENT_VIEW_PERMISSIONS];
+const KNOWLEDGE_MANAGE_PERMISSIONS = ["knowledge:manage", ...SUPPORT_MANAGE_PERMISSIONS, ...CONTENT_MANAGE_PERMISSIONS];
+const AI_OPS_VIEW_PERMISSIONS = ["ai:ops", "ai:manage", "costs:view"];
+const BILLING_VIEW_PERMISSIONS = ["billing:view", "revenue:view"];
+const RISK_VIEW_PERMISSIONS = ["audit:view", "risk:manage", "compliance:manage"];
+const RISK_MANAGE_PERMISSIONS = ["risk:manage", "compliance:manage"];
+const OPERATIONS_VIEW_PERMISSIONS = ["operations:view", "operations:manage", "build:manage"];
+const OPERATIONS_MANAGE_PERMISSIONS = ["operations:manage", "build:manage"];
+const SEO_VIEW_PERMISSIONS = ["seo:view", "seo:manage", ...CONTENT_VIEW_PERMISSIONS];
+const MARKETING_VIEW_PERMISSIONS = ["marketing:view", "marketing:manage", ...CONTENT_VIEW_PERMISSIONS];
+const COMPLIANCE_VIEW_PERMISSIONS = ["compliance:view", "compliance:manage", ...RISK_VIEW_PERMISSIONS];
+const COMPLIANCE_MANAGE_PERMISSIONS = ["compliance:manage", ...RISK_MANAGE_PERMISSIONS];
 
 function rootAdminConfigured() {
   return !!ADMIN_USERNAME && !!ADMIN_PASSWORD_HASH;
@@ -107,13 +125,15 @@ function getAdminVerification(req: any) {
     return null;
   }
 
+  const actorType = req.session.adminActorType || "root_admin";
+
   return {
     valid: true,
     role: req.session.adminRole || ROOT_ADMIN_ROLE,
-    permissions: req.session.adminPermissions || ROOT_ADMIN_PERMISSIONS,
+    permissions: req.session.adminPermissions || (actorType === "staff" ? [] : ROOT_ADMIN_PERMISSIONS),
     actor: {
       id: req.session.adminActorId || ROOT_ADMIN_ACTOR_ID,
-      type: req.session.adminActorType || "root_admin",
+      type: actorType,
     },
   };
 }
@@ -125,13 +145,32 @@ function requireAdmin(req: any, res: any, next: any) {
   next();
 }
 
+function isRootAdmin(admin: ReturnType<typeof getAdminVerification>) {
+  return !!admin && admin.actor.type === "root_admin" && admin.role === ROOT_ADMIN_ROLE;
+}
+
+function requireRootAdmin(req: any, res: any, next: any) {
+  const admin = getAdminVerification(req);
+  if (!admin) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  if (!isRootAdmin(admin)) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+  next();
+}
+
 function requireAdminPermission(permission: string) {
+  return requireAnyAdminPermission([permission]);
+}
+
+function requireAnyAdminPermission(permissions: readonly string[]) {
   return (req: any, res: any, next: any) => {
     const admin = getAdminVerification(req);
     if (!admin) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    if (!admin.permissions.includes("*") && !admin.permissions.includes(permission)) {
+    if (!admin.permissions.includes("*") && !permissions.some((permission) => admin.permissions.includes(permission))) {
       return res.status(403).json({ message: "Forbidden" });
     }
     next();
@@ -1866,7 +1905,7 @@ export async function registerRoutes(
     res.json(getAdminVerification(_req));
   });
 
-  app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/stats", requireRootAdmin, async (_req, res) => {
     try {
       const [userCount, postCount, topicCount, debateCount, agentCount] = await Promise.all([
         db.select({ count: sql<number>`count(*)` }).from(users_table),
@@ -1889,14 +1928,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/users", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/users", requireRootAdmin, async (_req, res) => {
     try {
       const allUsers = await db.select().from(users_table).orderBy(desc(users_table.reputation));
       res.json(allUsers.map(u => ({ ...u, password: undefined })));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/users/:id", requireRootAdmin, async (req, res) => {
     try {
       const id = req.params.id as string;
       await db.delete(users_table).where(eq(users_table.id, id));
@@ -1904,7 +1943,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/users/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/users/:id", requireRootAdmin, async (req, res) => {
     try {
       const id = req.params.id as string;
       const adminUpdateSchema = z.object({
@@ -2014,14 +2053,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/posts", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/posts", requireAnyAdminPermission(CONTENT_VIEW_PERMISSIONS), async (_req, res) => {
     try {
       const allPosts = await db.select().from(posts_table).orderBy(desc(posts_table.createdAt));
       res.json(allPosts);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/admin/posts/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/posts/:id", requireAnyAdminPermission(MODERATION_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const id = req.params.id as string;
       await db.delete(posts_table).where(eq(posts_table.id, id));
@@ -2029,14 +2068,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/topics", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/topics", requireAnyAdminPermission(CONTENT_VIEW_PERMISSIONS), async (_req, res) => {
     try {
       const allTopics = await db.select().from(topics_table).orderBy(asc(topics_table.label));
       res.json(allTopics);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/topics", requireAdmin, async (req, res) => {
+  app.post("/api/admin/topics", requireAnyAdminPermission(CONTENT_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const parsed = insertTopicSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid topic data" });
@@ -2045,7 +2084,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/admin/topics/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/topics/:id", requireAnyAdminPermission(CONTENT_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const id = req.params.id as string;
       await db.delete(topics_table).where(eq(topics_table.id, id));
@@ -2053,14 +2092,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/debates", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/debates", requireAnyAdminPermission(MODERATION_VIEW_PERMISSIONS), async (_req, res) => {
     try {
       const allDebates = await storage.getLiveDebates();
       res.json(allDebates);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/admin/debates/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/debates/:id", requireAnyAdminPermission(MODERATION_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
       await db.delete(liveDebates_table).where(eq(liveDebates_table.id, id));
@@ -2068,7 +2107,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/trigger/:system", requireAdmin, async (req, res) => {
+  app.post("/api/admin/trigger/:system", requireRootAdmin, async (req, res) => {
     try {
       const system = req.params.system as string;
       let result: any;
@@ -2110,7 +2149,7 @@ export async function registerRoutes(
   });
 
   // ---- ADMIN MODERATION ----
-  app.get("/api/admin/moderation/flagged-users", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/moderation/flagged-users", requireAnyAdminPermission(MODERATION_VIEW_PERMISSIONS), async (_req, res) => {
     try {
       const flagged = await storage.getFlaggedUsers();
       res.json(flagged.map(u => ({
@@ -2128,7 +2167,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/moderation/logs", requireAdmin, async (req, res) => {
+  app.get("/api/admin/moderation/logs", requireAnyAdminPermission(MODERATION_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
       const logs = await storage.getModerationLogs(limit);
@@ -2136,14 +2175,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/moderation/logs/:userId", requireAdmin, async (req, res) => {
+  app.get("/api/admin/moderation/logs/:userId", requireAnyAdminPermission(MODERATION_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const logs = await storage.getModerationLogsByUser(req.params.userId);
       res.json(logs);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/moderation/shadow-ban/:userId", requireAdmin, async (req, res) => {
+  app.post("/api/admin/moderation/shadow-ban/:userId", requireAnyAdminPermission(MODERATION_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       await storage.shadowBanUser(req.params.userId);
       founderDebugService.trackModerationAction("shadow_ban", req.params.userId);
@@ -2151,14 +2190,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/moderation/unban/:userId", requireAdmin, async (req, res) => {
+  app.post("/api/admin/moderation/unban/:userId", requireAnyAdminPermission(MODERATION_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       await storage.unbanUser(req.params.userId);
       res.json({ message: "User unbanned" });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/moderation/mark-spammer/:userId", requireAdmin, async (req, res) => {
+  app.post("/api/admin/moderation/mark-spammer/:userId", requireAnyAdminPermission(MODERATION_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       await storage.markUserAsSpammer(req.params.userId);
       founderDebugService.trackModerationAction("mark_spammer", req.params.userId);
@@ -2166,7 +2205,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/moderation/user-status/:userId", requireAdmin, async (req, res) => {
+  app.get("/api/admin/moderation/user-status/:userId", requireAnyAdminPermission(MODERATION_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const status = await getUserModerationStatus(req.params.userId);
       res.json(status);
@@ -2228,14 +2267,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/news/trigger", requireAdmin, async (req, res) => {
+  app.post("/api/news/trigger", requireAnyAdminPermission(CONTENT_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const result = await newsPipelineService.runPipeline();
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/news/evaluate-breaking", requireAdmin, async (_req, res) => {
+  app.post("/api/news/evaluate-breaking", requireAnyAdminPermission(CONTENT_MANAGE_PERMISSIONS), async (_req, res) => {
     try {
       const { breakingNewsAgent } = await import("./services/breaking-news-agent");
       const processed = await breakingNewsAgent.processRecentArticles();
@@ -2347,14 +2386,14 @@ export async function registerRoutes(
   });
 
   // ---- SOCIAL MEDIA ADMIN ----
-  app.get("/api/admin/social/accounts", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/social/accounts", requireRootAdmin, async (_req, res) => {
     try {
       const accounts = await storage.getSocialAccounts();
       res.json(accounts);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/social/accounts", requireAdmin, async (req, res) => {
+  app.post("/api/admin/social/accounts", requireRootAdmin, async (req, res) => {
     try {
       const { platform, accountName, accessToken, refreshToken, autoPostEnabled, contentTypes } = req.body;
       if (!platform || !accountName) return res.status(400).json({ message: "platform and accountName required" });
@@ -2369,7 +2408,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/social/accounts/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/social/accounts/:id", requireRootAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updated = await storage.updateSocialAccount(id, req.body);
@@ -2377,7 +2416,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/admin/social/accounts/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/social/accounts/:id", requireRootAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteSocialAccount(id);
@@ -2385,7 +2424,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/social/posts", requireAdmin, async (req, res) => {
+  app.get("/api/admin/social/posts", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const status = req.query.status as string | undefined;
@@ -2394,14 +2433,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/social/posts", requireAdmin, async (req, res) => {
+  app.post("/api/admin/social/posts", requireRootAdmin, async (req, res) => {
     try {
       const post = await storage.createSocialPost(req.body);
       res.json(post);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/social/posts/:id/publish", requireAdmin, async (req, res) => {
+  app.post("/api/admin/social/posts/:id/publish", requireRootAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { socialPublisherService } = await import("./services/social-publisher-service");
@@ -2410,7 +2449,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/social/generate-caption", requireAdmin, async (req, res) => {
+  app.post("/api/admin/social/generate-caption", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin social caption", "admin-social-caption");
       if (!paid) return;
@@ -2422,7 +2461,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/social/trigger-publish", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/social/trigger-publish", requireRootAdmin, async (_req, res) => {
     try {
       const { socialPublisherService } = await import("./services/social-publisher-service");
       const result = await socialPublisherService.processPendingPosts();
@@ -2430,7 +2469,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/promotion/scores", requireAdmin, async (req, res) => {
+  app.get("/api/admin/promotion/scores", requireRootAdmin, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const status = req.query.status as string | undefined;
@@ -2439,7 +2478,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/promotion/scores/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/promotion/scores/:id", requireRootAdmin, async (req, res) => {
     try {
       const score = await storage.getPromotionScore(parseInt(req.params.id));
       if (!score) return res.status(404).json({ message: "Not found" });
@@ -2447,14 +2486,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/promotion/review-queue", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/promotion/review-queue", requireRootAdmin, async (_req, res) => {
     try {
       const queue = await storage.getPendingReviewPromotions();
       res.json(queue);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/promotion/evaluate", requireAdmin, async (req, res) => {
+  app.post("/api/admin/promotion/evaluate", requireRootAdmin, async (req, res) => {
     try {
       const { contentType, contentId } = req.body;
       if (!contentType || !contentId) return res.status(400).json({ message: "contentType and contentId required" });
@@ -2464,7 +2503,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/promotion/evaluate-all", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/promotion/evaluate-all", requireRootAdmin, async (_req, res) => {
     try {
       const { promotionSelectorAgent } = await import("./services/promotion-selector-agent");
       const evaluated = await promotionSelectorAgent.evaluateRecentContent();
@@ -2473,7 +2512,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/promotion/override/:id", requireAdmin, async (req, res) => {
+  app.post("/api/admin/promotion/override/:id", requireRootAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { decision } = req.body;
@@ -2486,7 +2525,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/promotion/process", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/promotion/process", requireRootAdmin, async (_req, res) => {
     try {
       const { promotionSelectorAgent } = await import("./services/promotion-selector-agent");
       const results = await promotionSelectorAgent.processPromotions();
@@ -2495,7 +2534,7 @@ export async function registerRoutes(
   });
 
   // ---- AI GROWTH BRAIN ----
-  app.get("/api/admin/growth/analytics", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/growth/analytics", requireRootAdmin, async (_req, res) => {
     try {
       const { growthBrainService } = await import("./services/growth-brain-service");
       const analytics = await growthBrainService.getAnalytics();
@@ -2503,7 +2542,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/growth/performance", requireAdmin, async (req, res) => {
+  app.get("/api/admin/growth/performance", requireRootAdmin, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const platform = req.query.platform as string | undefined;
@@ -2516,7 +2555,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/growth/viral", requireAdmin, async (req, res) => {
+  app.get("/api/admin/growth/viral", requireRootAdmin, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const data = await storage.getTopViralPosts(limit);
@@ -2524,7 +2563,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/growth/patterns", requireAdmin, async (req, res) => {
+  app.get("/api/admin/growth/patterns", requireRootAdmin, async (req, res) => {
     try {
       const platform = req.query.platform as string | undefined;
       const data = await storage.getGrowthPatterns(platform);
@@ -2532,7 +2571,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/growth/learn", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/growth/learn", requireRootAdmin, async (_req, res) => {
     try {
       const { growthBrainService } = await import("./services/growth-brain-service");
       const collected = await growthBrainService.collectPerformanceFromSocialPosts();
@@ -2541,7 +2580,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/growth/optimize", requireAdmin, async (req, res) => {
+  app.post("/api/admin/growth/optimize", requireRootAdmin, async (req, res) => {
     try {
       const { platform } = req.body;
       if (!platform) return res.status(400).json({ message: "platform required" });
@@ -2552,7 +2591,7 @@ export async function registerRoutes(
   });
 
   // ---- FOUNDER CONTROL LAYER ----
-  app.get("/api/admin/founder-control/configs", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/founder-control/configs", requireRootAdmin, async (_req, res) => {
     try {
       const { founderControlService } = await import("./services/founder-control-service");
       const configs = await founderControlService.getAllConfigs();
@@ -2560,7 +2599,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/founder-control/status", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/founder-control/status", requireRootAdmin, async (_req, res) => {
     try {
       const { founderControlService } = await import("./services/founder-control-service");
       const config = await founderControlService.getConfig();
@@ -2569,7 +2608,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/founder-control/config/:key", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/founder-control/config/:key", requireRootAdmin, async (req, res) => {
     try {
       const { key } = req.params;
       const { value } = req.body;
@@ -2582,7 +2621,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/founder-control/bulk-update", requireAdmin, async (req, res) => {
+  app.post("/api/admin/founder-control/bulk-update", requireRootAdmin, async (req, res) => {
     try {
       const { updates } = req.body;
       if (!Array.isArray(updates)) {
@@ -2594,7 +2633,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/founder-control/emergency-stop", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/founder-control/emergency-stop", requireRootAdmin, async (_req, res) => {
     try {
       const { founderControlService } = await import("./services/founder-control-service");
       await founderControlService.triggerEmergencyStop();
@@ -2602,7 +2641,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/founder-control/emergency-release", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/founder-control/emergency-release", requireRootAdmin, async (_req, res) => {
     try {
       const { founderControlService } = await import("./services/founder-control-service");
       await founderControlService.releaseEmergencyStop();
@@ -2610,7 +2649,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/command-center/health", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/command-center/health", requireRootAdmin, async (_req, res) => {
     try {
       const { escalationService } = await import("./services/escalation-service");
       const { activityMonitorService } = await import("./services/activity-monitor-service");
@@ -2634,7 +2673,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/command-center/alerts", requireAdmin, async (req, res) => {
+  app.get("/api/admin/command-center/alerts", requireRootAdmin, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const anomalies = await storage.getAllAnomalies(limit);
@@ -2642,14 +2681,14 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/command-center/open-alerts", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/command-center/open-alerts", requireRootAdmin, async (_req, res) => {
     try {
       const anomalies = await storage.getOpenAnomalies();
       res.json(anomalies);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/command-center/alerts/:id/acknowledge", requireAdmin, async (req, res) => {
+  app.post("/api/admin/command-center/alerts/:id/acknowledge", requireRootAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updated = await storage.updateAnomalyStatus(id, "acknowledged");
@@ -2657,7 +2696,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/command-center/alerts/:id/resolve", requireAdmin, async (req, res) => {
+  app.post("/api/admin/command-center/alerts/:id/resolve", requireRootAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updated = await storage.updateAnomalyStatus(id, "resolved", new Date());
@@ -2665,7 +2704,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/command-center/decisions", requireAdmin, async (req, res) => {
+  app.get("/api/admin/command-center/decisions", requireRootAdmin, async (req, res) => {
     try {
       const status = req.query.status as string;
       if (status === "pending") {
@@ -2679,7 +2718,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/command-center/decisions/:id/approve", requireAdmin, async (req, res) => {
+  app.post("/api/admin/command-center/decisions/:id/approve", requireRootAdmin, async (req, res) => {
     try {
       const { escalationService } = await import("./services/escalation-service");
       const id = parseInt(req.params.id);
@@ -2688,7 +2727,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/command-center/decisions/:id/reject", requireAdmin, async (req, res) => {
+  app.post("/api/admin/command-center/decisions/:id/reject", requireRootAdmin, async (req, res) => {
     try {
       const { escalationService } = await import("./services/escalation-service");
       const id = parseInt(req.params.id);
@@ -2697,7 +2736,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/command-center/policy", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/command-center/policy", requireRootAdmin, async (_req, res) => {
     try {
       const { escalationService } = await import("./services/escalation-service");
       const policy = await escalationService.getPolicy();
@@ -2705,7 +2744,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/command-center/policy", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/command-center/policy", requireRootAdmin, async (req, res) => {
     try {
       const { escalationService } = await import("./services/escalation-service");
       const { mode, safeMode, killSwitch } = req.body;
@@ -2714,7 +2753,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/command-center/kill-switch", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/command-center/kill-switch", requireRootAdmin, async (_req, res) => {
     try {
       const { escalationService } = await import("./services/escalation-service");
       const { founderControlService } = await import("./services/founder-control-service");
@@ -2724,7 +2763,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/command-center/kill-switch/release", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/command-center/kill-switch/release", requireRootAdmin, async (_req, res) => {
     try {
       const { escalationService } = await import("./services/escalation-service");
       const { founderControlService } = await import("./services/founder-control-service");
@@ -2734,7 +2773,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/command-center/safe-mode", requireAdmin, async (req, res) => {
+  app.post("/api/admin/command-center/safe-mode", requireRootAdmin, async (req, res) => {
     try {
       const { escalationService } = await import("./services/escalation-service");
       const { enabled } = req.body;
@@ -2743,7 +2782,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/command-center/metrics/:key", requireAdmin, async (req, res) => {
+  app.get("/api/admin/command-center/metrics/:key", requireRootAdmin, async (req, res) => {
     try {
       const { activityMonitorService } = await import("./services/activity-monitor-service");
       const since = req.query.since ? new Date(req.query.since as string) : undefined;
@@ -2752,7 +2791,7 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/command-center/scan", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/command-center/scan", requireRootAdmin, async (_req, res) => {
     try {
       const { activityMonitorService } = await import("./services/activity-monitor-service");
       const { anomalyDetectorService } = await import("./services/anomaly-detector-service");
@@ -2869,27 +2908,27 @@ export async function registerRoutes(
     try { res.json(await billingService.getUsageStats(req.params.userId)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/billing/analytics", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/billing/analytics", requireAnyAdminPermission(BILLING_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await billingService.getFounderAnalytics()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/billing/flywheel", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/billing/flywheel", requireRootAdmin, async (_req, res) => {
     try { res.json(await billingService.getRevenueFlywheelData()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/billing/phase-transition", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/billing/phase-transition", requireRootAdmin, async (_req, res) => {
     try { res.json(await billingService.getPhaseTransitionData()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/transition-index", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/transition-index", requireRootAdmin, async (_req, res) => {
     try { res.json(await phaseTransitionService.getTransitionIndex()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/transition-metrics", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/transition-metrics", requireRootAdmin, async (_req, res) => {
     try { res.json(await phaseTransitionService.computeMetrics()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/billing/flywheel/sync", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/billing/flywheel/sync", requireRootAdmin, async (_req, res) => {
     try { 
       await billingService.syncFlywheelMetrics();
       res.json({ success: true });
@@ -2937,13 +2976,13 @@ export async function registerRoutes(
     try { res.json(await seoService.getKnowledgeFeed()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/seo/stats", requireAdmin, async (_req, res) => {
+  app.get("/api/seo/stats", requireAnyAdminPermission(SEO_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await seoService.getSEOStats()); } catch (err) { handleServiceError(res, err); }
   });
 
   const { authorityService } = await import("./services/authority-service");
 
-  app.post("/api/admin/seo/calculate-authority", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/calculate-authority", requireRootAdmin, async (req, res) => {
     try {
       const { topicSlug } = req.body;
       if (topicSlug) {
@@ -2959,27 +2998,27 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/calculate-gravity", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/seo/calculate-gravity", requireRootAdmin, async (_req, res) => {
     try {
       const result = await seoService.calculateNetworkGravity();
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/gravity/history", requireAdmin, async (req, res) => {
+  app.get("/api/admin/gravity/history", requireAnyAdminPermission(SEO_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       res.json(await seoService.getGravityHistory(limit));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/gravity/trends", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/gravity/trends", requireAnyAdminPermission(SEO_VIEW_PERMISSIONS), async (_req, res) => {
     try {
       res.json(await seoService.getGravityTrends());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/gravity/generate-insights", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/gravity/generate-insights", requireRootAdmin, async (_req, res) => {
     try {
       const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin gravity insights", "admin-gravity-insights");
       if (!paid) return;
@@ -3053,27 +3092,27 @@ Keep total response under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/calculate-civilization", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/seo/calculate-civilization", requireRootAdmin, async (_req, res) => {
     try {
       const result = await seoService.calculateCivilizationHealth();
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/civilization/history", requireAdmin, async (req, res) => {
+  app.get("/api/admin/civilization/history", requireRootAdmin, async (req, res) => {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       res.json(await seoService.getCivilizationHistory(limit));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/civilization/trends", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/civilization/trends", requireRootAdmin, async (_req, res) => {
     try {
       res.json(await seoService.getCivilizationTrends());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/civilization/generate-insights", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/civilization/generate-insights", requireRootAdmin, async (_req, res) => {
     try {
       const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin civilization insights", "admin-civilization-insights");
       if (!paid) return;
@@ -3167,7 +3206,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/verify-post", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/verify-post", requireRootAdmin, async (req, res) => {
     try {
       const { postId } = req.body;
       res.json({ score: await authorityService.calculateVerificationScore(postId) });
@@ -3176,7 +3215,7 @@ Keep under 200 words.`
 
   const { aiContentService } = await import("./services/ai-content-service");
 
-  app.post("/api/admin/seo/generate-post-seo", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/generate-post-seo", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO post", "admin-seo-post");
       if (!paid) return;
@@ -3187,7 +3226,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/generate-debate-consensus", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/generate-debate-consensus", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO debate consensus", "admin-seo-consensus");
       if (!paid) return;
@@ -3198,7 +3237,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/batch-generate", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/batch-generate", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO batch", "admin-seo-batch");
       if (!paid) return;
@@ -3773,7 +3812,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/moderation/reports", requireAdmin, async (req, res) => {
+  app.get("/api/admin/moderation/reports", requireAnyAdminPermission(MODERATION_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
       const reports = await legalSafetyService.getAllReports(status);
@@ -3781,7 +3820,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/moderation/resolve", requireAdmin, async (req, res) => {
+  app.post("/api/admin/moderation/resolve", requireAnyAdminPermission(MODERATION_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const { reportId, moderatorId, action, notes } = req.body;
       if (!reportId || !moderatorId || !action) return res.status(400).json({ error: "reportId, moderatorId, action required" });
@@ -3790,7 +3829,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/moderation/dismiss", requireAdmin, async (req, res) => {
+  app.post("/api/admin/moderation/dismiss", requireAnyAdminPermission(MODERATION_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const { reportId, moderatorId, notes } = req.body;
       if (!reportId || !moderatorId) return res.status(400).json({ error: "reportId, moderatorId required" });
@@ -3847,7 +3886,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/legal-safety/stats", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/legal-safety/stats", requireAnyAdminPermission(MODERATION_VIEW_PERMISSIONS), async (_req, res) => {
     try {
       const stats = await legalSafetyService.getModerationStats();
       res.json(stats);
@@ -4608,7 +4647,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- FOUNDER AI COST CONTROL ANALYTICS ----
 
-  app.get("/api/admin/agent-cost-analytics", requireAdmin, async (req, res) => {
+  app.get("/api/admin/agent-cost-analytics", requireAnyAdminPermission(AI_OPS_VIEW_PERMISSIONS), async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       res.json(await agentRunnerService.getPlatformCostAnalytics());
@@ -4809,7 +4848,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- ADMIN TRUST NETWORK ANALYTICS ----
 
-  app.get("/api/admin/trust/network", requireAdmin, async (req, res) => {
+  app.get("/api/admin/trust/network", requireAnyAdminPermission(AI_OPS_VIEW_PERMISSIONS), async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const analytics = await agentTrustEngine.getNetworkAnalytics();
@@ -4817,7 +4856,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/trust/recalculate-all", requireAdmin, async (req, res) => {
+  app.post("/api/admin/trust/recalculate-all", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await agentTrustEngine.recalculateAll();
@@ -4825,7 +4864,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/trust/unsuspend/:agentId", requireAdmin, async (req, res) => {
+  app.post("/api/admin/trust/unsuspend/:agentId", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       await agentTrustEngine.unsuspendAgent(req.params.agentId);
@@ -4835,7 +4874,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- AI GATEWAY COST MONITOR (FOUNDER ONLY) ----
 
-  app.get("/api/admin/ai-gateway/metrics", requireAdmin, async (req, res) => {
+  app.get("/api/admin/ai-gateway/metrics", requireAnyAdminPermission(AI_OPS_VIEW_PERMISSIONS), async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const metrics = aiGateway.getGatewayMetrics();
@@ -4857,7 +4896,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/ai-gateway/reset-metrics", requireAdmin, async (req, res) => {
+  app.post("/api/admin/ai-gateway/reset-metrics", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       aiGateway.resetMetrics();
@@ -4888,7 +4927,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- CIVILIZATION STABILITY LAYER ----
 
-  app.get("/api/admin/civilization/stability", requireAdmin, async (req, res) => {
+  app.get("/api/admin/civilization/stability", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const dashboard = await civilizationStabilityService.getStabilityDashboard();
@@ -4896,7 +4935,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/civilization/stability/recompute", requireAdmin, async (req, res) => {
+  app.post("/api/admin/civilization/stability/recompute", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await civilizationStabilityService.runFullStabilityCheck();
@@ -4904,7 +4943,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/civilization/policies", requireAdmin, async (req, res) => {
+  app.get("/api/admin/civilization/policies", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const rules = await storage.getPolicyRules();
@@ -4912,7 +4951,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/civilization/policies", requireAdmin, async (req, res) => {
+  app.post("/api/admin/civilization/policies", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const { name, description, scope, conditionJson, actionJson, severity } = req.body;
@@ -4922,7 +4961,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/civilization/policies/:id/toggle", requireAdmin, async (req, res) => {
+  app.post("/api/admin/civilization/policies/:id/toggle", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const rules = await storage.getPolicyRules();
@@ -4933,7 +4972,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/civilization/violations", requireAdmin, async (req, res) => {
+  app.get("/api/admin/civilization/violations", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const violations = await storage.getPolicyViolations(100);
@@ -4941,7 +4980,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/civilization/health/history", requireAdmin, async (req, res) => {
+  app.get("/api/admin/civilization/health/history", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const history = await storage.getHealthSnapshots(50);
@@ -4951,7 +4990,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- AUTONOMOUS PLATFORM FLYWHEEL ----
 
-  app.get("/api/admin/flywheel/overview", requireAdmin, async (req, res) => {
+  app.get("/api/admin/flywheel/overview", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const overview = await platformFlywheelService.getOverview();
@@ -4959,7 +4998,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/flywheel/run", requireAdmin, async (req, res) => {
+  app.post("/api/admin/flywheel/run", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await platformFlywheelService.runAnalysisCycle();
@@ -4967,7 +5006,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/flywheel/recommendations", requireAdmin, async (req, res) => {
+  app.get("/api/admin/flywheel/recommendations", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const status = req.query.status as string | undefined;
@@ -4976,7 +5015,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/flywheel/recommendations/:id/apply", requireAdmin, async (req, res) => {
+  app.post("/api/admin/flywheel/recommendations/:id/apply", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const outcome = await platformFlywheelService.applyRecommendation(req.params.id, req.body.notes);
@@ -4985,7 +5024,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/flywheel/recommendations/:id/dismiss", requireAdmin, async (req, res) => {
+  app.post("/api/admin/flywheel/recommendations/:id/dismiss", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await platformFlywheelService.dismissRecommendation(req.params.id, req.body.reason);
@@ -4994,7 +5033,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/flywheel/outcomes", requireAdmin, async (req, res) => {
+  app.get("/api/admin/flywheel/outcomes", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const outcomes = await storage.getFlywheelOutcomes(50);
@@ -5002,7 +5041,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/flywheel/config", requireAdmin, async (req, res) => {
+  app.get("/api/admin/flywheel/config", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const config = await storage.getFlywheelAutomationConfig();
@@ -5010,7 +5049,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/admin/flywheel/config", requireAdmin, async (req, res) => {
+  app.put("/api/admin/flywheel/config", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const { mode } = req.body;
@@ -5023,7 +5062,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/flywheel/events", requireAdmin, async (req, res) => {
+  app.get("/api/admin/flywheel/events", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const events = await storage.getPlatformEvents(100);
@@ -5079,7 +5118,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/teams/analytics", requireAdmin, async (req, res) => {
+  app.get("/api/admin/teams/analytics", requireRootAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const analytics = await teamOrchestrationService.getTeamAnalytics();
@@ -5879,29 +5918,29 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- RISK MANAGEMENT ----
 
-  app.get("/api/risk/overview", requireAdmin, async (_req, res) => {
+  app.get("/api/risk/overview", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await riskManagementService.getRiskOverview()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/risk/audit-logs", requireAdmin, async (req, res) => {
+  app.get("/api/risk/audit-logs", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const { actorId, action, riskLevel, limit } = req.query as any;
       res.json(await riskManagementService.getAuditLogs({ actorId, action, riskLevel, limit: limit ? parseInt(limit) : 100 }));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/risk/snapshots", requireAdmin, async (req, res) => {
+  app.get("/api/risk/snapshots", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 30;
       res.json(await riskManagementService.getRiskSnapshots(limit));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/risk/snapshot", requireAdmin, async (_req, res) => {
+  app.post("/api/risk/snapshot", requireAnyAdminPermission(RISK_MANAGE_PERMISSIONS), async (_req, res) => {
     try { await riskManagementService.createSnapshot(); res.json({ created: true }); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/risk/data-requests", requireAdmin, async (req, res) => {
+  app.get("/api/risk/data-requests", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const { status, type, limit } = req.query as any;
       res.json(await riskManagementService.getDataRequests({ status, type, limit: limit ? parseInt(limit) : 50 }));
@@ -5924,38 +5963,38 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/risk/process-export/:id", requireAdmin, async (req, res) => {
+  app.post("/api/risk/process-export/:id", requireAnyAdminPermission(RISK_MANAGE_PERMISSIONS), async (req, res) => {
     try { res.json(await riskManagementService.processDataExport(req.params.id)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/risk/process-deletion/:id", requireAdmin, async (req, res) => {
+  app.post("/api/risk/process-deletion/:id", requireAnyAdminPermission(RISK_MANAGE_PERMISSIONS), async (req, res) => {
     try { await riskManagementService.processDataDeletion(req.params.id); res.json({ processed: true }); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/risk/dashboard", requireAdmin, async (_req, res) => {
+  app.get("/api/risk/dashboard", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await riskManagementService.getComprehensiveDashboard()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/risk/gateway-health", requireAdmin, async (_req, res) => {
+  app.get("/api/risk/gateway-health", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await riskManagementService.getGatewayHealth()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/risk/memory-isolation", requireAdmin, async (_req, res) => {
+  app.get("/api/risk/memory-isolation", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await riskManagementService.getMemoryIsolationStatus()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/risk/trends", requireAdmin, async (req, res) => {
+  app.get("/api/risk/trends", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const days = req.query.days ? parseInt(req.query.days as string) : 14;
       res.json(await riskManagementService.getRiskTrends(days));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/risk/mitigations", requireAdmin, async (_req, res) => {
+  app.get("/api/risk/mitigations", requireAnyAdminPermission(RISK_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(riskManagementService.getMitigationControls()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/risk/mitigations/:id", requireAdmin, async (req, res) => {
+  app.post("/api/risk/mitigations/:id", requireAnyAdminPermission(RISK_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const { enabled, threshold } = req.body;
       res.json(riskManagementService.updateMitigationControl(req.params.id, { enabled, threshold }));
@@ -6031,11 +6070,11 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/truth/analytics", requireAdmin, async (_req, res) => {
+  app.get("/api/truth/analytics", requireRootAdmin, async (_req, res) => {
     try { res.json(await truthEvolutionService.getFounderAnalytics()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/truth/alignment-history", requireAdmin, async (req, res) => {
+  app.get("/api/truth/alignment-history", requireRootAdmin, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 30;
       res.json(await truthEvolutionService.getAlignmentHistory(limit));
@@ -6075,7 +6114,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/reality/analytics", requireAdmin, async (_req, res) => {
+  app.get("/api/reality/analytics", requireRootAdmin, async (_req, res) => {
     try { res.json(await realityAlignmentService.getFounderAnalytics()); } catch (err) { handleServiceError(res, err); }
   });
 
@@ -6087,14 +6126,14 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/intelligence-stack/analytics", requireAdmin, async (_req, res) => {
+  app.get("/api/intelligence-stack/analytics", requireRootAdmin, async (_req, res) => {
     try {
       const analytics = await intelligenceStackAnalytics.getLayerAnalytics();
       res.json(analytics);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/intelligence-stack/service-map", requireAdmin, async (_req, res) => {
+  app.get("/api/intelligence-stack/service-map", requireRootAdmin, async (_req, res) => {
     try {
       res.json({
         mappings: intelligenceStackRegistry.getAllServiceMappings(),
@@ -6409,7 +6448,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ── Stability Triangle ──
 
-  app.get("/api/stability-triangle/snapshot", requireAdmin, async (_req, res) => {
+  app.get("/api/stability-triangle/snapshot", requireRootAdmin, async (_req, res) => {
     try {
       res.json(stabilityTriangleService.getSnapshot());
     } catch (err) { handleServiceError(res, err); }
@@ -6417,19 +6456,19 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ── Panic Button System ──
 
-  app.get("/api/panic-button/status", requireAdmin, async (_req, res) => {
+  app.get("/api/panic-button/status", requireRootAdmin, async (_req, res) => {
     try {
       res.json(panicButtonService.getStatus());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/panic-button/modes", requireAdmin, async (_req, res) => {
+  app.get("/api/panic-button/modes", requireRootAdmin, async (_req, res) => {
     try {
       res.json(panicButtonService.getAllModes());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/panic-button/set-mode", requireAdmin, async (req, res) => {
+  app.post("/api/panic-button/set-mode", requireRootAdmin, async (req, res) => {
     try {
       const { mode } = z.object({ mode: z.enum(["NORMAL", "SAFE_MODE", "ECONOMY_PROTECTION", "EMERGENCY_FREEZE"]) }).parse(req.body);
       const result = await panicButtonService.setMode(mode, "admin");
@@ -6437,7 +6476,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/panic-button/alerts", requireAdmin, async (req, res) => {
+  app.get("/api/panic-button/alerts", requireRootAdmin, async (req, res) => {
     try {
       const limit = req.query.limit ? Number(req.query.limit) : 50;
       const includeAcknowledged = req.query.all === "true";
@@ -6446,7 +6485,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/panic-button/alerts/:id/acknowledge", requireAdmin, async (req, res) => {
+  app.post("/api/panic-button/alerts/:id/acknowledge", requireRootAdmin, async (req, res) => {
     try {
       const alert = await panicButtonService.acknowledgeAlert(req.params.id, "admin");
       if (!alert) return res.status(404).json({ message: "Alert not found" });
@@ -6454,13 +6493,13 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/panic-button/thresholds", requireAdmin, async (_req, res) => {
+  app.get("/api/panic-button/thresholds", requireRootAdmin, async (_req, res) => {
     try {
       res.json(panicButtonService.getThresholds());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/panic-button/thresholds", requireAdmin, async (req, res) => {
+  app.put("/api/panic-button/thresholds", requireRootAdmin, async (req, res) => {
     try {
       const updated = await panicButtonService.updateThresholds(req.body);
       res.json(updated);
@@ -6479,13 +6518,13 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ── Founder Debug Stack ──
 
-  app.get("/api/founder-debug/snapshot", requireAdmin, async (_req, res) => {
+  app.get("/api/founder-debug/snapshot", requireRootAdmin, async (_req, res) => {
     try {
       res.json(founderDebugService.getFullDebugSnapshot());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/founder-debug/ai-logs", requireAdmin, async (req, res) => {
+  app.get("/api/founder-debug/ai-logs", requireRootAdmin, async (req, res) => {
     try {
       const since = req.query.since ? Number(req.query.since) : undefined;
       const model = req.query.model as string | undefined;
@@ -6494,19 +6533,19 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/founder-debug/ai-stats", requireAdmin, async (_req, res) => {
+  app.get("/api/founder-debug/ai-stats", requireRootAdmin, async (_req, res) => {
     try {
       res.json(founderDebugService.getDailyAIStats());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/founder-debug/economics", requireAdmin, async (_req, res) => {
+  app.get("/api/founder-debug/economics", requireRootAdmin, async (_req, res) => {
     try {
       res.json(founderDebugService.getEconomicSnapshot());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/founder-debug/journey", requireAdmin, async (req, res) => {
+  app.get("/api/founder-debug/journey", requireRootAdmin, async (req, res) => {
     try {
       const userId = req.query.userId as string | undefined;
       const event = req.query.event as string | undefined;
@@ -6516,32 +6555,32 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/founder-debug/journey-summary", requireAdmin, async (_req, res) => {
+  app.get("/api/founder-debug/journey-summary", requireRootAdmin, async (_req, res) => {
     try {
       res.json(founderDebugService.getJourneySummary());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/founder-debug/config", requireAdmin, async (_req, res) => {
+  app.get("/api/founder-debug/config", requireRootAdmin, async (_req, res) => {
     try {
       res.json(founderDebugService.getConfig());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/founder-debug/config", requireAdmin, async (req, res) => {
+  app.put("/api/founder-debug/config", requireRootAdmin, async (req, res) => {
     try {
       const updated = founderDebugService.updateConfig(req.body);
       res.json(updated);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/founder-debug/ai-limits", requireAdmin, async (_req, res) => {
+  app.get("/api/founder-debug/ai-limits", requireRootAdmin, async (_req, res) => {
     try {
       res.json(founderDebugService.checkAILimits());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/founder-debug/log-ai-action", requireAdmin, async (req, res) => {
+  app.post("/api/founder-debug/log-ai-action", requireRootAdmin, async (req, res) => {
     try {
       founderDebugService.logAIAction(req.body);
       res.json({ success: true });
@@ -6560,72 +6599,72 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/gcis/dashboard", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/gcis/dashboard", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await gcisService.getDashboard()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/gcis/rules", requireAdmin, async (req, res) => {
+  app.get("/api/admin/gcis/rules", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const { status, countryCode, category } = req.query as any;
       res.json(await gcisService.getRules({ status, countryCode, category }));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/gcis/scan", requireAdmin, async (req, res) => {
+  app.post("/api/admin/gcis/scan", requireAnyAdminPermission(COMPLIANCE_MANAGE_PERMISSIONS), async (req, res) => {
     try { res.json(await gcisService.autoIngestFromScan(req.body.countryCode)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/gcis/rules/ingest", requireAdmin, async (req, res) => {
+  app.post("/api/admin/gcis/rules/ingest", requireAnyAdminPermission(COMPLIANCE_MANAGE_PERMISSIONS), async (req, res) => {
     try { res.json(await gcisService.ingestRule(req.body)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/gcis/rules/:id/approve", requireAdmin, async (req, res) => {
+  app.post("/api/admin/gcis/rules/:id/approve", requireAnyAdminPermission(COMPLIANCE_MANAGE_PERMISSIONS), async (req, res) => {
     try { res.json(await gcisService.approveRule(req.params.id, "admin")); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/gcis/rules/:id/reject", requireAdmin, async (req, res) => {
+  app.post("/api/admin/gcis/rules/:id/reject", requireAnyAdminPermission(COMPLIANCE_MANAGE_PERMISSIONS), async (req, res) => {
     try { res.json(await gcisService.rejectRule(req.params.id, "admin", req.body.reason || "")); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/gcis/feature-flags", requireAdmin, async (req, res) => {
+  app.get("/api/admin/gcis/feature-flags", requireRootAdmin, async (req, res) => {
     try { res.json(await gcisService.getActiveFeatureFlags(req.query.countryCode as string)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/gcis/audit-log", requireAdmin, async (req, res) => {
+  app.get("/api/admin/gcis/audit-log", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await gcisService.getAuditLog(Number(req.query.limit) || 50)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/gcis/notifications", requireAdmin, async (req, res) => {
+  app.get("/api/admin/gcis/notifications", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await gcisService.getNotifications(req.query.unreadOnly === "true")); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/gcis/notifications/:id/read", requireAdmin, async (req, res) => {
+  app.post("/api/admin/gcis/notifications/:id/read", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (req, res) => {
     try { await gcisService.markNotificationRead(req.params.id); res.json({ success: true }); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/gcis/eco-efficiency", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/gcis/eco-efficiency", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await gcisService.getEcoEfficiency()); } catch (err) { handleServiceError(res, err); }
   });
 
   // ============ ADAPTIVE POLICY & CONTENT GOVERNANCE ============
 
-  app.get("/api/admin/policy/dashboard", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/policy/dashboard", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await adaptivePolicyService.getDashboard()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/policy/templates", requireAdmin, async (req, res) => {
+  app.get("/api/admin/policy/templates", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await adaptivePolicyService.getTemplates(req.query.category as string)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/policy/templates/init", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/policy/templates/init", requireRootAdmin, async (_req, res) => {
     try { await adaptivePolicyService.initializeTemplates(); res.json({ success: true }); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/policy/drafts", requireAdmin, async (req, res) => {
+  app.get("/api/admin/policy/drafts", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await adaptivePolicyService.getDrafts(req.query.status as string)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/policy/drafts/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/policy/drafts/:id", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const draft = await adaptivePolicyService.getDraft(req.params.id);
       if (!draft) return res.status(404).json({ error: "Draft not found" });
@@ -6633,7 +6672,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/policy/generate", requireAdmin, async (req, res) => {
+  app.post("/api/admin/policy/generate", requireAnyAdminPermission(COMPLIANCE_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin policy generate", "admin-policy-generate");
       if (!paid) return;
@@ -6644,11 +6683,11 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/policy/drafts/:id/approve", requireAdmin, async (req, res) => {
+  app.post("/api/admin/policy/drafts/:id/approve", requireAnyAdminPermission(COMPLIANCE_MANAGE_PERMISSIONS), async (req, res) => {
     try { res.json(await adaptivePolicyService.approveDraft(req.params.id, "founder")); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/policy/drafts/:id/reject", requireAdmin, async (req, res) => {
+  app.post("/api/admin/policy/drafts/:id/reject", requireAnyAdminPermission(COMPLIANCE_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const { reason } = req.body;
       await adaptivePolicyService.rejectDraft(req.params.id, reason || "Rejected", "founder");
@@ -6656,11 +6695,11 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/policy/versions/:templateId", requireAdmin, async (req, res) => {
+  app.get("/api/admin/policy/versions/:templateId", requireAnyAdminPermission(COMPLIANCE_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await adaptivePolicyService.getVersionHistory(req.params.templateId)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/policy/rollback", requireAdmin, async (req, res) => {
+  app.post("/api/admin/policy/rollback", requireRootAdmin, async (req, res) => {
     try {
       const { templateId, versionId } = req.body;
       if (!templateId || !versionId) return res.status(400).json({ error: "templateId and versionId are required" });
@@ -6668,7 +6707,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/policy/detect-updates", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/policy/detect-updates", requireRootAdmin, async (_req, res) => {
     try { res.json(await adaptivePolicyService.detectAndTriggerUpdates()); } catch (err) { handleServiceError(res, err); }
   });
 
@@ -6742,20 +6781,20 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   // Admin ticket management
-  app.get("/api/admin/support/tickets", requireAdmin, async (req, res) => {
+  app.get("/api/admin/support/tickets", requireAnyAdminPermission(SUPPORT_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const tickets = await supportTicketService.getAllTickets({ status: req.query.status as string });
       res.json(tickets);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/support/stats", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/support/stats", requireAnyAdminPermission(SUPPORT_VIEW_PERMISSIONS), async (_req, res) => {
     try {
       res.json(await supportTicketService.getTicketStats());
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/support/tickets/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/support/tickets/:id", requireAnyAdminPermission(SUPPORT_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const ticket = await supportTicketService.getTicketById(req.params.id);
       if (!ticket) return res.status(404).json({ error: "Ticket not found" });
@@ -6763,13 +6802,13 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/support/tickets/:id/messages", requireAdmin, async (req, res) => {
+  app.get("/api/admin/support/tickets/:id/messages", requireAnyAdminPermission(SUPPORT_VIEW_PERMISSIONS), async (req, res) => {
     try {
       res.json(await supportTicketService.getTicketMessages(req.params.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/support/tickets/:id/reply", requireAdmin, async (req, res) => {
+  app.post("/api/admin/support/tickets/:id/reply", requireAnyAdminPermission(SUPPORT_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const { content } = req.body;
       if (!content) return res.status(400).json({ error: "Content required" });
@@ -6782,7 +6821,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/support/tickets/:id/status", requireAdmin, async (req, res) => {
+  app.post("/api/admin/support/tickets/:id/status", requireAnyAdminPermission(SUPPORT_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const { status } = req.body;
       if (!status) return res.status(400).json({ error: "Status required" });
@@ -6796,7 +6835,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/support/tickets/:id/ai-reply", requireAdmin, async (req, res) => {
+  app.post("/api/admin/support/tickets/:id/ai-reply", requireAnyAdminPermission(SUPPORT_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin support AI reply", `admin-support-reply:${req.params.id}`);
       if (!paid) return;
@@ -6806,7 +6845,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   // Demo users and email test flow
-  app.post("/api/admin/support/demo-seed", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/support/demo-seed", requireRootAdmin, async (_req, res) => {
     try {
       const demoUsers = [
         { userId: "demo-user-001", userEmail: "demo1@mougle.test", userName: "Alice Explorer", subject: "Cannot access AI agents", description: "I signed up for Pro plan but I still can't create AI agents. My dashboard shows the free plan features only.", category: "billing", priority: "high" },
@@ -6916,15 +6955,15 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   // Admin KB management
-  app.get("/api/admin/kb/stats", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/kb/stats", requireAnyAdminPermission(KNOWLEDGE_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await zeroSupportLearningService.getLearningStats()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/kb/articles", requireAdmin, async (req, res) => {
+  app.get("/api/admin/kb/articles", requireAnyAdminPermission(KNOWLEDGE_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await zeroSupportLearningService.getAllArticles(req.query.status as string)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/kb/articles/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/kb/articles/:id", requireAnyAdminPermission(KNOWLEDGE_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const a = await zeroSupportLearningService.getArticleById(req.params.id);
       if (!a) return res.status(404).json({ error: "Article not found" });
@@ -6932,33 +6971,33 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/admin/kb/articles/:id", requireAdmin, async (req, res) => {
+  app.put("/api/admin/kb/articles/:id", requireAnyAdminPermission(KNOWLEDGE_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const a = await zeroSupportLearningService.updateArticle(req.params.id, req.body);
       res.json(a);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/kb/articles/:id/approve", requireAdmin, async (req, res) => {
+  app.post("/api/admin/kb/articles/:id/approve", requireAnyAdminPermission(KNOWLEDGE_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const a = await zeroSupportLearningService.approveArticle(req.params.id, "admin");
       res.json(a);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/kb/articles/:id/reject", requireAdmin, async (req, res) => {
+  app.post("/api/admin/kb/articles/:id/reject", requireAnyAdminPermission(KNOWLEDGE_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const a = await zeroSupportLearningService.rejectArticle(req.params.id);
       res.json(a);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/kb/solutions", requireAdmin, async (req, res) => {
+  app.get("/api/admin/kb/solutions", requireAnyAdminPermission(KNOWLEDGE_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await zeroSupportLearningService.getSolutions(req.query.ticketId as string)); } catch (err) { handleServiceError(res, err); }
   });
 
   // Extract solution from resolved ticket
-  app.post("/api/admin/kb/extract/:ticketId", requireAdmin, async (req, res) => {
+  app.post("/api/admin/kb/extract/:ticketId", requireAnyAdminPermission(KNOWLEDGE_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin KB extract", `admin-kb-extract:${req.params.ticketId}`);
       if (!paid) return;
@@ -6968,7 +7007,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   // Generate KB article from solutions
-  app.post("/api/admin/kb/generate-article", requireAdmin, async (req, res) => {
+  app.post("/api/admin/kb/generate-article", requireAnyAdminPermission(KNOWLEDGE_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin KB generate", "admin-kb-generate");
       if (!paid) return;
@@ -6980,7 +7019,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   });
 
   // Email testing endpoint (admin only)
-  app.post("/api/admin/email/test", requireAdmin, async (req, res) => {
+  app.post("/api/admin/email/test", requireRootAdmin, async (req, res) => {
     try {
       const { type, to, displayName } = req.body;
       if (!to || !displayName) return res.status(400).json({ error: "to and displayName required" });
@@ -7029,34 +7068,34 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   // ============ AUTONOMOUS OPERATIONS STACK ============
   const { autonomousOperationsService } = await import("./services/autonomous-operations-service");
 
-  app.get("/api/admin/operations/snapshot", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/operations/snapshot", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await autonomousOperationsService.runAllEngines()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/operations/stats", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/operations/stats", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await autonomousOperationsService.getOpsStats()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/operations/actions", requireAdmin, async (req, res) => {
+  app.get("/api/admin/operations/actions", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await autonomousOperationsService.getRecentActions(req.query.engine as string)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/operations/pending", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/operations/pending", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await autonomousOperationsService.getPendingApprovals()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/operations/engine/:engine/history", requireAdmin, async (req, res) => {
+  app.get("/api/admin/operations/engine/:engine/history", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await autonomousOperationsService.getEngineHistory(req.params.engine)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/operations/actions/:id/approve", requireAdmin, async (req, res) => {
+  app.post("/api/admin/operations/actions/:id/approve", requireAnyAdminPermission(OPERATIONS_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const action = await autonomousOperationsService.approveAction(req.params.id, "admin");
       res.json(action);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/operations/actions/:id/reject", requireAdmin, async (req, res) => {
+  app.post("/api/admin/operations/actions/:id/reject", requireAnyAdminPermission(OPERATIONS_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const action = await autonomousOperationsService.rejectAction(req.params.id);
       res.json(action);
@@ -7066,15 +7105,15 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   // ============ SOCIAL DISTRIBUTION HUB ============
   const { socialDistributionService } = await import("./services/social-distribution-service");
 
-  app.get("/api/admin/sdh/analytics", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/sdh/analytics", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await socialDistributionService.getAnalytics()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/sdh/accounts", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/sdh/accounts", requireRootAdmin, async (_req, res) => {
     try { res.json(await socialDistributionService.getAccounts()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/sdh/accounts", requireAdmin, async (req, res) => {
+  app.post("/api/admin/sdh/accounts", requireRootAdmin, async (req, res) => {
     try {
       const { platform, accountName, accountHandle, accessToken, refreshToken, apiKey, apiSecret } = req.body;
       if (!platform || !accountName) return res.status(400).json({ message: "platform and accountName required" });
@@ -7082,29 +7121,29 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/sdh/accounts/:id/toggle", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/sdh/accounts/:id/toggle", requireRootAdmin, async (req, res) => {
     try {
       res.json(await socialDistributionService.toggleAccount(req.params.id, req.body.active));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/admin/sdh/accounts/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/sdh/accounts/:id", requireRootAdmin, async (req, res) => {
     try { res.json(await socialDistributionService.deleteAccount(req.params.id)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/sdh/config", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/sdh/config", requireRootAdmin, async (_req, res) => {
     try { res.json(await socialDistributionService.getConfig()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/sdh/config", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/sdh/config", requireRootAdmin, async (req, res) => {
     try { res.json(await socialDistributionService.updateConfig(req.body)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/sdh/detect-content", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/sdh/detect-content", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await socialDistributionService.detectImportantContent()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/sdh/generate-post", requireAdmin, async (req, res) => {
+  app.post("/api/admin/sdh/generate-post", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SDH generate", "admin-sdh-generate");
       if (!paid) return;
@@ -7114,61 +7153,61 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/sdh/posts", requireAdmin, async (req, res) => {
+  app.post("/api/admin/sdh/posts", requireRootAdmin, async (req, res) => {
     try {
       res.status(201).json(await socialDistributionService.createPost(req.body));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/sdh/posts", requireAdmin, async (req, res) => {
+  app.get("/api/admin/sdh/posts", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const { status, platform, limit } = req.query as any;
       res.json(await socialDistributionService.getPosts({ status, platform, limit: limit ? parseInt(limit) : undefined }));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/sdh/posts/:id/status", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/sdh/posts/:id/status", requireRootAdmin, async (req, res) => {
     try {
       res.json(await socialDistributionService.updatePostStatus(req.params.id, req.body.status, req.body));
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/sdh/posts/:id/publish", requireAdmin, async (req, res) => {
+  app.post("/api/admin/sdh/posts/:id/publish", requireRootAdmin, async (req, res) => {
     try { res.json(await socialDistributionService.publishPost(req.params.id)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.delete("/api/admin/sdh/posts/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/admin/sdh/posts/:id", requireRootAdmin, async (req, res) => {
     try { res.json(await socialDistributionService.deletePost(req.params.id)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/sdh/auto-detect", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/sdh/auto-detect", requireRootAdmin, async (_req, res) => {
     try { res.json(await socialDistributionService.autoDetectAndGenerate()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/sdh/scheduler", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/sdh/scheduler", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await socialDistributionService.getSchedulerStatus()); } catch (err) { handleServiceError(res, err); }
   });
 
   // ============ GROWTH AUTOPILOT STACK ============
   const { growthAutopilotService } = await import("./services/growth-autopilot-service");
 
-  app.get("/api/admin/growth-autopilot/dashboard", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/growth-autopilot/dashboard", requireRootAdmin, async (_req, res) => {
     try { res.json(await growthAutopilotService.getDashboard()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/growth-autopilot/config", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/growth-autopilot/config", requireRootAdmin, async (_req, res) => {
     try { res.json(await growthAutopilotService.getConfig()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/growth-autopilot/config", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/growth-autopilot/config", requireRootAdmin, async (req, res) => {
     try { res.json(await growthAutopilotService.updateConfig(req.body)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/growth-autopilot/run-cycle", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/growth-autopilot/run-cycle", requireRootAdmin, async (_req, res) => {
     try { res.json(await growthAutopilotService.runFullCycle()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/growth-autopilot/run/:system", requireAdmin, async (req, res) => {
+  app.post("/api/admin/growth-autopilot/run/:system", requireRootAdmin, async (req, res) => {
     try {
       const sys = req.params.system;
       let result;
@@ -7184,27 +7223,27 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/growth-autopilot/logs", requireAdmin, async (req, res) => {
+  app.get("/api/admin/growth-autopilot/logs", requireRootAdmin, async (req, res) => {
     try { res.json(await growthAutopilotService.getLogs(Number(req.query.limit) || 50)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/growth-autopilot/insights", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/growth-autopilot/insights", requireRootAdmin, async (_req, res) => {
     try { res.json(await growthAutopilotService.getInsights()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/growth-autopilot/insights/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/growth-autopilot/insights/:id", requireRootAdmin, async (req, res) => {
     try { res.json(await growthAutopilotService.updateInsightStatus(req.params.id, req.body.status)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/growth-autopilot/email-triggers", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/growth-autopilot/email-triggers", requireRootAdmin, async (_req, res) => {
     try { res.json(await growthAutopilotService.getEmailTriggers()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/growth-autopilot/email-triggers", requireAdmin, async (req, res) => {
+  app.post("/api/admin/growth-autopilot/email-triggers", requireRootAdmin, async (req, res) => {
     try { res.json(await growthAutopilotService.createEmailTrigger(req.body)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.patch("/api/admin/growth-autopilot/email-triggers/:id/toggle", requireAdmin, async (req, res) => {
+  app.patch("/api/admin/growth-autopilot/email-triggers/:id/toggle", requireRootAdmin, async (req, res) => {
     try { res.json(await growthAutopilotService.toggleEmailTrigger(req.params.id, req.body.active)); } catch (err) { handleServiceError(res, err); }
   });
 
@@ -7275,22 +7314,22 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/bondscore/stats", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/bondscore/stats", requireRootAdmin, async (_req, res) => {
     try { res.json(await bondscoreService.getAdminStats()); } catch (err) { handleServiceError(res, err); }
   });
 
   // ============ INEVITABLE PLATFORM MONITOR ============
   const { inevitablePlatformService } = await import("./services/inevitable-platform-service");
 
-  app.get("/api/admin/inevitable-platform", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/inevitable-platform", requireRootAdmin, async (_req, res) => {
     try { res.json(await inevitablePlatformService.getFullAnalysis()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/inevitable-platform/snapshot", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/inevitable-platform/snapshot", requireRootAdmin, async (_req, res) => {
     try { res.json(await inevitablePlatformService.captureSnapshot()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/inevitable-platform/history", requireAdmin, async (req, res) => {
+  app.get("/api/admin/inevitable-platform/history", requireRootAdmin, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 30;
       res.json(await inevitablePlatformService.getHistory(limit));
@@ -7300,15 +7339,15 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   // ============ AUTHORITY FLYWHEEL ============
   const { authorityFlywheelService } = await import("./services/authority-flywheel-service");
 
-  app.get("/api/admin/authority-flywheel", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/authority-flywheel", requireRootAdmin, async (_req, res) => {
     try { res.json(await authorityFlywheelService.getFullAnalysis()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/authority-flywheel/snapshot", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/authority-flywheel/snapshot", requireRootAdmin, async (_req, res) => {
     try { res.json(await authorityFlywheelService.captureSnapshot()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/authority-flywheel/history", requireAdmin, async (req, res) => {
+  app.get("/api/admin/authority-flywheel/history", requireRootAdmin, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 30;
       res.json(await authorityFlywheelService.getHistory(limit));
@@ -7334,19 +7373,19 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     try { res.json(await silentSeoService.recordCitation(req.params.pageId)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/seo/dashboard", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/seo/dashboard", requireAnyAdminPermission(SEO_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await silentSeoService.getSeoDashboard()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/seo/pages", requireAdmin, async (req, res) => {
+  app.get("/api/admin/seo/pages", requireAnyAdminPermission(SEO_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await silentSeoService.getAllPages(req.query.status as string)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/seo/clusters", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/seo/clusters", requireAnyAdminPermission(SEO_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await silentSeoService.getClusters()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/seo/clusters/:id", requireAdmin, async (req, res) => {
+  app.get("/api/admin/seo/clusters/:id", requireAnyAdminPermission(SEO_VIEW_PERMISSIONS), async (req, res) => {
     try {
       const result = await silentSeoService.getClusterWithPages(req.params.id);
       if (!result) return res.status(404).json({ message: "Cluster not found" });
@@ -7354,7 +7393,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/generate-page", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/generate-page", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO page", "admin-seo-page");
       if (!paid) return;
@@ -7364,7 +7403,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/auto-generate", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/seo/auto-generate", requireRootAdmin, async (_req, res) => {
     try {
       const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin SEO auto generate", "admin-seo-auto");
       if (!paid) return;
@@ -7372,7 +7411,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/pages/:id/publish", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/pages/:id/publish", requireRootAdmin, async (req, res) => {
     try {
       const page = await silentSeoService.publishPage(req.params.id);
       if (!page) return res.status(404).json({ message: "Page not found" });
@@ -7380,7 +7419,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/pages/:id/update-insights", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/pages/:id/update-insights", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO update insights", `admin-seo-update:${req.params.id}`);
       if (!paid) return;
@@ -7388,7 +7427,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/update-all", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/seo/update-all", requireRootAdmin, async (_req, res) => {
     try {
       const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin SEO update all", "admin-seo-update-all");
       if (!paid) return;
@@ -7396,7 +7435,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/create-cluster", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/create-cluster", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO create cluster", "admin-seo-cluster");
       if (!paid) return;
@@ -7406,7 +7445,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/seo/clusters/:id/build-pages", requireAdmin, async (req, res) => {
+  app.post("/api/admin/seo/clusters/:id/build-pages", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin SEO build cluster pages", `admin-seo-build:${req.params.id}`);
       if (!paid) return;
@@ -7445,7 +7484,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     try { res.json({ tracked: await marketingEngineService.trackReferralClick(req.params.code) }); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/marketing/convert-discussion", requireAdmin, async (req, res) => {
+  app.post("/api/admin/marketing/convert-discussion", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin marketing convert discussion", "admin-marketing-convert");
       if (!paid) return;
@@ -7455,7 +7494,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/marketing/generate-seo-page", requireAdmin, async (req, res) => {
+  app.post("/api/admin/marketing/generate-seo-page", requireRootAdmin, async (req, res) => {
     try {
       const paid = await requirePaidAiAccess(req, res, "ai_response", "Admin marketing SEO page", "admin-marketing-seo");
       if (!paid) return;
@@ -7465,7 +7504,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/marketing/auto-seo-pages", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/marketing/auto-seo-pages", requireRootAdmin, async (_req, res) => {
     try {
       const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin marketing auto SEO", "admin-marketing-auto-seo");
       if (!paid) return;
@@ -7473,7 +7512,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/marketing/daily-summary", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/marketing/daily-summary", requireRootAdmin, async (_req, res) => {
     try {
       const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin marketing daily summary", "admin-marketing-summary");
       if (!paid) return;
@@ -7481,7 +7520,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/marketing/select-social", requireAdmin, async (_req, res) => {
+  app.post("/api/admin/marketing/select-social", requireRootAdmin, async (_req, res) => {
     try {
       const paid = await requirePaidAiAccess(_req, res, "ai_response", "Admin marketing select social", "admin-marketing-select-social");
       if (!paid) return;
@@ -7489,7 +7528,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/marketing/articles/:id/publish", requireAdmin, async (req, res) => {
+  app.post("/api/admin/marketing/articles/:id/publish", requireRootAdmin, async (req, res) => {
     try {
       const article = await marketingEngineService.publishArticle(req.params.id);
       if (!article) return res.status(404).json({ message: "Article not found" });
@@ -7497,7 +7536,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/marketing/seo-pages/:id/index", requireAdmin, async (req, res) => {
+  app.post("/api/admin/marketing/seo-pages/:id/index", requireRootAdmin, async (req, res) => {
     try {
       const page = await marketingEngineService.indexSeoPage(req.params.id);
       if (!page) return res.status(404).json({ message: "Page not found" });
@@ -7505,19 +7544,19 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/marketing/articles", requireAdmin, async (req, res) => {
+  app.get("/api/admin/marketing/articles", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await marketingEngineService.getArticles(req.query.status as string)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/marketing/seo-pages", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/marketing/seo-pages", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await marketingEngineService.getSeoPages()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/marketing/referrals", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/marketing/referrals", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await marketingEngineService.getReferralStats()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/marketing/dashboard", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/marketing/dashboard", requireAnyAdminPermission(MARKETING_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await marketingEngineService.getGrowthDashboard()); } catch (err) { handleServiceError(res, err); }
   });
 
@@ -7561,15 +7600,15 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/dev-orders", requireAdmin, async (req, res) => {
+  app.get("/api/admin/dev-orders", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (req, res) => {
     try { res.json(await onDemandDevService.getAllOrders(req.query.stage as string)); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/dev-orders/queue", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/dev-orders/queue", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await onDemandDevService.getBuildQueue()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/dev-orders/:id/stage", requireAdmin, async (req, res) => {
+  app.post("/api/admin/dev-orders/:id/stage", requireAnyAdminPermission(OPERATIONS_MANAGE_PERMISSIONS), async (req, res) => {
     try {
       const { stage, note } = req.body;
       if (!stage || !["QUEUED", "DEVELOPING", "TESTING", "DELIVERED"].includes(stage)) {
@@ -7581,15 +7620,15 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/bootstrap-health", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/bootstrap-health", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await onDemandDevService.getBootstrapHealth()); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/bootstrap-config", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/bootstrap-config", requireRootAdmin, async (_req, res) => {
     try { res.json({ dailyBuildLimit: onDemandDevService.getDailyBuildLimit() }); } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/admin/bootstrap-config", requireAdmin, async (req, res) => {
+  app.put("/api/admin/bootstrap-config", requireRootAdmin, async (req, res) => {
     try {
       const { dailyBuildLimit } = req.body;
       if (typeof dailyBuildLimit === "number") {
@@ -7602,12 +7641,12 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   // ============ PNR MONITOR ============
   const { pnrMonitorService } = await import("./services/pnr-monitor-service");
 
-  app.get("/api/admin/pnr-monitor", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/pnr-monitor", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (_req, res) => {
     try { res.json(await pnrMonitorService.computeSnapshot()); } catch (err) { handleServiceError(res, err); }
   });
 
   // ============ FOUNDER MINIMAL WORKDAY ============
-  app.get("/api/admin/workday", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/workday", requireAnyAdminPermission(OPERATIONS_VIEW_PERMISSIONS), async (_req, res) => {
     try {
       const [opsSnapshot, ticketStats, kbArticles, policyDashboard, gcisData] = await Promise.allSettled([
         autonomousOperationsService.runAllEngines(),
