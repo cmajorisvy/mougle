@@ -41,6 +41,22 @@ const tabs: { id: Tab; label: string; icon: any }[] = [
   { id: "systems", label: "Systems", icon: Settings },
 ];
 
+type OperationHubAction = {
+  label: string;
+  tab?: Tab;
+  href?: string;
+};
+
+type OperationHubArea = {
+  title: string;
+  description: string;
+  metric: string;
+  icon: any;
+  color: string;
+  primaryAction: OperationHubAction;
+  secondaryActions: OperationHubAction[];
+};
+
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
   return (
     <Card className="bg-gray-900/60 border-gray-800/50 p-4 hover:border-gray-700/50 transition-colors">
@@ -57,7 +73,55 @@ function StatCard({ icon: Icon, label, value, color }: { icon: any; label: strin
   );
 }
 
-function OverviewTab() {
+function OperationHubCard({ area, onAction }: { area: OperationHubArea; onAction: (action: OperationHubAction) => void }) {
+  const Icon = area.icon;
+
+  return (
+    <Card className="bg-gray-900/70 border-gray-800/60 p-4 rounded-lg hover:border-gray-700/70 transition-colors">
+      <div className="flex h-full flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${area.color}`}>
+              <Icon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-white">{area.title}</h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">{area.description}</p>
+            </div>
+          </div>
+          <span className="text-[11px] text-gray-400 bg-gray-800/70 border border-gray-700/60 rounded-md px-2 py-1 whitespace-nowrap">
+            {area.metric}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-auto">
+          <Button
+            size="sm"
+            className="h-8 bg-purple-600 hover:bg-purple-700 text-white"
+            onClick={() => onAction(area.primaryAction)}
+          >
+            {area.primaryAction.label}
+            <ChevronRight className="w-3.5 h-3.5 ml-1" />
+          </Button>
+          {area.secondaryActions.map((action) => (
+            <Button
+              key={`${area.title}-${action.label}`}
+              size="sm"
+              variant="ghost"
+              className="h-8 text-gray-400 hover:text-white hover:bg-gray-800"
+              onClick={() => onAction(action)}
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
+  const [, navigate] = useLocation();
   const { data: stats, isLoading } = useQuery({
     queryKey: ["admin-stats"],
     queryFn: () => api.admin.stats(),
@@ -66,9 +130,122 @@ function OverviewTab() {
 
   if (isLoading) return <LoadingSpinner />;
 
+  const operationAreas: OperationHubArea[] = [
+    {
+      title: "Users / Moderation",
+      description: "Accounts, roles, reports, and safety queues.",
+      metric: `${stats?.totalUsers || 0} users`,
+      icon: Users,
+      color: "bg-blue-500/15 text-blue-300",
+      primaryAction: { label: "Users", tab: "users" },
+      secondaryActions: [{ label: "Moderation", tab: "moderation" }],
+    },
+    {
+      title: "Support",
+      description: "Tickets, replies, and support knowledge workflows.",
+      metric: "Support desk",
+      icon: MessageSquare,
+      color: "bg-emerald-500/15 text-emerald-300",
+      primaryAction: { label: "Support", href: "/admin/support" },
+      secondaryActions: [{ label: "Knowledge Base", href: "/admin/knowledge-base" }],
+    },
+    {
+      title: "Billing / Revenue",
+      description: "Revenue health, credits, plans, and flywheel economics.",
+      metric: `${stats?.economy?.totalTransactions || 0} txns`,
+      icon: TrendingUp,
+      color: "bg-cyan-500/15 text-cyan-300",
+      primaryAction: { label: "Revenue", href: "/admin/revenue" },
+      secondaryActions: [
+        { label: "Flywheel", href: "/admin/flywheel" },
+        { label: "AI CFO", href: "/admin/ai-cfo" },
+      ],
+    },
+    {
+      title: "AI Operations",
+      description: "Gateway metrics, cost protection, and agent activity.",
+      metric: `${stats?.totalAgents || 0} agents`,
+      icon: Bot,
+      color: "bg-violet-500/15 text-violet-300",
+      primaryAction: { label: "AI Monitor", href: "/admin/ai-cost-monitor" },
+      secondaryActions: [
+        { label: "Agent Costs", href: "/admin/agent-costs" },
+        { label: "Agents", tab: "agents" },
+      ],
+    },
+    {
+      title: "Content / News",
+      description: "Marketing articles, SEO pages, and distribution flows.",
+      metric: `${stats?.totalPosts || 0} posts`,
+      icon: FileText,
+      color: "bg-pink-500/15 text-pink-300",
+      primaryAction: { label: "Content", href: "/admin/marketing" },
+      secondaryActions: [
+        { label: "SEO", href: "/admin/seo" },
+        { label: "Social", href: "/admin/social-hub" },
+      ],
+    },
+    {
+      title: "Audit / Risk",
+      description: "Risk posture, compliance logs, and policy governance.",
+      metric: "Controls",
+      icon: Shield,
+      color: "bg-red-500/15 text-red-300",
+      primaryAction: { label: "Risk", href: "/admin/risk-center" },
+      secondaryActions: [
+        { label: "Compliance", href: "/admin/compliance" },
+        { label: "Policy", href: "/admin/policy-governance" },
+      ],
+    },
+    {
+      title: "Operations Center",
+      description: "Pending actions, workday view, and build queues.",
+      metric: `${stats?.totalFlywheelJobs || 0} jobs`,
+      icon: Activity,
+      color: "bg-amber-500/15 text-amber-300",
+      primaryAction: { label: "Operations", href: "/admin/operations" },
+      secondaryActions: [
+        { label: "Workday", href: "/admin/workday" },
+        { label: "Build Queue", href: "/admin/build-queue" },
+      ],
+    },
+    {
+      title: "Founder Controls",
+      description: "Safe mode, command center, and emergency controls.",
+      metric: "Founder",
+      icon: Crown,
+      color: "bg-yellow-500/15 text-yellow-300",
+      primaryAction: { label: "Founder", href: "/admin/founder-control" },
+      secondaryActions: [
+        { label: "Command", href: "/admin/command-center" },
+        { label: "Debug", href: "/admin/debug" },
+      ],
+    },
+  ];
+
+  const handleAction = (action: OperationHubAction) => {
+    if (action.tab) {
+      onSelectTab(action.tab);
+      return;
+    }
+    if (action.href) {
+      navigate(action.href);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-white">Platform Overview</h2>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-white">Operations Hub</h2>
+          <p className="text-sm text-gray-500 mt-1">Admin control surface for platform support, revenue, AI, content, risk, and operations.</p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <CheckCircle className="w-4 h-4 text-emerald-400" />
+          Session verified
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={Users} label="Total Users" value={stats?.totalUsers || 0} color="bg-blue-500/20 text-blue-400" />
         <StatCard icon={Bot} label="AI Agents" value={stats?.totalAgents || 0} color="bg-purple-500/20 text-purple-400" />
@@ -78,6 +255,12 @@ function OverviewTab() {
         <StatCard icon={Film} label="Flywheel Jobs" value={stats?.totalFlywheelJobs || 0} color="bg-pink-500/20 text-pink-400" />
         <StatCard icon={Zap} label="Credits in Circulation" value={stats?.economy?.totalCreditsCirculating || 0} color="bg-cyan-500/20 text-cyan-400" />
         <StatCard icon={TrendingUp} label="Total Transactions" value={stats?.economy?.totalTransactions || 0} color="bg-orange-500/20 text-orange-400" />
+      </div>
+
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {operationAreas.map((area) => (
+          <OperationHubCard key={area.title} area={area} onAction={handleAction} />
+        ))}
       </div>
 
       {stats?.economy?.topEarners && stats.economy.topEarners.length > 0 && (
@@ -3449,7 +3632,6 @@ export default function AdminDashboard() {
   if (!isAuthenticated) return null;
 
   const TabContent = {
-    overview: OverviewTab,
     moderation: ModerationTab,
     users: UsersTab,
     posts: PostsTab,
@@ -3469,7 +3651,7 @@ export default function AdminDashboard() {
     stability: StabilityTab,
     autonomous: AutonomousControlTab,
     systems: SystemsTab,
-  }[activeTab];
+  }[activeTab as Exclude<Tab, "overview">];
 
   return (
     <div className="min-h-screen bg-[#060611] relative">
@@ -3550,7 +3732,7 @@ export default function AdminDashboard() {
           </div>
 
           <main className="flex-1 min-w-0">
-            <TabContent />
+            {activeTab === "overview" ? <OverviewTab onSelectTab={setActiveTab} /> : <TabContent />}
           </main>
         </div>
       </div>
