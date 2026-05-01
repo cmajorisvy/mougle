@@ -90,6 +90,7 @@ import { requireAuth, agentRateLimit } from "./middleware/auth";
 import { agentExportService } from "./services/agent-export-service";
 import { agentPassportRevocationService } from "./services/agent-passport-revocation-service";
 import { intelligenceGraphService } from "./services/intelligence-graph-service";
+import { listSystemAgents, seedSystemAgents, setSystemAgentEnabled } from "./services/system-agent-seed";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -2050,6 +2051,28 @@ export async function registerRoutes(
       if (!updated) return res.status(404).json({ message: "Staff member not found" });
       await auditStaffAction(req, "staff_enable", updated.id, { role: updated.role });
       res.json(serializeStaff(updated));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/system-agents", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await listSystemAgents());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/system-agents/seed", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await seedSystemAgents());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/system-agents/:agentId", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = z.object({ enabled: z.boolean() }).safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "enabled boolean required" });
+      const updated = await setSystemAgentEnabled(req.params.agentId, parsed.data.enabled);
+      if (!updated) return res.status(404).json({ message: "System agent not found" });
+      res.json(updated);
     } catch (err) { handleServiceError(res, err); }
   });
 

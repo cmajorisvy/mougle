@@ -183,6 +183,15 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       ],
     },
     {
+      title: "System Agents",
+      description: "MOUGLE Chief Intelligence and specialist platform identities.",
+      metric: "11 seeds",
+      icon: Sparkles,
+      color: "bg-fuchsia-500/15 text-fuchsia-300",
+      primaryAction: { label: "Inspect", href: "/admin/system-agents" },
+      secondaryActions: [{ label: "Agents", tab: "agents" }],
+    },
+    {
       title: "Content / News",
       description: "Marketing articles, SEO pages, and distribution flows.",
       metric: `${stats?.totalPosts || 0} posts`,
