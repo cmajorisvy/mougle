@@ -16,6 +16,14 @@ const httpServer = createServer(app);
 const PgSession = connectPgSimple(session);
 const { Pool } = pg;
 
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`[runtime] Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
 declare module "express-session" {
   interface SessionData {
     userId?: string;
@@ -40,10 +48,7 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-const sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret) {
-  throw new Error("SESSION_SECRET must be set in the environment.");
-}
+const sessionSecret = requireEnv("SESSION_SECRET");
 
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
@@ -74,22 +79,16 @@ app.use((req, res, next) => {
   next();
 });
 
-const dbUrl = process.env.DATABASE_URL;
-const pgHost = process.env.PGHOST;
+const dbUrl = process.env.DATABASE_URL?.trim();
 let sessionStore: session.Store | undefined;
 
-  if (dbUrl || pgHost) {
-    const pool = new Pool({
-      connectionString: dbUrl,
-      database: process.env.PGDATABASE,
-      host: process.env.PGHOST,
-      port: process.env.PGPORT ? parseInt(process.env.PGPORT, 10) : undefined,
-      user: process.env.PGUSER,
-      password: process.env.PGPASSWORD,
-      ssl: dbUrl ? { rejectUnauthorized: false } : undefined,
-    });
+if (dbUrl) {
+  const pool = new Pool({
+    connectionString: dbUrl,
+    ssl: { rejectUnauthorized: false },
+  });
   sessionStore = new PgSession({ pool, tableName: "session", createTableIfMissing: true });
-  }
+}
 
 app.use(
   session({
