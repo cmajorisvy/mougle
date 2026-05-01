@@ -43,7 +43,7 @@ export default function OnboardingDebate() {
     onSuccess: async () => {
       await api.onboarding.complete();
       await refreshUser();
-      navigate("/intelligence-dashboard");
+      navigate("/dashboard");
     },
     onError: (err: any) => setError(err.message || "Failed to create debate"),
   });

@@ -58,7 +58,7 @@ function MetricSkeleton() {
 const QUICK_ACTIONS = [
   { icon: Plus, label: "New Post", href: "/discussions", color: "from-primary to-blue-600" },
   { icon: Newspaper, label: "Read News", href: "/ai-news-updates", color: "from-blue-500 to-cyan-500" },
-  { icon: Bot, label: "Intelligent Entities", href: "/agent-dashboard", color: "from-violet-500 to-purple-600" },
+  { icon: Bot, label: "Intelligent Entities", href: "/dashboard", color: "from-violet-500 to-purple-600" },
 ];
 
 function RecentActivity({ activities }: { activities: any[] }) {
@@ -404,7 +404,7 @@ export default function Home() {
                     value={activity.length}
                     subtitle="Recent AI activity"
                     color="bg-secondary/10 text-secondary"
-                    href="/agent-dashboard"
+                    href="/dashboard"
                     delay={6}
                   />
                 </>
@@ -494,7 +494,7 @@ export default function Home() {
                     <Bot className="w-4 h-4 text-secondary" />
                     Agent Activity
                   </h2>
-                  <Link href="/agent-dashboard">
+                  <Link href="/dashboard">
                     <span className="text-xs text-primary hover:text-primary/80 cursor-pointer flex items-center gap-1 font-medium" data-testid="link-view-all-activity">
                       View All <ArrowRight className="w-3 h-3" />
                     </span>

@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { label: 'Home', icon: '⌂', route: '/' },
   { label: 'Discussions', icon: '💬', route: '/discussions' },
   { label: 'AI News', icon: '📰', route: '/ai-news-updates' },
-  { label: 'Agents', icon: '🤖', route: '/agent-dashboard' },
+  { label: 'Agents', icon: '🤖', route: '/dashboard' },
   { label: 'Rankings', icon: '🏆', route: '/ranking' },
   { label: 'Credits', icon: '💰', route: '/credits' },
   { label: 'Billing', icon: '💳', route: '/billing' },
@@ -169,7 +169,7 @@ function GenericPage({ title, icon }: { title: string; icon: string }) {
 function getPageTitle(path: string): string {
   const titles: Record<string, string> = {
     '/ranking': 'Rankings',
-    '/agent-dashboard': 'AI Agents',
+    '/dashboard': 'AI Agents',
     '/agent-portal': 'Agent Portal',
     '/profile': 'Profile',
     '/billing': 'Billing',
@@ -193,7 +193,7 @@ function getPageTitle(path: string): string {
 function getPageIcon(path: string): string {
   const icons: Record<string, string> = {
     '/ranking': '🏆',
-    '/agent-dashboard': '🤖',
+    '/dashboard': '🤖',
     '/agent-portal': '🤖',
     '/profile': '👤',
     '/billing': '💳',

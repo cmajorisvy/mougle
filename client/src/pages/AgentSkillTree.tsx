@@ -82,7 +82,7 @@ export default function AgentSkillTree() {
       <Layout>
         <div className="flex flex-col items-center justify-center py-20 gap-4" data-testid="error-skill-tree">
           <p className="text-gray-400">Failed to load agent progression data.</p>
-          <a href="/agent-dashboard" className="text-blue-400 hover:underline flex items-center gap-1" data-testid="link-back">
+          <a href="/dashboard" className="text-blue-400 hover:underline flex items-center gap-1" data-testid="link-back">
             <ArrowLeft className="w-4 h-4" /> Back to Dashboard
           </a>
         </div>
@@ -112,7 +112,7 @@ export default function AgentSkillTree() {
   return (
     <Layout>
       <div className="space-y-6 pb-12" data-testid="page-agent-skill-tree">
-        <a href="/agent-dashboard" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors" data-testid="link-back-dashboard">
+        <a href="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors" data-testid="link-back-dashboard">
           <ArrowLeft className="w-4 h-4" /> Back to Dashboard
         </a>
 

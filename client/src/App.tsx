@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { useEffect } from "react";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -10,7 +11,8 @@ import Home from "@/pages/Home";
 import Discussions from "@/pages/Discussions";
 import PostDetail from "@/pages/PostDetail";
 import Ranking from "@/pages/Ranking";
-import AgentDashboard from "@/pages/AgentDashboard";
+import UserDashboard from "@/pages/UserDashboard";
+import StaffDashboard from "@/pages/StaffDashboard";
 import ContentFlywheel, { FlywheelJobDetail } from "@/pages/ContentFlywheel";
 import AINewsUpdates from "@/pages/AINewsUpdates";
 import AINewsArticle from "@/pages/AINewsArticle";
@@ -44,7 +46,6 @@ import MyAgents from "@/pages/MyAgents";
 import AgentMarketplace from "@/pages/AgentMarketplace";
 import AgentAppStore from "@/pages/AgentAppStore";
 import AgentDetail from "@/pages/AgentDetail";
-import CreatorDashboard from "@/pages/CreatorDashboard";
 import AICostControl from "@/pages/AICostControl";
 import AgentCostAnalytics from "@/pages/admin/AgentCostAnalytics";
 import AICostMonitor from "@/pages/admin/AICostMonitor";
@@ -56,7 +57,6 @@ import PrivacyCenter from "@/pages/PrivacyCenter";
 import TrustDashboard from "@/pages/TrustDashboard";
 import NetworkDashboard from "@/pages/NetworkDashboard";
 import IntelligenceRoadmap from "@/pages/IntelligenceRoadmap";
-import IntelligenceDashboard from "@/components/dashboard/IntelligenceDashboard";
 import UserPsychology from "@/pages/UserPsychology";
 import MonetizationAnalytics from "@/pages/MonetizationAnalytics";
 import RiskControlCenter from "@/pages/admin/RiskControlCenter";
@@ -118,6 +118,16 @@ import OnboardingInterests from "@/pages/onboarding/OnboardingInterests";
 import OnboardingDebate from "@/pages/onboarding/OnboardingDebate";
 import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
 
+function RedirectTo({ to }: { to: string }) {
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    navigate(to, { replace: true });
+  }, [navigate, to]);
+
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
@@ -139,7 +149,8 @@ function Router() {
       <Route path="/notifications" component={NotificationsPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/ranking" component={Ranking} />
-      <Route path="/agent-dashboard" component={AgentDashboard} />
+      <Route path="/dashboard" component={UserDashboard} />
+      <Route path="/agent-dashboard" component={() => <RedirectTo to="/dashboard" />} />
       <Route path="/agent-portal" component={AgentPortal} />
       <Route path="/agent-builder" component={AgentBuilder} />
       <Route path="/my-agents" component={MyAgents} />
@@ -149,14 +160,14 @@ function Router() {
       <Route path="/ai-teams" component={AITeams} />
       <Route path="/agent-store/:id" component={AgentDetail} />
       <Route path="/agent-skill-tree/:id" component={AgentSkillTree} />
-      <Route path="/creator-dashboard" component={CreatorDashboard} />
+      <Route path="/creator-dashboard" component={() => <RedirectTo to="/dashboard" />} />
       <Route path="/cost-control" component={AICostControl} />
       <Route path="/my-agent" component={MyPersonalAgent} />
       <Route path="/privacy-center" component={PrivacyCenter} />
       <Route path="/trust-moat" component={TrustDashboard} />
       <Route path="/network" component={NetworkDashboard} />
       <Route path="/intelligence" component={IntelligenceRoadmap} />
-      <Route path="/intelligence-dashboard" component={IntelligenceDashboard} />
+      <Route path="/intelligence-dashboard" component={() => <RedirectTo to="/dashboard" />} />
       <Route path="/psychology" component={UserPsychology} />
       <Route path="/monetization" component={MonetizationAnalytics} />
       <Route path="/post/:id" component={PostDetail} />
@@ -201,6 +212,7 @@ function Router() {
       <Route path="/legal/ai-usage" component={AIUsagePolicyPage} />
       <Route path="/admin/login" component={AdminLogin} />
       <Route path="/admin/dashboard" component={AdminDashboard} />
+      <Route path="/staff/dashboard" component={StaffDashboard} />
       <Route path="/admin/founder-control" component={FounderControl} />
       <Route path="/admin/command-center" component={CommandCenter} />
       <Route path="/admin/revenue" component={RevenueAnalytics} />
@@ -236,7 +248,7 @@ function Router() {
       <Route path="/bondscore/:slug" component={BondScoreTake} />
       <Route path="/my-builds" component={MyBuilds} />
       <Route path="/support" component={Support} />
-      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin" component={() => <RedirectTo to="/admin/dashboard" />} />
       <Route component={NotFound} />
     </Switch>
   );

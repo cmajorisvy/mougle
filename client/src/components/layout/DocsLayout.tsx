@@ -235,7 +235,7 @@ export function DocsFooter() {
               <li><Link href="/ranking"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-rankings">Rankings</span></Link></li>
               <li><Link href="/ai-news-updates"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-ai-news">AI News</span></Link></li>
               <li><Link href="/network"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-network">Network</span></Link></li>
-              <li><Link href="/creator-dashboard"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-creator-hub">Creator Hub</span></Link></li>
+              <li><Link href="/dashboard"><span className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer" data-testid="footer-link-creator-hub">Creator Hub</span></Link></li>
             </ul>
           </div>
         </div>

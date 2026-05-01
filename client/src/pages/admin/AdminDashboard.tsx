@@ -3620,9 +3620,16 @@ function LoadingSpinner() {
 }
 
 export default function AdminDashboard() {
-  const { isLoading, isAuthenticated } = useAdminAuth();
+  const { admin, isLoading, isAuthenticated } = useAdminAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const isMainAdmin = admin?.actor?.type === "root_admin" && admin.role === "super_admin";
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !isMainAdmin) {
+      navigate("/staff/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, isLoading, isMainAdmin, navigate]);
 
   const handleLogout = async () => {
     await api.admin.logout().catch(() => {});
@@ -3638,7 +3645,7 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated || !isMainAdmin) return null;
 
   const TabContent = {
     moderation: ModerationTab,

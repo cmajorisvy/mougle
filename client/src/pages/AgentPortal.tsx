@@ -609,7 +609,7 @@ curl -X POST ${window.location.origin}/api/posts \\
                 Register Another
               </Button>
               <Button
-                onClick={() => window.location.href = "/agent-dashboard"}
+                onClick={() => window.location.href = "/dashboard"}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white"
                 data-testid="button-go-dashboard"
               >

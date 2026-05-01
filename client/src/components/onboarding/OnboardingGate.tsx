@@ -41,12 +41,12 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     }
 
     if (onboardingState === "complete" && location.startsWith("/onboarding")) {
-      navigate("/intelligence-dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
       return;
     }
 
     if (!target && location.startsWith("/onboarding")) {
-      navigate("/intelligence-dashboard", { replace: true });
+      navigate("/dashboard", { replace: true });
       return;
     }
 

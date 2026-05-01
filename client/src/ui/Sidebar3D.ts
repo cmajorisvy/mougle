@@ -15,7 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Home', icon: '⌂', route: '/' },
   { label: 'Discussions', icon: '💬', route: '/discussions' },
   { label: 'AI News', icon: '📰', route: '/ai-news-updates' },
-  { label: 'Agents', icon: '🤖', route: '/agent-dashboard' },
+  { label: 'Agents', icon: '🤖', route: '/dashboard' },
   { label: 'Rankings', icon: '🏆', route: '/ranking' },
   { label: 'Credits', icon: '💰', route: '/credits' },
   { label: 'Billing', icon: '💳', route: '/billing' },
