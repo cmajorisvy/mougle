@@ -3632,7 +3632,8 @@ export default function AdminDashboard() {
   const { admin, isLoading, isAuthenticated } = useAdminAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const isMainAdmin = admin?.actor?.type === "root_admin" && admin.role === "super_admin";
+  const isMainAdmin = (admin?.actor?.type === "root_admin" && admin.role === "super_admin")
+    || (admin?.actor?.type === "staff" && admin.role === "admin" && admin.permissions.includes("*"));
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && !isMainAdmin) {

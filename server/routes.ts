@@ -91,6 +91,7 @@ import { agentExportService } from "./services/agent-export-service";
 import { agentPassportRevocationService } from "./services/agent-passport-revocation-service";
 import { intelligenceGraphService } from "./services/intelligence-graph-service";
 import { listSystemAgents, seedSystemAgents, setSystemAgentEnabled } from "./services/system-agent-seed";
+import { approveAdminAccessRequest, rejectAdminAccessRequest, submitAdminAccessRequest } from "./services/admin-access-request-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -288,6 +289,41 @@ function handleServiceError(res: any, err: any) {
   }
   console.error(err);
   return res.status(500).json({ message: "Internal server error" });
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderAdminAccessReviewResult(result: { status: string; message: string; redirectPath?: string }) {
+  const redirectUrl = result.redirectPath || "/admin/login";
+  const isApproved = result.status === "approved";
+  const isRejected = result.status === "rejected";
+  const accent = isApproved ? "#16a34a" : isRejected ? "#dc2626" : "#7c3aed";
+  const title = isApproved ? "Access Approved" : isRejected ? "Access Rejected" : "Access Request Reviewed";
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${title} · Mougle</title>
+  </head>
+  <body style="margin:0;background:#060611;color:#e5e7eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+      <section style="max-width:520px;width:100%;background:#11131e;border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:32px;text-align:center;">
+        <div style="width:52px;height:52px;margin:0 auto 18px;border-radius:14px;background:${accent};display:flex;align-items:center;justify-content:center;color:white;font-weight:800;">M</div>
+        <h1 style="margin:0 0 10px;font-size:24px;">${title}</h1>
+        <p style="margin:0 0 24px;color:#9ca3af;line-height:1.6;">${escapeHtml(result.message)}</p>
+        <a href="${redirectUrl}" style="display:inline-block;background:${accent};color:white;text-decoration:none;border-radius:10px;padding:12px 22px;font-weight:700;">Continue</a>
+      </section>
+    </main>
+  </body>
+</html>`;
 }
 
 export async function registerRoutes(
@@ -1810,7 +1846,7 @@ export async function registerRoutes(
   });
 
   // ---- ADMIN ----
-  const staffRoleSchema = z.enum(["admin", "staff", "support"]);
+  const staffRoleSchema = z.enum(["admin", "staff", "support", "moderator", "content", "finance", "ai_operator"]);
   const createStaffSchema = z.object({
     email: z.string().email(),
     username: z.string().min(3).max(64),
@@ -1854,6 +1890,35 @@ export async function registerRoutes(
       ipAddress: req.ip,
     });
   }
+
+  app.post("/api/admin/access-requests", async (req, res) => {
+    try {
+      const userAgentHeader = req.headers["user-agent"];
+      const request = await submitAdminAccessRequest(req.body, {
+        ipAddress: req.ip,
+        userAgent: Array.isArray(userAgentHeader) ? userAgentHeader.join(", ") : userAgentHeader,
+      });
+      res.status(201).json({
+        success: true,
+        message: "Access request submitted for owner review. Access is not active until approved.",
+        request,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/access-requests/approve/:token", async (req, res) => {
+    try {
+      const result = await approveAdminAccessRequest(req.params.token as string);
+      res.status(result.status === "expired" ? 410 : 200).type("html").send(renderAdminAccessReviewResult(result));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/access-requests/reject/:token", async (req, res) => {
+    try {
+      const result = await rejectAdminAccessRequest(req.params.token as string);
+      res.status(result.status === "expired" ? 410 : 200).type("html").send(renderAdminAccessReviewResult(result));
+    } catch (err) { handleServiceError(res, err); }
+  });
 
   app.post("/api/admin/login", async (req, res) => {
     try {

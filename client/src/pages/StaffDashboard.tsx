@@ -244,12 +244,13 @@ export default function StaffDashboard() {
   const [, navigate] = useLocation();
   const { admin, isLoading, isAuthenticated, permissions, role } = useAdminAuth();
   const isStaffActor = admin?.actor?.type === "staff";
+  const isDbMainAdmin = isStaffActor && role === "admin" && permissions.includes("*");
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !isStaffActor) {
+    if (!isLoading && isAuthenticated && (!isStaffActor || isDbMainAdmin)) {
       navigate("/admin/dashboard", { replace: true });
     }
-  }, [isAuthenticated, isLoading, isStaffActor, navigate]);
+  }, [isAuthenticated, isLoading, isDbMainAdmin, isStaffActor, navigate]);
 
   const handleLogout = async () => {
     await api.admin.logout().catch(() => {});
@@ -265,7 +266,7 @@ export default function StaffDashboard() {
     );
   }
 
-  if (!isAuthenticated || !isStaffActor) return null;
+  if (!isAuthenticated || !isStaffActor || isDbMainAdmin) return null;
 
   const availableAreas = STAFF_SAFE_WORK_AREAS.filter((area) => canOpenArea(permissions, area.permissions));
   const groupedAreas = {

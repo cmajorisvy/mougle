@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { api, type AdminStaff, type AdminStaffCreatePayload, type AdminStaffUpdatePayload } from "@/lib/api";
+import { api, type AdminStaff, type AdminStaffCreatePayload, type AdminStaffRole, type AdminStaffUpdatePayload } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,19 @@ type StaffFormState = {
   username: string;
   displayName: string;
   password: string;
-  role: "admin" | "staff" | "support";
+  role: AdminStaffRole;
   permissions: string;
 };
+
+const staffRoleOptions: { value: AdminStaffRole; label: string }[] = [
+  { value: "support", label: "Support" },
+  { value: "staff", label: "Staff" },
+  { value: "moderator", label: "Moderator" },
+  { value: "content", label: "Content" },
+  { value: "finance", label: "Finance" },
+  { value: "ai_operator", label: "AI Operator" },
+  { value: "admin", label: "Admin" },
+];
 
 const emptyForm: StaffFormState = {
   email: "",
@@ -197,9 +207,9 @@ export default function StaffManagement() {
             <div>
               <Label className="text-xs text-gray-500">Role</Label>
               <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as StaffFormState["role"] })} className="w-full h-10 bg-gray-800/60 border border-gray-700/60 text-white rounded-md px-3 text-sm">
-                <option value="support">Support</option>
-                <option value="staff">Staff</option>
-                <option value="admin">Admin</option>
+                {staffRoleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -237,9 +247,9 @@ export default function StaffManagement() {
                           <Input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="bg-gray-800/60 border-gray-700/60 text-white" />
                           <Input type="password" placeholder="New password optional" value={editForm.password} onChange={(e) => setEditForm({ ...editForm, password: e.target.value })} className="bg-gray-800/60 border-gray-700/60 text-white" />
                           <select value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value as StaffFormState["role"] })} className="w-full h-10 bg-gray-800/60 border border-gray-700/60 text-white rounded-md px-3 text-sm">
-                            <option value="support">Support</option>
-                            <option value="staff">Staff</option>
-                            <option value="admin">Admin</option>
+                            {staffRoleOptions.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
                           </select>
                           <Input value={editForm.permissions} onChange={(e) => setEditForm({ ...editForm, permissions: e.target.value })} className="bg-gray-800/60 border-gray-700/60 text-white" />
                         </div>

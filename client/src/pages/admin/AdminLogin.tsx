@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -19,7 +19,8 @@ export default function AdminLogin() {
     mutationFn: () => api.admin.login(username, password),
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: ["admin-verify"] });
-      navigate(session.actor?.type === "staff" ? "/staff/dashboard" : "/admin/dashboard");
+      const isDbMainAdmin = session.actor?.type === "staff" && session.role === "admin" && session.permissions.includes("*");
+      navigate(session.actor?.type === "staff" && !isDbMainAdmin ? "/staff/dashboard" : "/admin/dashboard");
     },
     onError: (err: any) => setError(err.message || "Invalid credentials"),
   });
@@ -105,6 +106,8 @@ export default function AdminLogin() {
 
         <p className="text-center text-gray-600 text-xs">
           Authorized personnel only. All actions are logged.
+          <br />
+          <Link href="/admin/request-access" className="text-purple-400 hover:text-purple-300">Request internal access</Link>
         </p>
       </div>
     </div>
