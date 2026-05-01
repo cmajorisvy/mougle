@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -11,6 +10,7 @@ import {
   CheckCircle, Activity, Server, Sparkles, Heart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 async function adminGet(url: string) {
   const res = await fetch(url, { headers: { "Content-Type": "application/json" }, credentials: "include" });
@@ -137,7 +137,7 @@ function LayerCard({ layer, expanded, onToggle }: { layer: any; expanded: boolea
 }
 
 export default function IntelligenceStack() {
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: authLoading, isAuthenticated } = useAdminAuth();
   const [, navigate] = useLocation();
   const [expandedLayer, setExpandedLayer] = useState<string | null>(null);
 
@@ -154,17 +154,10 @@ export default function IntelligenceStack() {
     refetchInterval: 30000,
   });
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) navigate("/admin/login");
-  }, [authLoading, isAuthenticated, navigate]);
-
   if (authLoading || stackLoading || analyticsLoading) {
     return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-purple-400" /></div>;
   }
   if (!isAuthenticated) return null;
-  if (user?.role !== "admin") {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
-  }
 
   const overall = analytics?.overall || {};
   const analyticsLayers = analytics?.layers || [];

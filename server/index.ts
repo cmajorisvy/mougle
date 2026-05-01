@@ -28,6 +28,9 @@ declare module "express-session" {
   interface SessionData {
     userId?: string;
     isAdmin?: boolean;
+    adminRole?: string;
+    adminPermissions?: string[];
+    adminActorId?: string;
     csrfToken?: string;
   }
 }

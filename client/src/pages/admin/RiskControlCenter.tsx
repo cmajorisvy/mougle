@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/context/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
@@ -15,6 +14,7 @@ import {
   Zap, Lock, Server, TrendingUp, Settings,
   Database, ShieldCheck, ToggleLeft, ToggleRight
 } from "lucide-react";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 async function adminGet(url: string) {
   const res = await fetch(url, { headers: { "Content-Type": "application/json" }, credentials: "include" });
@@ -55,16 +55,10 @@ const TABS: { id: TabId; label: string; icon: any }[] = [
 ];
 
 export default function RiskControlCenter() {
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: authLoading, isAuthenticated } = useAdminAuth();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [, navigate] = useLocation();
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate("/admin/login");
-    }
-  }, [authLoading, isAuthenticated, navigate]);
 
   const { data: dashboard, isLoading } = useQuery({
     queryKey: ["risk-dashboard"],
@@ -122,9 +116,6 @@ export default function RiskControlCenter() {
     return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-purple-400" /></div>;
   }
   if (!isAuthenticated) return null;
-  if (user?.role !== "admin") {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
-  }
 
   const overview = dashboard?.overview;
   const gatewayHealth = dashboard?.gatewayHealth;

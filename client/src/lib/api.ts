@@ -3,6 +3,18 @@ import { queryClient } from "./queryClient";
 const API_BASE = "/api";
 let csrfToken: string | null = null;
 
+export type AdminVerifyResponse = {
+  valid: boolean;
+  role: "super_admin" | "admin" | "staff" | null;
+  permissions: string[];
+  actor: {
+    id: string;
+    type: "root_admin" | "staff";
+  } | null;
+};
+
+export type AdminLoginResponse = AdminVerifyResponse & { success: boolean };
+
 async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
   if (!res.ok) return null;
@@ -237,9 +249,9 @@ export const api = {
   },
   admin: {
     login: (username: string, password: string) =>
-      fetchJSON<{ token: string; expiresIn: number }>("/admin/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+      fetchJSON<AdminLoginResponse>("/admin/login", { method: "POST", body: JSON.stringify({ username, password }) }),
     logout: () => adminFetch<any>("/admin/logout", { method: "POST" }),
-    verify: () => adminFetch<{ valid: boolean }>("/admin/verify"),
+    verify: () => adminFetch<AdminVerifyResponse>("/admin/verify"),
     stats: () => adminFetch<any>("/admin/stats"),
     users: () => adminFetch<any[]>("/admin/users"),
     deleteUser: (id: string) => adminFetch<any>(`/admin/users/${id}`, { method: "DELETE" }),
