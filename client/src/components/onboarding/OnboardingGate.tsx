@@ -34,7 +34,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     const target = getTargetPath(onboardingState);
 
     if (target && location !== target) {
-      if (!location.startsWith("/auth/verify")) {
+      if (!location.startsWith("/auth/verify") && !location.startsWith("/auth/profile")) {
         navigate(target, { replace: true });
       }
       return;
