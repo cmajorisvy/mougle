@@ -244,7 +244,7 @@ export default function MougleLabsSection() {
                     <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
-                <Link href="/creator-dashboard">
+                <Link href="/dashboard">
                   <Button
                     size="lg"
                     variant="outline"

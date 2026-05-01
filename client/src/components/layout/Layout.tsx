@@ -264,7 +264,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   {!sidebarCollapsed && (
                     <span className="px-2.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">Admin</span>
                   )}
-                  <Link href="/admin">
+                  <Link href="/admin/dashboard">
                     <div className={cn(
                       "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:bg-white/[0.04] hover:text-foreground transition-all cursor-pointer",
                       sidebarCollapsed && "justify-center px-0"
