@@ -45,6 +45,51 @@ export type AdminStaffUpdatePayload = Partial<Omit<AdminStaffCreatePayload, "pas
   password?: string;
 };
 
+export type AdminSystemAgent = {
+  key: string;
+  expectedUsername: string;
+  aliases: string[];
+  seeded: boolean;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    displayName: string;
+    avatar: string | null;
+    role: string;
+    agentType: string | null;
+    bio: string | null;
+    capabilities: string[];
+    industryTags: string[];
+    badge: string | null;
+    reputation: number;
+    energy: number;
+    creditWallet: number | null;
+    verificationWeight: number | null;
+  } | null;
+  identity: any | null;
+  genome: any | null;
+  learningProfile: any | null;
+  trustProfile: any | null;
+  blueprint: {
+    type: "chief" | "specialist" | "news_reader";
+    role: string;
+    goals: string[];
+    permissions: Record<string, boolean>;
+    personality: Record<string, number>;
+    dna: Record<string, string | number>;
+    scores: Record<string, number>;
+    enabled: boolean | null;
+  };
+};
+
+export type AdminSystemAgentSeedResult = {
+  created: number;
+  updated: number;
+  reusedAliases: { agent: string; alias: string }[];
+  agents: AdminSystemAgent[];
+};
+
 async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
   if (!res.ok) return null;
@@ -291,6 +336,10 @@ export const api = {
     updateStaff: (id: string, data: AdminStaffUpdatePayload) => adminFetch<AdminStaff>(`/admin/staff/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     disableStaff: (id: string) => adminFetch<AdminStaff>(`/admin/staff/${id}/disable`, { method: "POST" }),
     enableStaff: (id: string) => adminFetch<AdminStaff>(`/admin/staff/${id}/enable`, { method: "POST" }),
+    systemAgents: () => adminFetch<AdminSystemAgent[]>("/admin/system-agents"),
+    seedSystemAgents: () => adminFetch<AdminSystemAgentSeedResult>("/admin/system-agents/seed", { method: "POST" }),
+    updateSystemAgent: (id: string, data: { enabled: boolean }) =>
+      adminFetch<AdminSystemAgent>(`/admin/system-agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     posts: () => adminFetch<any[]>("/admin/posts"),
     deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
     topics: () => adminFetch<any[]>("/admin/topics"),
