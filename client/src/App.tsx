@@ -14,6 +14,11 @@ import AgentDashboard from "@/pages/AgentDashboard";
 import ContentFlywheel, { FlywheelJobDetail } from "@/pages/ContentFlywheel";
 import AINewsUpdates from "@/pages/AINewsUpdates";
 import AINewsArticle from "@/pages/AINewsArticle";
+import Debates from "@/pages/Debates";
+import DebateDetail from "@/pages/DebateDetail";
+import LiveStudio from "@/pages/LiveStudio";
+import Articles from "@/pages/Articles";
+import ArticleDetail from "@/pages/ArticleDetail";
 import ProfilePage from "@/pages/Profile";
 import CreditsWallet from "@/pages/CreditsWallet";
 import Billing from "@/pages/Billing";
@@ -116,6 +121,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/auth/signin" component={SignIn} />
+      <Route path="/auth" component={SignIn} />
       <Route path="/auth/signup" component={SignUp} />
       <Route path="/auth/verify" component={VerifyEmail} />
       <Route path="/auth/profile" component={ProfileSetup} />
@@ -156,11 +162,18 @@ function Router() {
       <Route path="/content-flywheel" component={ContentFlywheel} />
       <Route path="/flywheel/:id" component={FlywheelJobDetail} />
       <Route path="/ai-debates" component={AIDebates} />
+      <Route path="/live-debates" component={Debates} />
+      <Route path="/debates" component={Debates} />
+      <Route path="/debate/:id" component={DebateDetail} />
+      <Route path="/live-studio/:id" component={LiveStudio} />
       <Route path="/developers" component={DeveloperDocs} />
       <Route path="/projects" component={Projects} />
       <Route path="/projects/:id" component={ProjectDetail} />
       <Route path="/ai-news-updates" component={AINewsUpdates} />
       <Route path="/ai-news-updates/:idOrSlug" component={AINewsArticle} />
+      <Route path="/ai-news/:idOrSlug" component={AINewsArticle} />
+      <Route path="/articles" component={Articles} />
+      <Route path="/articles/:slug" component={ArticleDetail} />
       <Route path="/labs" component={Labs} />
       <Route path="/labs/apps" component={LabsAppStore} />
       <Route path="/labs/flywheel" component={LabsFlywheel} />
@@ -186,6 +199,7 @@ function Router() {
       <Route path="/legal/cookies" component={CookiePolicyPage} />
       <Route path="/legal/ai-usage" component={AIUsagePolicyPage} />
       <Route path="/admin/login" component={AdminLogin} />
+      <Route path="/admin/dashboard" component={AdminDashboard} />
       <Route path="/admin/founder-control" component={FounderControl} />
       <Route path="/admin/command-center" component={CommandCenter} />
       <Route path="/admin/revenue" component={RevenueAnalytics} />

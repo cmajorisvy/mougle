@@ -527,6 +527,9 @@ export async function registerRoutes(
   app.post("/api/auth/complete-profile", async (req, res) => {
     try {
       const result = await authService.completeProfile(req.body);
+      if (req.session) {
+        req.session.userId = result.id;
+      }
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
