@@ -150,6 +150,15 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       secondaryActions: [{ label: "Knowledge Base", href: "/admin/knowledge-base" }],
     },
     {
+      title: "Staff Management",
+      description: "Internal employee access, roles, and permissions.",
+      metric: "Internal",
+      icon: Users,
+      color: "bg-indigo-500/15 text-indigo-300",
+      primaryAction: { label: "Staff", href: "/admin/staff" },
+      secondaryActions: [{ label: "Users", tab: "users" }],
+    },
+    {
       title: "Billing / Revenue",
       description: "Revenue health, credits, plans, and flywheel economics.",
       metric: `${stats?.economy?.totalTransactions || 0} txns`,

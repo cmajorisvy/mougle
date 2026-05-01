@@ -27,6 +27,7 @@ import { storage } from "./storage";
 import { db } from "./db";
 import {
   users as users_table,
+  adminStaff as adminStaff_table,
   posts as posts_table,
   topics as topics_table,
   liveDebates as liveDebates_table,
@@ -95,10 +96,10 @@ const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 const ROOT_ADMIN_ROLE = "super_admin";
 const ROOT_ADMIN_ACTOR_ID = "env-root-admin";
 const ROOT_ADMIN_PERMISSIONS = ["*"];
-function assertAdminConfig() {
-  if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
-    throw new Error("ADMIN_USERNAME and ADMIN_PASSWORD_HASH must be set in the environment.");
-  }
+const STAFF_MANAGE_PERMISSION = "staff:manage";
+
+function rootAdminConfigured() {
+  return !!ADMIN_USERNAME && !!ADMIN_PASSWORD_HASH;
 }
 
 function getAdminVerification(req: any) {
@@ -112,7 +113,7 @@ function getAdminVerification(req: any) {
     permissions: req.session.adminPermissions || ROOT_ADMIN_PERMISSIONS,
     actor: {
       id: req.session.adminActorId || ROOT_ADMIN_ACTOR_ID,
-      type: "root_admin",
+      type: req.session.adminActorType || "root_admin",
     },
   };
 }
@@ -122,6 +123,19 @@ function requireAdmin(req: any, res: any, next: any) {
     return res.status(401).json({ message: "Unauthorized" });
   }
   next();
+}
+
+function requireAdminPermission(permission: string) {
+  return (req: any, res: any, next: any) => {
+    const admin = getAdminVerification(req);
+    if (!admin) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (!admin.permissions.includes("*") && !admin.permissions.includes(permission)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    next();
+  };
 }
 
 function verifyAdminToken(req: any) {
@@ -240,8 +254,6 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  assertAdminConfig();
-
   // Initialize panic button system
   panicButtonService.initialize().catch(err => console.error("[PanicButton] Init error:", err));
   stabilityTriangleService.initialize();
@@ -1758,21 +1770,82 @@ export async function registerRoutes(
   });
 
   // ---- ADMIN ----
+  const staffRoleSchema = z.enum(["admin", "staff", "support"]);
+  const createStaffSchema = z.object({
+    email: z.string().email(),
+    username: z.string().min(3).max(64),
+    displayName: z.string().min(1).max(120),
+    password: z.string().min(8),
+    role: staffRoleSchema.default("staff"),
+    permissions: z.array(z.string().min(1).max(80)).default([]),
+    active: z.boolean().default(true),
+  });
+  const updateStaffSchema = z.object({
+    email: z.string().email().optional(),
+    username: z.string().min(3).max(64).optional(),
+    displayName: z.string().min(1).max(120).optional(),
+    password: z.string().min(8).optional(),
+    role: staffRoleSchema.optional(),
+    permissions: z.array(z.string().min(1).max(80)).optional(),
+    active: z.boolean().optional(),
+  });
+
+  function serializeStaff(staff: typeof adminStaff_table.$inferSelect) {
+    const { passwordHash, ...safeStaff } = staff;
+    return safeStaff;
+  }
+
+  function getAdminActor(req: any) {
+    const admin = getAdminVerification(req);
+    return admin?.actor || { id: ROOT_ADMIN_ACTOR_ID, type: "root_admin" };
+  }
+
+  async function auditStaffAction(req: any, action: string, staffId: string, details: Record<string, any> = {}) {
+    const actor = getAdminActor(req);
+    await riskManagementService.logAudit({
+      actorId: actor.id,
+      actorType: actor.type,
+      action,
+      resourceType: "admin_staff",
+      resourceId: staffId,
+      outcome: "success",
+      riskLevel: "medium",
+      details,
+      ipAddress: req.ip,
+    });
+  }
+
   app.post("/api/admin/login", async (req, res) => {
     try {
-      assertAdminConfig();
       const { username, password } = req.body;
-      if (typeof password !== "string") {
+      if (typeof username !== "string" || typeof password !== "string") {
         return res.status(401).json({ message: "Invalid credentials" });
       }
-      if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH!)) {
+      if (rootAdminConfigured() && username === ADMIN_USERNAME) {
+        if (!bcrypt.compareSync(password, ADMIN_PASSWORD_HASH!)) {
+          return res.status(401).json({ message: "Invalid credentials" });
+        }
+        if (req.session) {
+          req.session.isAdmin = true;
+          req.session.adminRole = ROOT_ADMIN_ROLE;
+          req.session.adminPermissions = ROOT_ADMIN_PERMISSIONS;
+          req.session.adminActorId = ROOT_ADMIN_ACTOR_ID;
+          req.session.adminActorType = "root_admin";
+        }
+        return res.json({ success: true, ...getAdminVerification(req) });
+      }
+
+      const [staff] = await db.select().from(adminStaff_table).where(eq(adminStaff_table.username, username)).limit(1);
+      if (!staff || !staff.active || !bcrypt.compareSync(password, staff.passwordHash)) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
+      await db.update(adminStaff_table).set({ lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(adminStaff_table.id, staff.id));
       if (req.session) {
         req.session.isAdmin = true;
-        req.session.adminRole = ROOT_ADMIN_ROLE;
-        req.session.adminPermissions = ROOT_ADMIN_PERMISSIONS;
-        req.session.adminActorId = ROOT_ADMIN_ACTOR_ID;
+        req.session.adminRole = staff.role;
+        req.session.adminPermissions = staff.permissions || [];
+        req.session.adminActorId = staff.id;
+        req.session.adminActorType = "staff";
       }
       res.json({ success: true, ...getAdminVerification(req) });
     } catch (err) { handleServiceError(res, err); }
@@ -1784,6 +1857,7 @@ export async function registerRoutes(
       req.session.adminRole = undefined;
       req.session.adminPermissions = undefined;
       req.session.adminActorId = undefined;
+      req.session.adminActorType = undefined;
     }
     res.json({ message: "Logged out" });
   });
@@ -1846,6 +1920,97 @@ export async function registerRoutes(
       if (Object.keys(updateData).length === 0) return res.status(400).json({ message: "No valid fields to update" });
       const [updated] = await db.update(users_table).set(updateData).where(eq(users_table.id, id)).returning();
       res.json({ ...updated, password: undefined });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/staff", requireAdminPermission(STAFF_MANAGE_PERMISSION), async (_req, res) => {
+    try {
+      const staff = await db.select().from(adminStaff_table).orderBy(desc(adminStaff_table.createdAt));
+      res.json(staff.map(serializeStaff));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/staff", requireAdminPermission(STAFF_MANAGE_PERMISSION), async (req, res) => {
+    try {
+      const parsed = createStaffSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid staff data", errors: parsed.error.issues });
+      const actor = getAdminActor(req);
+      const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+      const [created] = await db.insert(adminStaff_table).values({
+        email: parsed.data.email.trim().toLowerCase(),
+        username: parsed.data.username.trim(),
+        displayName: parsed.data.displayName.trim(),
+        passwordHash,
+        role: parsed.data.role,
+        permissions: parsed.data.permissions,
+        active: parsed.data.active,
+        createdBy: actor.id,
+        updatedBy: actor.id,
+        updatedAt: new Date(),
+      }).returning();
+      await auditStaffAction(req, "staff_create", created.id, { role: created.role, permissions: created.permissions, active: created.active });
+      res.status(201).json(serializeStaff(created));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/staff/:id", requireAdminPermission(STAFF_MANAGE_PERMISSION), async (req, res) => {
+    try {
+      const parsed = updateStaffSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid staff update data", errors: parsed.error.issues });
+      const actor = getAdminActor(req);
+      const updateData: Partial<typeof adminStaff_table.$inferInsert> = {
+        updatedBy: actor.id,
+        updatedAt: new Date(),
+      };
+      if (parsed.data.email !== undefined) updateData.email = parsed.data.email.trim().toLowerCase();
+      if (parsed.data.username !== undefined) updateData.username = parsed.data.username.trim();
+      if (parsed.data.displayName !== undefined) updateData.displayName = parsed.data.displayName.trim();
+      if (parsed.data.role !== undefined) updateData.role = parsed.data.role;
+      if (parsed.data.permissions !== undefined) updateData.permissions = parsed.data.permissions;
+      if (parsed.data.password !== undefined) updateData.passwordHash = await bcrypt.hash(parsed.data.password, 10);
+      if (parsed.data.active !== undefined) {
+        updateData.active = parsed.data.active;
+        updateData.disabledAt = parsed.data.active ? null : new Date();
+      }
+      const [updated] = await db.update(adminStaff_table)
+        .set(updateData)
+        .where(eq(adminStaff_table.id, req.params.id as string))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Staff member not found" });
+      await auditStaffAction(req, "staff_update", updated.id, {
+        changedFields: Object.keys(parsed.data).filter((key) => parsed.data[key as keyof typeof parsed.data] !== undefined),
+      });
+      res.json(serializeStaff(updated));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/staff/:id/disable", requireAdminPermission(STAFF_MANAGE_PERMISSION), async (req, res) => {
+    try {
+      const actor = getAdminActor(req);
+      const id = req.params.id as string;
+      if (actor.type === "staff" && actor.id === id) {
+        return res.status(400).json({ message: "Staff members cannot disable their own account" });
+      }
+      const [updated] = await db.update(adminStaff_table)
+        .set({ active: false, disabledAt: new Date(), updatedAt: new Date(), updatedBy: actor.id })
+        .where(eq(adminStaff_table.id, id))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Staff member not found" });
+      await auditStaffAction(req, "staff_disable", updated.id, { role: updated.role });
+      res.json(serializeStaff(updated));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/staff/:id/enable", requireAdminPermission(STAFF_MANAGE_PERMISSION), async (req, res) => {
+    try {
+      const actor = getAdminActor(req);
+      const [updated] = await db.update(adminStaff_table)
+        .set({ active: true, disabledAt: null, updatedAt: new Date(), updatedBy: actor.id })
+        .where(eq(adminStaff_table.id, req.params.id as string))
+        .returning();
+      if (!updated) return res.status(404).json({ message: "Staff member not found" });
+      await auditStaffAction(req, "staff_enable", updated.id, { role: updated.role });
+      res.json(serializeStaff(updated));
     } catch (err) { handleServiceError(res, err); }
   });
 

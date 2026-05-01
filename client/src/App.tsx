@@ -93,6 +93,7 @@ import GlobalCompliance from "@/pages/admin/GlobalCompliance";
 import PolicyGovernance from "@/pages/admin/PolicyGovernance";
 import Support from "@/pages/Support";
 import SupportDashboard from "@/pages/admin/SupportDashboard";
+import StaffManagement from "@/pages/admin/StaffManagement";
 import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
 import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
@@ -217,6 +218,7 @@ function Router() {
       <Route path="/admin/compliance" component={GlobalCompliance} />
       <Route path="/admin/policy-governance" component={PolicyGovernance} />
       <Route path="/admin/support" component={SupportDashboard} />
+      <Route path="/admin/staff" component={StaffManagement} />
       <Route path="/admin/knowledge-base" component={KnowledgeBaseDashboard} />
       <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/admin/workday" component={FounderWorkday} />
