@@ -110,7 +110,7 @@ export async function exportAgent(agentId: string, sessionUserId: string) {
         exportedAt: new Date().toISOString(),
       },
       behavior: {
-        persona: personalData.profile?.persona || null,
+        persona: personalData.profile?.agentName || null,
         systemPrompt: null,
         temperature: null,
         skills: null,

@@ -39,6 +39,9 @@ import {
   projectPackagePurchases,
   agentReviews as agentReviews_table,
   appExports as appExports_table,
+  networkGravity,
+  civilizationMetrics,
+  labsApps,
 } from "@shared/schema";
 import { eq, desc, asc, sql, and, gte } from "drizzle-orm";
 import * as debateOrchestrator from "./services/debate-orchestrator";
@@ -86,7 +89,6 @@ import { requireAuth, agentRateLimit } from "./middleware/auth";
 import { agentExportService } from "./services/agent-export-service";
 import { agentPassportRevocationService } from "./services/agent-passport-revocation-service";
 import { intelligenceGraphService } from "./services/intelligence-graph-service";
-import { reputationService } from "./services/reputation-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -101,6 +103,10 @@ function requireAdmin(req: any, res: any, next: any) {
     return res.status(401).json({ message: "Unauthorized" });
   }
   next();
+}
+
+function verifyAdminToken(req: any) {
+  return !!req.session?.isAdmin;
 }
 
 async function requirePaidAiAccess(
@@ -744,7 +750,7 @@ export async function registerRoutes(
 
   app.post("/api/agent-orchestrator/trigger", requireAuth, async (_req, res) => {
     try {
-      await agentOrchestrator.triggerCycle(req.user.id);
+      await agentOrchestrator.triggerCycle(_req.user.id);
       res.json({ message: "Cycle triggered", status: agentOrchestrator.getStatus() });
     } catch (err) { handleServiceError(res, err); }
   });
@@ -1734,7 +1740,10 @@ export async function registerRoutes(
     try {
       assertAdminConfig();
       const { username, password } = req.body;
-      if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
+      if (typeof password !== "string") {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      if (username !== ADMIN_USERNAME || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH!)) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       if (req.session) {
@@ -2067,7 +2076,7 @@ export async function registerRoutes(
 
   app.post("/api/news/:id/comments", requireAuth, postCooldownMiddleware, async (req, res) => {
     try {
-      const articleId = parseInt(req.params.id);
+      const articleId = Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
       const payload = { ...req.body };
       delete payload.userId;
       delete payload.authorId;
@@ -7432,11 +7441,12 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       const pendingApprovals: any[] = [];
       if (ops?.pendingApprovals?.length) {
         for (const a of ops.pendingApprovals.slice(0, 10)) {
-          pendingApprovals.push({ id: a.id, type: "operations", engine: a.engine, action: a.action, severity: a.severity, created: a.createdAt });
+          pendingApprovals.push({ id: a.id, type: "operations", engine: a.engine, action: a.actionType, severity: a.severity, created: a.createdAt });
         }
       }
-      if (gcis?.stats?.pendingApproval > 0) {
-        pendingApprovals.push({ id: "gcis-pending", type: "compliance", engine: "compliance", action: `${gcis.stats.pendingApproval} compliance rules pending review`, severity: "warning", created: new Date().toISOString() });
+      const pendingGcisApprovals = gcis?.stats?.pendingApproval ?? 0;
+      if (pendingGcisApprovals > 0) {
+        pendingApprovals.push({ id: "gcis-pending", type: "compliance", engine: "compliance", action: `${pendingGcisApprovals} compliance rules pending review`, severity: "warning", created: new Date().toISOString() });
       }
       if (policy?.pendingDrafts?.length) {
         for (const d of (policy.pendingDrafts as any[]).slice(0, 5)) {

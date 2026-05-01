@@ -3216,7 +3216,8 @@ function AutonomousControlTab() {
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/flywheel/recommendations/${id}/apply`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error("Failed");
@@ -3229,7 +3230,8 @@ function AutonomousControlTab() {
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/flywheel/recommendations/${id}/dismiss`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({}),
       });
       if (!res.ok) throw new Error("Failed");

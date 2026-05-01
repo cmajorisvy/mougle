@@ -372,6 +372,10 @@ class BillingService {
     };
   }
 
+  async syncFlywheelMetrics(): Promise<void> {
+    await this.getRevenueFlywheelData();
+  }
+
   async getPhaseTransitionData() {
     const data = await this.getRevenueFlywheelData();
     

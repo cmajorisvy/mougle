@@ -553,9 +553,9 @@ export const debateTurns = pgTable("debate_turns", {
 });
 
 // Insert schemas
-export const insertLiveDebateSchema = createInsertSchema(liveDebates).omit({ id: true, createdAt: true, currentRound: true, streamingActive: true });
-export const insertDebateParticipantSchema = createInsertSchema(debateParticipants).omit({ id: true, joinedAt: true, totalSpeakingTime: true, turnsUsed: true });
-export const insertDebateTurnSchema = createInsertSchema(debateTurns).omit({ id: true, createdAt: true });
+export const insertLiveDebateSchema = createInsertSchema(liveDebates).omit({ id: true, createdAt: true, currentRound: true, streamingActive: true } as any);
+export const insertDebateParticipantSchema = createInsertSchema(debateParticipants).omit({ id: true, joinedAt: true, totalSpeakingTime: true, turnsUsed: true } as any);
+export const insertDebateTurnSchema = createInsertSchema(debateTurns).omit({ id: true, createdAt: true } as any);
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertTopicSchema = createInsertSchema(topics).omit({ id: true });
@@ -671,11 +671,11 @@ export type GlobalGoalField = typeof globalGoalField.$inferSelect;
 export type InsertGlobalInsight = z.infer<typeof insertGlobalInsightSchema>;
 export type GlobalInsight = typeof globalInsights.$inferSelect;
 
-export type InsertLiveDebate = z.infer<typeof insertLiveDebateSchema>;
+export type InsertLiveDebate = typeof liveDebates.$inferInsert;
 export type LiveDebate = typeof liveDebates.$inferSelect;
-export type InsertDebateParticipant = z.infer<typeof insertDebateParticipantSchema>;
+export type InsertDebateParticipant = typeof debateParticipants.$inferInsert;
 export type DebateParticipant = typeof debateParticipants.$inferSelect;
-export type InsertDebateTurn = z.infer<typeof insertDebateTurnSchema>;
+export type InsertDebateTurn = typeof debateTurns.$inferInsert;
 export type DebateTurn = typeof debateTurns.$inferSelect;
 
 // ---- CONTENT FLYWHEEL ----
@@ -718,12 +718,12 @@ export const generatedClips = pgTable("generated_clips", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertFlywheelJobSchema = createInsertSchema(flywheelJobs).omit({ id: true, createdAt: true, startedAt: true, completedAt: true });
-export const insertGeneratedClipSchema = createInsertSchema(generatedClips).omit({ id: true, createdAt: true });
+export const insertFlywheelJobSchema = createInsertSchema(flywheelJobs).omit({ id: true, createdAt: true, startedAt: true, completedAt: true } as any);
+export const insertGeneratedClipSchema = createInsertSchema(generatedClips).omit({ id: true, createdAt: true } as any);
 
-export type InsertFlywheelJob = z.infer<typeof insertFlywheelJobSchema>;
+export type InsertFlywheelJob = typeof flywheelJobs.$inferInsert;
 export type FlywheelJob = typeof flywheelJobs.$inferSelect;
-export type InsertGeneratedClip = z.infer<typeof insertGeneratedClipSchema>;
+export type InsertGeneratedClip = typeof generatedClips.$inferInsert;
 export type GeneratedClip = typeof generatedClips.$inferSelect;
 
 export const newsArticles = pgTable("news_articles", {
@@ -782,20 +782,20 @@ export const newsShares = pgTable("news_shares", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertNewsArticleSchema = createInsertSchema(newsArticles).omit({ id: true, createdAt: true });
-export type InsertNewsArticle = z.infer<typeof insertNewsArticleSchema>;
+export const insertNewsArticleSchema = createInsertSchema(newsArticles).omit({ id: true, createdAt: true } as any);
+export type InsertNewsArticle = typeof newsArticles.$inferInsert;
 export type NewsArticle = typeof newsArticles.$inferSelect;
 
-export const insertNewsCommentSchema = createInsertSchema(newsComments).omit({ id: true, likes: true, createdAt: true });
-export type InsertNewsComment = z.infer<typeof insertNewsCommentSchema>;
+export const insertNewsCommentSchema = createInsertSchema(newsComments).omit({ id: true, likes: true, createdAt: true } as any);
+export type InsertNewsComment = typeof newsComments.$inferInsert;
 export type NewsComment = typeof newsComments.$inferSelect;
 
-export const insertNewsReactionSchema = createInsertSchema(newsReactions).omit({ id: true, createdAt: true });
-export type InsertNewsReaction = z.infer<typeof insertNewsReactionSchema>;
+export const insertNewsReactionSchema = createInsertSchema(newsReactions).omit({ id: true, createdAt: true } as any);
+export type InsertNewsReaction = typeof newsReactions.$inferInsert;
 export type NewsReaction = typeof newsReactions.$inferSelect;
 
-export const insertNewsShareSchema = createInsertSchema(newsShares).omit({ id: true, createdAt: true });
-export type InsertNewsShare = z.infer<typeof insertNewsShareSchema>;
+export const insertNewsShareSchema = createInsertSchema(newsShares).omit({ id: true, createdAt: true } as any);
+export type InsertNewsShare = typeof newsShares.$inferInsert;
 export type NewsShare = typeof newsShares.$inferSelect;
 
 export const socialAccounts = pgTable("social_accounts", {
@@ -829,12 +829,12 @@ export const socialPosts = pgTable("social_posts", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({ id: true, createdAt: true, updatedAt: true });
-export type InsertSocialAccount = z.infer<typeof insertSocialAccountSchema>;
+export const insertSocialAccountSchema = createInsertSchema(socialAccounts).omit({ id: true, createdAt: true, updatedAt: true } as any);
+export type InsertSocialAccount = typeof socialAccounts.$inferInsert;
 export type SocialAccount = typeof socialAccounts.$inferSelect;
 
-export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true });
-export type InsertSocialPost = z.infer<typeof insertSocialPostSchema>;
+export const insertSocialPostSchema = createInsertSchema(socialPosts).omit({ id: true, createdAt: true } as any);
+export type InsertSocialPost = typeof socialPosts.$inferInsert;
 export type SocialPost = typeof socialPosts.$inferSelect;
 
 export const promotionScores = pgTable("promotion_scores", {
@@ -860,8 +860,8 @@ export const promotionScores = pgTable("promotion_scores", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertPromotionScoreSchema = createInsertSchema(promotionScores).omit({ id: true, createdAt: true });
-export type InsertPromotionScore = z.infer<typeof insertPromotionScoreSchema>;
+export const insertPromotionScoreSchema = createInsertSchema(promotionScores).omit({ id: true, createdAt: true } as any);
+export type InsertPromotionScore = typeof promotionScores.$inferInsert;
 export type PromotionScore = typeof promotionScores.$inferSelect;
 
 export const socialPerformance = pgTable("social_performance", {
@@ -885,8 +885,8 @@ export const socialPerformance = pgTable("social_performance", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertSocialPerformanceSchema = createInsertSchema(socialPerformance).omit({ id: true, createdAt: true });
-export type InsertSocialPerformance = z.infer<typeof insertSocialPerformanceSchema>;
+export const insertSocialPerformanceSchema = createInsertSchema(socialPerformance).omit({ id: true, createdAt: true } as any);
+export type InsertSocialPerformance = typeof socialPerformance.$inferInsert;
 export type SocialPerformance = typeof socialPerformance.$inferSelect;
 
 export const growthPatterns = pgTable("growth_patterns", {
@@ -909,8 +909,8 @@ export const growthPatterns = pgTable("growth_patterns", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertGrowthPatternSchema = createInsertSchema(growthPatterns).omit({ id: true, createdAt: true });
-export type InsertGrowthPattern = z.infer<typeof insertGrowthPatternSchema>;
+export const insertGrowthPatternSchema = createInsertSchema(growthPatterns).omit({ id: true, createdAt: true } as any);
+export type InsertGrowthPattern = typeof growthPatterns.$inferInsert;
 export type GrowthPattern = typeof growthPatterns.$inferSelect;
 
 export const systemControlConfig = pgTable("system_control_config", {
@@ -927,8 +927,8 @@ export const systemControlConfig = pgTable("system_control_config", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertSystemControlConfigSchema = createInsertSchema(systemControlConfig).omit({ id: true, createdAt: true });
-export type InsertSystemControlConfig = z.infer<typeof insertSystemControlConfigSchema>;
+export const insertSystemControlConfigSchema = createInsertSchema(systemControlConfig).omit({ id: true, createdAt: true } as any);
+export type InsertSystemControlConfig = typeof systemControlConfig.$inferInsert;
 export type SystemControlConfig = typeof systemControlConfig.$inferSelect;
 
 export const activityMetrics = pgTable("activity_metrics", {
@@ -939,8 +939,8 @@ export const activityMetrics = pgTable("activity_metrics", {
   observedAt: timestamp("observed_at").notNull().defaultNow(),
 });
 
-export const insertActivityMetricSchema = createInsertSchema(activityMetrics).omit({ id: true });
-export type InsertActivityMetric = z.infer<typeof insertActivityMetricSchema>;
+export const insertActivityMetricSchema = createInsertSchema(activityMetrics).omit({ id: true } as any);
+export type InsertActivityMetric = typeof activityMetrics.$inferInsert;
 export type ActivityMetric = typeof activityMetrics.$inferSelect;
 
 export const anomalyEvents = pgTable("anomaly_events", {
@@ -956,8 +956,8 @@ export const anomalyEvents = pgTable("anomaly_events", {
   resolvedAt: timestamp("resolved_at"),
 });
 
-export const insertAnomalyEventSchema = createInsertSchema(anomalyEvents).omit({ id: true });
-export type InsertAnomalyEvent = z.infer<typeof insertAnomalyEventSchema>;
+export const insertAnomalyEventSchema = createInsertSchema(anomalyEvents).omit({ id: true } as any);
+export type InsertAnomalyEvent = typeof anomalyEvents.$inferInsert;
 export type AnomalyEvent = typeof anomalyEvents.$inferSelect;
 
 export const automationDecisions = pgTable("automation_decisions", {
@@ -972,8 +972,8 @@ export const automationDecisions = pgTable("automation_decisions", {
   resolvedBy: text("resolved_by"),
 });
 
-export const insertAutomationDecisionSchema = createInsertSchema(automationDecisions).omit({ id: true });
-export type InsertAutomationDecision = z.infer<typeof insertAutomationDecisionSchema>;
+export const insertAutomationDecisionSchema = createInsertSchema(automationDecisions).omit({ id: true } as any);
+export type InsertAutomationDecision = typeof automationDecisions.$inferInsert;
 export type AutomationDecision = typeof automationDecisions.$inferSelect;
 
 export const automationPolicy = pgTable("automation_policy", {
@@ -984,8 +984,8 @@ export const automationPolicy = pgTable("automation_policy", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertAutomationPolicySchema = createInsertSchema(automationPolicy).omit({ id: true });
-export type InsertAutomationPolicy = z.infer<typeof insertAutomationPolicySchema>;
+export const insertAutomationPolicySchema = createInsertSchema(automationPolicy).omit({ id: true } as any);
+export type InsertAutomationPolicy = typeof automationPolicy.$inferInsert;
 export type AutomationPolicy = typeof automationPolicy.$inferSelect;
 
 // ---- MONETIZATION SYSTEM ----

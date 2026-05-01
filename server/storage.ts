@@ -112,6 +112,8 @@ import {
   type FlywheelAutomationConfig, type InsertFlywheelAutomationConfig,
   type FlywheelOptimizationOutcome, type InsertFlywheelOptimizationOutcome,
   platformEvents, agentPassports, agentPassportExports, flywheelAgents, flywheelRecommendations, flywheelAutomationConfig, flywheelOptimizationOutcomes,
+  type FlywheelMetric, type InsertFlywheelMetric,
+  flywheelMetrics,
   type PersonalAgentProfile, type InsertPersonalAgentProfile,
   type PersonalAgentMemory, type InsertPersonalAgentMemory,
   type PersonalAgentConversation, type InsertPersonalAgentConversation,
@@ -1778,13 +1780,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPromotionScores(limit = 50, status?: string): Promise<PromotionScore[]> {
-    let query = db.select().from(promotionScores).orderBy(desc(promotionScores.evaluatedAt)).limit(limit);
     if (status) {
-      query = db.select().from(promotionScores)
+      return db.select().from(promotionScores)
         .where(eq(promotionScores.status, status))
         .orderBy(desc(promotionScores.evaluatedAt)).limit(limit);
     }
-    return query;
+    return db.select().from(promotionScores).orderBy(desc(promotionScores.evaluatedAt)).limit(limit);
   }
 
   async getPromotionScore(id: number): Promise<PromotionScore | undefined> {

@@ -131,7 +131,9 @@ export class GenericScene implements GameScene {
   }
 
   private setupScrolling(): void {
-    renderer.renderer.domElement.addEventListener('wheel', (e: WheelEvent) => {
+    const activeRenderer = renderer.renderer;
+    if (!activeRenderer) return;
+    activeRenderer.domElement.addEventListener('wheel', (e: WheelEvent) => {
       if (this.group.parent) {
         this.scrollOffset += e.deltaY * 0.003;
         this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, 10));

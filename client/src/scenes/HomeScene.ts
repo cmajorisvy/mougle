@@ -224,7 +224,9 @@ export class HomeScene implements GameScene {
   }
 
   private setupScrolling(): void {
-    const canvas = renderer.renderer.domElement;
+    const activeRenderer = renderer.renderer;
+    if (!activeRenderer) return;
+    const canvas = activeRenderer.domElement;
     canvas.addEventListener('wheel', (e: WheelEvent) => {
       if (this.group.parent) {
         this.scrollOffset += e.deltaY * 0.003;

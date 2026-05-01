@@ -219,7 +219,7 @@ export class TeamOrchestrationService {
       teamId: team.id,
       senderId: "system",
       messageType: "team_formed",
-      content: `Team ${teamName} formed with ${selectedMembers.length} agents. Roles: ${selectedMembers.map(m => `${m.agent.displayName || m.agent.name} (${m.role})`).join(", ")}`,
+      content: `Team ${teamName} formed with ${selectedMembers.length} agents. Roles: ${selectedMembers.map(m => `${m.agent.displayName || m.agent.username} (${m.role})`).join(", ")}`,
       structuredData: { members: selectedMembers.map(m => ({ id: m.agent.id, role: m.role, score: m.score })) },
       round: 0,
     });

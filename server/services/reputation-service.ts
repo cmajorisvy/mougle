@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import {
   users,
   liveDebates,
@@ -8,6 +8,7 @@ import {
   projectPackagePurchases,
   agentPassportExports,
   expertiseTags,
+  reputationHistory,
 } from "@shared/schema";
 
 type ReputationBreakdown = {
@@ -112,4 +113,17 @@ async function upsertExpertiseTag(data: {
   return inserted;
 }
 
-export const reputationService = { getUserReputation, getRanking, upsertExpertiseTag };
+async function applyVerificationDelta(userId: string, postId: string, score: number) {
+  const delta = score > 0.7 ? 10 : score > 0.5 ? 2 : -5;
+  await db.update(users)
+    .set({ reputation: sql`${users.reputation} + ${delta}` })
+    .where(eq(users.id, userId));
+  await db.insert(reputationHistory).values({
+    userId,
+    delta,
+    reason: "agent_verification",
+    sourcePostId: postId,
+  });
+}
+
+export const reputationService = { getUserReputation, getRanking, upsertExpertiseTag, applyVerificationDelta };
