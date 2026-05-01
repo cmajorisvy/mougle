@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 function adminFetch(url: string, opts?: RequestInit) {
   return fetch(url, {
@@ -71,21 +71,7 @@ export default function GrowthAutopilot() {
   const [logs, setLogs] = useState<any[]>([]);
   const [showNewTrigger, setShowNewTrigger] = useState(false);
   const [newTrigger, setNewTrigger] = useState({ triggerType: "welcome_series", name: "", subjectTemplate: "", bodyTemplate: "" });
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      window.location.href = "/admin/login";
-    }
-  }, [authLoading, isAuthenticated]);
-
-  if (authLoading) {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Loading...</div>;
-  }
-  if (!isAuthenticated) return null;
-  if (user?.role !== "admin") {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
-  }
+  const { isLoading: authLoading, isAuthenticated } = useAdminAuth();
 
   const loadDashboard = async () => {
     setLoading(true);
@@ -108,7 +94,18 @@ export default function GrowthAutopilot() {
     try { setLogs(await adminFetch("/api/admin/growth-autopilot/logs?limit=50")); } catch (err) { console.error(err); }
   };
 
-  useEffect(() => { loadDashboard(); loadEmailTriggers(); loadInsights(); loadLogs(); }, []);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    loadDashboard();
+    loadEmailTriggers();
+    loadInsights();
+    loadLogs();
+  }, [isAuthenticated]);
+
+  if (authLoading) {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Loading...</div>;
+  }
+  if (!isAuthenticated) return null;
 
   const toggleSystem = async (key: string, enabled: boolean) => {
     await adminFetch("/api/admin/growth-autopilot/config", { method: "PATCH", body: JSON.stringify({ [key]: enabled }) });

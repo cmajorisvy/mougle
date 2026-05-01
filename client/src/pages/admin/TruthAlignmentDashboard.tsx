@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import {
   ArrowLeft, Loader2, Brain, Target, AlertTriangle,
   CheckCircle, TrendingUp, Zap, Shield
 } from "lucide-react";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 async function adminGet(url: string) {
   const res = await fetch(url, { headers: { "Content-Type": "application/json" }, credentials: "include" });
@@ -17,7 +17,7 @@ async function adminGet(url: string) {
 }
 
 export default function TruthAlignmentDashboard() {
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: authLoading, isAuthenticated } = useAdminAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "events">("overview");
   const [, navigate] = useLocation();
 
@@ -28,17 +28,10 @@ export default function TruthAlignmentDashboard() {
     refetchInterval: 30000,
   });
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) navigate("/admin/login");
-  }, [authLoading, isAuthenticated, navigate]);
-
   if (authLoading || isLoading) {
     return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-purple-400" /></div>;
   }
   if (!isAuthenticated) return null;
-  if (user?.role !== "admin") {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
-  }
 
   const mem = analytics?.memories || {};
   const ev = analytics?.events24h || {};

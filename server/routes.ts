@@ -92,21 +92,40 @@ import { intelligenceGraphService } from "./services/intelligence-graph-service"
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+const ROOT_ADMIN_ROLE = "super_admin";
+const ROOT_ADMIN_ACTOR_ID = "env-root-admin";
+const ROOT_ADMIN_PERMISSIONS = ["*"];
 function assertAdminConfig() {
   if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
     throw new Error("ADMIN_USERNAME and ADMIN_PASSWORD_HASH must be set in the environment.");
   }
 }
 
-function requireAdmin(req: any, res: any, next: any) {
+function getAdminVerification(req: any) {
   if (!req.session?.isAdmin) {
+    return null;
+  }
+
+  return {
+    valid: true,
+    role: req.session.adminRole || ROOT_ADMIN_ROLE,
+    permissions: req.session.adminPermissions || ROOT_ADMIN_PERMISSIONS,
+    actor: {
+      id: req.session.adminActorId || ROOT_ADMIN_ACTOR_ID,
+      type: "root_admin",
+    },
+  };
+}
+
+function requireAdmin(req: any, res: any, next: any) {
+  if (!getAdminVerification(req)) {
     return res.status(401).json({ message: "Unauthorized" });
   }
   next();
 }
 
 function verifyAdminToken(req: any) {
-  return !!req.session?.isAdmin;
+  return !!getAdminVerification(req);
 }
 
 async function requirePaidAiAccess(
@@ -1751,18 +1770,26 @@ export async function registerRoutes(
       }
       if (req.session) {
         req.session.isAdmin = true;
+        req.session.adminRole = ROOT_ADMIN_ROLE;
+        req.session.adminPermissions = ROOT_ADMIN_PERMISSIONS;
+        req.session.adminActorId = ROOT_ADMIN_ACTOR_ID;
       }
-      res.json({ success: true });
+      res.json({ success: true, ...getAdminVerification(req) });
     } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/admin/logout", requireAdmin, (req, res) => {
-    if (req.session) req.session.isAdmin = false;
+    if (req.session) {
+      req.session.isAdmin = false;
+      req.session.adminRole = undefined;
+      req.session.adminPermissions = undefined;
+      req.session.adminActorId = undefined;
+    }
     res.json({ message: "Logged out" });
   });
 
   app.get("/api/admin/verify", requireAdmin, (_req, res) => {
-    res.json({ valid: true });
+    res.json(getAdminVerification(_req));
   });
 
   app.get("/api/admin/stats", requireAdmin, async (_req, res) => {
@@ -3581,7 +3608,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/moderation/reports", async (req, res) => {
+  app.get("/api/admin/moderation/reports", requireAdmin, async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
       const reports = await legalSafetyService.getAllReports(status);
@@ -3589,7 +3616,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/moderation/resolve", async (req, res) => {
+  app.post("/api/admin/moderation/resolve", requireAdmin, async (req, res) => {
     try {
       const { reportId, moderatorId, action, notes } = req.body;
       if (!reportId || !moderatorId || !action) return res.status(400).json({ error: "reportId, moderatorId, action required" });
@@ -3598,7 +3625,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/moderation/dismiss", async (req, res) => {
+  app.post("/api/admin/moderation/dismiss", requireAdmin, async (req, res) => {
     try {
       const { reportId, moderatorId, notes } = req.body;
       if (!reportId || !moderatorId) return res.status(400).json({ error: "reportId, moderatorId required" });
@@ -3655,7 +3682,7 @@ Keep under 200 words.`
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/legal-safety/stats", async (_req, res) => {
+  app.get("/api/admin/legal-safety/stats", requireAdmin, async (_req, res) => {
     try {
       const stats = await legalSafetyService.getModerationStats();
       res.json(stats);
@@ -4416,7 +4443,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- FOUNDER AI COST CONTROL ANALYTICS ----
 
-  app.get("/api/admin/agent-cost-analytics", async (req, res) => {
+  app.get("/api/admin/agent-cost-analytics", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       res.json(await agentRunnerService.getPlatformCostAnalytics());
@@ -4617,7 +4644,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- ADMIN TRUST NETWORK ANALYTICS ----
 
-  app.get("/api/admin/trust/network", async (req, res) => {
+  app.get("/api/admin/trust/network", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const analytics = await agentTrustEngine.getNetworkAnalytics();
@@ -4625,7 +4652,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/trust/recalculate-all", async (req, res) => {
+  app.post("/api/admin/trust/recalculate-all", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await agentTrustEngine.recalculateAll();
@@ -4633,7 +4660,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/trust/unsuspend/:agentId", async (req, res) => {
+  app.post("/api/admin/trust/unsuspend/:agentId", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       await agentTrustEngine.unsuspendAgent(req.params.agentId);
@@ -4643,7 +4670,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- AI GATEWAY COST MONITOR (FOUNDER ONLY) ----
 
-  app.get("/api/admin/ai-gateway/metrics", async (req, res) => {
+  app.get("/api/admin/ai-gateway/metrics", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const metrics = aiGateway.getGatewayMetrics();
@@ -4665,7 +4692,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/ai-gateway/reset-metrics", async (req, res) => {
+  app.post("/api/admin/ai-gateway/reset-metrics", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       aiGateway.resetMetrics();
@@ -4696,7 +4723,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- CIVILIZATION STABILITY LAYER ----
 
-  app.get("/api/admin/civilization/stability", async (req, res) => {
+  app.get("/api/admin/civilization/stability", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const dashboard = await civilizationStabilityService.getStabilityDashboard();
@@ -4704,7 +4731,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/civilization/stability/recompute", async (req, res) => {
+  app.post("/api/admin/civilization/stability/recompute", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await civilizationStabilityService.runFullStabilityCheck();
@@ -4712,7 +4739,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/civilization/policies", async (req, res) => {
+  app.get("/api/admin/civilization/policies", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const rules = await storage.getPolicyRules();
@@ -4720,7 +4747,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/civilization/policies", async (req, res) => {
+  app.post("/api/admin/civilization/policies", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const { name, description, scope, conditionJson, actionJson, severity } = req.body;
@@ -4730,7 +4757,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/civilization/policies/:id/toggle", async (req, res) => {
+  app.post("/api/admin/civilization/policies/:id/toggle", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const rules = await storage.getPolicyRules();
@@ -4741,7 +4768,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/civilization/violations", async (req, res) => {
+  app.get("/api/admin/civilization/violations", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const violations = await storage.getPolicyViolations(100);
@@ -4749,7 +4776,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/civilization/health/history", async (req, res) => {
+  app.get("/api/admin/civilization/health/history", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const history = await storage.getHealthSnapshots(50);
@@ -4759,7 +4786,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   // ---- AUTONOMOUS PLATFORM FLYWHEEL ----
 
-  app.get("/api/admin/flywheel/overview", async (req, res) => {
+  app.get("/api/admin/flywheel/overview", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const overview = await platformFlywheelService.getOverview();
@@ -4767,7 +4794,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/flywheel/run", async (req, res) => {
+  app.post("/api/admin/flywheel/run", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await platformFlywheelService.runAnalysisCycle();
@@ -4775,7 +4802,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/flywheel/recommendations", async (req, res) => {
+  app.get("/api/admin/flywheel/recommendations", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const status = req.query.status as string | undefined;
@@ -4784,7 +4811,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/flywheel/recommendations/:id/apply", async (req, res) => {
+  app.post("/api/admin/flywheel/recommendations/:id/apply", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const outcome = await platformFlywheelService.applyRecommendation(req.params.id, req.body.notes);
@@ -4793,7 +4820,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/admin/flywheel/recommendations/:id/dismiss", async (req, res) => {
+  app.post("/api/admin/flywheel/recommendations/:id/dismiss", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const result = await platformFlywheelService.dismissRecommendation(req.params.id, req.body.reason);
@@ -4802,7 +4829,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/flywheel/outcomes", async (req, res) => {
+  app.get("/api/admin/flywheel/outcomes", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const outcomes = await storage.getFlywheelOutcomes(50);
@@ -4810,7 +4837,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/flywheel/config", async (req, res) => {
+  app.get("/api/admin/flywheel/config", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const config = await storage.getFlywheelAutomationConfig();
@@ -4818,7 +4845,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.put("/api/admin/flywheel/config", async (req, res) => {
+  app.put("/api/admin/flywheel/config", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const { mode } = req.body;
@@ -4831,7 +4858,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/flywheel/events", async (req, res) => {
+  app.get("/api/admin/flywheel/events", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const events = await storage.getPlatformEvents(100);
@@ -4887,7 +4914,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/admin/teams/analytics", async (req, res) => {
+  app.get("/api/admin/teams/analytics", requireAdmin, async (req, res) => {
     try {
       if (!verifyAdminToken(req)) return res.status(401).json({ error: "Unauthorized" });
       const analytics = await teamOrchestrationService.getTeamAnalytics();

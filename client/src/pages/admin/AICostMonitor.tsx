@@ -6,28 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Shield, Activity, Zap, AlertTriangle, CheckCircle, Clock, TrendingUp, RefreshCw, ArrowLeft, Brain, Users, MessageSquare, Gauge, Lock, Eye } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 export default function AICostMonitor() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"overview" | "safety" | "limits" | "live">("overview");
-  const { user, loading, isAuthenticated } = useAuth();
-
-  if (!loading && !isAuthenticated) {
-    window.location.href = "/admin/login";
-    return null;
-  }
-  if (!loading && user?.role !== "admin") {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Unauthorized</div>;
-  }
-
-  if (loading) {
-    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Loading...</div>;
-  }
+  const { isLoading: authLoading, isAuthenticated } = useAdminAuth();
 
   const { data: metrics, isLoading, refetch } = useQuery({
     queryKey: ["admin-ai-gateway-metrics"],
     queryFn: () => api.admin.aiGatewayMetrics(),
+    enabled: isAuthenticated,
     refetchInterval: 10000,
   });
 
@@ -37,6 +26,11 @@ export default function AICostMonitor() {
       queryClient.invalidateQueries({ queryKey: ["admin-ai-gateway-metrics"] });
     },
   });
+
+  if (authLoading) {
+    return <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center text-gray-400">Loading...</div>;
+  }
+  if (!isAuthenticated) return null;
 
   const gw = metrics?.gateway;
   const platform = metrics?.platform;

@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/context/AuthContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -3428,23 +3428,17 @@ function LoadingSpinner() {
 }
 
 export default function AdminDashboard() {
-  const { user, loading, isAuthenticated, refreshUser } = useAuth();
+  const { isLoading, isAuthenticated } = useAdminAuth();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate("/admin/login");
-    }
-  }, [loading, isAuthenticated, navigate]);
-
   const handleLogout = async () => {
     await api.admin.logout().catch(() => {});
-    await refreshUser();
+    queryClient.invalidateQueries({ queryKey: ["admin-verify"] });
     navigate("/admin/login");
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[#060611] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
@@ -3453,13 +3447,6 @@ export default function AdminDashboard() {
   }
 
   if (!isAuthenticated) return null;
-  if (user?.role !== "admin") {
-    return (
-      <div className="min-h-screen bg-[#060611] flex items-center justify-center text-gray-400">
-        Unauthorized
-      </div>
-    );
-  }
 
   const TabContent = {
     overview: OverviewTab,

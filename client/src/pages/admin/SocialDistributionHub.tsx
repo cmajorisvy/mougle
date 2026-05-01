@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const PLATFORMS: Record<string, { icon: string; color: string; label: string }> = {
   twitter: { icon: "𝕏", color: "#1d9bf0", label: "Twitter/X" },
@@ -53,7 +53,7 @@ export default function SocialDistributionHub() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState("");
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { isLoading: authLoading, isAuthenticated } = useAdminAuth();
 
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccount, setNewAccount] = useState({ platform: "twitter", accountName: "", accountHandle: "", apiKey: "", apiSecret: "", accessToken: "" });
@@ -62,20 +62,6 @@ export default function SocialDistributionHub() {
   const [generatePlatform, setGeneratePlatform] = useState("twitter");
   const [selectedContent, setSelectedContent] = useState<any>(null);
   const [generatedPost, setGeneratedPost] = useState<any>(null);
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      window.location.href = "/admin/login";
-    }
-  }, [authLoading, isAuthenticated]);
-
-  if (authLoading) {
-    return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>Loading...</div>;
-  }
-  if (!isAuthenticated) return null;
-  if (user?.role !== "admin") {
-    return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>Unauthorized</div>;
-  }
 
   const load = async () => {
     setLoading(true);
@@ -96,7 +82,15 @@ export default function SocialDistributionHub() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    load();
+  }, [isAuthenticated]);
+
+  if (authLoading) {
+    return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}>Loading...</div>;
+  }
+  if (!isAuthenticated) return null;
 
   const addAccount = async () => {
     if (!newAccount.accountName) return;
