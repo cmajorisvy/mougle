@@ -8,7 +8,7 @@ import { PersonalIntelligencePanel } from "./PersonalIntelligencePanel";
 import { LabsOpportunityPanel } from "./LabsOpportunityPanel";
 import { PassportTrustPanel } from "./PassportTrustPanel";
 import { NextActionPanel } from "./NextActionPanel";
-import { useDashboardData } from "./hooks/useDashboardData";
+import { useDashboardData } from "@/components/dashboard/hooks/useDashboardData";
 import { AmbientIntelligenceStatus } from "./AmbientIntelligenceStatus";
 import { IntelligenceActivityFeed } from "./IntelligenceActivityFeed";
 

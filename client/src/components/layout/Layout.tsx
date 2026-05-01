@@ -4,7 +4,7 @@ import {
   Home, MessageSquare, Newspaper, Bot,
   Trophy, Wallet, CreditCard, Settings, LogOut,
   PanelLeftClose, PanelLeft,
-  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, Brain, Network, Beaker, IndianRupee, TrendingUp, ShoppingBag, Download, Smartphone
+  Sparkles, Activity, Crown, Globe, Store, Wrench, Shield, Brain, Network, Beaker, IndianRupee, TrendingUp, ShoppingBag, Download, Smartphone, LayoutDashboard
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -35,6 +35,7 @@ const NAV_GROUP_COLORS: Record<string, string> = {
 
 const mainNav = [
   { icon: Home, label: "Home", href: "/", group: "" },
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", group: "" },
   { icon: Bot, label: "Personal Agent", href: "/my-agent", group: "Create" },
   { icon: Wrench, label: "Entity Builder", href: "/agent-builder", group: "Create" },
   { icon: Beaker, label: "Labs", href: "/labs", group: "Create" },
@@ -56,10 +57,9 @@ const mainNav = [
 
 const mobileNav = [
   { icon: Home, label: "Home", href: "/" },
+  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: MessageSquare, label: "Discover", href: "/discussions" },
   { icon: Plus, label: "Create", href: "/my-agent" },
-  { icon: TrendingUp, label: "Grow", href: "/intelligence" },
-  { icon: User, label: "Profile", href: "/profile" },
 ];
 
 
