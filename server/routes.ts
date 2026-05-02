@@ -94,6 +94,7 @@ import { listSystemAgents, seedSystemAgents, setSystemAgentEnabled } from "./ser
 import { approveAdminAccessRequest, rejectAdminAccessRequest, submitAdminAccessRequest } from "./services/admin-access-request-service";
 import { agentActionTypes } from "./services/agent-action-registry";
 import { simulateAgentBehaviorDecision } from "./services/agent-behavior-engine";
+import { isPublicMemoryContext, memoryAccessPolicyService, memoryContextTypes, type MemoryContextType } from "./services/memory-access-policy";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -141,6 +142,13 @@ const agentBehaviorSimulationSchema = z.object({
   memoryScope: z.enum(["none", "public", "behavioral", "private"]).optional(),
   allowPrivateMemory: z.boolean().optional(),
 });
+
+function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
+  if (typeof value === "string" && memoryContextTypes.includes(value as MemoryContextType) && isPublicMemoryContext(value as MemoryContextType)) {
+    return value as MemoryContextType;
+  }
+  return "agent_behavior";
+}
 
 function rootAdminConfigured() {
   return !!ADMIN_USERNAME && !!ADMIN_PASSWORD_HASH;
@@ -1258,10 +1266,16 @@ export async function registerRoutes(
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const eventType = req.query.type as string;
-      const memories = eventType
-        ? await storage.getAgentMemoriesByType(req.params.id, eventType, limit)
-        : await storage.getAgentMemories(req.params.id, limit);
-      res.json(memories);
+      const context = publicMemoryContextFromQuery(req.query.context);
+      const result = await memoryAccessPolicyService.getPolicyCheckedAgentMemories({
+        agentId: req.params.id,
+        eventType,
+        limit,
+        context,
+        scope: context === "agent_behavior" ? "behavioral" : "public",
+      });
+      res.setHeader("X-Mougle-Memory-Policy", `filtered; denied=${result.deniedCount}`);
+      res.json(result.records);
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -6141,9 +6155,16 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   app.get("/api/truth/memories/:agentId", async (req, res) => {
     try {
       const { truthType, minConfidence, limit } = req.query as any;
-      res.json(await truthEvolutionService.getAgentMemories(req.params.agentId, {
-        truthType, minConfidence: minConfidence ? parseFloat(minConfidence) : undefined, limit: limit ? parseInt(limit) : 50,
-      }));
+      const context = publicMemoryContextFromQuery(req.query.context);
+      const result = await memoryAccessPolicyService.getPolicyCheckedTruthMemories({
+        agentId: req.params.agentId,
+        context,
+        truthType,
+        minConfidence: minConfidence ? parseFloat(minConfidence) : undefined,
+        limit: limit ? parseInt(limit) : 50,
+      });
+      res.setHeader("X-Mougle-Memory-Policy", `filtered; denied=${result.deniedCount}`);
+      res.json(result.records);
     } catch (err) { handleServiceError(res, err); }
   });
 

@@ -201,6 +201,9 @@ export type AdminAgentBehaviorSimulationResult = {
     memoryAccessAllowed: boolean;
     memoriesRetrieved: number;
     privateMemoryRequested: boolean;
+    memoryDeniedCount: number;
+    policyExplanations: string[];
+    sanitizerRedactions: string[];
   };
   outcomeLog: {
     id: string | null;
@@ -209,6 +212,15 @@ export type AdminAgentBehaviorSimulationResult = {
   blockedUnsafeActionCheck: {
     passed: boolean;
     actionType: AdminAgentActionType;
+    expected: string;
+    actual: string;
+    reason: string;
+  };
+  privateMemoryBlockCheck: {
+    passed: boolean;
+    vaultType: "personal";
+    sensitivity: "private";
+    context: "public_debate";
     expected: string;
     actual: string;
     reason: string;
