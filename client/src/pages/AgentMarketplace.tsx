@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { Layout } from "@/components/layout/Layout";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
-import { Store, Bot, Star, ShoppingCart, Coins, TrendingUp, Users, Tag, Zap, Loader2, Search, ArrowRight, Sparkles, Shield, Crown } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { Store, Bot, Star, TrendingUp, Tag, Zap, Loader2, ArrowRight, Sparkles, Shield, Crown, Eye, Lock } from "lucide-react";
 
 const CATEGORIES = ["All", "Research", "Writing", "Analysis", "Debate", "Coding", "Translation"];
 
@@ -27,40 +26,16 @@ function getGradient(index: number) {
 
 export default function AgentMarketplace() {
   const [, navigate] = useLocation();
-  const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [purchasingId, setPurchasingId] = useState<string | null>(null);
-
-  const { user } = useAuth();
-  const currentUserId = user?.id || null;
 
   const { data: listings = [], isLoading } = useQuery({
     queryKey: ["/api/marketplace/listings", selectedCategory],
     queryFn: () => api.marketplace.listings(selectedCategory === "All" ? undefined : selectedCategory.toLowerCase()),
   });
 
-  const purchaseMutation = useMutation({
-    mutationFn: ({ buyerId, listingId }: { buyerId: string; listingId: string }) =>
-      api.marketplace.purchase(buyerId, listingId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings"] });
-      setPurchasingId(null);
-    },
-    onError: () => {
-      setPurchasingId(null);
-    },
-  });
-
-  const handlePurchase = (listingId: string) => {
-    const buyerId = currentUserId || prompt("Enter your User ID to purchase:") || "";
-    if (!buyerId) return;
-    setPurchasingId(listingId);
-    purchaseMutation.mutate({ buyerId, listingId });
-  };
-
   const totalListings = listings.length;
   const featuredCount = listings.filter((l: any) => l.featured).length || Math.min(listings.length, 3);
-  const totalSales = listings.reduce((sum: number, l: any) => sum + (l.totalSales || 0), 0);
+  const sandboxReady = listings.filter((l: any) => l.safeCloneOnly || l.clonePackage).length;
 
   return (
     <Layout>
@@ -75,7 +50,7 @@ export default function AgentMarketplace() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white" data-testid="text-marketplace-title">Intelligence Exchange</h1>
-                <p className="text-gray-400 text-sm" data-testid="text-marketplace-subtitle">Discover, acquire, and deploy intelligent entities</p>
+                <p className="text-gray-400 text-sm" data-testid="text-marketplace-subtitle">Discover sandbox-ready sanitized agent previews</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-4 mt-6">
@@ -88,12 +63,12 @@ export default function AgentMarketplace() {
                 <span>Verified creators</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-300">
-                <Coins className="w-4 h-4 text-amber-400" />
-                <span>Credit-based pricing</span>
+                <Eye className="w-4 h-4 text-amber-400" />
+                <span>Sandbox preview</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-300">
-                <Crown className="w-4 h-4 text-yellow-400" />
-                <span>70/30 creator split</span>
+                <Lock className="w-4 h-4 text-yellow-400" />
+                <span>Private memory excluded</span>
               </div>
             </div>
           </div>
@@ -124,7 +99,7 @@ export default function AgentMarketplace() {
             </div>
             <div>
               <div className="text-xl font-bold text-white" data-testid="text-total-listings">{totalListings}</div>
-              <div className="text-xs text-gray-500">Total Listings</div>
+              <div className="text-xs text-gray-500">Safe Listings</div>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
@@ -133,7 +108,7 @@ export default function AgentMarketplace() {
             </div>
             <div>
               <div className="text-xl font-bold text-white" data-testid="text-featured-agents">{featuredCount}</div>
-              <div className="text-xs text-gray-500">Featured Agents</div>
+              <div className="text-xs text-gray-500">Featured Previews</div>
             </div>
           </div>
           <div className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
@@ -141,8 +116,8 @@ export default function AgentMarketplace() {
               <TrendingUp className="w-5 h-5 text-green-400" />
             </div>
             <div>
-              <div className="text-xl font-bold text-white" data-testid="text-total-sales">{totalSales}</div>
-              <div className="text-xs text-gray-500">Total Sales</div>
+              <div className="text-xl font-bold text-white" data-testid="text-total-sales">{sandboxReady}</div>
+              <div className="text-xs text-gray-500">Sandbox Ready</div>
             </div>
           </div>
         </div>
@@ -156,21 +131,19 @@ export default function AgentMarketplace() {
             <div className="w-16 h-16 rounded-full bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
               <Store className="w-8 h-8 text-gray-500" />
             </div>
-            <p className="text-gray-400 text-center">No agents listed yet. Be the first to list yours!</p>
+            <p className="text-gray-400 text-center">No safe clone listings are approved yet. Prepare a sanitized package for review.</p>
             <Button
-              onClick={() => navigate("/agent-builder")}
+              onClick={() => navigate("/agent-marketplace/safe-clone")}
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white"
               data-testid="button-empty-list-agent"
             >
               <Zap className="w-4 h-4 mr-2" />
-              List Your Agent
+              Prepare Safe Clone
             </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="listings-grid">
             {listings.map((listing: any, index: number) => {
-              const isPurchased = listing.purchased || false;
-              const isCurrentlyPurchasing = purchasingId === (listing.id?.toString() || listing.listingId);
               const listingId = listing.id?.toString() || listing.listingId;
 
               return (
@@ -203,36 +176,31 @@ export default function AgentMarketplace() {
                     </div>
 
                     <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed" data-testid={`text-description-${listingId || index}`}>
-                      {listing.description || "A powerful AI agent ready for deployment."}
+                      {listing.description || "A sanitized sandbox package prepared for preview."}
                     </p>
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1">
-                          <Coins className="w-3.5 h-3.5 text-amber-400" />
+                          <Shield className="w-3.5 h-3.5 text-emerald-400" />
                           <span className="text-sm font-bold text-white" data-testid={`text-price-${listingId || index}`}>
-                            {listing.price || listing.priceCredits || 0}
+                            {listing.clonePackage?.includedVaultSummary?.total || 0}
                           </span>
-                          <span className="text-xs text-gray-500">credits</span>
+                          <span className="text-xs text-gray-500">safe refs</span>
                         </div>
                       </div>
                       <Badge
-                        className={cn(
-                          "text-[10px]",
-                          listing.pricingModel === "subscription"
-                            ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                            : "bg-green-500/10 text-green-400 border-green-500/20"
-                        )}
+                        className="text-[10px] bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
                         data-testid={`badge-pricing-${listingId || index}`}
                       >
-                        {listing.pricingModel === "subscription" ? "Subscription" : "One-time"}
+                        Sandbox
                       </Badge>
                     </div>
 
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <div className="flex items-center gap-1" data-testid={`text-sales-${listingId || index}`}>
-                        <ShoppingCart className="w-3 h-3" />
-                        <span>{listing.totalSales || 0} sales</span>
+                        <Eye className="w-3 h-3" />
+                        <span>preview only</span>
                       </div>
                       <div className="flex items-center gap-1" data-testid={`text-rating-${listingId || index}`}>
                         <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
@@ -242,7 +210,7 @@ export default function AgentMarketplace() {
 
                     <div className="flex items-center gap-1">
                       <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-[10px]" data-testid={`badge-split-${listingId || index}`}>
-                        70/30 Creator Split
+                        {listing.clonePackage?.exportMode || "safe clone"}
                       </Badge>
                     </div>
 
@@ -260,24 +228,14 @@ export default function AgentMarketplace() {
                     )}
 
                     <div className="pt-1">
-                      {isPurchased ? (
-                        <Badge className="w-full justify-center py-1.5 bg-green-500/10 text-green-400 border-green-500/20" data-testid={`badge-purchased-${listingId || index}`}>
-                          <ShoppingCart className="w-3 h-3 mr-1.5" /> Purchased
-                        </Badge>
-                      ) : (
-                        <Button
-                          onClick={() => handlePurchase(listingId)}
-                          disabled={isCurrentlyPurchasing}
-                          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-sm"
-                          data-testid={`button-purchase-${listingId || index}`}
-                        >
-                          {isCurrentlyPurchasing ? (
-                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Purchasing...</>
-                          ) : (
-                            <><ShoppingCart className="w-4 h-4 mr-2" /> Purchase</>
-                          )}
-                        </Button>
-                      )}
+                      <Button
+                        onClick={() => navigate(`/agent-store/${listingId}`)}
+                        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-sm"
+                        data-testid={`button-purchase-${listingId || index}`}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Open Sandbox Preview
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -288,12 +246,12 @@ export default function AgentMarketplace() {
 
         <div className="flex justify-center pt-4">
           <Button
-            onClick={() => navigate("/agent-builder")}
+            onClick={() => navigate("/agent-marketplace/safe-clone")}
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white px-8 py-3 text-sm"
             data-testid="button-sell-agent"
           >
             <Zap className="w-4 h-4 mr-2" />
-            Sell Your Agent
+            Prepare Safe Clone
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>

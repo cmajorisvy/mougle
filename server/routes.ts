@@ -103,6 +103,7 @@ import { youtubePublishingService } from "./services/youtube-publishing-service"
 import { socialDistributionApprovalService } from "./services/social-distribution-approval-service";
 import { userAgentBuilderService } from "./services/user-agent-builder-service";
 import { agentRunnerService as userAgentRunnerService } from "./services/agent-runner-service";
+import { agentMarketplaceCloneService, marketplaceCloneExportModes } from "./services/agent-marketplace-clone-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -201,6 +202,19 @@ const youtubePublishingPackageSchema = z.object({
   generatedClipId: z.number().int().positive().nullable().optional(),
 });
 
+const marketplaceCloneRequestSchema = z.object({
+  sourceAgentId: z.string().trim().min(1),
+  exportMode: z.enum(marketplaceCloneExportModes),
+  title: z.string().trim().max(160).optional(),
+  description: z.string().trim().max(1200).optional(),
+  category: z.string().trim().max(80).optional(),
+  businessExportApproved: z.boolean().optional(),
+});
+
+const marketplaceCloneSandboxSchema = z.object({
+  prompt: z.string().trim().max(1000).optional(),
+});
+
 function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
   if (typeof value === "string" && memoryContextTypes.includes(value as MemoryContextType) && isPublicMemoryContext(value as MemoryContextType)) {
     return value as MemoryContextType;
@@ -210,6 +224,27 @@ function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
 
 function isInternalDebateStatus(status: string | null | undefined) {
   return !!status && INTERNAL_DEBATE_STATUSES.has(status);
+}
+
+function publicMarketplaceAgentSummary(agent: any) {
+  if (!agent) return null;
+  return {
+    id: agent.id,
+    name: agent.name,
+    persona: agent.persona,
+    skills: Array.isArray(agent.skills) ? agent.skills : [],
+    avatarUrl: agent.avatarUrl,
+    model: agent.model,
+    provider: agent.provider,
+    categorySlug: agent.categorySlug,
+    industrySlug: agent.industrySlug,
+    roleSlug: agent.roleSlug,
+    trustScore: agent.trustScore,
+    qualityScore: agent.qualityScore,
+    rating: agent.rating,
+    ratingCount: agent.ratingCount,
+    version: agent.version,
+  };
 }
 
 async function ensurePublicDebate(req: any, res: any) {
@@ -4058,7 +4093,25 @@ Keep under 200 words.`
       const enriched = await Promise.all(listings.map(async (l) => {
         const agent = await storage.getUserAgent(l.agentId);
         const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent, sellerName: seller?.displayName };
+        const clonePackage = await storage.getAgentMarketplaceClonePackageByListingId(l.id);
+        return {
+          ...l,
+          agent: publicMarketplaceAgentSummary(agent),
+          sellerName: seller?.displayName,
+          safeCloneOnly: true,
+          transactionsEnabled: false,
+          clonePackage: clonePackage ? {
+            id: clonePackage.id,
+            exportMode: clonePackage.exportMode,
+            status: clonePackage.status,
+            reviewStatus: clonePackage.reviewStatus,
+            includedVaultSummary: clonePackage.includedVaultSummary,
+            excludedVaultSummary: clonePackage.excludedVaultSummary,
+            safetyReport: clonePackage.safetyReport,
+            sanitizerReport: clonePackage.sanitizerReport,
+            trustSignals: clonePackage.trustSignals,
+          } : null,
+        };
       }));
       res.json(enriched);
     } catch (err) { handleServiceError(res, err); }
@@ -4068,86 +4121,114 @@ Keep under 200 words.`
     try {
       const listing = await storage.getMarketplaceListing(req.params.id);
       if (!listing) return res.status(404).json({ error: "Listing not found" });
+      if (listing.status !== "approved") return res.status(404).json({ error: "Listing not found" });
       const agent = await storage.getUserAgent(listing.agentId);
       const seller = await storage.getUser(listing.sellerId);
-      res.json({ ...listing, agent, sellerName: seller?.displayName });
+      const clonePackage = await storage.getAgentMarketplaceClonePackageByListingId(listing.id);
+      res.json({
+        ...listing,
+        agent: publicMarketplaceAgentSummary(agent),
+        sellerName: seller?.displayName,
+        safeCloneOnly: true,
+        transactionsEnabled: false,
+        clonePackage: clonePackage ? {
+          id: clonePackage.id,
+          exportMode: clonePackage.exportMode,
+          status: clonePackage.status,
+          reviewStatus: clonePackage.reviewStatus,
+          includedVaultSummary: clonePackage.includedVaultSummary,
+          excludedVaultSummary: clonePackage.excludedVaultSummary,
+          safetyReport: clonePackage.safetyReport,
+          sanitizerReport: clonePackage.sanitizerReport,
+          trustSignals: clonePackage.trustSignals,
+        } : null,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketplace/safe-clone/eligible-agents", requireAuth, async (req, res) => {
+    try {
+      const result = await agentMarketplaceCloneService.listEligibleOwnedAgents(req.user.id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketplace/safe-clone/packages", requireAuth, async (req, res) => {
+    try {
+      const result = await agentMarketplaceCloneService.listCreatorPackages(req.user.id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/marketplace/safe-clone/preview", requireAuth, async (req, res) => {
+    try {
+      const parsed = marketplaceCloneRequestSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid safe clone request" });
+      const result = await agentMarketplaceCloneService.previewClonePackage(req.user.id, parsed.data);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/marketplace/safe-clone/packages", requireAuth, async (req, res) => {
+    try {
+      const parsed = marketplaceCloneRequestSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid safe clone request" });
+      const result = await agentMarketplaceCloneService.createClonePackage(req.user.id, parsed.data);
+      res.status(201).json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/marketplace/safe-clone/:packageId/sandbox-test", requireAuth, async (req, res) => {
+    try {
+      const parsed = marketplaceCloneSandboxSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid sandbox request" });
+      const result = await agentMarketplaceCloneService.sandboxTest(req.params.packageId, req.user.id, parsed.data);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/marketplace-clones", requireRootAdmin, async (req, res) => {
+    try {
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const result = await agentMarketplaceCloneService.listReviewPackages(status);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/marketplace-clones/:id", requireRootAdmin, async (req, res) => {
+    try {
+      const result = await agentMarketplaceCloneService.getPackageDetail(req.params.id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketplace-clones/:id/approve", requireRootAdmin, async (req, res) => {
+    try {
+      const admin = getAdminVerification(req);
+      const result = await agentMarketplaceCloneService.approvePackage(req.params.id, admin?.actor.id || ROOT_ADMIN_ACTOR_ID);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketplace-clones/:id/reject", requireRootAdmin, async (req, res) => {
+    try {
+      const admin = getAdminVerification(req);
+      const reason = typeof req.body?.reason === "string" ? req.body.reason : undefined;
+      const result = await agentMarketplaceCloneService.rejectPackage(req.params.id, admin?.actor.id || ROOT_ADMIN_ACTOR_ID, reason);
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
   app.post("/api/marketplace/listings", requireAuth, async (req, res) => {
-    try {
-      const { agentId, title, description, pricingModel, priceCredits, monthlyCredits, category } = req.body;
-      const sellerId = req.user.id;
-      if (!agentId || !title) return res.status(400).json({ error: "agentId and title required" });
-      const agent = await storage.getUserAgent(agentId);
-      if (!agent || agent.ownerId !== sellerId) return res.status(403).json({ error: "Not authorized" });
-      await storage.updateUserAgent(agentId, {
-        deploymentModes: [...new Set([...(agent.deploymentModes || []), "marketplace"])],
-        visibility: "public",
-        status: "active",
-      });
-      const listing = await storage.createMarketplaceListing({
-        agentId, sellerId, title, description,
-        pricingModel: pricingModel || "one_time",
-        priceCredits: priceCredits || 100,
-        monthlyCredits, category,
-        revenueSplit: 0.7, featured: false, status: "active",
-      });
-      res.json(listing);
-    } catch (err) { handleServiceError(res, err); }
+    return res.status(409).json({
+      message: "Direct public marketplace listing creation is disabled. Use the safe clone package flow at /api/marketplace/safe-clone/packages.",
+    });
   });
 
   app.post("/api/marketplace/purchase", requireAuth, async (req, res) => {
-    try {
-      const { listingId } = req.body;
-      const buyerId = req.user.id;
-      if (!listingId) return res.status(400).json({ error: "listingId required" });
-      const listing = await storage.getMarketplaceListing(listingId);
-      if (!listing) return res.status(404).json({ error: "Listing not found" });
-      const already = await storage.hasUserPurchasedAgent(buyerId, listing.agentId);
-      if (already) return res.status(400).json({ error: "Already purchased" });
-      const sellerEarnings = Math.floor(listing.priceCredits * listing.revenueSplit);
-      const platformFee = listing.priceCredits - sellerEarnings;
-      const purchase = await db.transaction(async (tx) => {
-        const [buyerUpdated] = await tx.update(users_table)
-          .set({ creditWallet: sql`COALESCE(${users_table.creditWallet}, 0) - ${listing.priceCredits}` })
-          .where(and(eq(users_table.id, buyerId), gte(users_table.creditWallet, listing.priceCredits)))
-          .returning({ id: users_table.id });
-        if (!buyerUpdated) throw new Error("Insufficient credits");
-        await tx.update(users_table).set({ creditWallet: sql`COALESCE(${users_table.creditWallet}, 0) + ${sellerEarnings}` }).where(eq(users_table.id, listing.sellerId));
-        await tx.insert(transactions_table).values({
-          senderId: buyerId, receiverId: listing.sellerId,
-          amount: sellerEarnings, transactionType: "agent_purchase",
-          referenceId: listingId, description: `Agent purchase: ${listing.title}`,
-        });
-        await tx.insert(creditUsageLog).values({
-          userId: buyerId,
-          creditsUsed: listing.priceCredits,
-          actionType: "agent_purchase",
-          actionLabel: `Agent purchase: ${listing.title}`,
-          referenceId: listingId,
-        });
-        const [purchaseRecord] = await tx.insert(agentPurchases_table).values({
-          buyerId, listingId, agentId: listing.agentId, sellerId: listing.sellerId,
-          creditsPaid: listing.priceCredits, sellerEarnings, platformFee,
-          purchaseType: listing.pricingModel, status: "active",
-        }).returning();
-        await tx.update(marketplaceListings_table).set({
-          totalSales: sql`COALESCE(${marketplaceListings_table.totalSales}, 0) + 1`,
-          totalRevenue: sql`COALESCE(${marketplaceListings_table.totalRevenue}, 0) + ${listing.priceCredits}`,
-        }).where(eq(marketplaceListings_table.id, listingId));
-        await tx.update(userAgents_table).set({
-          totalCreditsEarned: sql`COALESCE(${userAgents_table.totalCreditsEarned}, 0) + ${sellerEarnings}`,
-        }).where(eq(userAgents_table.id, listing.agentId));
-        return purchaseRecord;
-      });
-      res.json(purchase);
-    } catch (err: any) {
-      if (err.message?.includes("Insufficient credits")) {
-        return res.status(402).json({ error: err.message });
-      }
-      handleServiceError(res, err);
-    }
+    return res.status(409).json({
+      message: "Marketplace checkout and credit transfers are disabled in this safe-clone MVP. Use sandbox preview only.",
+    });
   });
 
   app.get("/api/marketplace/purchases/:userId", requireAuth, async (req, res) => {
@@ -4867,7 +4948,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       const enriched = await Promise.all(listings.map(async (l) => {
         const agent = await storage.getUserAgent(l.agentId);
         const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent, sellerName: seller?.displayName, qualityScore: agent ? agentRunnerService.computeQualityScore(l) : 0 };
+        return { ...l, agent: publicMarketplaceAgentSummary(agent), sellerName: seller?.displayName, qualityScore: agent ? agentRunnerService.computeQualityScore(l) : 0 };
       }));
       enriched.sort((a, b) => {
         const trustA = a.agent?.trustScore || 0;
@@ -4886,7 +4967,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       const enriched = await Promise.all(listings.map(async (l) => {
         const agent = await storage.getUserAgent(l.agentId);
         const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent, sellerName: seller?.displayName };
+        return { ...l, agent: publicMarketplaceAgentSummary(agent), sellerName: seller?.displayName };
       }));
       res.json(enriched);
     } catch (err) { handleServiceError(res, err); }
@@ -4899,7 +4980,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       const enriched = await Promise.all(listings.map(async (l) => {
         const agent = await storage.getUserAgent(l.agentId);
         const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent, sellerName: seller?.displayName };
+        return { ...l, agent: publicMarketplaceAgentSummary(agent), sellerName: seller?.displayName };
       }));
       res.json(enriched);
     } catch (err) { handleServiceError(res, err); }
@@ -4914,7 +4995,7 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       const enriched = await Promise.all(listings.map(async (l) => {
         const agent = await storage.getUserAgent(l.agentId);
         const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent, sellerName: seller?.displayName };
+        return { ...l, agent: publicMarketplaceAgentSummary(agent), sellerName: seller?.displayName };
       }));
       res.json(enriched);
     } catch (err) { handleServiceError(res, err); }

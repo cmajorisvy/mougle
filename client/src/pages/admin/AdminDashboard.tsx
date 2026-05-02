@@ -192,6 +192,15 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       secondaryActions: [{ label: "Agents", tab: "agents" }],
     },
     {
+      title: "Marketplace Review",
+      description: "Safe clone packages, sandbox-only listings, and memory export checks.",
+      metric: "Sandbox only",
+      icon: Shield,
+      color: "bg-emerald-500/15 text-emerald-300",
+      primaryAction: { label: "Review", href: "/admin/marketplace-clones" },
+      secondaryActions: [{ label: "Store", href: "/agent-store" }],
+    },
+    {
       title: "Content / News",
       description: "Marketing articles, SEO pages, and distribution flows.",
       metric: `${stats?.totalPosts || 0} posts`,

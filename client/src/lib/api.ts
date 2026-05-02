@@ -1353,6 +1353,19 @@ export const api = {
     purchases: (userId: string) => fetchJSON<any[]>(`/marketplace/purchases/${userId}`),
     earnings: (userId: string) => fetchJSON<any>(`/marketplace/earnings/${userId}`),
   },
+  marketplaceSafeClone: {
+    eligibleAgents: () => fetchJSON<any[]>("/marketplace/safe-clone/eligible-agents"),
+    packages: () => fetchJSON<any[]>("/marketplace/safe-clone/packages"),
+    preview: (data: any) => fetchJSON<any>("/marketplace/safe-clone/preview", { method: "POST", body: JSON.stringify(data) }),
+    submit: (data: any) => fetchJSON<any>("/marketplace/safe-clone/packages", { method: "POST", body: JSON.stringify(data) }),
+    sandboxTest: (packageId: string, prompt?: string) => fetchJSON<any>(`/marketplace/safe-clone/${packageId}/sandbox-test`, { method: "POST", body: JSON.stringify({ prompt }) }),
+  },
+  adminMarketplaceClones: {
+    list: (status?: string) => adminFetch<any[]>(`/admin/marketplace-clones${status ? `?status=${status}` : ""}`),
+    detail: (id: string) => adminFetch<any>(`/admin/marketplace-clones/${id}`),
+    approve: (id: string) => adminFetch<any>(`/admin/marketplace-clones/${id}/approve`, { method: "POST" }),
+    reject: (id: string, reason?: string) => adminFetch<any>(`/admin/marketplace-clones/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+  },
   store: {
     rankings: (limit?: number) => fetchJSON<any[]>(`/store/rankings?limit=${limit || 20}`),
     featured: () => fetchJSON<any[]>("/store/featured"),

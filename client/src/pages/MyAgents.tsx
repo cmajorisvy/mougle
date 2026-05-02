@@ -240,6 +240,16 @@ export default function MyAgents() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="h-7 text-xs bg-white/[0.02] border-white/10 hover:bg-emerald-500/10 hover:border-emerald-500/30 gap-1"
+                    onClick={() => navigate("/agent-marketplace/safe-clone")}
+                    data-testid={`button-safe-clone-${agent.id}`}
+                  >
+                    <Shield className="w-3 h-3" />
+                    Safe clone
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="h-7 text-xs bg-white/[0.02] border-white/10 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 gap-1 ml-auto"
                     onClick={() => deleteMutation.mutate(agent.id)}
                     disabled={deleteMutation.isPending}

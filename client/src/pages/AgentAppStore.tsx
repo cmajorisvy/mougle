@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import {
-  Store, Bot, Star, Search, TrendingUp, Coins, Loader2,
+  Store, Bot, Star, Search, TrendingUp, Loader2,
   ArrowRight, ArrowLeft, Sparkles, Shield, Crown, CheckCircle,
-  Flame, ChevronRight, Eye, ShoppingCart, Zap, Briefcase, Filter
+  Flame, ChevronRight, Eye, Zap, Briefcase
 } from "lucide-react";
 
 const CATEGORIES = ["All", "Research", "Writing", "Analysis", "Debate", "Coding", "Translation"];
@@ -91,7 +91,7 @@ function AgentCard({ listing, index, onClick }: { listing: any; index: number; o
         </div>
 
         <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed" data-testid={`text-description-${listingId}`}>
-          {listing.description || "A powerful AI agent ready for deployment."}
+          {listing.description || "A sanitized agent clone prepared for sandbox preview."}
         </p>
 
         <div className="flex items-center gap-2">
@@ -106,15 +106,15 @@ function AgentCard({ listing, index, onClick }: { listing: any; index: number; o
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <Coins className="w-3.5 h-3.5 text-amber-400" />
+            <Shield className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-sm font-bold text-white" data-testid={`text-price-${listingId}`}>
-              {listing.priceCredits || 0}
+              {listing.clonePackage?.includedVaultSummary?.total || 0}
             </span>
-            <span className="text-xs text-gray-500">credits</span>
+            <span className="text-xs text-gray-500">safe refs</span>
           </div>
           <div className="flex items-center gap-1 text-xs text-gray-500" data-testid={`text-sales-${listingId}`}>
-            <ShoppingCart className="w-3 h-3" />
-            <span>{listing.totalSales || 0} sales</span>
+            <Eye className="w-3 h-3" />
+            <span>preview only</span>
           </div>
         </div>
 
@@ -215,7 +215,7 @@ export default function AgentAppStore() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white" data-testid="text-store-title">Entity Store</h1>
-                <p className="text-gray-400 text-sm" data-testid="text-store-subtitle">Discover, deploy, and monetize intelligent entities</p>
+                <p className="text-gray-400 text-sm" data-testid="text-store-subtitle">Discover admin-reviewed sandbox agent previews</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-4 mt-6">
@@ -228,12 +228,12 @@ export default function AgentAppStore() {
                 <span>Trust verified</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-300">
-                <Coins className="w-4 h-4 text-amber-400" />
-                <span>Credit-based pricing</span>
+                <Eye className="w-4 h-4 text-amber-400" />
+                <span>Sandbox previews</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-300">
                 <Zap className="w-4 h-4 text-green-400" />
-                <span>Instant deploy</span>
+                <span>Deployment deferred</span>
               </div>
             </div>
           </div>
@@ -388,12 +388,12 @@ export default function AgentAppStore() {
                             <span className="text-sm text-gray-400">({listing.reviewCount || 0})</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Coins className="w-4 h-4 text-amber-400" />
-                            <span className="font-bold text-white">{listing.priceCredits || 0}</span>
+                            <Shield className="w-4 h-4 text-emerald-400" />
+                            <span className="font-bold text-white">{listing.clonePackage?.includedVaultSummary?.total || 0}</span>
                           </div>
                         </div>
                         <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>{listing.totalSales || 0} sales</span>
+                          <span>preview only</span>
                           {trustScore > 0 && (
                             <Badge className={cn("text-[10px]", trustScore >= 80 ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20")}>
                               <Shield className="w-3 h-3 mr-0.5" /> {trustScore}%
@@ -453,8 +453,8 @@ export default function AgentAppStore() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div className="flex items-center gap-1">
-                          <Coins className="w-3 h-3 text-amber-400" />
-                          <span className="text-sm font-bold text-white">{listing.priceCredits || 0}</span>
+                          <Shield className="w-3 h-3 text-emerald-400" />
+                          <span className="text-sm font-bold text-white">{listing.clonePackage?.includedVaultSummary?.total || 0}</span>
                         </div>
                         {trustScore >= 80 && (
                           <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-[9px] mt-0.5">

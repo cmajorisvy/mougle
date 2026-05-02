@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 import { useRoute, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Bot, Star, ShoppingCart, Coins, Loader2, ArrowLeft,
+  Bot, Star, Loader2, ArrowLeft,
   Shield, Crown, Send, MessageSquare, Clock, Tag,
-  Sparkles, History, ChevronDown, ChevronUp, User, Zap
+  Sparkles, History, ChevronDown, ChevronUp, User, Eye, Lock
 } from "lucide-react";
 
 function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "lg" }) {
@@ -94,28 +94,10 @@ export default function AgentDetail() {
     enabled: !!listing?.agentId,
   });
 
-  const { data: purchases = [] } = useQuery({
-    queryKey: ["/api/marketplace/purchases", currentUserId],
-    queryFn: () => api.marketplace.purchases(currentUserId!),
-    enabled: !!currentUserId,
-  });
-
   const { data: trustData } = useQuery({
     queryKey: ["/api/agents/trust", listing?.agentId],
     queryFn: () => api.agentTrust.get(listing?.agentId),
     enabled: !!listing?.agentId && activeTab === "trust",
-  });
-
-  const hasPurchased = purchases.some(
-    (p: any) => p.listingId?.toString() === listingId || p.listing_id?.toString() === listingId
-  );
-
-  const purchaseMutation = useMutation({
-    mutationFn: () => api.marketplace.purchase(currentUserId!, listingId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/purchases"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/marketplace/listings", listingId] });
-    },
   });
 
   const reviewMutation = useMutation({
@@ -137,7 +119,7 @@ export default function AgentDetail() {
   });
 
   const demoMutation = useMutation({
-    mutationFn: (message: string) => api.agentRunner.demo(listing?.agentId, message),
+    mutationFn: (message: string) => api.marketplaceSafeClone.sandboxTest(listing?.clonePackage?.id, message),
     onSuccess: (data: any, message: string) => {
       setDemoHistory((prev) => [
         ...prev,
@@ -149,20 +131,15 @@ export default function AgentDetail() {
     onError: () => {
       setDemoHistory((prev) => [
         ...prev,
-        { role: "assistant", content: "Demo unavailable at this time." },
+        { role: "assistant", content: "Sandbox preview unavailable at this time." },
       ]);
     },
   });
 
   const handleSendDemo = () => {
-    if (!demoMessage.trim()) return;
+    if (!demoMessage.trim() || !clonePackageId || !currentUserId) return;
     const msg = demoMessage.trim();
     demoMutation.mutate(msg);
-  };
-
-  const handlePurchase = () => {
-    if (!currentUserId) return;
-    purchaseMutation.mutate();
   };
 
   const handleSubmitReview = (e: React.FormEvent) => {
@@ -196,7 +173,7 @@ export default function AgentDetail() {
   }
 
   const agentName = listing.agentName || listing.name || "AI Agent";
-  const description = listing.description || "A powerful AI agent ready for deployment.";
+  const description = listing.description || "A sanitized agent clone prepared for sandbox preview.";
   const seller = listing.sellerName || listing.seller || "Creator";
   const model = listing.model || listing.agentModel || "GPT-4o";
   const category = listing.category || "General";
@@ -204,12 +181,12 @@ export default function AgentDetail() {
   const version = listing.version || listing.currentVersion || "1.0.0";
   const avgRating = listing.averageRating || listing.rating || 0;
   const reviewCount = listing.reviewCount || reviews.length || 0;
-  const priceCredits = listing.priceCredits || listing.price || 0;
-  const perUseCredits = listing.perUseCredits || listing.per_use_credits || 0;
   const demoEnabled = listing.demoEnabled ?? listing.demo_enabled ?? true;
-  const pricingModel = listing.pricingModel || "one-time";
-  const totalSales = listing.totalSales || 0;
+  const clonePackageId = listing.clonePackage?.id;
+  const includedSafeRefs = listing.clonePackage?.includedVaultSummary?.total || 0;
+  const excludedRefs = listing.clonePackage?.excludedVaultSummary?.total || 0;
   const skills = listing.skills || listing.capabilities || listing.tags || [];
+  const canReview = false;
 
   return (
     <Layout>
@@ -262,7 +239,7 @@ export default function AgentDetail() {
                   <span className="text-sm text-white font-semibold">{avgRating.toFixed(1)}</span>
                   <span className="text-sm text-gray-500">({reviewCount} reviews)</span>
                   <span className="text-sm text-gray-500">·</span>
-                  <span className="text-sm text-gray-500" data-testid="text-total-sales">{totalSales} sales</span>
+                  <span className="text-sm text-gray-500" data-testid="text-total-sales">sandbox preview only</span>
                 </div>
 
                 <div>
@@ -296,51 +273,42 @@ export default function AgentDetail() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-5 space-y-3">
-            <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Purchase</div>
+            <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Sandbox Preview</div>
             <div className="flex items-center gap-2">
-              <Coins className="w-5 h-5 text-amber-400" />
-              <span className="text-2xl font-bold text-white" data-testid="text-price-credits">{priceCredits}</span>
-              <span className="text-sm text-gray-400">credits</span>
+              <Shield className="w-5 h-5 text-emerald-400" />
+              <span className="text-2xl font-bold text-white" data-testid="text-price-credits">{includedSafeRefs}</span>
+              <span className="text-sm text-gray-400">safe refs</span>
             </div>
-            <Badge className={cn("text-xs", pricingModel === "subscription" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-green-500/10 text-green-400 border-green-500/20")} data-testid="badge-pricing-model">
-              {pricingModel === "subscription" ? "Subscription" : "One-time purchase"}
+            <Badge className="text-xs bg-cyan-500/10 text-cyan-400 border-cyan-500/20" data-testid="badge-pricing-model">
+              No checkout in this phase
             </Badge>
-            {hasPurchased ? (
-              <Badge className="w-full justify-center py-2 bg-green-500/10 text-green-400 border-green-500/20" data-testid="badge-purchased">
-                <ShoppingCart className="w-4 h-4 mr-2" /> Purchased
-              </Badge>
-            ) : (
-              <Button
-                onClick={handlePurchase}
-                disabled={purchaseMutation.isPending || !currentUserId}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white"
-                data-testid="button-purchase"
-              >
-                {purchaseMutation.isPending ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Purchasing...</>
-                ) : (
-                  <><ShoppingCart className="w-4 h-4 mr-2" /> Buy Now</>
-                )}
-              </Button>
-            )}
+            <Button
+              onClick={() => setActiveTab("demo")}
+              disabled={!clonePackageId || !currentUserId}
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white"
+              data-testid="button-purchase"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              {currentUserId ? "Open Sandbox" : "Sign in for Sandbox"}
+            </Button>
           </div>
 
           <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-5 space-y-3">
-            <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Pay-per-use</div>
+            <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Deployment</div>
             <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-blue-400" />
-              <span className="text-2xl font-bold text-white" data-testid="text-per-use-credits">{perUseCredits}</span>
-              <span className="text-sm text-gray-400">credits / use</span>
+              <Lock className="w-5 h-5 text-blue-400" />
+              <span className="text-2xl font-bold text-white" data-testid="text-per-use-credits">{excludedRefs}</span>
+              <span className="text-sm text-gray-400">excluded refs</span>
             </div>
-            <p className="text-xs text-gray-500">Each interaction costs {perUseCredits} credits from your wallet.</p>
+            <p className="text-xs text-gray-500">Production deployment, ownership transfer, and paid usage are deferred.</p>
           </div>
 
           <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-5 space-y-3">
             <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Stats</div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Total Sales</span>
-                <span className="text-white font-semibold" data-testid="text-stat-sales">{totalSales}</span>
+                <span className="text-gray-400">Mode</span>
+                <span className="text-white font-semibold" data-testid="text-stat-sales">Sandbox</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-400">Trust Score</span>
@@ -374,14 +342,14 @@ export default function AgentDetail() {
               {tab === "reviews" && <><MessageSquare className="w-4 h-4 inline mr-1.5 -mt-0.5" />Reviews</>}
               {tab === "versions" && <><History className="w-4 h-4 inline mr-1.5 -mt-0.5" />Versions</>}
               {tab === "trust" && <><Shield className="w-4 h-4 inline mr-1.5 -mt-0.5" />Trust</>}
-              {tab === "demo" && <><Bot className="w-4 h-4 inline mr-1.5 -mt-0.5" />Try Demo</>}
+              {tab === "demo" && <><Bot className="w-4 h-4 inline mr-1.5 -mt-0.5" />Sandbox</>}
             </button>
           ))}
         </div>
 
         {activeTab === "reviews" && (
           <div className="space-y-4" data-testid="section-reviews">
-            {hasPurchased && currentUserId && (
+            {canReview && currentUserId && (
               <form onSubmit={handleSubmitReview} className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-5 space-y-4" data-testid="form-review">
                 <h3 className="text-sm font-semibold text-white">Write a Review</h3>
                 <ClickableStarRating rating={reviewRating} onRate={setReviewRating} />
@@ -415,7 +383,7 @@ export default function AgentDetail() {
             {reviews.length === 0 ? (
               <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-8 text-center" data-testid="empty-reviews">
                 <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">No reviews yet. Be the first to review!</p>
+                <p className="text-gray-400 text-sm">Reviews are deferred until safe clone transactions are enabled.</p>
               </div>
             ) : (
               <div className="space-y-3" data-testid="reviews-list">
@@ -587,15 +555,15 @@ export default function AgentDetail() {
           <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] overflow-hidden" data-testid="section-demo">
             <div className="p-4 border-b border-white/[0.06] flex items-center gap-2">
               <Bot className="w-4 h-4 text-purple-400" />
-              <span className="text-sm font-semibold text-white">Try {agentName}</span>
-              <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-[10px] ml-auto">Demo</Badge>
+              <span className="text-sm font-semibold text-white">Sandbox {agentName}</span>
+              <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-[10px] ml-auto">Sanitized</Badge>
             </div>
 
             <div className="h-80 overflow-y-auto p-4 space-y-3" data-testid="demo-messages">
               {demoHistory.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-center space-y-2" data-testid="demo-empty">
                   <Sparkles className="w-8 h-8 text-purple-400/50" />
-                  <p className="text-sm text-gray-500">Send a message to try this agent</p>
+                  <p className="text-sm text-gray-500">Send a message to test the sanitized clone package</p>
                 </div>
               )}
               {demoHistory.map((msg, i) => (
@@ -634,13 +602,13 @@ export default function AgentDetail() {
                 value={demoMessage}
                 onChange={(e) => setDemoMessage(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSendDemo()}
-                placeholder="Type a message..."
+                placeholder="Type a sandbox message..."
                 className="flex-1 bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500/40"
                 data-testid="input-demo-message"
               />
               <Button
                 onClick={handleSendDemo}
-                disabled={demoMutation.isPending || !demoMessage.trim()}
+                disabled={demoMutation.isPending || !demoMessage.trim() || !clonePackageId || !currentUserId}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white"
                 data-testid="button-send-demo"
               >
