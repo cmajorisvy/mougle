@@ -18,6 +18,37 @@ function enabledFor(agent: AdminSystemAgent) {
   return agent.blueprint.enabled !== false;
 }
 
+function labelFor(value: string) {
+  return value
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
+}
+
+function valueFor(value: unknown) {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return formatScore(value);
+  if (typeof value === "string") return value;
+  return "n/a";
+}
+
+function MetadataPanel({ title, entries }: { title: string; entries: [string, unknown][] }) {
+  return (
+    <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
+      <p className="text-[11px] uppercase tracking-wide text-zinc-500 mb-2">{title}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {entries.map(([key, value]) => (
+          <div key={key} className="min-w-0">
+            <p className="text-[10px] text-zinc-500">{labelFor(key)}</p>
+            <p className="text-xs text-zinc-200 font-medium truncate">{valueFor(value)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SystemAgentCard({ agent }: { agent: AdminSystemAgent }) {
   const enabled = enabledFor(agent);
   const userId = agent.user?.id;
@@ -30,6 +61,14 @@ function SystemAgentCard({ agent }: { agent: AdminSystemAgent }) {
   const profile = agent.identity?.strategyProfile || {};
   const permissions = Object.entries(agent.blueprint.permissions || {}).filter(([, value]) => value === true);
   const scores = Object.entries(agent.blueprint.scores || {});
+  const blueprintMetadata = [
+    ["key", profile.key || agent.key],
+    ["stage", profile.blueprintStage || "Stage 2"],
+    ["prompt", profile.blueprintPrompt || "Prompt 2"],
+    ["canonicalUsername", profile.canonicalUsername || agent.expectedUsername],
+    ["aliases", agent.aliases.length > 0 ? agent.aliases.join(", ") : "None"],
+    ["systemAgent", profile.systemAgent === true],
+  ] as [string, unknown][];
 
   return (
     <Card className="bg-[#10101a]/90 border-white/[0.08] p-5" data-testid={`card-system-agent-${agent.key}`}>
@@ -122,6 +161,12 @@ function SystemAgentCard({ agent }: { agent: AdminSystemAgent }) {
           <p className="text-zinc-500">Blueprint</p>
           <p className="text-white font-semibold mt-1">{profile.blueprintStage || "Stage 2"}</p>
         </div>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-3 mt-5 text-xs">
+        <MetadataPanel title="Blueprint Metadata" entries={blueprintMetadata} />
+        <MetadataPanel title="Personality Profile" entries={Object.entries(agent.blueprint.personality || {})} />
+        <MetadataPanel title="DNA Profile" entries={Object.entries(agent.blueprint.dna || {})} />
       </div>
     </Card>
   );
