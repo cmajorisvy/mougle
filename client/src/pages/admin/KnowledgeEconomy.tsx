@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import type { AdminGviResult, GviComponentKey } from "@/lib/api";
+import type { AdminGluonRedemptionEligibilityResponse, AdminGviResult, GviComponentKey } from "@/lib/api";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,201 @@ function parseGviInputs(inputs: Record<string, string>) {
     if (Number.isFinite(parsed) && parsed > 0) componentValues[key] = parsed;
   }
   return componentValues;
+}
+
+function checklistEntries(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.entries(value as Record<string, any>);
+}
+
+function RedemptionComplianceSection({
+  data,
+  isLoading,
+  inputs,
+  setInputs,
+  reasonById,
+  setReasonById,
+  onPreview,
+  onMarkReviewed,
+  onReject,
+  previewPending,
+  actionPending,
+}: {
+  data?: AdminGluonRedemptionEligibilityResponse;
+  isLoading: boolean;
+  inputs: { userId: string; agentId: string };
+  setInputs: (inputs: { userId: string; agentId: string }) => void;
+  reasonById: Record<string, string>;
+  setReasonById: (updater: (prev: Record<string, string>) => Record<string, string>) => void;
+  onPreview: () => void;
+  onMarkReviewed: (id: string) => void;
+  onReject: (id: string) => void;
+  previewPending: boolean;
+  actionPending: boolean;
+}) {
+  const reviews = data?.reviews || [];
+  const candidates = data?.candidates || [];
+  const warnings = data?.warnings || [
+    "Gluon is an internal contribution credit, not withdrawable cash.",
+    "GVI is an informational index, not a trading price.",
+    "Redemption is disabled until legal, tax, KYC, anti-fraud, and revenue-pool approval.",
+    "This page does not move funds or create a payable balance.",
+    "Founder/admin review is required before any future redemption program.",
+  ];
+
+  return (
+    <Card className="bg-[#10101a]/90 border-white/[0.08] p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-emerald-300" />
+            <h2 className="text-lg font-semibold text-white">Redemption Compliance Preview</h2>
+            <Badge className="bg-emerald-500/10 text-emerald-300 border-emerald-500/20">Disabled review</Badge>
+          </div>
+          <p className="text-sm text-zinc-400 mt-2 max-w-3xl">
+            Root-admin eligibility review for a future compliance program. It records checklist status only; it does not change balances, funds, access, or marketplace state.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2 mt-4 text-xs">
+            {warnings.slice(0, 5).map((warning) => (
+              <div key={warning} className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.06] p-3 text-emerald-100/80">
+                {warning}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/[0.08] px-4 py-3 min-w-56">
+          <p className="text-xs text-yellow-100/70">Platform conversion rate</p>
+          <p className="text-3xl font-bold text-yellow-200">0</p>
+          <p className="text-xs text-yellow-100/60 mt-1">Disabled in Phase 33</p>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-[0.7fr_1.3fr] gap-4 mt-5">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Create Eligibility Review</p>
+          <div>
+            <p className="text-[10px] text-zinc-500 mb-1">User ID</p>
+            <Input
+              value={inputs.userId}
+              onChange={(event) => setInputs({ ...inputs, userId: event.target.value })}
+              placeholder="creator/user id"
+              className="bg-black/30 border-white/10 text-xs"
+            />
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-500 mb-1">Agent ID optional</p>
+            <Input
+              value={inputs.agentId}
+              onChange={(event) => setInputs({ ...inputs, agentId: event.target.value })}
+              placeholder="agent id"
+              className="bg-black/30 border-white/10 text-xs"
+            />
+          </div>
+          <Button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white" onClick={onPreview} disabled={previewPending || !inputs.userId.trim()}>
+            {previewPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            Preview eligibility
+          </Button>
+          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-xs text-zinc-500 space-y-1">
+            <p>Estimate formula: valid Gluon x latest GVI x platform conversion rate.</p>
+            <p>Because the conversion rate is 0, the disabled informational estimate remains 0.</p>
+            <p>No billing, wallet, credit, purchase, payout, or marketplace transaction path is called.</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <p className="text-xs uppercase tracking-wide text-zinc-500">Recent Reviews</p>
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin text-emerald-300" />}
+          </div>
+          <div className="space-y-3 max-h-[420px] overflow-auto pr-1">
+            {reviews.map((review) => {
+              const reason = reasonById[review.id] || "";
+              const checklist = checklistEntries(review.complianceChecklist).slice(0, 6);
+              return (
+                <div key={review.id} className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-zinc-100 truncate">{review.userId}</p>
+                      <p className="text-[11px] text-zinc-500">{review.agentId || "all agents"}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className={statusClass(review.eligibilityStatus)}>{review.eligibilityStatus}</Badge>
+                      <Badge className={statusClass(review.adminReviewStatus)}>{review.adminReviewStatus}</Badge>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs">
+                    <div className="rounded border border-white/[0.06] bg-white/[0.03] p-2">
+                      <p className="text-zinc-500">Valid Gluon</p>
+                      <p className="text-emerald-300 font-semibold">{score(review.validGluon)}</p>
+                    </div>
+                    <div className="rounded border border-white/[0.06] bg-white/[0.03] p-2">
+                      <p className="text-zinc-500">Pending</p>
+                      <p className="text-yellow-300 font-semibold">{score(review.pendingGluon)}</p>
+                    </div>
+                    <div className="rounded border border-white/[0.06] bg-white/[0.03] p-2">
+                      <p className="text-zinc-500">Invalid</p>
+                      <p className="text-red-300 font-semibold">{score(review.invalidGluon)}</p>
+                    </div>
+                    <div className="rounded border border-white/[0.06] bg-white/[0.03] p-2">
+                      <p className="text-zinc-500">Disabled estimate</p>
+                      <p className="text-cyan-300 font-semibold">{score(review.informationalEstimate)}</p>
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-2 mt-3">
+                    {checklist.map(([key, value]) => {
+                      const item = value && typeof value === "object" ? value as Record<string, any> : {};
+                      return (
+                        <div key={key} className="flex items-center justify-between gap-2 rounded border border-white/[0.06] bg-white/[0.03] px-2 py-1.5 text-xs">
+                          <span className="text-zinc-400 truncate">{key}</span>
+                          <Badge className={item.passed ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20" : "bg-yellow-500/10 text-yellow-300 border-yellow-500/20"}>
+                            {item.passed ? "pass" : "required"}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="grid md:grid-cols-[1fr_auto_auto] gap-2 mt-3">
+                    <Input
+                      value={reason}
+                      onChange={(event) => setReasonById((prev) => ({ ...prev, [review.id]: event.target.value }))}
+                      placeholder="Review note or rejection reason"
+                      className="bg-black/30 border-white/10 text-xs"
+                    />
+                    <Button variant="outline" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-200" disabled={actionPending} onClick={() => onMarkReviewed(review.id)}>
+                      Mark reviewed
+                    </Button>
+                    <Button variant="outline" className="border-red-500/20 bg-red-500/10 text-red-200" disabled={actionPending || !reason.trim()} onClick={() => onReject(review.id)}>
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            {reviews.length === 0 && <p className="text-sm text-zinc-500">No eligibility review records yet.</p>}
+          </div>
+        </div>
+      </div>
+
+      {candidates.length > 0 && (
+        <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500 mb-3">Ledger Candidates</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {candidates.slice(0, 6).map((candidate) => (
+              <div key={`${candidate.userId}-${candidate.agentId || "all"}`} className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-xs">
+                <p className="font-medium text-zinc-100 truncate">{candidate.userId}</p>
+                <p className="text-zinc-500 truncate">{candidate.agentId || "all agents"}</p>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <span className="text-zinc-500">Total</span><span className="text-zinc-200 text-right">{score(candidate.totalGluon)}</span>
+                  <span className="text-zinc-500">Awarded rows</span><span className="text-zinc-200 text-right">{candidate.awarded}</span>
+                  <span className="text-zinc-500">Pending rows</span><span className="text-zinc-200 text-right">{candidate.pending + candidate.simulated}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function GviSection({
@@ -203,6 +398,8 @@ export default function KnowledgeEconomy() {
   const [previewById, setPreviewById] = useState<Record<string, any>>({});
   const [gviInputs, setGviInputs] = useState<Record<string, string>>({});
   const [gviPreview, setGviPreview] = useState<AdminGviResult | null>(null);
+  const [redemptionInputs, setRedemptionInputs] = useState({ userId: "", agentId: "" });
+  const [redemptionReasonById, setRedemptionReasonById] = useState<Record<string, string>>({});
   const isRootAdmin = admin?.actor?.type === "root_admin" && admin.role === "super_admin";
 
   useEffect(() => {
@@ -221,6 +418,12 @@ export default function KnowledgeEconomy() {
     enabled: isRootAdmin,
   });
 
+  const redemptionQuery = useQuery({
+    queryKey: ["/api/admin/knowledge-economy/redemption/eligibility"],
+    queryFn: () => api.admin.knowledgeEconomyRedemptionEligibility(),
+    enabled: isRootAdmin,
+  });
+
   const detailQuery = useQuery({
     queryKey: ["/api/admin/knowledge-economy/packets", selectedPacketId],
     queryFn: () => api.admin.knowledgeEconomyPacket(selectedPacketId!),
@@ -229,6 +432,7 @@ export default function KnowledgeEconomy() {
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/admin/knowledge-economy/packets"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/knowledge-economy/redemption/eligibility"] });
     if (selectedPacketId) queryClient.invalidateQueries({ queryKey: ["/api/admin/knowledge-economy/packets", selectedPacketId] });
   };
 
@@ -268,6 +472,26 @@ export default function KnowledgeEconomy() {
       setGviPreview(data.result);
       queryClient.invalidateQueries({ queryKey: ["/api/admin/knowledge-economy/gvi"] });
     },
+  });
+
+  const redemptionPreviewMutation = useMutation({
+    mutationFn: () => api.admin.previewKnowledgeEconomyRedemptionEligibility({
+      userId: redemptionInputs.userId.trim(),
+      agentId: redemptionInputs.agentId.trim() || undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/knowledge-economy/redemption/eligibility"] });
+    },
+  });
+
+  const redemptionReviewedMutation = useMutation({
+    mutationFn: (id: string) => api.admin.markKnowledgeEconomyRedemptionReviewed(id, redemptionReasonById[id]),
+    onSuccess: refresh,
+  });
+
+  const redemptionRejectMutation = useMutation({
+    mutationFn: (id: string) => api.admin.rejectKnowledgeEconomyRedemption(id, redemptionReasonById[id] || "Rejected by root-admin compliance review."),
+    onSuccess: refresh,
   });
 
   if (isLoading || packetsQuery.isLoading) {
@@ -330,6 +554,20 @@ export default function KnowledgeEconomy() {
           snapshotPending={gviSnapshotMutation.isPending}
           onPreview={() => gviPreviewMutation.mutate()}
           onSnapshot={() => gviSnapshotMutation.mutate()}
+        />
+
+        <RedemptionComplianceSection
+          data={redemptionQuery.data}
+          isLoading={redemptionQuery.isLoading}
+          inputs={redemptionInputs}
+          setInputs={setRedemptionInputs}
+          reasonById={redemptionReasonById}
+          setReasonById={setRedemptionReasonById}
+          onPreview={() => redemptionPreviewMutation.mutate()}
+          onMarkReviewed={(id) => redemptionReviewedMutation.mutate(id)}
+          onReject={(id) => redemptionRejectMutation.mutate(id)}
+          previewPending={redemptionPreviewMutation.isPending}
+          actionPending={redemptionReviewedMutation.isPending || redemptionRejectMutation.isPending}
         />
 
         {packets.length === 0 ? (

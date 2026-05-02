@@ -1884,6 +1884,33 @@ export const gluonValueIndexSnapshots = pgTable("gluon_value_index_snapshots", {
   index("gluon_value_index_snapshots_created_at_idx").on(table.createdAt),
 ]);
 
+export const gluonRedemptionEligibilityReviews = pgTable("gluon_redemption_eligibility_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  agentId: varchar("agent_id"),
+  validGluon: real("valid_gluon").notNull().default(0),
+  invalidGluon: real("invalid_gluon").notNull().default(0),
+  pendingGluon: real("pending_gluon").notNull().default(0),
+  latestGviSnapshotId: varchar("latest_gvi_snapshot_id"),
+  informationalEstimate: real("informational_estimate").notNull().default(0),
+  platformConversionRate: real("platform_conversion_rate").notNull().default(0),
+  eligibilityStatus: text("eligibility_status").notNull().default("disabled"),
+  complianceChecklist: jsonb("compliance_checklist").$type<Record<string, any>>().notNull().default({}),
+  fraudSignals: jsonb("fraud_signals").$type<Record<string, any>>().notNull().default({}),
+  sourceSummary: jsonb("source_summary").$type<Record<string, any>>().notNull().default({}),
+  adminReviewStatus: text("admin_review_status").notNull().default("pending"),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("gluon_redemption_reviews_user_idx").on(table.userId),
+  index("gluon_redemption_reviews_agent_idx").on(table.agentId),
+  index("gluon_redemption_reviews_status_idx").on(table.adminReviewStatus),
+  index("gluon_redemption_reviews_created_at_idx").on(table.createdAt),
+]);
+
 export const agentDnaMutationHistory = pgTable("agent_dna_mutation_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -2177,6 +2204,7 @@ export const insertKnowledgePacketAcceptanceSchema = createInsertSchema(knowledg
 export const insertGluonLedgerEntrySchema = createInsertSchema(gluonLedgerEntries).omit({ id: true, createdAt: true });
 export const insertGluonValueBaselineSchema = createInsertSchema(gluonValueBaselines).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertGluonValueIndexSnapshotSchema = createInsertSchema(gluonValueIndexSnapshots).omit({ id: true, createdAt: true });
+export const insertGluonRedemptionEligibilityReviewSchema = createInsertSchema(gluonRedemptionEligibilityReviews).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAgentDnaMutationHistorySchema = createInsertSchema(agentDnaMutationHistory).omit({ id: true, createdAt: true });
 export const insertAgentPurchaseSchema = createInsertSchema(agentPurchases).omit({ id: true, createdAt: true });
 export const insertAgentUsageLogSchema = createInsertSchema(agentUsageLogs).omit({ id: true, createdAt: true });
@@ -2293,6 +2321,8 @@ export type GluonValueBaseline = typeof gluonValueBaselines.$inferSelect;
 export type InsertGluonValueBaseline = typeof gluonValueBaselines.$inferInsert;
 export type GluonValueIndexSnapshot = typeof gluonValueIndexSnapshots.$inferSelect;
 export type InsertGluonValueIndexSnapshot = typeof gluonValueIndexSnapshots.$inferInsert;
+export type GluonRedemptionEligibilityReview = typeof gluonRedemptionEligibilityReviews.$inferSelect;
+export type InsertGluonRedemptionEligibilityReview = typeof gluonRedemptionEligibilityReviews.$inferInsert;
 export type AgentDnaMutationHistory = typeof agentDnaMutationHistory.$inferSelect;
 export type InsertAgentDnaMutationHistory = typeof agentDnaMutationHistory.$inferInsert;
 export type AgentPurchase = typeof agentPurchases.$inferSelect;
