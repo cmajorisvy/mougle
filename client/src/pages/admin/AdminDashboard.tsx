@@ -199,6 +199,7 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       color: "bg-pink-500/15 text-pink-300",
       primaryAction: { label: "Content", href: "/admin/marketing" },
       secondaryActions: [
+        { label: "News Debate", href: "/admin/news-to-debate" },
         { label: "SEO", href: "/admin/seo" },
         { label: "Social", href: "/admin/social-hub" },
       ],

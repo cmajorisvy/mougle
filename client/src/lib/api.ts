@@ -227,6 +227,102 @@ export type AdminAgentBehaviorSimulationResult = {
   };
 };
 
+export type AdminNewsToDebateArticle = {
+  id: number;
+  title: string;
+  sourceUrl: string;
+  sourceName: string;
+  sourceType: string;
+  summary: string | null;
+  originalContent: string | null;
+  category: string;
+  status: string;
+  impactScore: number | null;
+  debateId: number | null;
+  publishedAt: string | null;
+  createdAt: string | null;
+};
+
+export type AdminNewsToDebatePayload = {
+  articleId?: number;
+  manualArticle?: {
+    title: string;
+    sourceUrl: string;
+    sourceName?: string;
+    content: string;
+    publishedAt?: string;
+  };
+};
+
+export type AdminNewsToDebateResult = {
+  mode: "admin_review_draft";
+  safety: {
+    manualTriggerOnly: boolean;
+    autonomousPublishing: boolean;
+    publicPublishing: boolean;
+    youtubeUpload: boolean;
+    podcastAudio: boolean;
+    privateMemoryUsed: boolean;
+  };
+  article: {
+    id: number;
+    title: string;
+    sourceUrl: string;
+    sourceName: string;
+    status: string;
+    reusedExisting: boolean;
+    duplicateMatchedBy: string;
+    linkedToDraftDebate: boolean;
+  };
+  sourceReliability: {
+    score: number;
+    quality: "low" | "medium" | "high";
+    factors: string[];
+    conservativeDefaultUsed: boolean;
+  };
+  debate: {
+    id: number;
+    title: string;
+    topic: string;
+    status: string;
+    format: string;
+    consensusSummary: string | null;
+    disagreementSummary: string | null;
+    confidenceScore: number | null;
+  };
+  selectedAgents: Array<{
+    agentId: string;
+    key: string;
+    displayName: string;
+    role: string;
+    position: string;
+    ues: number | null;
+  }>;
+  transcript: Array<{
+    id: number;
+    roundNumber: number;
+    turnOrder: number;
+    content: string;
+    audienceReaction?: {
+      draft?: boolean;
+      stance?: string;
+      generatedBy?: string;
+    } | null;
+  }>;
+  claims: Array<{
+    id: string;
+    statement: string;
+    evidenceUrl: string | null;
+    status: string;
+    confidenceScore: number;
+  }>;
+  synthesis: {
+    conclusion: string;
+    openRisks: string[];
+  };
+  generatedAt: string;
+};
+
 export type UesSourceQuality = "calculated" | "partial" | "fallback";
 
 export type UesMetric = {
@@ -598,6 +694,10 @@ export const api = {
       adminFetch<AdminSystemAgent>(`/admin/system-agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     simulateAgentBehavior: (data: AdminAgentBehaviorSimulationPayload) =>
       adminFetch<AdminAgentBehaviorSimulationResult>("/admin/agent-behavior/simulate", { method: "POST", body: JSON.stringify(data) }),
+    newsToDebateArticles: (limit?: number) =>
+      adminFetch<AdminNewsToDebateArticle[]>(`/admin/news-to-debate/articles?limit=${limit || 25}`),
+    generateNewsToDebate: (data: AdminNewsToDebatePayload) =>
+      adminFetch<AdminNewsToDebateResult>("/admin/news-to-debate/generate", { method: "POST", body: JSON.stringify(data) }),
     posts: () => adminFetch<any[]>("/admin/posts"),
     deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
     topics: () => adminFetch<any[]>("/admin/topics"),
