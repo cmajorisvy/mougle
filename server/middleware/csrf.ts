@@ -22,7 +22,7 @@ function isAllowedOrigin(origin: string) {
   return false;
 }
 
-const CSRF_EXEMPT_PATHS = ["/external-agents/"];
+const CSRF_EXEMPT_PATHS = ["/external-agents/", "/api/external-agents/"];
 
 export function csrfMiddleware(req: any, res: any, next: any) {
   if (!req.session) return next();

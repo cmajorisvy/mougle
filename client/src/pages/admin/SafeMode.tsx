@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   ArrowLeft,
+  Bot,
   CheckCircle2,
   Loader2,
   Megaphone,
@@ -195,6 +196,10 @@ export default function SafeMode() {
               <Button variant="outline" onClick={() => navigate("/admin/live-studio")} className="border-white/10 text-zinc-300">
                 <Radio className="w-4 h-4 mr-2" />
                 Live Studio
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/admin/external-agents")} className="border-white/10 text-zinc-300">
+                <Bot className="w-4 h-4 mr-2" />
+                External Agents
               </Button>
               <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="border-white/10 text-zinc-300">
                 {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
