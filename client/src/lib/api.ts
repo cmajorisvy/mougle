@@ -227,6 +227,120 @@ export type AdminAgentBehaviorSimulationResult = {
   };
 };
 
+export type UesSourceQuality = "calculated" | "partial" | "fallback";
+
+export type UesMetric = {
+  key: string;
+  label: string;
+  value: number;
+  sourceQuality: UesSourceQuality;
+  dataPoints: number;
+  explanation: string;
+};
+
+export type UesComponent = {
+  score: number;
+  sourceQuality: UesSourceQuality;
+  formula: string;
+  inputs: Record<string, UesMetric>;
+};
+
+export type UnifiedEvolutionScore = {
+  agent: {
+    id: string;
+    username: string;
+    displayName: string;
+    role: string | null;
+    systemAgent: boolean;
+    enabled: boolean;
+  };
+  scores: {
+    P: number;
+    D: number;
+    Omega: number;
+    Xi: number;
+    UES: number;
+    costEfficiency: number;
+    correctionCapacity: number;
+  };
+  components: {
+    P: UesComponent;
+    D: UesComponent;
+    Omega: UesComponent;
+    Xi: UesComponent;
+    costEfficiency: UesMetric;
+    correctionCapacity: UesMetric;
+  };
+  truthFirst: {
+    truthSeeking: number;
+    rewardSeeking: number;
+    rewardPenaltyApplied: boolean;
+    explanation: string;
+  };
+  collapseRisk: {
+    score: number;
+    level: "low" | "medium" | "high" | "critical";
+    readOnly: true;
+    reasons: string[];
+  };
+  sourceQuality: {
+    calculated: number;
+    partial: number;
+    fallback: number;
+    total: number;
+    overall: UesSourceQuality;
+  };
+  dataSources: Record<string, number>;
+  explanations: string[];
+  generatedAt: string;
+};
+
+export type GlobalUnifiedEvolutionScore = {
+  agentCount: number;
+  averageUES: number;
+  averageP: number;
+  averageD: number;
+  averageOmega: number;
+  averageXi: number;
+  averageCostEfficiency: number;
+  averageCorrectionCapacity: number;
+  sourceQuality: UnifiedEvolutionScore["sourceQuality"];
+  collapseRisk: Record<UnifiedEvolutionScore["collapseRisk"]["level"], number>;
+  agents: UnifiedEvolutionScore[];
+  topAgents: Array<{
+    agentId: string;
+    displayName: string;
+    UES: number;
+    collapseRisk: UnifiedEvolutionScore["collapseRisk"]["level"];
+  }>;
+  atRiskAgents: Array<{
+    agentId: string;
+    displayName: string;
+    UES: number;
+    collapseRisk: UnifiedEvolutionScore["collapseRisk"]["level"];
+    reasons: string[];
+  }>;
+  generatedAt: string;
+};
+
+export type CivilizationHealth = {
+  score: number;
+  truthStability: number;
+  independentReasoning: number;
+  constructiveResonance: number;
+  governanceIntegrity: number;
+  correctionCapacity: number;
+  costDiscipline: number;
+  collapseRisk: {
+    level: UnifiedEvolutionScore["collapseRisk"]["level"];
+    distribution: GlobalUnifiedEvolutionScore["collapseRisk"];
+    readOnly: true;
+  };
+  sourceQuality: UnifiedEvolutionScore["sourceQuality"];
+  explanation: string;
+  generatedAt: string;
+};
+
 async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
   if (!res.ok) return null;
@@ -415,6 +529,9 @@ export const api = {
   },
   evolution: {
     metrics: () => fetchJSON<any>("/evolution/metrics"),
+    ues: (agentId: string) => fetchJSON<UnifiedEvolutionScore>(`/evolution/ues/${agentId}`),
+    globalScore: () => fetchJSON<GlobalUnifiedEvolutionScore>("/evolution/global-score"),
+    civilizationHealth: () => fetchJSON<CivilizationHealth>("/evolution/civilization-health"),
     trigger: () => fetchJSON<any>("/evolution/trigger", { method: "POST" }),
     genome: (agentId: string) => fetchJSON<any>(`/evolution/genome/${agentId}`),
     lineage: (agentId: string) => fetchJSON<any>(`/evolution/lineage/${agentId}`),

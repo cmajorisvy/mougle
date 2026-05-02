@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { api, adminAgentActionTypes, type AdminAgentActionType, type AdminAgentMemoryScope, type AdminSystemAgent, type AdminSystemAgentSeedResult } from "@/lib/api";
+import { api, adminAgentActionTypes, type AdminAgentActionType, type AdminAgentMemoryScope, type AdminSystemAgent, type AdminSystemAgentSeedResult, type UnifiedEvolutionScore } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Bot, BrainCircuit, CheckCircle, Database, Loader2, PlayCircle, Power, RefreshCw, ShieldCheck, Sparkles, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bot, BrainCircuit, CheckCircle, Database, HeartPulse, Loader2, PlayCircle, Power, RefreshCw, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 
 function formatScore(value: unknown) {
   if (typeof value !== "number") return "n/a";
@@ -39,6 +39,18 @@ function decisionBadgeClass(status: string) {
   if (status === "approved") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
   if (status === "request_admin_review") return "bg-yellow-500/10 text-yellow-300 border-yellow-500/20";
   return "bg-red-500/10 text-red-300 border-red-500/20";
+}
+
+function sourceQualityBadgeClass(quality: string) {
+  if (quality === "calculated") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
+  if (quality === "partial") return "bg-yellow-500/10 text-yellow-300 border-yellow-500/20";
+  return "bg-zinc-500/10 text-zinc-300 border-zinc-500/20";
+}
+
+function collapseRiskBadgeClass(level: string) {
+  if (level === "critical" || level === "high") return "bg-red-500/10 text-red-300 border-red-500/20";
+  if (level === "medium") return "bg-yellow-500/10 text-yellow-300 border-yellow-500/20";
+  return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
 }
 
 function MetadataPanel({ title, entries }: { title: string; entries: [string, unknown][] }) {
@@ -206,7 +218,103 @@ function BehaviorSimulationPanel({ agent }: { agent: AdminSystemAgent }) {
   );
 }
 
-function SystemAgentCard({ agent }: { agent: AdminSystemAgent }) {
+function EvolutionScorePanel({ ues, isLoading }: { ues?: UnifiedEvolutionScore; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="mt-5 rounded-lg bg-cyan-500/[0.04] border border-cyan-500/10 p-4 text-sm text-zinc-400">
+        <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
+        Calculating truth-evolution score...
+      </div>
+    );
+  }
+
+  if (!ues) {
+    return (
+      <div className="mt-5 rounded-lg bg-cyan-500/[0.04] border border-cyan-500/10 p-4 text-sm text-zinc-500">
+        Unified Evolution Score will appear after this agent is seeded and included in the read-only UES scan.
+      </div>
+    );
+  }
+
+  const scoreRows = [
+    ["P", ues.scores.P],
+    ["D", ues.scores.D],
+    ["Omega", ues.scores.Omega],
+    ["Xi", ues.scores.Xi],
+    ["UES", ues.scores.UES],
+  ] as const;
+
+  return (
+    <div className="mt-5 rounded-lg bg-cyan-500/[0.04] border border-cyan-500/10 p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <HeartPulse className="w-4 h-4 text-cyan-300" />
+            <p className="text-sm font-semibold text-white">Unified Evolution Score</p>
+          </div>
+          <p className="text-xs text-zinc-500 mt-1">
+            Read-only truth-evolution metrics using trust, policy, activity, evidence, debate, and cost signals.
+          </p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Badge className={collapseRiskBadgeClass(ues.collapseRisk.level)}>
+            {labelFor(ues.collapseRisk.level)} risk
+          </Badge>
+          <Badge className={sourceQualityBadgeClass(ues.sourceQuality.overall)}>
+            {labelFor(ues.sourceQuality.overall)} sources
+          </Badge>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-4">
+        {scoreRows.map(([key, value]) => (
+          <div key={key} className={`rounded-md px-3 py-2 ${key === "UES" ? "bg-cyan-500/10" : "bg-white/[0.04]"}`}>
+            <p className="text-[10px] text-zinc-500">{key}</p>
+            <p className="text-sm text-white font-semibold">{formatScore(value)}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-3 mt-4 text-xs">
+        <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
+          <p className="text-zinc-500">Source Quality</p>
+          <p className="text-zinc-200 mt-1">
+            {ues.sourceQuality.calculated} calculated / {ues.sourceQuality.partial} partial / {ues.sourceQuality.fallback} fallback
+          </p>
+        </div>
+        <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
+          <p className="text-zinc-500">Truth First</p>
+          <p className="text-zinc-200 mt-1">
+            Truth {formatScore(ues.truthFirst.truthSeeking)} / Reward {formatScore(ues.truthFirst.rewardSeeking)}
+          </p>
+        </div>
+        <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
+          <p className="text-zinc-500">Correction</p>
+          <p className="text-zinc-200 mt-1">
+            Capacity {formatScore(ues.scores.correctionCapacity)} / Cost {formatScore(ues.scores.costEfficiency)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-2 text-xs text-zinc-400">
+        {ues.explanations.slice(0, 3).map((explanation) => (
+          <div key={explanation} className="flex gap-2">
+            <CheckCircle className="w-4 h-4 text-cyan-300 flex-shrink-0 mt-0.5" />
+            <span>{explanation}</span>
+          </div>
+        ))}
+        {ues.collapseRisk.reasons.slice(0, 2).map((reason) => (
+          <div key={reason} className="flex gap-2">
+            <AlertTriangle className="w-4 h-4 text-yellow-300 flex-shrink-0 mt-0.5" />
+            <span>{reason}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SystemAgentCard({ agent, ues, evolutionLoading }: { agent: AdminSystemAgent; ues?: UnifiedEvolutionScore; evolutionLoading: boolean }) {
   const enabled = enabledFor(agent);
   const userId = agent.user?.id;
 
@@ -326,6 +434,8 @@ function SystemAgentCard({ agent }: { agent: AdminSystemAgent }) {
         <MetadataPanel title="DNA Profile" entries={Object.entries(agent.blueprint.dna || {})} />
       </div>
 
+      <EvolutionScorePanel ues={ues} isLoading={!!userId && evolutionLoading} />
+
       {userId && <BehaviorSimulationPanel agent={agent} />}
     </Card>
   );
@@ -345,6 +455,16 @@ export default function SystemAgents() {
   const { data: agents = [], isLoading, refetch } = useQuery({
     queryKey: ["admin-system-agents"],
     queryFn: () => api.admin.systemAgents(),
+    enabled: isRootAdmin,
+  });
+  const { data: globalEvolution, isLoading: evolutionLoading } = useQuery({
+    queryKey: ["evolution-global-score"],
+    queryFn: () => api.evolution.globalScore(),
+    enabled: isRootAdmin,
+  });
+  const { data: civilizationHealth } = useQuery({
+    queryKey: ["evolution-civilization-health"],
+    queryFn: () => api.evolution.civilizationHealth(),
     enabled: isRootAdmin,
   });
 
@@ -369,6 +489,7 @@ export default function SystemAgents() {
 
   const seededCount = agents.filter((agent) => agent.seeded).length;
   const enabledCount = agents.filter((agent) => agent.seeded && enabledFor(agent)).length;
+  const uesByAgentId = new Map((globalEvolution?.agents || []).map((score) => [score.agent.id, score]));
 
   return (
     <div className="min-h-screen bg-[#070711] text-white">
@@ -402,7 +523,7 @@ export default function SystemAgents() {
       </div>
 
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-5 gap-4">
           <Card className="bg-[#10101a]/90 border-white/[0.08] p-4">
             <div className="flex items-center gap-3">
               <Bot className="w-5 h-5 text-violet-300" />
@@ -430,6 +551,24 @@ export default function SystemAgents() {
               </div>
             </div>
           </Card>
+          <Card className="bg-[#10101a]/90 border-white/[0.08] p-4">
+            <div className="flex items-center gap-3">
+              <HeartPulse className="w-5 h-5 text-cyan-300" />
+              <div>
+                <p className="text-xs text-zinc-500">Average UES</p>
+                <p className="text-xl font-semibold">{formatScore(globalEvolution?.averageUES)}</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="bg-[#10101a]/90 border-white/[0.08] p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-300" />
+              <div>
+                <p className="text-xs text-zinc-500">Civilization Health</p>
+                <p className="text-xl font-semibold">{formatScore(civilizationHealth?.score)}</p>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {seedMutation.data?.reusedAliases && seedMutation.data.reusedAliases.length > 0 && (
@@ -445,7 +584,12 @@ export default function SystemAgents() {
         ) : (
           <div className="space-y-4">
             {agents.map((agent) => (
-              <SystemAgentCard key={agent.key} agent={agent} />
+              <SystemAgentCard
+                key={agent.key}
+                agent={agent}
+                ues={agent.user?.id ? uesByAgentId.get(agent.user.id) : undefined}
+                evolutionLoading={evolutionLoading}
+              />
             ))}
           </div>
         )}
