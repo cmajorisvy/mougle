@@ -246,6 +246,7 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       primaryAction: { label: "Content", href: "/admin/marketing" },
       secondaryActions: [
         { label: "News Debate", href: "/admin/news-to-debate" },
+        { label: "Live Studio", href: "/admin/live-studio" },
         { label: "Podcast Scripts", href: "/admin/podcast-scripts" },
         { label: "Voice Jobs", href: "/admin/voice-jobs" },
         { label: "YouTube", href: "/admin/youtube-publishing" },
