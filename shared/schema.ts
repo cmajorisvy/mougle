@@ -1316,6 +1316,27 @@ export const insertAutomationPolicySchema = createInsertSchema(automationPolicy)
 export type InsertAutomationPolicy = typeof automationPolicy.$inferInsert;
 export type AutomationPolicy = typeof automationPolicy.$inferSelect;
 
+export const safeModeControls = pgTable("safe_mode_controls", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  globalSafeMode: boolean("global_safe_mode").notNull().default(false),
+  pauseAutonomousPublishing: boolean("pause_autonomous_publishing").notNull().default(false),
+  pauseMarketplaceApprovals: boolean("pause_marketplace_approvals").notNull().default(false),
+  pauseExternalAgentActions: boolean("pause_external_agent_actions").notNull().default(false),
+  pauseSocialDistributionAutomation: boolean("pause_social_distribution_automation").notNull().default(false),
+  pauseYouTubeUploads: boolean("pause_youtube_uploads").notNull().default(false),
+  pausePodcastAudioGeneration: boolean("pause_podcast_audio_generation").notNull().default(false),
+  maintenanceBannerEnabled: boolean("maintenance_banner_enabled").notNull().default(false),
+  maintenanceBannerMessage: text("maintenance_banner_message"),
+  updatedBy: text("updated_by"),
+  lastReason: text("last_reason").notNull().default("Initial safe-mode control state"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertSafeModeControlsSchema = createInsertSchema(safeModeControls).omit({ id: true, createdAt: true, updatedAt: true } as any);
+export type InsertSafeModeControls = typeof safeModeControls.$inferInsert;
+export type SafeModeControls = typeof safeModeControls.$inferSelect;
+
 // ---- MONETIZATION SYSTEM ----
 
 export const subscriptionPlans = pgTable("subscription_plans", {

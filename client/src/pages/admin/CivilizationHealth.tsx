@@ -151,10 +151,15 @@ export default function CivilizationHealth() {
                 UES, truth quality, agent risk, policy risk, cost burn, marketplace quality, and read-only safe-mode recommendations.
               </p>
             </div>
-            <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="border-white/10 text-zinc-300">
-              {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-              Refresh
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => navigate("/admin/safe-mode")} className="border-white/10 text-zinc-300">
+                Safe Mode
+              </Button>
+              <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="border-white/10 text-zinc-300">
+                {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
       </div>

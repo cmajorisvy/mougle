@@ -208,6 +208,7 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       color: "bg-cyan-500/15 text-cyan-300",
       primaryAction: { label: "Health", href: "/admin/civilization-health" },
       secondaryActions: [
+        { label: "Safe Mode", href: "/admin/safe-mode" },
         { label: "System Agents", href: "/admin/system-agents" },
         { label: "Risk", href: "/admin/risk-center" },
       ],
@@ -261,6 +262,7 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       color: "bg-yellow-500/15 text-yellow-300",
       primaryAction: { label: "Founder", href: "/admin/founder-control" },
       secondaryActions: [
+        { label: "Safe Mode", href: "/admin/safe-mode" },
         { label: "Command", href: "/admin/command-center" },
         { label: "Debug", href: "/admin/debug" },
       ],

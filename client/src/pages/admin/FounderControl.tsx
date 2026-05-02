@@ -243,6 +243,14 @@ export default function FounderControl() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/admin/safe-mode")}
+              className="border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10"
+            >
+              Safe Mode
+            </Button>
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
               isEmergencyStopped
                 ? "bg-red-500/20 text-red-400"
