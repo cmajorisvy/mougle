@@ -407,6 +407,94 @@ export type AdminPodcastScriptGenerateResult = {
   generatedAt: string;
 };
 
+export type AdminPodcastAudioVoiceProfile = {
+  agentKey: string;
+  displayName: string;
+  role: string;
+  provider: string;
+  voiceId: string;
+  voiceLabel: string;
+  assignment: string;
+};
+
+export type AdminPodcastAudioJobSegment = {
+  segmentIndex: number;
+  scriptType: "two_minute" | "ten_minute" | "mougle_conclusion";
+  agentKey: string;
+  displayName: string;
+  role: string;
+  provider: string;
+  voiceId: string;
+  voiceLabel: string;
+  status: "pending" | "completed" | "mock" | "failed";
+  textPreview: string;
+  characterCount: number;
+  audioPath: string | null;
+  audioUrl: string | null;
+  mimeType: string | null;
+  estimatedCost: number;
+  actualCost: number;
+  errorMessage: string | null;
+  generatedAt: string | null;
+};
+
+export type AdminPodcastAudioJob = {
+  id: number;
+  scriptPackageId: number;
+  status: string;
+  provider: string;
+  voiceProfileMapping: Record<string, AdminPodcastAudioVoiceProfile>;
+  segments: AdminPodcastAudioJobSegment[];
+  estimatedCost: number;
+  actualCost: number;
+  errorMessage: string | null;
+  adminReviewStatus: string;
+  generatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminVoiceJobsProviderStatus = {
+  selected: "elevenlabs" | "replit_openai_audio" | "mock";
+  elevenLabsConfigured: boolean;
+  replitOpenAiAudioConfigured: boolean;
+  mockAvailable: true;
+  message: string;
+};
+
+export type AdminVoiceJobsPackage = AdminPodcastScriptPackage & {
+  latestVoiceJob: AdminPodcastAudioJob | null;
+};
+
+export type AdminVoiceJobsPackagesResponse = {
+  providerStatus: AdminVoiceJobsProviderStatus;
+  packages: AdminVoiceJobsPackage[];
+};
+
+export type AdminVoiceJobGeneratePayload = {
+  scriptPackageId: number;
+  scriptType: "two_minute" | "ten_minute" | "both";
+  provider: "auto" | "elevenlabs" | "replit_openai_audio" | "mock";
+};
+
+export type AdminVoiceJobGenerateResult = {
+  mode: "internal_admin_review_voice_job";
+  providerStatus: AdminVoiceJobsProviderStatus;
+  job: AdminPodcastAudioJob;
+  scriptPackage: AdminPodcastScriptPackage;
+  generatedAt: string;
+  safety: {
+    manualTriggerOnly: boolean;
+    internalReviewOnly: boolean;
+    publicPublishing: boolean;
+    youtubeUpload: boolean;
+    podcastHostingUpload: boolean;
+    socialPosting: boolean;
+    avatarVideoRendering: boolean;
+    privateMemoryUsed: boolean;
+  };
+};
+
 export type UesSourceQuality = "calculated" | "partial" | "fallback";
 
 export type UesMetric = {
@@ -788,6 +876,13 @@ export const api = {
       adminFetch<AdminPodcastScriptPackage[]>(`/admin/podcast-scripts${debateId ? `?debateId=${debateId}` : ""}`),
     generatePodcastScriptPackage: (debateId: number) =>
       adminFetch<AdminPodcastScriptGenerateResult>("/admin/podcast-scripts/generate", { method: "POST", body: JSON.stringify({ debateId }) }),
+    voiceJobPackages: (limit?: number) =>
+      adminFetch<AdminVoiceJobsPackagesResponse>(`/admin/voice-jobs/packages?limit=${limit || 50}`),
+    voiceJobs: (scriptPackageId?: number, limit?: number) =>
+      adminFetch<AdminPodcastAudioJob[]>(`/admin/voice-jobs?limit=${limit || 50}${scriptPackageId ? `&scriptPackageId=${scriptPackageId}` : ""}`),
+    voiceJob: (id: number) => adminFetch<AdminPodcastAudioJob>(`/admin/voice-jobs/${id}`),
+    generateVoiceJob: (data: AdminVoiceJobGeneratePayload) =>
+      adminFetch<AdminVoiceJobGenerateResult>("/admin/voice-jobs/generate", { method: "POST", body: JSON.stringify(data) }),
     posts: () => adminFetch<any[]>("/admin/posts"),
     deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
     topics: () => adminFetch<any[]>("/admin/topics"),
