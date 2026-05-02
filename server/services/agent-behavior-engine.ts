@@ -3,6 +3,7 @@ import { db } from "../db";
 import { storage } from "../storage";
 import { agentTrustProfiles, type AgentGenome, type AgentIdentity, type AgentLearningProfile, type AgentMemory, type AgentTrustProfile, type User } from "@shared/schema";
 import { getAgentActionDefinition, type AgentActionDefinition, type AgentActionType } from "./agent-action-registry";
+import { agentGraphAccessService, type AgentGraphAccessPurpose, type AgentGraphAccessResult } from "./agent-graph-access-service";
 import { memoryAccessPolicyService, runPrivateMemoryBlockCheck, type MemoryScope } from "./memory-access-policy";
 
 type BehaviorMetricInput = {
@@ -27,6 +28,12 @@ export type AgentBehaviorSimulationInput = {
   costBudget?: number;
   memoryScope?: MemoryScope;
   allowPrivateMemory?: boolean;
+  includeGraphContext?: boolean;
+  graphQuery?: string;
+  graphPurpose?: AgentGraphAccessPurpose;
+  graphAllowHypotheses?: boolean;
+  graphExplicitBusinessPermission?: boolean;
+  graphMinimumConfidence?: number;
 };
 
 type ScoreInputs = Required<BehaviorMetricInput>;
@@ -90,6 +97,15 @@ export type AgentBehaviorSimulationResult = {
   outcomeLog: {
     id: string | null;
     actionType: string;
+  };
+  graphContext: {
+    enabled: boolean;
+    nodesRetrieved: number;
+    edgesRetrieved: number;
+    blockedCounts: AgentGraphAccessResult["blockedCounts"];
+    policy: AgentGraphAccessResult["policy"] | null;
+    explanations: string[];
+    deterministicChecks: AgentGraphAccessResult["deterministicChecks"] | null;
   };
   blockedUnsafeActionCheck: {
     passed: boolean;
@@ -274,6 +290,14 @@ function proposeAction(input: AgentBehaviorSimulationInput): AgentActionType {
   return input.actionType || "stay_idle";
 }
 
+function graphPurposeForAction(action: AgentActionDefinition): AgentGraphAccessPurpose {
+  if (["attach_claim", "attach_evidence", "challenge_claim"].includes(action.type)) return "evidence_validation";
+  if (["join_debate", "summarize_debate"].includes(action.type)) return "debate_preparation";
+  if (action.type === "generate_news_script") return "media_script_review";
+  if (action.type === "collaborate_agent") return "synthesis";
+  return "reasoning";
+}
+
 async function loadAgentContext(agentId: string) {
   const [user, identity, genome, learningProfile] = await Promise.all([
     storage.getUser(agentId),
@@ -314,6 +338,7 @@ function buildLogDetails(input: {
   scoring: AgentBehaviorSimulationResult["scoring"];
   policyChecks: PolicyCheck[];
   decision: AgentBehaviorSimulationResult["decision"];
+  graphContext: AgentBehaviorSimulationResult["graphContext"];
 }) {
   return JSON.stringify({
     phase: "phase_10_agent_behavior_engine_mvp",
@@ -323,10 +348,12 @@ function buildLogDetails(input: {
     scoring: input.scoring,
     policyChecks: input.policyChecks,
     decision: input.decision,
+    graphContext: input.graphContext,
     safety: {
       autonomousExecution: false,
       directLlmExecution: false,
       publicPublishing: false,
+      graphContextReadOnly: input.graphContext.enabled,
     },
   });
 }
@@ -410,6 +437,37 @@ export async function simulateAgentBehaviorDecision(input: AgentBehaviorSimulati
   const permissionAllowed = hasActionPermission(action, permissions);
   const memoryScope = input.memoryScope || "behavioral";
   const memoryPolicy = await retrievePermittedMemory(agentId, memoryScope, input.allowPrivateMemory === true);
+  const graphAccess = input.includeGraphContext
+    ? await agentGraphAccessService.retrieveRelevantGraphContext({
+      requesterType: "system_agent",
+      requesterAgentId: agentId,
+      purpose: input.graphPurpose || graphPurposeForAction(action),
+      query: input.graphQuery || event.topic || event.content || action.label,
+      limit: 6,
+      allowHypotheses: input.graphAllowHypotheses === true,
+      explicitBusinessPermission: input.graphExplicitBusinessPermission === true,
+      minimumConfidence: input.graphMinimumConfidence,
+    })
+    : null;
+  const graphContext: AgentBehaviorSimulationResult["graphContext"] = graphAccess
+    ? {
+      enabled: true,
+      nodesRetrieved: graphAccess.context.nodes.length,
+      edgesRetrieved: graphAccess.context.edges.length,
+      blockedCounts: graphAccess.blockedCounts,
+      policy: graphAccess.policy,
+      explanations: graphAccess.explanations,
+      deterministicChecks: graphAccess.deterministicChecks,
+    }
+    : {
+      enabled: false,
+      nodesRetrieved: 0,
+      edgesRetrieved: 0,
+      blockedCounts: { total: 0, byReason: {} },
+      policy: null,
+      explanations: ["Internal graph context retrieval was not requested for this simulation."],
+      deterministicChecks: null,
+    };
   const memories = memoryPolicy.records;
   const memoryAccessAllowed = memoryPolicy.requestAllowed;
   const context = buildContextSummary({
@@ -456,7 +514,7 @@ export async function simulateAgentBehaviorDecision(input: AgentBehaviorSimulati
     executionMode: action.executionMode,
   };
 
-  const details = buildLogDetails({ event, context, proposedAction, scoring, policyChecks: policy.checks, decision });
+  const details = buildLogDetails({ event, context, proposedAction, scoring, policyChecks: policy.checks, decision, graphContext });
   const activity = await storage.createAgentActivity({
     agentId,
     postId: event.targetId,
@@ -477,6 +535,7 @@ export async function simulateAgentBehaviorDecision(input: AgentBehaviorSimulati
       id: activity.id,
       actionType: activity.actionType,
     },
+    graphContext,
     blockedUnsafeActionCheck: runBlockedUnsafeActionCheck(),
     privateMemoryBlockCheck: runPrivateMemoryBlockCheck(),
   };

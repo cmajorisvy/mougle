@@ -1,22 +1,27 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type AdminKnowledgeGraphSummary } from "@/lib/api";
+import { api, type AdminAgentGraphAccessPurpose, type AdminAgentGraphRequesterType, type AdminKnowledgeGraphSummary } from "@/lib/api";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertTriangle,
   ArrowLeft,
+  BrainCircuit,
   CheckCircle2,
   Database,
   GitBranch,
   Loader2,
   Lock,
+  PlayCircle,
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  XCircle,
 } from "lucide-react";
 
 function labelFor(value: string) {
@@ -25,6 +30,11 @@ function labelFor(value: string) {
 
 function formatCount(value: number | undefined) {
   return Math.round(value || 0).toLocaleString();
+}
+
+function formatScore(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "n/a";
+  return value > 1 ? value.toFixed(0) : value.toFixed(2);
 }
 
 function percent(value: number | undefined) {
@@ -148,6 +158,209 @@ function Safeguards({ summary }: { summary: AdminKnowledgeGraphSummary }) {
           </div>
         ))}
       </div>
+    </Card>
+  );
+}
+
+const agentGraphRequesterTypes: AdminAgentGraphRequesterType[] = ["system_agent", "user_agent", "root_admin"];
+const agentGraphPurposes: AdminAgentGraphAccessPurpose[] = [
+  "reasoning",
+  "debate_preparation",
+  "evidence_validation",
+  "synthesis",
+  "learning_signal",
+  "marketplace_review",
+  "media_script_review",
+];
+
+function AgentGraphAccessPanel() {
+  const [requesterType, setRequesterType] = useState<AdminAgentGraphRequesterType>("system_agent");
+  const [requesterAgentId, setRequesterAgentId] = useState("");
+  const [purpose, setPurpose] = useState<AdminAgentGraphAccessPurpose>("reasoning");
+  const [query, setQuery] = useState("truth evidence");
+  const [limit, setLimit] = useState("8");
+  const [minimumConfidence, setMinimumConfidence] = useState("");
+  const [allowHypotheses, setAllowHypotheses] = useState(false);
+  const [explicitBusinessPermission, setExplicitBusinessPermission] = useState(false);
+
+  const evaluateMutation = useMutation({
+    mutationFn: () => api.admin.evaluateAgentGraphAccess({
+      requesterType,
+      requesterAgentId: requesterType === "root_admin" ? undefined : requesterAgentId.trim(),
+      purpose,
+      query: query.trim(),
+      limit: Number(limit) || 8,
+      minimumConfidence: minimumConfidence.trim() ? Number(minimumConfidence) : undefined,
+      allowHypotheses,
+      explicitBusinessPermission,
+    }),
+  });
+
+  const result = evaluateMutation.data;
+  const checks = result ? Object.entries(result.deterministicChecks) : [];
+
+  return (
+    <Card className="bg-violet-500/[0.05] border-violet-500/20 p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <BrainCircuit className="w-5 h-5 text-violet-300" />
+            <h2 className="text-lg font-semibold text-white">Internal Agent Graph Access Test</h2>
+          </div>
+          <p className="text-sm text-zinc-500 mt-2 max-w-3xl leading-6">
+            Root-admin evaluation for the internal policy-aware graph layer. This is separate from the public-safe projection and returns only safe summaries for approved agent reasoning context.
+          </p>
+        </div>
+        <Button
+          onClick={() => evaluateMutation.mutate()}
+          disabled={evaluateMutation.isPending || (requesterType !== "root_admin" && !requesterAgentId.trim())}
+          className="bg-violet-600 hover:bg-violet-700"
+        >
+          {evaluateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <PlayCircle className="w-4 h-4 mr-2" />}
+          Evaluate
+        </Button>
+      </div>
+
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-5">
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Requester</p>
+          <Select value={requesterType} onValueChange={(value) => setRequesterType(value as AdminAgentGraphRequesterType)}>
+            <SelectTrigger className="bg-[#080811] border-white/10 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-[#10101a] border-white/10">
+              {agentGraphRequesterTypes.map((type) => <SelectItem key={type} value={type}>{labelFor(type)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Requester Agent ID</p>
+          <Input
+            value={requesterAgentId}
+            onChange={(event) => setRequesterAgentId(event.target.value)}
+            disabled={requesterType === "root_admin"}
+            placeholder={requesterType === "root_admin" ? "Not required" : "Agent ID"}
+            className="bg-[#080811] border-white/10 text-xs"
+          />
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Purpose</p>
+          <Select value={purpose} onValueChange={(value) => setPurpose(value as AdminAgentGraphAccessPurpose)}>
+            <SelectTrigger className="bg-[#080811] border-white/10 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-[#10101a] border-white/10">
+              {agentGraphPurposes.map((item) => <SelectItem key={item} value={item}>{labelFor(item)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Limit</p>
+          <Input value={limit} onChange={(event) => setLimit(event.target.value)} className="bg-[#080811] border-white/10 text-xs" />
+        </div>
+        <div className="md:col-span-2">
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Query</p>
+          <Input value={query} onChange={(event) => setQuery(event.target.value)} className="bg-[#080811] border-white/10 text-xs" />
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-zinc-500 mb-1">Min Confidence</p>
+          <Input value={minimumConfidence} onChange={(event) => setMinimumConfidence(event.target.value)} placeholder="Policy default" className="bg-[#080811] border-white/10 text-xs" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setAllowHypotheses((value) => !value)}
+            className={`border-white/10 text-xs ${allowHypotheses ? "bg-yellow-500/10 text-yellow-200" : "text-zinc-400"}`}
+          >
+            Hypotheses {allowHypotheses ? "On" : "Off"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setExplicitBusinessPermission((value) => !value)}
+            className={`border-white/10 text-xs ${explicitBusinessPermission ? "bg-cyan-500/10 text-cyan-200" : "text-zinc-400"}`}
+          >
+            Business {explicitBusinessPermission ? "On" : "Off"}
+          </Button>
+        </div>
+      </div>
+
+      {evaluateMutation.error && (
+        <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
+          {(evaluateMutation.error as Error).message}
+        </div>
+      )}
+
+      {result && (
+        <div className="mt-5 space-y-4">
+          <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-3">
+            {[
+              ["Nodes", result.context.nodes.length],
+              ["Edges", result.context.edges.length],
+              ["Blocked", result.blockedCounts.total],
+              ["Min Confidence", `${Math.round(result.policy.minimumConfidence * 100)}%`],
+              ["UES", result.requester.ues.available ? formatScore(result.requester.ues.score || 0) : "n/a"],
+            ].map(([label, value]) => (
+              <div key={label as string} className="rounded-lg border border-white/[0.08] bg-black/20 p-3">
+                <p className="text-xs text-zinc-500">{label}</p>
+                <p className="text-lg font-semibold text-white mt-1">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid xl:grid-cols-[1fr_.9fr] gap-4">
+            <div className="rounded-lg border border-white/[0.08] bg-black/20 p-4">
+              <h3 className="text-sm font-semibold text-white">Returned Context</h3>
+              <div className="space-y-3 mt-3">
+                {result.context.nodes.length === 0 && <p className="text-sm text-zinc-500">No policy-approved nodes returned for this request.</p>}
+                {result.context.nodes.slice(0, 5).map((node) => (
+                  <div key={node.id} className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className={statusClass(node.verificationStatus)}>{labelFor(node.verificationStatus)}</Badge>
+                      <Badge className="bg-white/[0.05] text-zinc-300 border-white/[0.08]">{labelFor(node.knowledgeStatus)}</Badge>
+                      <Badge className="bg-violet-500/10 text-violet-200 border-violet-500/20">{node.vaultType}/{node.sensitivity}</Badge>
+                    </div>
+                    <p className="text-sm font-medium text-white mt-2">{node.label}</p>
+                    {node.safeSummary && <p className="text-xs text-zinc-400 mt-2 leading-5">{node.safeSummary}</p>}
+                    <p className="text-xs text-zinc-500 mt-2">{node.provenanceSummary}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-white/[0.08] bg-black/20 p-4">
+              <h3 className="text-sm font-semibold text-white">Policy Checks</h3>
+              <div className="space-y-2 mt-3">
+                {checks.map(([key, check]) => (
+                  <div key={key} className="flex gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
+                    {check.passed ? <CheckCircle2 className="w-4 h-4 text-emerald-300 flex-shrink-0 mt-0.5" /> : <XCircle className="w-4 h-4 text-red-300 flex-shrink-0 mt-0.5" />}
+                    <div>
+                      <p className="text-sm font-medium text-white">{labelFor(key)}</p>
+                      <p className="text-xs text-zinc-500 mt-1">{check.explanation}</p>
+                      <p className="text-xs text-zinc-400 mt-1">Expected {check.expected}; actual {check.actual}.</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <DistributionPanel title="Blocked By Reason" items={result.blockedCounts.byReason} />
+            <div className="rounded-lg border border-white/[0.08] bg-black/20 p-4">
+              <h3 className="text-sm font-semibold text-white">Policy Summary</h3>
+              <p className="text-xs text-zinc-500 mt-3 leading-5">
+                Vaults: {result.policy.allowedVaults.join(", ")}. Sensitivity: {result.policy.allowedSensitivity.join(", ")}.
+                Public projection used: {result.policy.publicProjectionUsed ? "yes" : "no"}. Mutations allowed: {result.policy.mutationAllowed ? "yes" : "no"}.
+              </p>
+              <ul className="text-xs text-zinc-400 mt-3 space-y-1">
+                {result.explanations.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
@@ -340,6 +553,8 @@ export default function KnowledgeGraph() {
             </Card>
 
             <Safeguards summary={summary} />
+
+            <AgentGraphAccessPanel />
 
             <Card className="bg-[#10101a]/90 border-white/[0.08] p-5">
               <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">

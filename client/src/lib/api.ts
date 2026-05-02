@@ -157,6 +157,116 @@ export type AdminAgentBehaviorSimulationPayload = {
   costBudget?: number;
   memoryScope?: AdminAgentMemoryScope;
   allowPrivateMemory?: boolean;
+  includeGraphContext?: boolean;
+  graphQuery?: string;
+  graphPurpose?: AdminAgentGraphAccessPurpose;
+  graphAllowHypotheses?: boolean;
+  graphExplicitBusinessPermission?: boolean;
+  graphMinimumConfidence?: number;
+};
+
+export type AdminAgentGraphRequesterType = "system_agent" | "user_agent" | "root_admin";
+export type AdminAgentGraphAccessPurpose =
+  | "reasoning"
+  | "debate_preparation"
+  | "evidence_validation"
+  | "synthesis"
+  | "learning_signal"
+  | "marketplace_review"
+  | "media_script_review";
+export type AdminAgentGraphKnowledgeStatus = "fact" | "hypothesis" | "pattern";
+
+export type AdminAgentGraphAccessPayload = {
+  requesterType: AdminAgentGraphRequesterType;
+  requesterAgentId?: string;
+  purpose: AdminAgentGraphAccessPurpose;
+  query?: string;
+  limit?: number;
+  allowHypotheses?: boolean;
+  explicitBusinessPermission?: boolean;
+  minimumConfidence?: number;
+};
+
+export type AdminAgentGraphContextNode = {
+  id: string;
+  nodeType: string;
+  label: string;
+  safeSummary: string | null;
+  confidence: number;
+  verificationStatus: string;
+  vaultType: string;
+  sensitivity: string;
+  knowledgeStatus: AdminAgentGraphKnowledgeStatus;
+  provenanceSummary: string;
+  sourceType: string;
+};
+
+export type AdminAgentGraphContextEdge = {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  relationType: string;
+  confidence: number;
+  verificationStatus: string;
+  vaultType: string;
+  sensitivity: string;
+  knowledgeStatus: AdminAgentGraphKnowledgeStatus;
+  provenanceSummary: string;
+  sourceType: string;
+};
+
+export type AdminAgentGraphAccessResult = {
+  generatedAt: string;
+  requester: {
+    type: AdminAgentGraphRequesterType;
+    agentId: string | null;
+    validated: boolean;
+    role: string | null;
+    systemAgent: boolean;
+    userAgent: boolean;
+    ues: {
+      available: boolean;
+      score: number | null;
+      sourceQuality: string | null;
+    };
+  };
+  policy: {
+    requesterType: AdminAgentGraphRequesterType;
+    purpose: AdminAgentGraphAccessPurpose;
+    allowedVaults: string[];
+    allowedSensitivity: string[];
+    minimumConfidence: number;
+    hypothesesAllowed: boolean;
+    businessPermissionRequired: boolean;
+    explicitBusinessPermission: boolean;
+    publicProjectionUsed: false;
+    mutationAllowed: false;
+  };
+  context: {
+    nodes: AdminAgentGraphContextNode[];
+    edges: AdminAgentGraphContextEdge[];
+  };
+  blockedCounts: {
+    total: number;
+    byReason: Record<string, number>;
+  };
+  explanations: string[];
+  deterministicChecks: Record<string, {
+    passed: boolean;
+    expected: string;
+    actual: string;
+    explanation: string;
+  }>;
+  safeguards: {
+    internalOnly: true;
+    rootAdminTestOnly: true;
+    noPublicApi: true;
+    noPublicProjectionFilter: true;
+    noRawPrivateMemory: true;
+    noRawBusinessRestrictedMemory: true;
+    noGraphMutation: true;
+    noAutonomousLearning: true;
+  };
 };
 
 export type AdminAgentBehaviorSimulationResult = {
@@ -208,6 +318,15 @@ export type AdminAgentBehaviorSimulationResult = {
   outcomeLog: {
     id: string | null;
     actionType: string;
+  };
+  graphContext: {
+    enabled: boolean;
+    nodesRetrieved: number;
+    edgesRetrieved: number;
+    blockedCounts: AdminAgentGraphAccessResult["blockedCounts"];
+    policy: AdminAgentGraphAccessResult["policy"] | null;
+    explanations: string[];
+    deterministicChecks: AdminAgentGraphAccessResult["deterministicChecks"] | null;
   };
   blockedUnsafeActionCheck: {
     passed: boolean;
@@ -1574,6 +1693,8 @@ export const api = {
       adminFetch<AdminSystemAgent>(`/admin/system-agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     simulateAgentBehavior: (data: AdminAgentBehaviorSimulationPayload) =>
       adminFetch<AdminAgentBehaviorSimulationResult>("/admin/agent-behavior/simulate", { method: "POST", body: JSON.stringify(data) }),
+    evaluateAgentGraphAccess: (data: AdminAgentGraphAccessPayload) =>
+      adminFetch<AdminAgentGraphAccessResult>("/admin/agent-graph-access/evaluate", { method: "POST", body: JSON.stringify(data) }),
     newsToDebateArticles: (limit?: number) =>
       adminFetch<AdminNewsToDebateArticle[]>(`/admin/news-to-debate/articles?limit=${limit || 25}`),
     generateNewsToDebate: (data: AdminNewsToDebatePayload) =>

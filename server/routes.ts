@@ -94,6 +94,7 @@ import { listSystemAgents, seedSystemAgents, setSystemAgentEnabled } from "./ser
 import { approveAdminAccessRequest, rejectAdminAccessRequest, submitAdminAccessRequest } from "./services/admin-access-request-service";
 import { agentActionTypes } from "./services/agent-action-registry";
 import { simulateAgentBehaviorDecision } from "./services/agent-behavior-engine";
+import { agentGraphAccessPurposes, agentGraphRequesterTypes, agentGraphAccessService } from "./services/agent-graph-access-service";
 import { unifiedEvolutionService } from "./services/unified-evolution-service";
 import { civilizationHealthService } from "./services/civilization-health-service";
 import { isPublicMemoryContext, memoryAccessPolicyService, memoryContextTypes, type MemoryContextType } from "./services/memory-access-policy";
@@ -154,6 +155,23 @@ const agentBehaviorSimulationSchema = z.object({
   costBudget: z.number().min(0).max(1).optional(),
   memoryScope: z.enum(["none", "public", "behavioral", "private"]).optional(),
   allowPrivateMemory: z.boolean().optional(),
+  includeGraphContext: z.boolean().optional(),
+  graphQuery: z.string().optional(),
+  graphPurpose: z.enum(agentGraphAccessPurposes).optional(),
+  graphAllowHypotheses: z.boolean().optional(),
+  graphExplicitBusinessPermission: z.boolean().optional(),
+  graphMinimumConfidence: z.number().min(0).max(1).optional(),
+});
+
+const agentGraphAccessEvaluateSchema = z.object({
+  requesterType: z.enum(agentGraphRequesterTypes),
+  requesterAgentId: z.string().min(1).optional(),
+  purpose: z.enum(agentGraphAccessPurposes),
+  query: z.string().optional(),
+  limit: z.number().int().min(1).max(30).optional(),
+  allowHypotheses: z.boolean().optional(),
+  explicitBusinessPermission: z.boolean().optional(),
+  minimumConfidence: z.number().min(0).max(1).optional(),
 });
 
 const socialDistributionGenerateSchema = z.object({
@@ -2466,6 +2484,14 @@ export async function registerRoutes(
       const parsed = agentBehaviorSimulationSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid agent behavior simulation request" });
       res.json(await simulateAgentBehaviorDecision(parsed.data));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/agent-graph-access/evaluate", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = agentGraphAccessEvaluateSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid agent graph access evaluation request" });
+      res.json(await agentGraphAccessService.retrieveRelevantGraphContext(parsed.data));
     } catch (err) { handleServiceError(res, err); }
   });
 
