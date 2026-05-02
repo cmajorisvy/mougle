@@ -3,6 +3,7 @@ import { db } from "../db";
 import { storage } from "../storage";
 import { agentTrustProfiles, type AgentGenome, type AgentIdentity, type AgentLearningProfile, type AgentMemory, type AgentTrustProfile, type User } from "@shared/schema";
 import { getAgentActionDefinition, type AgentActionDefinition, type AgentActionType } from "./agent-action-registry";
+import { memoryAccessPolicyService, runPrivateMemoryBlockCheck, type MemoryScope } from "./memory-access-policy";
 
 type BehaviorMetricInput = {
   goalAlignment?: number;
@@ -24,7 +25,7 @@ export type AgentBehaviorSimulationInput = {
   };
   metrics?: BehaviorMetricInput;
   costBudget?: number;
-  memoryScope?: "none" | "public" | "behavioral" | "private";
+  memoryScope?: MemoryScope;
   allowPrivateMemory?: boolean;
 };
 
@@ -58,10 +59,13 @@ export type AgentBehaviorSimulationResult = {
     genomeLoaded: boolean;
     learningProfileLoaded: boolean;
     trustProfileLoaded: boolean;
-    memoryScope: "none" | "public" | "behavioral" | "private";
+    memoryScope: MemoryScope;
     memoryAccessAllowed: boolean;
     memoriesRetrieved: number;
     privateMemoryRequested: boolean;
+    memoryDeniedCount: number;
+    policyExplanations: string[];
+    sanitizerRedactions: string[];
   };
   proposedAction: {
     type: AgentActionType;
@@ -92,6 +96,15 @@ export type AgentBehaviorSimulationResult = {
     actionType: AgentActionType;
     expected: DecisionStatus;
     actual: DecisionStatus;
+    reason: string;
+  };
+  privateMemoryBlockCheck: {
+    passed: boolean;
+    vaultType: "personal";
+    sensitivity: "private";
+    context: "public_debate";
+    expected: string;
+    actual: string;
     reason: string;
   };
 };
@@ -261,10 +274,6 @@ function proposeAction(input: AgentBehaviorSimulationInput): AgentActionType {
   return input.actionType || "stay_idle";
 }
 
-function canUsePrivateMemory(permissions: Record<string, boolean>, input: AgentBehaviorSimulationInput) {
-  return input.allowPrivateMemory === true && permissions.canAccessPrivateVault === true;
-}
-
 async function loadAgentContext(agentId: string) {
   const [user, identity, genome, learningProfile] = await Promise.all([
     storage.getUser(agentId),
@@ -286,12 +295,16 @@ async function loadAgentContext(agentId: string) {
 
 async function retrievePermittedMemory(
   agentId: string,
-  scope: AgentBehaviorSimulationResult["context"]["memoryScope"],
-  memoryAccessAllowed: boolean,
+  scope: MemoryScope,
+  explicitUserPermission: boolean,
 ) {
-  if (!memoryAccessAllowed || scope === "none") return [];
-  if (scope !== "behavioral") return [];
-  return storage.getAgentMemories(agentId, 5);
+  return memoryAccessPolicyService.getPolicyCheckedAgentMemories({
+    agentId,
+    context: "agent_behavior",
+    scope,
+    limit: 5,
+    explicitUserPermission,
+  });
 }
 
 function buildLogDetails(input: {
@@ -337,6 +350,9 @@ function buildContextSummary(input: {
   memoryScope: AgentBehaviorSimulationResult["context"]["memoryScope"];
   memoryAccessAllowed: boolean;
   memories: AgentMemory[];
+  memoryDeniedCount: number;
+  policyExplanations: string[];
+  sanitizerRedactions: string[];
 }) {
   return {
     identityLoaded: !!input.identity,
@@ -347,6 +363,9 @@ function buildContextSummary(input: {
     memoryAccessAllowed: input.memoryAccessAllowed,
     memoriesRetrieved: input.memories.length,
     privateMemoryRequested: input.memoryScope === "private",
+    memoryDeniedCount: input.memoryDeniedCount,
+    policyExplanations: input.policyExplanations,
+    sanitizerRedactions: input.sanitizerRedactions,
   };
 }
 
@@ -390,9 +409,21 @@ export async function simulateAgentBehaviorDecision(input: AgentBehaviorSimulati
   const agentEnabled = resolveAgentEnabled(identity);
   const permissionAllowed = hasActionPermission(action, permissions);
   const memoryScope = input.memoryScope || "behavioral";
-  const memoryAccessAllowed = memoryScope !== "private" || canUsePrivateMemory(permissions, input);
-  const memories = await retrievePermittedMemory(agentId, memoryScope, memoryAccessAllowed);
-  const context = buildContextSummary({ identity, genome, learningProfile, trustProfile, memoryScope, memoryAccessAllowed, memories });
+  const memoryPolicy = await retrievePermittedMemory(agentId, memoryScope, input.allowPrivateMemory === true);
+  const memories = memoryPolicy.records;
+  const memoryAccessAllowed = memoryPolicy.requestAllowed;
+  const context = buildContextSummary({
+    identity,
+    genome,
+    learningProfile,
+    trustProfile,
+    memoryScope,
+    memoryAccessAllowed,
+    memories,
+    memoryDeniedCount: memoryPolicy.deniedCount,
+    policyExplanations: memoryPolicy.explanations,
+    sanitizerRedactions: memoryPolicy.redactions,
+  });
   const metrics = normalizeMetrics(action, input.metrics);
   const score = calculateAgentActionScore(metrics);
   const costBudget = clamp01(input.costBudget ?? DEFAULT_COST_BUDGET);
@@ -447,5 +478,6 @@ export async function simulateAgentBehaviorDecision(input: AgentBehaviorSimulati
       actionType: activity.actionType,
     },
     blockedUnsafeActionCheck: runBlockedUnsafeActionCheck(),
+    privateMemoryBlockCheck: runPrivateMemoryBlockCheck(),
   };
 }

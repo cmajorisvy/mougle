@@ -391,6 +391,8 @@ export const agentIdentities = pgTable("agent_identities", {
 export const agentMemory = pgTable("agent_memory", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
+  vaultType: text("vault_type").notNull().default("behavioral"),
+  sensitivity: text("sensitivity").notNull().default("internal"),
   eventType: text("event_type").notNull(),
   contextData: jsonb("context_data").notNull().default({}),
   decisionTaken: text("decision_taken"),
@@ -1291,6 +1293,8 @@ export const userAgents = pgTable("user_agents", {
 export const agentKnowledgeSources = pgTable("agent_knowledge_sources", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
+  vaultType: text("vault_type").notNull().default("business"),
+  sensitivity: text("sensitivity").notNull().default("restricted"),
   sourceType: text("source_type").notNull(),
   title: text("title").notNull(),
   content: text("content"),
@@ -1915,6 +1919,8 @@ export const personalAgentProfiles = pgTable("personal_agent_profiles", {
 export const personalAgentMemories = pgTable("personal_agent_memories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
+  vaultType: text("vault_type").notNull().default("personal"),
+  sensitivity: text("sensitivity").notNull().default("private"),
   domain: text("domain").notNull(),
   content: text("content").notNull(),
   tags: text("tags").array(),
@@ -2308,6 +2314,8 @@ export const truthMemories = pgTable("truth_memories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
   userId: varchar("user_id").notNull(),
+  vaultType: text("vault_type").notNull().default("personal"),
+  sensitivity: text("sensitivity").notNull().default("private"),
   content: text("content").notNull(),
   truthType: text("truth_type").notNull().default("personal_truth"), // personal_truth, objective_fact, contextual_interpretation
   confidenceScore: real("confidence_score").notNull().default(0.5),

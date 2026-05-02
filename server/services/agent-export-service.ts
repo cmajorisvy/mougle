@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { storage } from "../storage";
 import { personalAgentService } from "./personal-agent-service";
+import { memoryAccessPolicyService } from "./memory-access-policy";
 
 export type AgentPassportPayload = {
   format: "mougle-agent";
@@ -92,7 +93,7 @@ export async function exportAgent(agentId: string, sessionUserId: string) {
 
   if (agentId === "personal" || agentId === "personal-agent") {
     const secret = getExportSecret();
-    const personalData = await personalAgentService.exportAllData(sessionUserId);
+    const personalProfile = await personalAgentService.getOrCreateProfile(sessionUserId);
     const exportId = crypto.randomUUID();
     const payload: AgentPassportPayload = {
       format: "mougle-agent",
@@ -102,7 +103,7 @@ export async function exportAgent(agentId: string, sessionUserId: string) {
       capabilities: ["memory", "tools", "workflow"],
       exportId,
       metadata: {
-        name: personalData.profile?.agentName || "Personal Intelligence",
+        name: personalProfile.agentName || "Personal Intelligence",
         version: "1.0.0",
         ownerIdHash: hashOwnerId(sessionUserId, secret),
         model: "gpt-5.2",
@@ -110,15 +111,20 @@ export async function exportAgent(agentId: string, sessionUserId: string) {
         exportedAt: new Date().toISOString(),
       },
       behavior: {
-        persona: personalData.profile?.agentName || null,
+        persona: personalProfile.agentName || null,
         systemPrompt: null,
         temperature: null,
         skills: null,
         tags: null,
       },
-      editableMemory: personalData,
+      editableMemory: {
+        blocked: true,
+        vaultType: "personal",
+        sensitivity: "private",
+        reason: "Personal vault memory is not included in agent passport exports.",
+      },
       knowledgeReferences: {},
-      toolConfig: personalData.profile?.preferences || {},
+      toolConfig: personalProfile.preferences || {},
       workflows: {},
       compatibleModels: {
         model: "gpt-5.2",
@@ -193,7 +199,10 @@ export async function exportAgent(agentId: string, sessionUserId: string) {
   }
 
   const secret = getExportSecret();
-  const knowledgeRefs = await storage.getAgentKnowledgeSources(agentId);
+  const knowledgePolicy = await memoryAccessPolicyService.filterKnowledgeSourcesForContext({
+    agentId,
+    context: "marketplace_export",
+  });
 
   const exportId = crypto.randomUUID();
   const payload: AgentPassportPayload = {
@@ -219,7 +228,14 @@ export async function exportAgent(agentId: string, sessionUserId: string) {
       tags: agent.tags || null,
     },
     editableMemory: {},
-    knowledgeReferences: knowledgeRefs,
+    knowledgeReferences: {
+      sources: knowledgePolicy.records,
+      memoryPolicy: {
+        deniedCount: knowledgePolicy.deniedCount,
+        explanations: knowledgePolicy.explanations,
+        redactions: knowledgePolicy.redactions,
+      },
+    },
     toolConfig: {},
     workflows: {},
     compatibleModels: {

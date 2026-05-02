@@ -161,7 +161,7 @@ function BehaviorSimulationPanel({ agent }: { agent: AdminSystemAgent }) {
               </div>
               <div className="rounded-md bg-white/[0.04] p-2">
                 <p className="text-zinc-500">Memory</p>
-                <p className="text-zinc-200 font-medium">{result.context.memoriesRetrieved} retrieved</p>
+                <p className="text-zinc-200 font-medium">{result.context.memoriesRetrieved} retrieved / {result.context.memoryDeniedCount} denied</p>
               </div>
             </div>
             <div className="mt-3 flex items-center gap-2 text-zinc-400">
@@ -171,6 +171,14 @@ function BehaviorSimulationPanel({ agent }: { agent: AdminSystemAgent }) {
                 <XCircle className="w-4 h-4 text-red-300" />
               )}
               <span>Unsafe `post_message` check: {result.blockedUnsafeActionCheck.actual}</span>
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-zinc-400">
+              {result.privateMemoryBlockCheck.passed ? (
+                <CheckCircle className="w-4 h-4 text-emerald-300" />
+              ) : (
+                <XCircle className="w-4 h-4 text-red-300" />
+              )}
+              <span>Private memory check: {result.privateMemoryBlockCheck.actual}</span>
             </div>
           </div>
 
