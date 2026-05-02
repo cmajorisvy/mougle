@@ -162,6 +162,12 @@ const agentBehaviorSimulationSchema = z.object({
   graphAllowHypotheses: z.boolean().optional(),
   graphExplicitBusinessPermission: z.boolean().optional(),
   graphMinimumConfidence: z.number().min(0).max(1).optional(),
+  includeKnowledgePacketContext: z.boolean().optional(),
+  knowledgePacketQuery: z.string().optional(),
+  knowledgePacketAllowHypotheses: z.boolean().optional(),
+  knowledgePacketExplicitBusinessPermission: z.boolean().optional(),
+  knowledgePacketMinimumConfidence: z.number().min(0).max(1).optional(),
+  knowledgePacketLimit: z.number().min(1).max(12).optional(),
 });
 
 const agentGraphAccessEvaluateSchema = z.object({

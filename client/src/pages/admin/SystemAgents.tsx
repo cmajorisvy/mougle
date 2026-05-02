@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { AlertTriangle, ArrowLeft, Bot, BrainCircuit, CheckCircle, Database, HeartPulse, Loader2, PlayCircle, Power, RefreshCw, ShieldCheck, Sparkles, XCircle } from "lucide-react";
 
 function formatScore(value: unknown) {
@@ -74,12 +75,25 @@ function BehaviorSimulationPanel({ agent }: { agent: AdminSystemAgent }) {
   const [actionType, setActionType] = useState<AdminAgentActionType>("research_topic");
   const [memoryScope, setMemoryScope] = useState<AdminAgentMemoryScope>("behavioral");
   const [topic, setTopic] = useState(agent.blueprint.role);
+  const [includeGraphContext, setIncludeGraphContext] = useState(true);
+  const [includeKnowledgePackets, setIncludeKnowledgePackets] = useState(true);
+  const [allowHypotheses, setAllowHypotheses] = useState(true);
+  const [explicitBusinessPermission, setExplicitBusinessPermission] = useState(false);
 
   const simulateMutation = useMutation({
     mutationFn: () => api.admin.simulateAgentBehavior({
       agentId: userId!,
       actionType,
       memoryScope,
+      includeGraphContext,
+      graphQuery: topic.trim() || agent.blueprint.role,
+      graphAllowHypotheses: allowHypotheses,
+      graphExplicitBusinessPermission: explicitBusinessPermission,
+      includeKnowledgePacketContext: includeKnowledgePackets,
+      knowledgePacketQuery: topic.trim() || agent.blueprint.role,
+      knowledgePacketAllowHypotheses: allowHypotheses,
+      knowledgePacketExplicitBusinessPermission: explicitBusinessPermission,
+      knowledgePacketLimit: 6,
       event: {
         type: "admin_inspector_simulation",
         topic: topic.trim() || agent.blueprint.role,
@@ -151,6 +165,29 @@ function BehaviorSimulationPanel({ agent }: { agent: AdminSystemAgent }) {
         </div>
       </div>
 
+      <div className="grid md:grid-cols-4 gap-3 mt-4">
+        {[
+          ["Graph context", includeGraphContext, setIncludeGraphContext],
+          ["Knowledge packets", includeKnowledgePackets, setIncludeKnowledgePackets],
+          ["Hypotheses", allowHypotheses, setAllowHypotheses],
+          ["Business permission", explicitBusinessPermission, setExplicitBusinessPermission],
+        ].map(([label, checked, setter]) => (
+          <div key={label as string} className="rounded-md bg-white/[0.03] border border-white/[0.05] p-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-zinc-200">{label as string}</p>
+              <p className="text-[10px] text-zinc-500">
+                {label === "Business permission" ? "Off unless consent exists" : "Read-only simulation input"}
+              </p>
+            </div>
+            <Switch
+              checked={checked as boolean}
+              onCheckedChange={(value) => (setter as (next: boolean) => void)(value)}
+              data-testid={`switch-${String(label).toLowerCase().replace(/\s+/g, "-")}-${agent.key}`}
+            />
+          </div>
+        ))}
+      </div>
+
       {simulateMutation.error && (
         <div className="mt-4 rounded-md bg-red-500/10 border border-red-500/20 p-3 text-xs text-red-200">
           {(simulateMutation.error as Error).message}
@@ -211,6 +248,96 @@ function BehaviorSimulationPanel({ agent }: { agent: AdminSystemAgent }) {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className="mt-3 grid xl:grid-cols-3 gap-3 text-xs">
+          <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Database className="w-4 h-4 text-cyan-300" />
+              <p className="text-[11px] uppercase tracking-wide text-zinc-500">Graph Context</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md bg-white/[0.04] p-2">
+                <p className="text-zinc-500">Nodes</p>
+                <p className="text-zinc-200 font-medium">{result.graphContext.nodesRetrieved}</p>
+              </div>
+              <div className="rounded-md bg-white/[0.04] p-2">
+                <p className="text-zinc-500">Edges</p>
+                <p className="text-zinc-200 font-medium">{result.graphContext.edgesRetrieved}</p>
+              </div>
+            </div>
+            <p className="text-zinc-500 mt-3">
+              {result.graphContext.enabled ? "Internal policy-aware graph access; public projection filter is not used." : "Not requested."}
+            </p>
+            <p className="text-zinc-400 mt-2">
+              Blocked {result.graphContext.blockedCounts.total}
+            </p>
+          </div>
+
+          <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-violet-300" />
+              <p className="text-[11px] uppercase tracking-wide text-zinc-500">Knowledge Packets</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md bg-white/[0.04] p-2">
+                <p className="text-zinc-500">Used</p>
+                <p className="text-zinc-200 font-medium">{result.knowledgePacketContext.knowledgePacketsUsed}</p>
+              </div>
+              <div className="rounded-md bg-white/[0.04] p-2">
+                <p className="text-zinc-500">Blocked</p>
+                <p className="text-zinc-200 font-medium">{result.knowledgePacketContext.blockedPacketCounts.total}</p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              {result.knowledgePacketContext.packets.slice(0, 2).map((packet) => (
+                <div key={packet.id} className="rounded-md bg-white/[0.04] p-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className={packet.knowledgeStatus === "fact" ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20" : "bg-yellow-500/10 text-yellow-300 border-yellow-500/20"}>
+                      {labelFor(packet.knowledgeStatus)}
+                    </Badge>
+                    <span className="text-zinc-400">Rank {formatScore(packet.rankingScore)}</span>
+                    <span className="text-zinc-500">Gluon {formatScore(packet.gluonSignal.normalized)}</span>
+                  </div>
+                  <p className="text-zinc-200 mt-2 truncate">{packet.title}</p>
+                  <p className="text-zinc-500 mt-1 line-clamp-2">{packet.safeSummary}</p>
+                </div>
+              ))}
+              {result.knowledgePacketContext.packets.length === 0 && (
+                <p className="text-zinc-500">
+                  {result.knowledgePacketContext.enabled ? "No eligible packet context found." : "Not requested."}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-white/[0.03] border border-white/[0.05] p-3">
+            <div className="flex items-center gap-2 mb-3">
+              <ShieldCheck className="w-4 h-4 text-emerald-300" />
+              <p className="text-[11px] uppercase tracking-wide text-zinc-500">DNA Context</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md bg-white/[0.04] p-2">
+                <p className="text-zinc-500">Prime Color</p>
+                <p className="text-zinc-200 font-medium truncate">{valueFor(result.dnaContext.primeColorSignature.hex || result.dnaContext.primeColorSignature.hsl)}</p>
+              </div>
+              <div className="rounded-md bg-white/[0.04] p-2">
+                <p className="text-zinc-500">Mutations</p>
+                <p className="text-zinc-200 font-medium">{result.dnaContext.mutationHistorySummary.totalRecent} recent</p>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {Object.entries(result.dnaContext.behaviorStyle).slice(0, 4).map(([key, value]) => (
+                <div key={key} className="rounded-md bg-white/[0.04] p-2">
+                  <p className="text-zinc-500">{labelFor(key)}</p>
+                  <p className="text-zinc-200 font-medium">{valueFor(value)}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-zinc-500 mt-3">Preview only: no DNA mutation, graph mutation, packet mutation, or Gluon award.</p>
           </div>
         </div>
       )}

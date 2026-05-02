@@ -29,6 +29,12 @@ const SECRET_REDACTIONS = new Set(["secret_field", "token_or_api_key", "ssn", "c
 const REGULATED_PATTERN = /\b(medical|diagnosis|prescription|clinical|legal|lawsuit|contract|tax|investment|financial advice|loan|insurance|securities|bankruptcy)\b/i;
 const MAX_PACKET_LIMIT = 100;
 const DEFAULT_HALF_LIFE_DAYS = 90;
+const REASONING_FACT_STATUSES = new Set(["verified", "approved", "supported"]);
+const REASONING_ACCEPTED_STATUSES = new Set(["accepted", "approved", "verified"]);
+const REASONING_HYPOTHESIS_STATUSES = new Set(["submitted", "pending_review", "needs_validation", "challenged"]);
+const REASONING_BLOCKED_STATUSES = new Set(["draft", "rejected", "blocked", "revoked", "deleted"]);
+const REASONING_VAULT_TYPES = new Set(["business", "public", "behavioral", "verified", "personal"]);
+const REASONING_SENSITIVITIES = new Set(["public", "low", "internal", "restricted", "private", "secret"]);
 
 type PacketInput = {
   creatorAgentId: string;
@@ -65,6 +71,98 @@ type AcceptanceInput = {
   rationale?: string;
   challengeReason?: string;
   sandboxOnly?: boolean;
+};
+
+export type KnowledgePacketReasoningRequest = {
+  requesterAgentId: string;
+  requesterType?: "system_agent" | "user_agent" | "root_admin";
+  query?: string;
+  limit?: number;
+  allowHypotheses?: boolean;
+  explicitBusinessPermission?: boolean;
+  minimumConfidence?: number;
+};
+
+export type KnowledgePacketKnowledgeStatus = "fact" | "hypothesis" | "pattern";
+
+export type KnowledgePacketReasoningContextResult = {
+  generatedAt: string;
+  policy: {
+    requesterType: "system_agent" | "user_agent" | "root_admin";
+    requesterAgentId: string;
+    allowedVaults: string[];
+    allowedSensitivity: string[];
+    hypothesesAllowed: boolean;
+    explicitBusinessPermission: boolean;
+    minimumConfidence: number;
+    mutationAllowed: false;
+    gluonAwardAllowed: false;
+  };
+  context: {
+    packets: Array<{
+      id: string;
+      title: string;
+      safeSummary: string;
+      sourceType: string;
+      domainTags: string[];
+      industryTags: string[];
+      vaultType: string;
+      sensitivity: string;
+      privacyLevel: string;
+      verificationStatus: string;
+      reviewStatus: string;
+      status: string;
+      knowledgeStatus: KnowledgePacketKnowledgeStatus;
+      confidence: number;
+      provenanceSummary: string;
+      rankingScore: number;
+      rankingReasons: string[];
+      weightedAcceptance: number;
+      gluonSignal: {
+        amount: number;
+        normalized: number;
+        nonConvertible: true;
+        rankingOnly: true;
+      };
+      creatorTrust: {
+        available: boolean;
+        ues: number | null;
+        sourceQuality: string | null;
+      };
+      freshness: number;
+      consentSummary: {
+        creatorConsent: boolean;
+        crossAgentLearningConsent: boolean;
+        businessKnowledgeApproved: boolean;
+      };
+    }>;
+  };
+  blockedCounts: {
+    total: number;
+    byReason: Record<string, number>;
+  };
+  ranking: {
+    formula: string;
+    signals: string[];
+  };
+  explanations: string[];
+  deterministicChecks: Record<string, {
+    passed: boolean;
+    expected: string;
+    actual: string;
+    explanation: string;
+  }>;
+  safeguards: {
+    internalOnly: true;
+    rootAdminSimulationOnly: true;
+    noPublicApi: true;
+    noRawPrivateMemory: true;
+    noRawBusinessRestrictedMemory: true;
+    noPacketMutation: true;
+    noDnaMutation: true;
+    noGluonAward: true;
+    noWalletOrPayoutIntegration: true;
+  };
 };
 
 class KnowledgeEconomyError extends Error {
@@ -579,6 +677,484 @@ function safePacketSummary(packet: KnowledgePacket) {
   };
 }
 
+function clampReasoningLimit(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 6;
+  return Math.min(Math.max(Math.floor(parsed), 1), 12);
+}
+
+function roundReasoningScore(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.round(Math.max(0, Math.min(1, value)) * 1000) / 1000;
+}
+
+function normalizeReasoningQuery(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function addBlockedCount(blocked: Record<string, number>, reason: string) {
+  blocked[reason] = (blocked[reason] || 0) + 1;
+}
+
+function packetMatchesQuery(packet: KnowledgePacket, query: string) {
+  if (!query) return true;
+  const fields = [
+    packet.title,
+    packet.summary,
+    packet.sourceType,
+    packet.verificationStatus,
+    packet.reviewStatus,
+    packet.status,
+    ...(packet.domainTags || []),
+    ...(packet.industryTags || []),
+    ...(packet.professionTags || []),
+    ...(packet.geoTags || []),
+  ].join(" ").toLowerCase();
+  return fields.includes(query) || query.split(/\s+/).some((token) => token.length > 2 && fields.includes(token));
+}
+
+function packetDomainRelevance(packet: KnowledgePacket, query: string) {
+  if (!query) return 0.5;
+  const tokens = query.split(/\s+/).filter((token) => token.length > 2);
+  if (tokens.length === 0) return 0.5;
+  const fields = [
+    packet.title,
+    packet.summary,
+    ...(packet.domainTags || []),
+    ...(packet.industryTags || []),
+    ...(packet.professionTags || []),
+    ...(packet.geoTags || []),
+  ].join(" ").toLowerCase();
+  const overlap = tokens.filter((token) => fields.includes(token)).length;
+  return roundReasoningScore(overlap / tokens.length);
+}
+
+function consentSummary(packet: KnowledgePacket) {
+  const consent = asRecord(packet.consentPolicy);
+  const allowedUses = Array.isArray(consent.allowedUses) ? consent.allowedUses : [];
+  const creatorConsent = consent.creatorConsent === true || consent.packetConsent === true;
+  const crossAgentLearningConsent = consent.crossAgentLearningConsent === true
+    || allowedUses.includes("internal_review")
+    || allowedUses.includes("gluon_simulation")
+    || allowedUses.includes("dna_mutation_preview");
+  const businessKnowledgeApproved = consent.businessKnowledgeApproved === true || consent.explicitBusinessPermission === true;
+  return {
+    creatorConsent,
+    crossAgentLearningConsent,
+    businessKnowledgeApproved,
+    consentedForReasoning: creatorConsent || crossAgentLearningConsent,
+  };
+}
+
+function packetConfidence(packet: KnowledgePacket) {
+  const acceptanceSignal = roundReasoningScore(Math.log(1 + Math.max(0, packet.weightedAcceptance || 0)) / Math.log(4));
+  return roundReasoningScore(
+    0.35 * clamp01(packet.evidenceStrength)
+    + 0.25 * clamp01(packet.complianceScore)
+    + 0.20 * clamp01(packet.usefulnessPrediction)
+    + 0.10 * clamp01(packet.noveltyScore)
+    + 0.10 * acceptanceSignal
+  );
+}
+
+type PacketPolicyDecision = {
+  allowed: boolean;
+  reason: string;
+  knowledgeStatus: KnowledgePacketKnowledgeStatus | null;
+  safeSummary: string | null;
+  safeTitle: string | null;
+  confidence: number;
+  redactions: string[];
+};
+
+function evaluatePacketForReasoning(packet: KnowledgePacket, request: KnowledgePacketReasoningRequest): PacketPolicyDecision {
+  const vaultType = packet.vaultType || "unknown";
+  const sensitivity = packet.sensitivity || "unknown";
+  const privacyLevel = packet.privacyLevel || "internal";
+  const safety = asRecord(packet.safetyReport);
+  const blockers = Array.isArray(safety.blockers) ? safety.blockers : [];
+  const regulatedClaim = safety.regulatedClaim === true;
+  const unresolvedRegulated = regulatedClaim && !REASONING_FACT_STATUSES.has(packet.verificationStatus);
+  const consent = consentSummary(packet);
+  const confidence = packetConfidence(packet);
+  const minimumConfidence = request.minimumConfidence == null ? 0.5 : clamp01(request.minimumConfidence, 0.5);
+
+  if (!REASONING_VAULT_TYPES.has(vaultType) || !REASONING_SENSITIVITIES.has(sensitivity)) {
+    return { allowed: false, reason: "unknown_classification_blocked", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  if (vaultType === "personal" || sensitivity === "private" || sensitivity === "secret" || privacyLevel === "private" || privacyLevel === "secret") {
+    return { allowed: false, reason: "personal_private_or_secret_blocked", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  if (REASONING_BLOCKED_STATUSES.has(packet.status) || REASONING_BLOCKED_STATUSES.has(packet.reviewStatus)) {
+    return { allowed: false, reason: "draft_rejected_or_blocked_status", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  if (!consent.consentedForReasoning) {
+    return { allowed: false, reason: "consent_required", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  if (vaultType === "business" || sensitivity === "restricted") {
+    if (!request.explicitBusinessPermission || !consent.businessKnowledgeApproved) {
+      return { allowed: false, reason: "business_or_restricted_requires_permission", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+    }
+  }
+
+  const memoryDecision = evaluateMemoryAccess({
+    vaultType,
+    sensitivity: sensitivityForMemoryPolicy(sensitivity as MemorySensitivity | "low"),
+    context: "agent_behavior",
+    explicitUserPermission: request.explicitBusinessPermission === true && consent.businessKnowledgeApproved,
+    sourceType: "knowledge_source",
+  });
+  if (!memoryDecision.allowed) {
+    return { allowed: false, reason: memoryDecision.reason, knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  if (blockers.length > 0 || safety.rawMemoryShared === true || safety.privateMemoryInvolved === true) {
+    return { allowed: false, reason: "safety_blocker_or_raw_memory_marker", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  if (packet.riskScore >= 0.85 || unresolvedRegulated) {
+    return { allowed: false, reason: "high_risk_or_regulated_requires_admin_review", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  if (confidence < minimumConfidence) {
+    return { allowed: false, reason: "below_minimum_reasoning_confidence", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  const accepted = REASONING_ACCEPTED_STATUSES.has(packet.status) || REASONING_ACCEPTED_STATUSES.has(packet.reviewStatus);
+  const verified = REASONING_FACT_STATUSES.has(packet.verificationStatus);
+  const patternOnly = vaultType === "behavioral" || sensitivity === "internal";
+  const canBeHypothesis = request.allowHypotheses === true
+    && (REASONING_HYPOTHESIS_STATUSES.has(packet.status) || REASONING_HYPOTHESIS_STATUSES.has(packet.reviewStatus) || packet.verificationStatus === "unverified");
+
+  const knowledgeStatus: KnowledgePacketKnowledgeStatus | null = patternOnly
+    ? "pattern"
+    : accepted && verified
+      ? "fact"
+      : canBeHypothesis
+        ? "hypothesis"
+        : null;
+
+  if (!knowledgeStatus) {
+    return { allowed: false, reason: "unverified_or_unaccepted_packet_blocked", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions: [] };
+  }
+
+  const titleOutput = sanitizeMemoryOutput(packet.title, { redactContactInfo: true });
+  const summaryOutput = sanitizeMemoryOutput(packet.summary, {
+    redactContactInfo: true,
+    behavioralHintOnly: knowledgeStatus === "pattern",
+  });
+  const redactions = [...new Set([...titleOutput.redactions, ...summaryOutput.redactions])];
+  if (redactions.some((redaction) => SECRET_REDACTIONS.has(redaction))) {
+    return { allowed: false, reason: "secret_or_credential_marker_blocked", knowledgeStatus: null, safeSummary: null, safeTitle: null, confidence, redactions };
+  }
+
+  return {
+    allowed: true,
+    reason: knowledgeStatus === "fact"
+      ? "Accepted, verified, consented packet allowed as reasoning fact."
+      : knowledgeStatus === "pattern"
+        ? "Behavioral/internal packet allowed only as sanitized style pattern."
+        : "Unverified packet allowed only as hypothesis for this simulation.",
+    knowledgeStatus,
+    safeSummary: summaryOutput.content.replace(/\s+/g, " ").trim().slice(0, 520),
+    safeTitle: titleOutput.content.replace(/\s+/g, " ").trim().slice(0, 160),
+    confidence,
+    redactions,
+  };
+}
+
+function packetProvenanceSummary(packet: KnowledgePacket) {
+  return `Knowledge packet; source ${packet.sourceType}; status ${packet.status}/${packet.reviewStatus}/${packet.verificationStatus}; raw memory, source fingerprint, and private identifiers withheld.`;
+}
+
+async function rankReasoningPacket(packet: KnowledgePacket, decision: PacketPolicyDecision, query: string) {
+  const gluon = calculateGluon(packet);
+  const ues = await unifiedEvolutionService.getAgentUes(packet.creatorAgentId).catch(() => null);
+  const verificationSignal = decision.knowledgeStatus === "fact" ? 1 : decision.knowledgeStatus === "hypothesis" ? 0.45 : 0.55;
+  const acceptanceSignal = roundReasoningScore(Math.log(1 + Math.max(0, packet.weightedAcceptance || 0)) / Math.log(4));
+  const gluonSignal = roundReasoningScore(Math.min(1, Math.max(0, gluon.amount) / 100));
+  const creatorTrust = ues?.scores.UES ?? 0.5;
+  const domainRelevance = packetDomainRelevance(packet, query);
+  const freshness = calculateFreshness(packetAgeDays(packet), packet.halfLifeDays || DEFAULT_HALF_LIFE_DAYS);
+  const riskCompliance = roundReasoningScore(clamp01(packet.complianceScore) * Math.max(0, 1 - clamp01(packet.riskScore)));
+  const rankingScore = roundReasoningScore(
+    0.20 * verificationSignal
+    + 0.15 * clamp01(packet.evidenceStrength)
+    + 0.15 * acceptanceSignal
+    + 0.10 * gluonSignal
+    + 0.10 * creatorTrust
+    + 0.10 * domainRelevance
+    + 0.10 * freshness
+    + 0.10 * riskCompliance
+  );
+
+  return {
+    packet,
+    decision,
+    gluon,
+    ues,
+    freshness,
+    rankingScore,
+    rankingReasons: [
+      `${decision.knowledgeStatus} status signal ${verificationSignal.toFixed(2)}`,
+      `evidence ${formatReason(packet.evidenceStrength)} / acceptance ${formatReason(acceptanceSignal)}`,
+      `Gluon ranking signal ${formatReason(gluonSignal)}; non-convertible and not awarded`,
+      `domain relevance ${formatReason(domainRelevance)} / freshness ${formatReason(freshness)}`,
+      `risk-compliance signal ${formatReason(riskCompliance)}`,
+    ],
+  };
+}
+
+function formatReason(value: number) {
+  return roundReasoningScore(value).toFixed(2);
+}
+
+function sampleReasoningPacket(overrides: Partial<KnowledgePacket>): KnowledgePacket {
+  const now = new Date();
+  return {
+    id: "sample_packet",
+    creatorAgentId: "sample_creator_agent",
+    creatorUserId: "sample_creator_user",
+    title: "Sample packet",
+    summary: "Sanitized evidence-backed knowledge.",
+    abstractedContent: "Sanitized abstracted knowledge.",
+    sourceType: "deterministic_check",
+    domainTags: ["reasoning"],
+    industryTags: [],
+    geoTags: [],
+    professionTags: [],
+    vaultType: "verified",
+    sensitivity: "public",
+    privacyLevel: "internal",
+    consentPolicy: { creatorConsent: true, crossAgentLearningConsent: true, businessKnowledgeApproved: false },
+    safetyReport: { blockers: [], rawMemoryShared: false, regulatedClaim: false },
+    sourceFingerprint: "deterministic",
+    evidenceStrength: 0.9,
+    noveltyScore: 0.75,
+    usefulnessPrediction: 0.8,
+    riskScore: 0.1,
+    complianceScore: 0.9,
+    freshnessTimestamp: now,
+    halfLifeDays: DEFAULT_HALF_LIFE_DAYS,
+    verificationStatus: "verified",
+    reviewStatus: "accepted",
+    status: "accepted",
+    acceptedByAgents: 1,
+    rejectedByAgents: 0,
+    challengedByAgents: 0,
+    downstreamUsageCount: 0,
+    weightedAcceptance: 0.8,
+    gluonEarned: 0,
+    parentPacketIds: [],
+    derivedPacketIds: [],
+    submittedAt: now,
+    reviewedAt: now,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  } as KnowledgePacket;
+}
+
+function deterministicReasoningChecks(request: KnowledgePacketReasoningRequest): KnowledgePacketReasoningContextResult["deterministicChecks"] {
+  const fact = evaluatePacketForReasoning(sampleReasoningPacket({}), request);
+  const unverified = evaluatePacketForReasoning(sampleReasoningPacket({
+    id: "sample_unverified",
+    status: "submitted",
+    reviewStatus: "pending_review",
+    verificationStatus: "unverified",
+  }), { ...request, allowHypotheses: true });
+  const privatePacket = evaluatePacketForReasoning(sampleReasoningPacket({
+    id: "sample_private",
+    vaultType: "personal",
+    sensitivity: "private",
+  }), request);
+  const businessPacket = evaluatePacketForReasoning(sampleReasoningPacket({
+    id: "sample_business",
+    vaultType: "business",
+    sensitivity: "restricted",
+    consentPolicy: { creatorConsent: true, crossAgentLearningConsent: true, businessKnowledgeApproved: true },
+  }), { ...request, explicitBusinessPermission: false });
+  const highRiskPacket = evaluatePacketForReasoning(sampleReasoningPacket({
+    id: "sample_regulated",
+    riskScore: 0.9,
+    verificationStatus: "unverified",
+    safetyReport: { blockers: [], regulatedClaim: true },
+  }), { ...request, allowHypotheses: true });
+  const unknownPacket = evaluatePacketForReasoning(sampleReasoningPacket({
+    id: "sample_unknown",
+    vaultType: "unknown",
+    sensitivity: "unknown",
+  }), request);
+
+  return {
+    acceptedVerifiedSafeEligible: {
+      passed: fact.allowed && fact.knowledgeStatus === "fact",
+      expected: "allowed fact",
+      actual: fact.allowed ? `allowed ${fact.knowledgeStatus}` : `blocked ${fact.reason}`,
+      explanation: "Accepted, verified, consented, safe packets should be eligible as reasoning facts.",
+    },
+    draftUnverifiedRejectedHandled: {
+      passed: unverified.allowed && unverified.knowledgeStatus === "hypothesis",
+      expected: "hypothesis or blocked",
+      actual: unverified.allowed ? `allowed ${unverified.knowledgeStatus}` : `blocked ${unverified.reason}`,
+      explanation: "Unverified packets can be used only as hypotheses when the simulation explicitly allows hypotheses.",
+    },
+    privateBlocked: {
+      passed: !privatePacket.allowed,
+      expected: "blocked",
+      actual: privatePacket.allowed ? "allowed" : "blocked",
+      explanation: "Personal/private packets cannot enter system-agent reasoning context.",
+    },
+    businessBlockedWithoutPermission: {
+      passed: !businessPacket.allowed,
+      expected: "blocked",
+      actual: businessPacket.allowed ? "allowed" : "blocked",
+      explanation: "Business/restricted packets require existing explicit permission plus sanitized summaries.",
+    },
+    highRiskRegulatedBlocked: {
+      passed: !highRiskPacket.allowed,
+      expected: "blocked or admin review",
+      actual: highRiskPacket.allowed ? "allowed" : `blocked ${highRiskPacket.reason}`,
+      explanation: "High-risk or regulated unresolved claims must not become reasoning facts.",
+    },
+    unknownClassificationBlocked: {
+      passed: !unknownPacket.allowed,
+      expected: "blocked",
+      actual: unknownPacket.allowed ? "allowed" : "blocked",
+      explanation: "Unknown vault or sensitivity classifications are denied by default.",
+    },
+    gluonRankingSignalOnly: {
+      passed: true,
+      expected: "ranking signal only",
+      actual: "no ledger mutation, no wallet integration, no payout",
+      explanation: "Gluon is read as non-convertible reasoning signal only in Phase 26.",
+    },
+    dnaMutationPreviewOnly: {
+      passed: true,
+      expected: "preview only",
+      actual: "no DNA mutation apply",
+      explanation: "Knowledge Packet reasoning can inform previews, but this simulation never applies DNA mutations.",
+    },
+  };
+}
+
+async function retrieveReasoningPacketContext(request: KnowledgePacketReasoningRequest): Promise<KnowledgePacketReasoningContextResult> {
+  const requesterAgentId = normalizeText(request.requesterAgentId, "requesterAgentId", 120);
+  const query = normalizeReasoningQuery(request.query);
+  const limit = clampReasoningLimit(request.limit);
+  const blockedByReason: Record<string, number> = {};
+
+  const rows = await db.select().from(knowledgePackets).orderBy(desc(knowledgePackets.updatedAt)).limit(200);
+  const evaluated = rows
+    .filter((packet) => packetMatchesQuery(packet, query))
+    .map((packet) => ({ packet, decision: evaluatePacketForReasoning(packet, { ...request, requesterAgentId }) }));
+
+  for (const item of evaluated) {
+    if (!item.decision.allowed) addBlockedCount(blockedByReason, item.decision.reason);
+  }
+
+  const allowed = evaluated
+    .filter((item): item is { packet: KnowledgePacket; decision: PacketPolicyDecision & { allowed: true } } => item.decision.allowed);
+
+  const ranked = await Promise.all(allowed.map((item) => rankReasoningPacket(item.packet, item.decision, query)));
+  const selected = ranked.sort((a, b) => b.rankingScore - a.rankingScore).slice(0, limit);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    policy: {
+      requesterType: request.requesterType || "system_agent",
+      requesterAgentId,
+      allowedVaults: request.explicitBusinessPermission ? ["public", "verified", "behavioral", "business"] : ["public", "verified", "behavioral"],
+      allowedSensitivity: request.explicitBusinessPermission ? ["public", "low", "internal", "restricted"] : ["public", "low", "internal"],
+      hypothesesAllowed: request.allowHypotheses === true,
+      explicitBusinessPermission: request.explicitBusinessPermission === true,
+      minimumConfidence: request.minimumConfidence == null ? 0.5 : clamp01(request.minimumConfidence, 0.5),
+      mutationAllowed: false,
+      gluonAwardAllowed: false,
+    },
+    context: {
+      packets: selected.map(({ packet, decision, gluon, ues, freshness, rankingScore, rankingReasons }) => {
+        const consent = consentSummary(packet);
+        return {
+          id: packet.id,
+          title: decision.safeTitle || "Knowledge packet",
+          safeSummary: decision.safeSummary || "Sanitized packet summary unavailable.",
+          sourceType: packet.sourceType,
+          domainTags: packet.domainTags || [],
+          industryTags: packet.industryTags || [],
+          vaultType: packet.vaultType,
+          sensitivity: packet.sensitivity,
+          privacyLevel: packet.privacyLevel,
+          verificationStatus: packet.verificationStatus,
+          reviewStatus: packet.reviewStatus,
+          status: packet.status,
+          knowledgeStatus: decision.knowledgeStatus || "hypothesis",
+          confidence: decision.confidence,
+          provenanceSummary: packetProvenanceSummary(packet),
+          rankingScore,
+          rankingReasons,
+          weightedAcceptance: packet.weightedAcceptance || 0,
+          gluonSignal: {
+            amount: gluon.amount,
+            normalized: roundReasoningScore(Math.min(1, Math.max(0, gluon.amount) / 100)),
+            nonConvertible: true,
+            rankingOnly: true,
+          },
+          creatorTrust: {
+            available: !!ues,
+            ues: ues?.scores.UES ?? null,
+            sourceQuality: ues?.sourceQuality.overall ?? null,
+          },
+          freshness,
+          consentSummary: {
+            creatorConsent: consent.creatorConsent,
+            crossAgentLearningConsent: consent.crossAgentLearningConsent,
+            businessKnowledgeApproved: consent.businessKnowledgeApproved,
+          },
+        };
+      }),
+    },
+    blockedCounts: {
+      total: Object.values(blockedByReason).reduce((sum, value) => sum + value, 0),
+      byReason: blockedByReason,
+    },
+    ranking: {
+      formula: "0.20*verification + 0.15*evidence + 0.15*weighted_acceptance + 0.10*gluon_signal + 0.10*creator_trust + 0.10*domain_relevance + 0.10*freshness + 0.10*risk_compliance",
+      signals: [
+        "Gluon is used only as a non-convertible ranking signal.",
+        "Weighted acceptance is logarithmic and does not reward raw spam counts.",
+        "Risk, compliance, consent, vault, and sensitivity gates run before ranking.",
+      ],
+    },
+    explanations: [
+      "Knowledge Packet reasoning context is read-only and internal to root-admin simulation.",
+      request.allowHypotheses === true
+        ? "Unverified packets may appear only as hypothesis, never fact."
+        : "Unverified packets are blocked because hypotheses were not requested.",
+      request.explicitBusinessPermission === true
+        ? "Business/restricted packets still require stored creator permission and sanitized summaries."
+        : "Business/restricted packets are blocked without explicit permission.",
+      "No packets, DNA rows, graph rows, Gluon ledger entries, wallets, payouts, or marketplace transactions are mutated.",
+    ],
+    deterministicChecks: deterministicReasoningChecks({ ...request, requesterAgentId }),
+    safeguards: {
+      internalOnly: true,
+      rootAdminSimulationOnly: true,
+      noPublicApi: true,
+      noRawPrivateMemory: true,
+      noRawBusinessRestrictedMemory: true,
+      noPacketMutation: true,
+      noDnaMutation: true,
+      noGluonAward: true,
+      noWalletOrPayoutIntegration: true,
+    },
+  };
+}
+
 async function getPacketDetail(packetId: string, options: { requesterUserId?: string; admin?: boolean } = {}) {
   const [packet] = await db.select().from(knowledgePackets).where(eq(knowledgePackets.id, packetId)).limit(1);
   if (!packet) throw new KnowledgeEconomyError(404, "Knowledge packet not found.");
@@ -893,6 +1469,7 @@ export const knowledgeEconomyService = {
   calculateWeightedAcceptance,
   calculateGluon,
   updateAgentDNAAfterLearning,
+  retrieveReasoningPacketContext,
   listEligibleAgents,
   previewPacket,
   createPacket,

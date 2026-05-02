@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
-import { agentTrustProfiles, type AgentGenome, type AgentIdentity, type AgentLearningProfile, type AgentMemory, type AgentTrustProfile, type User } from "@shared/schema";
+import { agentDnaMutationHistory, agentTrustProfiles, type AgentGenome, type AgentIdentity, type AgentLearningProfile, type AgentMemory, type AgentTrustProfile, type User } from "@shared/schema";
 import { getAgentActionDefinition, type AgentActionDefinition, type AgentActionType } from "./agent-action-registry";
 import { agentGraphAccessService, type AgentGraphAccessPurpose, type AgentGraphAccessResult } from "./agent-graph-access-service";
+import { knowledgeEconomyService, type KnowledgePacketReasoningContextResult } from "./knowledge-economy-service";
 import { memoryAccessPolicyService, runPrivateMemoryBlockCheck, type MemoryScope } from "./memory-access-policy";
 
 type BehaviorMetricInput = {
@@ -34,6 +35,12 @@ export type AgentBehaviorSimulationInput = {
   graphAllowHypotheses?: boolean;
   graphExplicitBusinessPermission?: boolean;
   graphMinimumConfidence?: number;
+  includeKnowledgePacketContext?: boolean;
+  knowledgePacketQuery?: string;
+  knowledgePacketAllowHypotheses?: boolean;
+  knowledgePacketExplicitBusinessPermission?: boolean;
+  knowledgePacketMinimumConfidence?: number;
+  knowledgePacketLimit?: number;
 };
 
 type ScoreInputs = Required<BehaviorMetricInput>;
@@ -106,6 +113,70 @@ export type AgentBehaviorSimulationResult = {
     policy: AgentGraphAccessResult["policy"] | null;
     explanations: string[];
     deterministicChecks: AgentGraphAccessResult["deterministicChecks"] | null;
+  };
+  knowledgePacketContext: {
+    enabled: boolean;
+    knowledgePacketsConsidered: number;
+    knowledgePacketsUsed: number;
+    packetRankingReasons: string[];
+    blockedPacketCounts: KnowledgePacketReasoningContextResult["blockedCounts"];
+    policy: KnowledgePacketReasoningContextResult["policy"] | null;
+    packets: KnowledgePacketReasoningContextResult["context"]["packets"];
+    simulatedGluonSignals: Array<{
+      packetId: string;
+      title: string;
+      amount: number;
+      normalized: number;
+      weightedAcceptance: number;
+      nonConvertible: true;
+      rankingOnly: true;
+    }>;
+    hypothesisItems: Array<{
+      packetId: string;
+      title: string;
+      reason: string;
+    }>;
+    blockedItems: {
+      total: number;
+      byReason: Record<string, number>;
+    };
+    explanations: string[];
+    deterministicChecks: KnowledgePacketReasoningContextResult["deterministicChecks"] | null;
+  };
+  dnaContext: {
+    enabled: boolean;
+    primeColorSignature: Record<string, any>;
+    knowledgeDomains: string[];
+    behaviorStyle: Record<string, number | string>;
+    trustEconomicGenome: Record<string, number | string | boolean>;
+    dnaMetadata: Record<string, any>;
+    mutationHistorySummary: {
+      totalRecent: number;
+      preview: number;
+      applied: number;
+      rejected: number;
+      latestPreviewAt: string | null;
+    };
+    mutationPreviewOnly: true;
+    liveGenomeMutated: false;
+    oldEvolutionServiceTriggered: false;
+    explanations: string[];
+  };
+  reasoningTraceSummary: {
+    graphContextUsed: boolean;
+    knowledgePacketContextUsed: boolean;
+    dnaContextUsed: boolean;
+    reasoningInputsUsed: string[];
+    safetyGatesApplied: string[];
+    noMutationConfirmation: {
+      graphMutation: false;
+      packetMutation: false;
+      dnaMutationApply: false;
+      gluonAward: false;
+      walletOrPayout: false;
+      autonomousExecution: false;
+      publicPublishing: false;
+    };
   };
   blockedUnsafeActionCheck: {
     passed: boolean;
@@ -331,6 +402,145 @@ async function retrievePermittedMemory(
   });
 }
 
+async function buildDnaContext(agentId: string, genome: AgentGenome | null, identity: AgentIdentity | null): Promise<AgentBehaviorSimulationResult["dnaContext"]> {
+  const strategyProfile = asRecord(identity?.strategyProfile);
+  const dnaMetadata = asRecord(genome?.dnaMetadata);
+  const mutationRows = await db.select().from(agentDnaMutationHistory)
+    .where(eq(agentDnaMutationHistory.agentId, agentId))
+    .orderBy(desc(agentDnaMutationHistory.createdAt))
+    .limit(20);
+  const countByStatus = (status: string) => mutationRows.filter((row) => row.status === status).length;
+  const knowledgeDomains = [
+    ...(Array.isArray(strategyProfile.domains) ? strategyProfile.domains : []),
+    ...(Array.isArray(strategyProfile.domainTags) ? strategyProfile.domainTags : []),
+    ...(Array.isArray(dnaMetadata.knowledgeDomains) ? dnaMetadata.knowledgeDomains : []),
+  ].filter((item): item is string => typeof item === "string" && !!item.trim());
+
+  return {
+    enabled: true,
+    primeColorSignature: asRecord(genome?.primeColorSignature),
+    knowledgeDomains: [...new Set(knowledgeDomains)].slice(0, 12),
+    behaviorStyle: {
+      curiosity: roundScore(genome?.curiosity ?? 0.5),
+      riskTolerance: roundScore(genome?.riskTolerance ?? 0.5),
+      collaborationBias: roundScore(genome?.collaborationBias ?? 0.5),
+      verificationStrictness: roundScore(genome?.verificationStrictness ?? 0.5),
+      longTermFocus: roundScore(genome?.longTermFocus ?? 0.5),
+      economicStrategy: genome?.economicStrategy || "balanced",
+    },
+    trustEconomicGenome: {
+      fitnessScore: roundScore(genome?.fitnessScore ?? 0),
+      generation: genome?.generation ?? 0,
+      mutations: genome?.mutations ?? 0,
+      liveEvolutionEnabled: false,
+    },
+    dnaMetadata,
+    mutationHistorySummary: {
+      totalRecent: mutationRows.length,
+      preview: countByStatus("preview"),
+      applied: countByStatus("applied"),
+      rejected: countByStatus("rejected"),
+      latestPreviewAt: mutationRows.find((row) => row.status === "preview")?.createdAt?.toISOString?.() || null,
+    },
+    mutationPreviewOnly: true,
+    liveGenomeMutated: false,
+    oldEvolutionServiceTriggered: false,
+    explanations: [
+      "Agent DNA context is read-only in this simulation.",
+      "Prime color, behavior style, and mutation history summarize identity without applying mutations.",
+      "DNA mutation remains preview/admin-controlled; no evolution or reproduction service is triggered.",
+    ],
+  };
+}
+
+function buildKnowledgePacketContext(packetAccess: KnowledgePacketReasoningContextResult | null): AgentBehaviorSimulationResult["knowledgePacketContext"] {
+  if (!packetAccess) {
+    return {
+      enabled: false,
+      knowledgePacketsConsidered: 0,
+      knowledgePacketsUsed: 0,
+      packetRankingReasons: [],
+      blockedPacketCounts: { total: 0, byReason: {} },
+      policy: null,
+      packets: [],
+      simulatedGluonSignals: [],
+      hypothesisItems: [],
+      blockedItems: { total: 0, byReason: {} },
+      explanations: ["Knowledge Packet reasoning context was not requested for this simulation."],
+      deterministicChecks: null,
+    };
+  }
+
+  return {
+    enabled: true,
+    knowledgePacketsConsidered: packetAccess.context.packets.length + packetAccess.blockedCounts.total,
+    knowledgePacketsUsed: packetAccess.context.packets.length,
+    packetRankingReasons: packetAccess.ranking.signals,
+    blockedPacketCounts: packetAccess.blockedCounts,
+    policy: packetAccess.policy,
+    packets: packetAccess.context.packets,
+    simulatedGluonSignals: packetAccess.context.packets.map((packet) => ({
+      packetId: packet.id,
+      title: packet.title,
+      amount: packet.gluonSignal.amount,
+      normalized: packet.gluonSignal.normalized,
+      weightedAcceptance: packet.weightedAcceptance,
+      nonConvertible: true,
+      rankingOnly: true,
+    })),
+    hypothesisItems: packetAccess.context.packets
+      .filter((packet) => packet.knowledgeStatus === "hypothesis")
+      .map((packet) => ({
+        packetId: packet.id,
+        title: packet.title,
+        reason: "Included as hypothesis only; not treated as verified fact.",
+      })),
+    blockedItems: packetAccess.blockedCounts,
+    explanations: packetAccess.explanations,
+    deterministicChecks: packetAccess.deterministicChecks,
+  };
+}
+
+function buildReasoningTraceSummary(input: {
+  graphContext: AgentBehaviorSimulationResult["graphContext"];
+  knowledgePacketContext: AgentBehaviorSimulationResult["knowledgePacketContext"];
+  dnaContext: AgentBehaviorSimulationResult["dnaContext"];
+}) {
+  const reasoningInputsUsed = [
+    "policy-checked memory summary",
+    input.graphContext.enabled ? "internal policy-aware graph context" : null,
+    input.knowledgePacketContext.enabled ? "Knowledge Packet reasoning context" : null,
+    input.dnaContext.enabled ? "read-only Agent DNA context" : null,
+    input.knowledgePacketContext.simulatedGluonSignals.length > 0 ? "non-convertible Gluon ranking signals" : null,
+  ].filter((item): item is string => !!item);
+
+  return {
+    graphContextUsed: input.graphContext.enabled,
+    knowledgePacketContextUsed: input.knowledgePacketContext.enabled,
+    dnaContextUsed: input.dnaContext.enabled,
+    reasoningInputsUsed,
+    safetyGatesApplied: [
+      "root-admin simulation endpoint only",
+      "internal graph access policy, not public projection filter",
+      "memory vault and sensitivity checks",
+      "Knowledge Packet consent and safety checks",
+      "business/restricted permission checks",
+      "hypothesis-vs-fact labeling",
+      "Gluon read as ranking signal only",
+      "DNA context read-only with mutation preview disabled",
+    ],
+    noMutationConfirmation: {
+      graphMutation: false as const,
+      packetMutation: false as const,
+      dnaMutationApply: false as const,
+      gluonAward: false as const,
+      walletOrPayout: false as const,
+      autonomousExecution: false as const,
+      publicPublishing: false as const,
+    },
+  };
+}
+
 function buildLogDetails(input: {
   event: AgentBehaviorSimulationResult["event"];
   context: AgentBehaviorSimulationResult["context"];
@@ -339,9 +549,12 @@ function buildLogDetails(input: {
   policyChecks: PolicyCheck[];
   decision: AgentBehaviorSimulationResult["decision"];
   graphContext: AgentBehaviorSimulationResult["graphContext"];
+  knowledgePacketContext: AgentBehaviorSimulationResult["knowledgePacketContext"];
+  dnaContext: AgentBehaviorSimulationResult["dnaContext"];
+  reasoningTraceSummary: AgentBehaviorSimulationResult["reasoningTraceSummary"];
 }) {
   return JSON.stringify({
-    phase: "phase_10_agent_behavior_engine_mvp",
+    phase: "phase_26_agent_reasoning_knowledge_packets",
     event: input.event,
     context: input.context,
     proposedAction: input.proposedAction,
@@ -349,11 +562,27 @@ function buildLogDetails(input: {
     policyChecks: input.policyChecks,
     decision: input.decision,
     graphContext: input.graphContext,
+    knowledgePacketContext: {
+      enabled: input.knowledgePacketContext.enabled,
+      knowledgePacketsUsed: input.knowledgePacketContext.knowledgePacketsUsed,
+      blockedPacketCounts: input.knowledgePacketContext.blockedPacketCounts,
+      simulatedGluonSignals: input.knowledgePacketContext.simulatedGluonSignals,
+    },
+    dnaContext: {
+      enabled: input.dnaContext.enabled,
+      mutationPreviewOnly: input.dnaContext.mutationPreviewOnly,
+      liveGenomeMutated: input.dnaContext.liveGenomeMutated,
+    },
+    reasoningTraceSummary: input.reasoningTraceSummary,
     safety: {
       autonomousExecution: false,
       directLlmExecution: false,
       publicPublishing: false,
       graphContextReadOnly: input.graphContext.enabled,
+      knowledgePacketContextReadOnly: input.knowledgePacketContext.enabled,
+      dnaContextReadOnly: input.dnaContext.enabled,
+      gluonAwarded: false,
+      walletOrPayoutTouched: false,
     },
   });
 }
@@ -468,6 +697,20 @@ export async function simulateAgentBehaviorDecision(input: AgentBehaviorSimulati
       explanations: ["Internal graph context retrieval was not requested for this simulation."],
       deterministicChecks: null,
     };
+  const packetAccess = input.includeKnowledgePacketContext
+    ? await knowledgeEconomyService.retrieveReasoningPacketContext({
+      requesterType: "system_agent",
+      requesterAgentId: agentId,
+      query: input.knowledgePacketQuery || event.topic || event.content || input.graphQuery || action.label,
+      limit: input.knowledgePacketLimit || 6,
+      allowHypotheses: input.knowledgePacketAllowHypotheses === true,
+      explicitBusinessPermission: input.knowledgePacketExplicitBusinessPermission === true,
+      minimumConfidence: input.knowledgePacketMinimumConfidence,
+    })
+    : null;
+  const knowledgePacketContext = buildKnowledgePacketContext(packetAccess);
+  const dnaContext = await buildDnaContext(agentId, genome, identity);
+  const reasoningTraceSummary = buildReasoningTraceSummary({ graphContext, knowledgePacketContext, dnaContext });
   const memories = memoryPolicy.records;
   const memoryAccessAllowed = memoryPolicy.requestAllowed;
   const context = buildContextSummary({
@@ -514,7 +757,18 @@ export async function simulateAgentBehaviorDecision(input: AgentBehaviorSimulati
     executionMode: action.executionMode,
   };
 
-  const details = buildLogDetails({ event, context, proposedAction, scoring, policyChecks: policy.checks, decision, graphContext });
+  const details = buildLogDetails({
+    event,
+    context,
+    proposedAction,
+    scoring,
+    policyChecks: policy.checks,
+    decision,
+    graphContext,
+    knowledgePacketContext,
+    dnaContext,
+    reasoningTraceSummary,
+  });
   const activity = await storage.createAgentActivity({
     agentId,
     postId: event.targetId,
@@ -536,6 +790,9 @@ export async function simulateAgentBehaviorDecision(input: AgentBehaviorSimulati
       actionType: activity.actionType,
     },
     graphContext,
+    knowledgePacketContext,
+    dnaContext,
+    reasoningTraceSummary,
     blockedUnsafeActionCheck: runBlockedUnsafeActionCheck(),
     privateMemoryBlockCheck: runPrivateMemoryBlockCheck(),
   };
