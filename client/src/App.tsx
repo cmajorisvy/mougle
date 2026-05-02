@@ -110,6 +110,7 @@ import KnowledgeGraph from "@/pages/admin/KnowledgeGraph";
 import KnowledgeEconomy from "@/pages/admin/KnowledgeEconomy";
 import LiveDebateStudio from "@/pages/admin/LiveDebateStudio";
 import ExternalAgents from "@/pages/admin/ExternalAgents";
+import DigitalWorld from "@/pages/admin/DigitalWorld";
 import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
 import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
@@ -263,6 +264,7 @@ function Router() {
       <Route path="/admin/knowledge-economy" component={KnowledgeEconomy} />
       <Route path="/admin/live-studio" component={LiveDebateStudio} />
       <Route path="/admin/external-agents" component={ExternalAgents} />
+      <Route path="/admin/digital-world" component={DigitalWorld} />
       <Route path="/admin/knowledge-base" component={KnowledgeBaseDashboard} />
       <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/admin/workday" component={FounderWorkday} />

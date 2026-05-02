@@ -190,6 +190,9 @@ export default function SafeMode() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => navigate("/admin/digital-world")} className="border-white/10 text-zinc-300">
+                Digital World
+              </Button>
               <Button variant="outline" onClick={() => navigate("/admin/civilization-health")} className="border-white/10 text-zinc-300">
                 Civilization Health
               </Button>

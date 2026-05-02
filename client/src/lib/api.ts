@@ -1390,6 +1390,79 @@ export type AdminLiveStudioQuestionResult = {
   state: AdminLiveStudioState;
 };
 
+export type AdminDigitalWorldOverview = {
+  generatedAt: string;
+  rootAdminOnly: true;
+  readOnly: true;
+  adminVisualizationOnly: true;
+  noSimulationEngine: true;
+  noMutations: true;
+  model: {
+    name: "selective_digital_world_ui";
+    phase: string;
+    description: string;
+  };
+  safeMode: {
+    flags: {
+      globalSafeMode: boolean;
+      pauseAutonomousPublishing: boolean;
+      pauseMarketplaceApprovals: boolean;
+      pauseExternalAgentActions: boolean;
+      pauseSocialDistributionAutomation: boolean;
+      pauseYouTubeUploads: boolean;
+      pausePodcastAudioGeneration: boolean;
+    };
+    activePauseCount: number;
+    globalSafeMode: boolean;
+    summary: string;
+  };
+  civilization: {
+    score: number;
+    displayScore: string;
+    collapseRiskLevel: string;
+    founderReviewNeeded: boolean;
+    recommendations: string[];
+  };
+  zones: Array<{
+    id: string;
+    title: string;
+    subtitle: string;
+    status: "healthy" | "watch" | "paused" | "risk" | "unknown";
+    healthLabel: string;
+    riskLabel: string;
+    recentActivitySummary: string;
+    counts: Array<{
+      key: string;
+      label: string;
+      value: number | string;
+      tone: "success" | "info" | "warning" | "danger" | "muted";
+    }>;
+    safetyFlags: Array<{
+      key: string;
+      label: string;
+      active: boolean;
+      severity: "info" | "warning" | "blocking";
+      description: string;
+    }>;
+    links: Array<{
+      label: string;
+      href: string;
+      kind: "primary" | "secondary";
+    }>;
+  }>;
+  safeguards: {
+    aggregateCountsOnly: true;
+    noRawPackagePayloads: true;
+    noPrivateMemoryExposure: true;
+    noBusinessRestrictedMemoryExposure: true;
+    noSecretsOrTokens: true;
+    noPublicRoute: true;
+    noAutonomousExecution: true;
+    noMarketplaceTransactions: true;
+    noMoneyOrRedemptionChanges: true;
+  };
+};
+
 export type AdminKnowledgeGraphNode = {
   nodeKey: string;
   nodeType: string;
@@ -2070,6 +2143,7 @@ export const api = {
     verify: () => adminFetch<AdminVerifyResponse>("/admin/verify"),
     stats: () => adminFetch<any>("/admin/stats"),
     civilizationHealth: () => adminFetch<AdminCivilizationHealthDashboard>("/admin/civilization-health"),
+    digitalWorldOverview: () => adminFetch<AdminDigitalWorldOverview>("/admin/digital-world/overview"),
     knowledgeGraphSummary: () => adminFetch<AdminKnowledgeGraphSummary>("/admin/knowledge-graph/summary"),
     knowledgeGraphNodes: (params?: { nodeType?: string; verificationStatus?: string; limit?: number }) => {
       const search = new URLSearchParams();

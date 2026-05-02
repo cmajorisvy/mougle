@@ -226,6 +226,19 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       ],
     },
     {
+      title: "Digital World",
+      description: "2D admin map of zones, safety posture, media pipelines, marketplace, and governance.",
+      metric: "Read-only",
+      icon: Globe,
+      color: "bg-sky-500/15 text-sky-300",
+      primaryAction: { label: "World Map", href: "/admin/digital-world" },
+      secondaryActions: [
+        { label: "Health", href: "/admin/civilization-health" },
+        { label: "Safe Mode", href: "/admin/safe-mode" },
+        { label: "Live Studio", href: "/admin/live-studio" },
+      ],
+    },
+    {
       title: "Knowledge Graph",
       description: "Internal claims, evidence, entities, sources, and relationship inspection.",
       metric: "Internal",
