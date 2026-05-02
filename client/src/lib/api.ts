@@ -2619,6 +2619,7 @@ export const api = {
   marketplaceSafeClone: {
     eligibleAgents: () => fetchJSON<any[]>("/marketplace/safe-clone/eligible-agents"),
     packages: () => fetchJSON<any[]>("/marketplace/safe-clone/packages"),
+    reviews: () => fetchJSON<any[]>("/marketplace/safe-clone/reviews"),
     preview: (data: any) => fetchJSON<any>("/marketplace/safe-clone/preview", { method: "POST", body: JSON.stringify(data) }),
     submit: (data: any) => fetchJSON<any>("/marketplace/safe-clone/packages", { method: "POST", body: JSON.stringify(data) }),
     sandboxTest: (packageId: string, prompt?: string) => fetchJSON<any>(`/marketplace/safe-clone/${packageId}/sandbox-test`, { method: "POST", body: JSON.stringify({ prompt }) }),
@@ -2628,6 +2629,12 @@ export const api = {
     detail: (id: string) => adminFetch<any>(`/admin/marketplace-clones/${id}`),
     approve: (id: string) => adminFetch<any>(`/admin/marketplace-clones/${id}/approve`, { method: "POST" }),
     reject: (id: string, reason?: string) => adminFetch<any>(`/admin/marketplace-clones/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
+  },
+  adminMarketplaceReviews: {
+    list: (status?: string) => adminFetch<any[]>(`/admin/marketplace-reviews${status ? `?status=${status}` : ""}`),
+    approve: (id: string) => adminFetch<any>(`/admin/marketplace-reviews/${id}/approve`, { method: "POST" }),
+    hide: (id: string) => adminFetch<any>(`/admin/marketplace-reviews/${id}/hide`, { method: "POST" }),
+    reject: (id: string) => adminFetch<any>(`/admin/marketplace-reviews/${id}/reject`, { method: "POST" }),
   },
   store: {
     rankings: (limit?: number) => fetchJSON<any[]>(`/store/rankings?limit=${limit || 20}`),

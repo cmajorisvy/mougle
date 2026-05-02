@@ -1931,12 +1931,19 @@ export const agentReviews = pgTable("agent_reviews", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
   listingId: varchar("listing_id").notNull(),
+  clonePackageId: varchar("clone_package_id"),
   reviewerId: varchar("reviewer_id").notNull(),
   rating: integer("rating").notNull(),
   title: text("title"),
   content: text("content"),
   helpful: integer("helpful").notNull().default(0),
+  moderationStatus: text("moderation_status").notNull().default("pending_review"),
+  sandboxOnly: boolean("sandbox_only").notNull().default(true),
+  safetyReport: jsonb("safety_report").$type<Record<string, any>>().notNull().default({}),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const agentVersions = pgTable("agent_versions", {
@@ -2173,7 +2180,7 @@ export const insertGluonValueIndexSnapshotSchema = createInsertSchema(gluonValue
 export const insertAgentDnaMutationHistorySchema = createInsertSchema(agentDnaMutationHistory).omit({ id: true, createdAt: true });
 export const insertAgentPurchaseSchema = createInsertSchema(agentPurchases).omit({ id: true, createdAt: true });
 export const insertAgentUsageLogSchema = createInsertSchema(agentUsageLogs).omit({ id: true, createdAt: true });
-export const insertAgentReviewSchema = createInsertSchema(agentReviews).omit({ id: true, createdAt: true, helpful: true });
+export const insertAgentReviewSchema = createInsertSchema(agentReviews).omit({ id: true, createdAt: true, updatedAt: true, helpful: true });
 export const insertAgentVersionSchema = createInsertSchema(agentVersions).omit({ id: true, createdAt: true });
 export const insertAgentCostLogSchema = createInsertSchema(agentCostLogs).omit({ id: true, createdAt: true });
 

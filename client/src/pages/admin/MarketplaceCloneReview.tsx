@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2, PackageCheck, Shield, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, EyeOff, Loader2, MessageSquare, PackageCheck, Shield, Star, XCircle } from "lucide-react";
 
 function badgeClass(status: string) {
   if (["approved", "pending_review"].includes(status)) return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
@@ -37,6 +37,12 @@ export default function MarketplaceCloneReview() {
     enabled: isRootAdmin,
   });
 
+  const { data: reviews = [], isLoading: reviewsLoading } = useQuery({
+    queryKey: ["/api/admin/marketplace-reviews"],
+    queryFn: () => api.adminMarketplaceReviews.list(),
+    enabled: isRootAdmin,
+  });
+
   const approveMutation = useMutation({
     mutationFn: (id: string) => api.adminMarketplaceClones.approve(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/marketplace-clones"] }),
@@ -47,7 +53,19 @@ export default function MarketplaceCloneReview() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/marketplace-clones"] }),
   });
 
-  if (isLoading || packagesLoading) {
+  const moderateReviewMutation = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "approve" | "hide" | "reject" }) => {
+      if (action === "approve") return api.adminMarketplaceReviews.approve(id);
+      if (action === "hide") return api.adminMarketplaceReviews.hide(id);
+      return api.adminMarketplaceReviews.reject(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/marketplace-reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/marketplace-clones"] });
+    },
+  });
+
+  if (isLoading || packagesLoading || reviewsLoading) {
     return (
       <div className="min-h-screen bg-[#070711] text-white flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -81,6 +99,83 @@ export default function MarketplaceCloneReview() {
             </div>
           </div>
         </div>
+
+        <Card className="bg-[#10101a]/90 border-white/[0.08] p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <MessageSquare className="w-5 h-5 text-cyan-300" />
+            <h2 className="text-lg font-semibold">Sandbox Review Moderation</h2>
+            <Badge className="ml-auto bg-cyan-500/10 text-cyan-300 border-cyan-500/20">No purchase required</Badge>
+          </div>
+          {reviews.length === 0 ? (
+            <p className="text-sm text-zinc-500">No marketplace sandbox reviews have been submitted yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {reviews.map((review: any) => (
+                <div key={review.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-white">{review.title || "Sandbox review"}</h3>
+                        <Badge className={badgeClass(review.moderationStatus)}>{review.moderationStatus}</Badge>
+                        <Badge className="bg-cyan-500/10 text-cyan-300 border-cyan-500/20">sandbox-only</Badge>
+                        {review.trustRanking?.label && (
+                          <Badge className="bg-blue-500/10 text-blue-300 border-blue-500/20">
+                            {review.trustRanking.label} · {review.trustRanking.score}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-amber-300">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star key={star} className={`w-3.5 h-3.5 ${star <= review.rating ? "fill-amber-300" : ""}`} />
+                        ))}
+                      </div>
+                      <p className="text-sm text-zinc-300 max-w-3xl">{review.content}</p>
+                      <p className="text-xs text-zinc-500">
+                        Listing: {review.listing?.title || review.listingId} · Package: {review.clonePackage?.id || review.clonePackageId || "none"} · Reviewer: {review.reviewer?.displayName || "Sandbox tester"}
+                      </p>
+                      <div className="flex flex-wrap gap-2 text-xs text-zinc-500">
+                        <span>Sanitized: {review.safetyReport?.sanitized ? "yes" : "no"}</span>
+                        <span>Redactions: {Array.isArray(review.safetyReport?.redactions) ? review.safetyReport.redactions.length : 0}</span>
+                        <span>Raw transcript exposed: {review.safetyReport?.rawSandboxTranscriptIncluded ? "yes" : "no"}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 lg:w-72 lg:justify-end">
+                      <Button
+                        onClick={() => moderateReviewMutation.mutate({ id: review.id, action: "approve" })}
+                        disabled={review.moderationStatus === "approved" || moderateReviewMutation.isPending}
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button
+                        onClick={() => moderateReviewMutation.mutate({ id: review.id, action: "hide" })}
+                        disabled={review.moderationStatus === "hidden" || moderateReviewMutation.isPending}
+                        size="sm"
+                        variant="outline"
+                        className="border-amber-500/20 text-amber-300 hover:bg-amber-500/10"
+                      >
+                        <EyeOff className="w-4 h-4 mr-1" />
+                        Hide
+                      </Button>
+                      <Button
+                        onClick={() => moderateReviewMutation.mutate({ id: review.id, action: "reject" })}
+                        disabled={review.moderationStatus === "rejected" || moderateReviewMutation.isPending}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-500/20 text-red-300 hover:bg-red-500/10"
+                      >
+                        <XCircle className="w-4 h-4 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {packages.length === 0 ? (
           <Card className="bg-[#10101a]/90 border-white/[0.08] p-10 text-center">

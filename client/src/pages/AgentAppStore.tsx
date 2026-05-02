@@ -34,6 +34,21 @@ function getTrustBadge(trustScore: number) {
   return { label: "New", color: "bg-gray-500/10 text-gray-400 border-gray-500/20", icon: Bot };
 }
 
+function getRankingBadge(label?: string) {
+  switch (label) {
+    case "high-trust":
+      return { label: "High Trust", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle };
+    case "trusted":
+      return { label: "Trusted", color: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: Shield };
+    case "needs-review":
+      return { label: "Needs Review", color: "bg-amber-500/10 text-amber-400 border-amber-500/20", icon: Shield };
+    case "sandbox-only":
+      return { label: "Sandbox Only", color: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20", icon: Eye };
+    default:
+      return { label: "New", color: "bg-gray-500/10 text-gray-400 border-gray-500/20", icon: Bot };
+  }
+}
+
 function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
   const stars = [];
   const fullStars = Math.floor(rating);
@@ -54,9 +69,10 @@ function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "md
 
 function AgentCard({ listing, index, onClick }: { listing: any; index: number; onClick: () => void }) {
   const listingId = listing.id?.toString() || String(index);
-  const trustScore = listing.agent?.trustScore || listing.qualityScore || 0;
-  const trust = getTrustBadge(trustScore);
+  const trustScore = listing.trustRanking?.score ?? listing.agent?.trustScore ?? listing.qualityScore ?? 0;
+  const trust = listing.trustRanking?.label ? getRankingBadge(listing.trustRanking.label) : getTrustBadge(trustScore);
   const TrustIcon = trust.icon;
+  const reviewSummary = listing.sandboxReviewSummary || listing.trustRanking?.reviewSummary || {};
 
   return (
     <div
@@ -122,6 +138,14 @@ function AgentCard({ listing, index, onClick }: { listing: any; index: number; o
           <Badge className={cn("text-[10px]", trust.color)} data-testid={`badge-trust-${listingId}`}>
             <TrustIcon className="w-3 h-3 mr-0.5" /> {trust.label} {trustScore > 0 && `${trustScore}%`}
           </Badge>
+          <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px]" data-testid={`badge-sandbox-only-${listingId}`}>
+            <Eye className="w-3 h-3 mr-0.5" /> sandbox-only
+          </Badge>
+          {(reviewSummary.approvedCount || 0) > 0 && (
+            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[10px]" data-testid={`badge-review-summary-${listingId}`}>
+              <Star className="w-3 h-3 mr-0.5 fill-amber-400" /> {reviewSummary.approvedCount} approved review{reviewSummary.approvedCount === 1 ? "" : "s"}
+            </Badge>
+          )}
           {listing.category && (
             <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-[10px]" data-testid={`badge-category-${listingId}`}>
               {listing.category}
@@ -356,7 +380,7 @@ export default function AgentAppStore() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="featured-grid">
                 {featuredVisible.map((listing: any, i: number) => {
                   const lid = listing.id?.toString() || String(carouselIndex + i);
-                  const trustScore = listing.agent?.trustScore || listing.qualityScore || 0;
+                  const trustScore = listing.trustRanking?.score ?? listing.agent?.trustScore ?? listing.qualityScore ?? 0;
                   return (
                     <div
                       key={lid}
@@ -424,7 +448,8 @@ export default function AgentAppStore() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="trending-grid">
                 {trending.slice(0, 10).map((listing: any, i: number) => {
                   const lid = listing.id?.toString() || String(i);
-                  const trustScore = listing.agent?.trustScore || listing.qualityScore || 0;
+                  const trustScore = listing.trustRanking?.score ?? listing.agent?.trustScore ?? listing.qualityScore ?? 0;
+                  const sandboxCount = listing.trustRanking?.sandboxTestCount || 0;
                   return (
                     <div
                       key={lid}
@@ -443,7 +468,7 @@ export default function AgentAppStore() {
                           {listing.title || listing.agent?.name || "Entity"}
                         </h4>
                         <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span>{listing.totalSales || 0} sales</span>
+                          <span>{sandboxCount} sandbox test{sandboxCount === 1 ? "" : "s"}</span>
                           <span>·</span>
                           <div className="flex items-center gap-0.5">
                             <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
