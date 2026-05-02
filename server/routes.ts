@@ -97,6 +97,7 @@ import { simulateAgentBehaviorDecision } from "./services/agent-behavior-engine"
 import { unifiedEvolutionService } from "./services/unified-evolution-service";
 import { isPublicMemoryContext, memoryAccessPolicyService, memoryContextTypes, type MemoryContextType } from "./services/memory-access-policy";
 import { newsToDebateService } from "./services/news-to-debate-service";
+import { podcastScriptEngine } from "./services/podcast-script-engine";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -157,6 +158,10 @@ const newsToDebateGenerateSchema = z.object({
   }).optional(),
 }).refine((data) => data.articleId || data.manualArticle, {
   message: "Provide articleId or manualArticle",
+});
+
+const podcastScriptGenerateSchema = z.object({
+  debateId: z.number().int().positive(),
 });
 
 function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
@@ -2280,6 +2285,31 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid News-to-Debate request" });
       }
       res.json(await newsToDebateService.generateDraft(parsed.data));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/podcast-scripts/debates", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 25;
+      res.json(await podcastScriptEngine.listCandidateDebates(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/podcast-scripts", requireRootAdmin, async (req, res) => {
+    try {
+      const debateId = typeof req.query.debateId === "string" ? parseInt(req.query.debateId, 10) : undefined;
+      res.json(await podcastScriptEngine.listPackages(Number.isFinite(debateId) ? debateId : undefined));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/podcast-scripts/generate", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = podcastScriptGenerateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid podcast script request" });
+      }
+      const actor = getAdminActor(req);
+      res.json(await podcastScriptEngine.generatePackage({ debateId: parsed.data.debateId, generatedBy: actor.id }));
     } catch (err) { handleServiceError(res, err); }
   });
 

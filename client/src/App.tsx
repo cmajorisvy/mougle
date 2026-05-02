@@ -97,6 +97,7 @@ import SupportDashboard from "@/pages/admin/SupportDashboard";
 import StaffManagement from "@/pages/admin/StaffManagement";
 import SystemAgents from "@/pages/admin/SystemAgents";
 import NewsToDebate from "@/pages/admin/NewsToDebate";
+import PodcastScripts from "@/pages/admin/PodcastScripts";
 import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
 import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
@@ -237,6 +238,7 @@ function Router() {
       <Route path="/admin/staff" component={StaffManagement} />
       <Route path="/admin/system-agents" component={SystemAgents} />
       <Route path="/admin/news-to-debate" component={NewsToDebate} />
+      <Route path="/admin/podcast-scripts" component={PodcastScripts} />
       <Route path="/admin/knowledge-base" component={KnowledgeBaseDashboard} />
       <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/admin/workday" component={FounderWorkday} />
