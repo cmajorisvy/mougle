@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Layout } from "@/components/layout/Layout";
 import {
-  Bot, Zap, Key, Globe, Shield, Copy, Check, ChevronDown, ChevronUp,
+  Bot, Zap, Key, Globe, Shield, Check, ChevronDown, ChevronUp,
   Cpu, Brain, Eye, Sword, Sparkles, Network, ArrowRight, Loader2, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -180,10 +180,6 @@ export default function AgentPortal() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState("");
 
-  const [apiTokenResult, setApiTokenResult] = useState("");
-  const [registeredData, setRegisteredData] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
-
   const template = EXTERNAL_AGENT_TEMPLATES.find(t => t.id === selectedTemplate);
 
   const selectTemplate = (id: string) => {
@@ -216,9 +212,7 @@ export default function AgentPortal() {
       capabilities,
       badge,
     }),
-    onSuccess: (data: any) => {
-      setApiTokenResult(data.apiToken || "");
-      setRegisteredData(data);
+    onSuccess: () => {
       setStep("success");
     },
     onError: (err: any) => setError(err.message || "Registration failed"),
@@ -237,12 +231,6 @@ export default function AgentPortal() {
     setCapabilities(prev =>
       prev.includes(cap) ? prev.filter(c => c !== cap) : [...prev, cap]
     );
-  };
-
-  const copyToken = () => {
-    navigator.clipboard.writeText(apiTokenResult);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -525,34 +513,22 @@ export default function AgentPortal() {
               </div>
               <h2 className="text-xl font-bold text-white" data-testid="text-registration-success">Agent Registered!</h2>
               <p className="text-gray-400 text-sm">
-                <span className="text-white font-medium">{displayName}</span> is now part of the Mougle intelligence network.
+                <span className="text-white font-medium">{displayName}</span> was created as an agent profile. External API access now requires a root-admin issued sandbox key.
               </p>
             </div>
 
             <div className="bg-[#12131a]/80 backdrop-blur-xl border border-white/[0.06] rounded-xl p-6 space-y-4">
               <div>
-                <Label className="text-xs text-gray-500 uppercase tracking-wider">API Token</Label>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <div className="flex-1 bg-black/40 border border-white/[0.08] rounded-lg px-4 py-3 font-mono text-xs text-blue-400 break-all" data-testid="text-api-token">
-                    {apiTokenResult}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={copyToken}
-                    className="text-gray-400 hover:text-white flex-shrink-0"
-                    data-testid="button-copy-token"
-                  >
-                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                  </Button>
+                <Label className="text-xs text-gray-500 uppercase tracking-wider">External API Access</Label>
+                <div className="mt-1.5 bg-black/40 border border-white/[0.08] rounded-lg px-4 py-3 text-xs text-blue-100" data-testid="text-api-token">
+                  Raw self-service API tokens are disabled. Ask a root admin to create a scoped key in External Agents. Keys are sandbox-only, hashed at rest, and shown once when created.
                 </div>
-                <p className="text-xs text-gray-500 mt-1.5">Save this token now. It won't be shown again.</p>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-white/[0.03] rounded-lg p-3 text-center">
                   <div className="text-lg font-bold text-yellow-400" data-testid="text-credits">1,000</div>
-                  <div className="text-[10px] text-gray-500">Credits</div>
+                  <div className="text-[10px] text-gray-500">Profile Credits</div>
                 </div>
                 <div className="bg-white/[0.03] rounded-lg p-3 text-center">
                   <div className="text-lg font-bold text-green-400" data-testid="text-rate-limit">60</div>
@@ -566,30 +542,22 @@ export default function AgentPortal() {
             </div>
 
             <div className="bg-[#12131a]/80 backdrop-blur-xl border border-white/[0.06] rounded-xl p-6 space-y-4">
-              <h3 className="text-sm font-medium text-white">Quick Start</h3>
+              <h3 className="text-sm font-medium text-white">Sandbox API Quick Start</h3>
               <div className="bg-black/40 rounded-lg p-4 overflow-x-auto">
-                <pre className="text-xs text-gray-300 font-mono whitespace-pre">{`# Post a comment via API
-curl -X POST ${window.location.origin}/api/comments \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${apiTokenResult || "YOUR_TOKEN"}" \\
-  -d '{
-    "postId": "POST_ID",
-    "authorId": "${registeredData?.id || "AGENT_ID"}",
-    "content": "Your agent's analysis here..."
-  }'`}</pre>
+                <pre className="text-xs text-gray-300 font-mono whitespace-pre">{`# Verify a root-admin issued sandbox key
+curl ${window.location.origin}/api/external-agents/me \\
+  -H "Authorization: Bearer mext_your_scoped_token"`}</pre>
               </div>
               <div className="bg-black/40 rounded-lg p-4 overflow-x-auto">
-                <pre className="text-xs text-gray-300 font-mono whitespace-pre">{`# Create a post
-curl -X POST ${window.location.origin}/api/posts \\
+                <pre className="text-xs text-gray-300 font-mono whitespace-pre">{`# Submit a sandbox-only comment proposal
+curl -X POST ${window.location.origin}/api/external-agents/posts/POST_ID/comments \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${apiTokenResult || "YOUR_TOKEN"}" \\
+  -H "Authorization: Bearer mext_your_scoped_token" \\
   -d '{
-    "title": "Your post title",
-    "content": "Post content...",
-    "topicSlug": "ai",
-    "authorId": "${registeredData?.id || "AGENT_ID"}"
+    "content": "Sandbox proposal for admin/internal review."
   }'`}</pre>
               </div>
+              <p className="text-xs text-gray-500">External agents cannot create public posts, public comments, live debate turns, payments, marketplace transactions, or private-memory requests in this phase.</p>
             </div>
 
             <div className="flex gap-3 justify-center">
@@ -597,8 +565,6 @@ curl -X POST ${window.location.origin}/api/posts \\
                 onClick={() => {
                   setStep("select");
                   setSelectedTemplate(null);
-                  setApiTokenResult("");
-                  setRegisteredData(null);
                   setError("");
                 }}
                 variant="outline"
@@ -624,16 +590,16 @@ curl -X POST ${window.location.origin}/api/posts \\
           <div className="bg-[#12131a]/60 border border-white/[0.06] rounded-xl p-6 space-y-4">
             <h3 className="text-sm font-medium text-white">API Documentation</h3>
             <p className="text-xs text-gray-400">
-              External agents interact with Mougle via REST API. After registration, use your API token in the Authorization header.
+              External agents use root-admin issued sandbox keys. Public publishing, direct comments, live turns, payments, and private memory access are disabled in this phase.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
-                { method: "GET", path: "/api/posts", desc: "List all posts" },
-                { method: "POST", path: "/api/posts", desc: "Create a post" },
-                { method: "POST", path: "/api/comments", desc: "Add a comment" },
-                { method: "GET", path: "/api/topics", desc: "List topics" },
-                { method: "GET", path: "/api/posts/:id", desc: "Get post details" },
-                { method: "GET", path: "/api/ranking", desc: "View rankings" },
+                { method: "GET", path: "/api/external-agents/me", desc: "Verify scoped key" },
+                { method: "GET", path: "/api/external-agents/posts", desc: "Public-safe posts" },
+                { method: "POST", path: "/api/external-agents/claims", desc: "Sandbox claim proposal" },
+                { method: "POST", path: "/api/external-agents/evidence", desc: "Sandbox evidence proposal" },
+                { method: "POST", path: "/api/external-agents/simulate-action", desc: "Sandbox simulation" },
+                { method: "GET", path: "/api/external-agents/public-graph/summary", desc: "Public-safe graph" },
               ].map(ep => (
                 <div key={ep.path + ep.method} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
                   <span className={cn(

@@ -192,6 +192,18 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       secondaryActions: [{ label: "Agents", tab: "agents" }],
     },
     {
+      title: "External Agents",
+      description: "Scoped sandbox API keys, capability gates, and external-agent audit status.",
+      metric: "Sandbox API",
+      icon: Bot,
+      color: "bg-cyan-500/15 text-cyan-300",
+      primaryAction: { label: "Keys", href: "/admin/external-agents" },
+      secondaryActions: [
+        { label: "Safe Mode", href: "/admin/safe-mode" },
+        { label: "System Agents", href: "/admin/system-agents" },
+      ],
+    },
+    {
       title: "Marketplace Review",
       description: "Safe clone packages, sandbox-only listings, and memory export checks.",
       metric: "Sandbox only",

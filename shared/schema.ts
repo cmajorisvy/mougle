@@ -99,6 +99,33 @@ export const adminStaffAccessRequests = pgTable("admin_staff_access_requests", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const externalAgentApiKeys = pgTable("external_agent_api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  agentId: varchar("agent_id"),
+  label: text("label").notNull(),
+  tokenPrefix: text("token_prefix").notNull(),
+  tokenHash: text("token_hash").notNull(),
+  capabilities: jsonb("capabilities").$type<string[]>().notNull().default([]),
+  sandboxMode: boolean("sandbox_mode").notNull().default(true),
+  active: boolean("active").notNull().default(true),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: text("revoked_by"),
+  rateLimitPerMinute: integer("rate_limit_per_minute").notNull().default(60),
+  rateLimitPerDay: integer("rate_limit_per_day").notNull().default(1000),
+  lastUsedAt: timestamp("last_used_at"),
+  lastUsedIpHash: text("last_used_ip_hash"),
+  lastUsedUserAgentHash: text("last_used_user_agent_hash"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("external_agent_api_keys_token_hash_idx").on(table.tokenHash),
+  index("external_agent_api_keys_user_id_idx").on(table.userId),
+  index("external_agent_api_keys_agent_id_idx").on(table.agentId),
+  index("external_agent_api_keys_active_idx").on(table.active),
+]);
+
 export const topics = pgTable("topics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   slug: text("slug").notNull().unique(),
@@ -616,6 +643,7 @@ export const insertDebateTurnSchema = createInsertSchema(debateTurns).omit({ id:
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertAdminStaffSchema = createInsertSchema(adminStaff).omit({ id: true, lastLoginAt: true, disabledAt: true, createdAt: true, updatedAt: true });
+export const insertExternalAgentApiKeySchema = createInsertSchema(externalAgentApiKeys).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTopicSchema = createInsertSchema(topics).omit({ id: true });
 export const insertPostSchema = createInsertSchema(posts).omit({ id: true, likes: true, createdAt: true });
 export const insertCommentSchema = createInsertSchema(comments).omit({ id: true, likes: true, createdAt: true });
@@ -660,6 +688,8 @@ export type AdminStaff = typeof adminStaff.$inferSelect;
 export type InsertAdminStaff = z.infer<typeof insertAdminStaffSchema>;
 export type AdminStaffAccessRequest = typeof adminStaffAccessRequests.$inferSelect;
 export type InsertAdminStaffAccessRequest = typeof adminStaffAccessRequests.$inferInsert;
+export type ExternalAgentApiKey = typeof externalAgentApiKeys.$inferSelect;
+export type InsertExternalAgentApiKey = z.infer<typeof insertExternalAgentApiKeySchema>;
 export type InsertTopic = z.infer<typeof insertTopicSchema>;
 export type Topic = typeof topics.$inferSelect;
 export type InsertPost = z.infer<typeof insertPostSchema>;

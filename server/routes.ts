@@ -86,7 +86,8 @@ import { panicButtonService } from "./services/panic-button-service";
 import { stabilityTriangleService } from "./services/stability-triangle-service";
 import { gcisService } from "./services/gcis-service";
 import { adaptivePolicyService } from "./services/adaptive-policy-service";
-import { requireAuth, agentRateLimit } from "./middleware/auth";
+import { requireAuth } from "./middleware/auth";
+import { requireExternalAgent, requireExternalAgentCapability } from "./middleware/external-agent-auth";
 import { agentExportService } from "./services/agent-export-service";
 import { agentPassportRevocationService } from "./services/agent-passport-revocation-service";
 import { intelligenceGraphService } from "./services/intelligence-graph-service";
@@ -111,6 +112,7 @@ import { knowledgeGraphService } from "./services/knowledge-graph-service";
 import { knowledgeEconomyService } from "./services/knowledge-economy-service";
 import { gluonValueIndexService, gviComponentKeys } from "./services/gluon-value-index-service";
 import { liveDebateStudioService } from "./services/live-debate-studio-service";
+import { externalAgentApiService, externalAgentCapabilities } from "./services/external-agent-api-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -221,6 +223,73 @@ const safeModeActionSchema = z.object({
   enabled: z.boolean(),
   maintenanceBannerMessage: z.string().max(500).nullable().optional(),
   reason: z.string().trim().min(1, "A non-empty reason/comment is required."),
+});
+
+const externalAgentCapabilitySchema = z.enum(externalAgentCapabilities);
+
+const externalAgentKeyCreateSchema = z.object({
+  userId: z.string().trim().min(1).max(160).nullable().optional(),
+  agentId: z.string().trim().min(1).max(160).nullable().optional(),
+  label: z.string().trim().min(1).max(120),
+  capabilities: z.array(externalAgentCapabilitySchema).min(1).optional(),
+  sandboxMode: z.boolean().optional(),
+  active: z.boolean().optional(),
+  rateLimitPerMinute: z.number().int().min(1).max(600).optional(),
+  rateLimitPerDay: z.number().int().min(1).max(100000).optional(),
+});
+
+const externalAgentKeyUpdateSchema = externalAgentKeyCreateSchema.partial();
+
+const externalAgentRevokeSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
+const externalAgentClaimProposalSchema = z.object({
+  statement: z.string().trim().min(8).max(2000),
+  subject: z.string().trim().max(240).optional(),
+  sourceUrl: z.string().trim().url().max(1000).optional(),
+  rationale: z.string().trim().max(2000).optional(),
+});
+
+const externalAgentEvidenceProposalSchema = z.object({
+  claimId: z.string().trim().max(160).optional(),
+  url: z.string().trim().url().max(1000),
+  label: z.string().trim().min(3).max(300),
+  evidenceType: z.string().trim().max(80).optional(),
+  rationale: z.string().trim().max(2000).optional(),
+});
+
+const externalAgentCollaborationSchema = z.object({
+  topic: z.string().trim().min(3).max(240),
+  message: z.string().trim().min(10).max(3000),
+  targetAgentId: z.string().trim().max(160).optional(),
+});
+
+const externalAgentCommentProposalSchema = z.object({
+  content: z.string().trim().min(5).max(2000),
+});
+
+const externalAgentDebateJoinProposalSchema = z.object({
+  position: z.enum(["for", "against", "neutral"]).optional(),
+  participantType: z.string().trim().max(60).optional(),
+  rationale: z.string().trim().max(2000).optional(),
+});
+
+const externalAgentDebateTurnProposalSchema = z.object({
+  content: z.string().trim().min(10).max(4000),
+});
+
+const externalAgentSimulationSchema = z.object({
+  actionType: z.enum(agentActionTypes).optional(),
+  event: z.object({
+    type: z.string().trim().max(120).optional(),
+    topic: z.string().trim().max(240).optional(),
+    targetId: z.string().trim().max(160).optional(),
+    content: z.string().trim().max(3000).optional(),
+  }).optional(),
+  includeGraphContext: z.boolean().optional(),
+  includeKnowledgePacketContext: z.boolean().optional(),
+  allowHypotheses: z.boolean().optional(),
 });
 
 const newsToDebateGenerateSchema = z.object({
@@ -578,6 +647,51 @@ function renderAdminAccessReviewResult(result: { status: string; message: string
 </html>`;
 }
 
+function safeExternalPost(post: any) {
+  return {
+    id: post.id,
+    title: post.title,
+    content: post.content,
+    topicSlug: post.topicSlug,
+    isDebate: post.isDebate,
+    debateActive: post.debateActive,
+    verificationScore: post.verificationScore ?? null,
+    factCheckStatus: post.factCheckStatus ?? null,
+    evidenceCount: post.evidenceCount ?? null,
+    createdAt: post.createdAt,
+  };
+}
+
+function isExternalVisibleDebate(debate: any) {
+  return debate && !INTERNAL_DEBATE_STATUSES.has(String(debate.status || "").toLowerCase());
+}
+
+function safeExternalDebate(debate: any) {
+  return {
+    id: debate.id,
+    title: debate.title,
+    topic: debate.topic,
+    description: debate.description,
+    status: debate.status,
+    format: debate.format,
+    totalRounds: debate.totalRounds,
+    currentRound: debate.currentRound,
+    confidenceScore: debate.confidenceScore ?? null,
+    consensusSummary: debate.consensusSummary ?? null,
+    disagreementSummary: debate.disagreementSummary ?? null,
+    startedAt: debate.startedAt,
+    endedAt: debate.endedAt,
+    createdAt: debate.createdAt,
+  };
+}
+
+function externalAgentContext(req: any) {
+  if (!req.externalAgent) {
+    throw { status: 500, message: "External agent context missing" };
+  }
+  return req.externalAgent;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -619,157 +733,319 @@ export async function registerRoutes(
   });
 
   // ---- EXTERNAL AGENT API ----
-  app.post("/api/external-agents/register", requireSystemMode("agent"), async (req, res) => {
-    try {
-      const data = {
-        ...req.body,
-        role: "agent",
-        password: req.body.password || "agent_ext_" + crypto.randomBytes(8).toString("hex"),
-      };
-      const parsed = signupSchema.safeParse(data);
-      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
-      const usernameCheck = moderateUsername(parsed.data.username);
-      if (!usernameCheck.allowed) {
-        return res.status(400).json({ message: "Content violates platform safety guidelines." });
-      }
-      const result = await authService.signup(parsed.data);
-      res.status(201).json({
-        id: result.id,
-        username: result.username,
-        displayName: result.displayName,
-        apiToken: result.apiToken,
-        creditWallet: result.creditWallet,
-        rateLimitPerMin: result.rateLimitPerMin || 60,
-        message: "Agent registered successfully. Use the apiToken as a Bearer token in the Authorization header for all API requests.",
-      });
-    } catch (err) { handleServiceError(res, err); }
+  app.post("/api/external-agents/register", (_req, res) => {
+    res.status(410).json({
+      message: "External agent self-registration is disabled. Root admins must create scoped sandbox API keys in /admin/external-agents.",
+      rootAdminKeyManagementRequired: true,
+      sandboxOnly: true,
+    });
   });
 
-  app.get("/api/external-agents/me", requireAuth, agentRateLimit, async (req: any, res) => {
+  app.get("/api/external-agents/me", requireExternalAgent, async (req: any, res) => {
     try {
-      if (req.user.role !== "agent") return res.status(403).json({ message: "Agent accounts only" });
+      const context = externalAgentContext(req);
       res.json({
-        id: req.user.id,
-        username: req.user.username,
-        displayName: req.user.displayName,
-        role: req.user.role,
-        avatar: req.user.avatar,
-        reputation: req.user.reputation,
-        creditWallet: req.user.creditWallet,
-        badge: req.user.badge,
-        capabilities: req.user.capabilities,
-        rateLimitPerMin: req.user.rateLimitPerMin,
+        key: {
+          id: context.key.id,
+          label: context.key.label,
+          tokenPrefix: context.key.tokenPrefix,
+          userId: context.key.userId,
+          agentId: context.key.agentId,
+          capabilities: context.key.capabilities,
+          sandboxMode: context.key.sandboxMode,
+          active: context.key.active,
+          rateLimitPerMinute: context.key.rateLimitPerMinute,
+          rateLimitPerDay: context.key.rateLimitPerDay,
+          lastUsedAt: context.key.lastUsedAt,
+        },
+        safeMode: context.safeMode,
+        safeguards: {
+          sandboxOnly: true,
+          noPrivateMemoryAccess: true,
+          noBusinessMemoryAccess: true,
+          noPublicPublishing: true,
+          noPaymentsOrMarketplaceTransactions: true,
+          noLiveActionExecution: true,
+        },
       });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/external-agents/posts", agentRateLimit, async (req, res) => {
+  app.get("/api/external-agents/posts", requireExternalAgentCapability("read_public_context"), async (req, res) => {
     try {
       const limit = Math.min(Number(req.query.limit) || 20, 50);
       const topicSlug = req.query.topic as string | undefined;
       const result = await storage.getPostsPaginated({ topic: topicSlug, limit, sort: "latest" });
-      res.json(result.posts.map((p: any) => ({
-        id: p.id,
-        title: p.title,
-        content: p.content,
-        topicSlug: p.topicSlug,
-        isDebate: p.isDebate,
-        debateActive: p.debateActive,
-        createdAt: p.createdAt,
-      })));
+      res.json({
+        items: result.posts.map(safeExternalPost),
+        sandboxOnly: false,
+        publicSafeContextOnly: true,
+      });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/external-agents/posts/:postId", agentRateLimit, async (req, res) => {
+  app.get("/api/external-agents/posts/:postId", requireExternalAgentCapability("read_public_context"), async (req, res) => {
     try {
       const post = await storage.getPost(req.params.postId);
       if (!post) return res.status(404).json({ message: "Post not found" });
       const comments = await storage.getComments(req.params.postId);
       res.json({
-        id: post.id,
-        title: post.title,
-        content: post.content,
-        topicSlug: post.topicSlug,
-        isDebate: post.isDebate,
-        debateActive: post.debateActive,
-        createdAt: post.createdAt,
-        comments: comments.map((c: any) => ({
+        ...safeExternalPost(post),
+        comments: comments.slice(0, 100).map((c: any) => ({
           id: c.id,
           content: c.content,
-          authorName: c.author?.displayName || c.author?.name,
-          authorRole: c.author?.role,
+          authorName: c.author?.displayName || c.author?.name || "Mougle user",
+          authorRole: c.author?.role || null,
           createdAt: c.createdAt,
         })),
+        publicSafeContextOnly: true,
       });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/external-agents/posts/:postId/comments", requireAuth, agentRateLimit, async (req: any, res) => {
+  app.post("/api/external-agents/posts/:postId/comments", requireExternalAgentCapability("request_collaboration", { actionLike: true }), async (req: any, res) => {
     try {
-      if (req.user.role !== "agent") return res.status(403).json({ message: "Agent accounts only" });
-      const content = req.body.content;
-      if (!content || typeof content !== "string" || content.trim().length < 5) {
-        return res.status(400).json({ message: "Comment content must be at least 5 characters" });
-      }
-      const modResult = moderateContent(sanitizeHTML(content));
-      if (!modResult.allowed) {
-        return res.status(400).json({ message: "Content violates platform safety guidelines." });
-      }
-      const data = { content: sanitizeHTML(content), postId: req.params.postId, authorId: req.user.id };
-      const parsed = insertCommentSchema.safeParse(data);
-      if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
-      const comment = await discussionService.createComment(parsed.data);
-      res.status(201).json(comment);
+      const parsed = externalAgentCommentProposalSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid comment proposal" });
+      const content = sanitizeHTML(parsed.data.content);
+      const modResult = moderateContent(content);
+      if (!modResult.allowed) return res.status(400).json({ message: "Content violates platform safety guidelines." });
+      const proposal = await externalAgentApiService.recordSandboxProposal({
+        context: externalAgentContext(req),
+        proposalType: "comment_proposal",
+        route: req.path,
+        payload: {
+          postId: req.params.postId,
+          content,
+          capability: "request_collaboration",
+        },
+      });
+      res.status(202).json(proposal);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/external-agents/topics", agentRateLimit, async (_req, res) => {
+  app.get("/api/external-agents/topics", requireExternalAgentCapability("read_public_context"), async (_req, res) => {
     try {
       const topics = await storage.getTopics();
-      res.json(topics.map((t: any) => ({ slug: t.slug, label: t.label })));
+      res.json({ items: topics.map((t: any) => ({ slug: t.slug, label: t.label })), publicSafeContextOnly: true });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/external-agents/debates", agentRateLimit, async (_req, res) => {
+  app.get("/api/external-agents/debates", requireExternalAgentCapability("read_public_context"), async (_req, res) => {
     try {
       const debates = await storage.getLiveDebates();
-      res.json(debates);
+      res.json({
+        items: debates.filter(isExternalVisibleDebate).map(safeExternalDebate),
+        publicSafeContextOnly: true,
+        internalDraftsExcluded: true,
+      });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/external-agents/debates/:id", agentRateLimit, async (req, res) => {
+  app.get("/api/external-agents/debates/:id", requireExternalAgentCapability("read_public_context"), async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
-      const detail = await debateOrchestrator.getDebateWithDetails(id);
-      if (!detail) return res.status(404).json({ message: "Debate not found" });
-      res.json(detail);
+      const debate = await storage.getLiveDebate(id);
+      if (!debate || !isExternalVisibleDebate(debate)) return res.status(404).json({ message: "Debate not found" });
+      const [participants, turns] = await Promise.all([
+        storage.getDebateParticipants(id),
+        storage.getDebateTurns(id),
+      ]);
+      res.json({
+        ...safeExternalDebate(debate),
+        participants: participants.filter((p: any) => p.isActive).map((p: any) => ({
+          id: p.id,
+          role: p.role,
+          participantType: p.participantType,
+          position: p.position,
+          speakingOrder: p.speakingOrder,
+        })),
+        turns: turns.slice(0, 100).map((turn: any) => ({
+          id: turn.id,
+          roundNumber: turn.roundNumber,
+          turnOrder: turn.turnOrder,
+          content: turn.content,
+          tcsScore: turn.tcsScore ?? null,
+          createdAt: turn.createdAt,
+        })),
+        publicSafeContextOnly: true,
+      });
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/external-agents/debates/:id/join", requireAuth, agentRateLimit, async (req: any, res) => {
+  app.post("/api/external-agents/debates/:id/join", requireExternalAgentCapability("join_sandbox_debate", { actionLike: true }), async (req: any, res) => {
     try {
-      if (req.user.role !== "agent") return res.status(403).json({ message: "Agent accounts only" });
-      const id = parseInt(req.params.id as string);
-      const { participantType, position } = req.body;
-      const participant = await debateOrchestrator.joinDebate(id, req.user.id, participantType || "agent", position || "for");
-      res.json(participant);
+      const parsed = externalAgentDebateJoinProposalSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid sandbox debate join proposal" });
+      const proposal = await externalAgentApiService.recordSandboxProposal({
+        context: externalAgentContext(req),
+        proposalType: "sandbox_debate_join",
+        route: req.path,
+        payload: {
+          debateId: req.params.id,
+          position: parsed.data.position || "neutral",
+          participantType: parsed.data.participantType || "agent",
+          rationale: parsed.data.rationale || null,
+        },
+      });
+      res.status(202).json(proposal);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/external-agents/debates/:id/turn", requireAuth, agentRateLimit, async (req: any, res) => {
+  app.post("/api/external-agents/debates/:id/turn", requireExternalAgentCapability("join_sandbox_debate", { actionLike: true }), async (req: any, res) => {
     try {
-      if (req.user.role !== "agent") return res.status(403).json({ message: "Agent accounts only" });
-      const id = parseInt(req.params.id as string);
-      const { content } = req.body;
-      if (!content || typeof content !== "string" || content.trim().length < 10) {
-        return res.status(400).json({ message: "Debate turn content must be at least 10 characters" });
+      const parsed = externalAgentDebateTurnProposalSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid sandbox debate turn proposal" });
+      const content = sanitizeHTML(parsed.data.content);
+      const modResult = moderateContent(content);
+      if (!modResult.allowed) return res.status(400).json({ message: "Content violates platform safety guidelines." });
+      const proposal = await externalAgentApiService.recordSandboxProposal({
+        context: externalAgentContext(req),
+        proposalType: "sandbox_debate_turn",
+        route: req.path,
+        payload: {
+          debateId: req.params.id,
+          content,
+        },
+      });
+      res.status(202).json(proposal);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/external-agents/claims", requireExternalAgentCapability("submit_claim", { actionLike: true }), async (req: any, res) => {
+    try {
+      const parsed = externalAgentClaimProposalSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid claim proposal" });
+      const statement = sanitizeHTML(parsed.data.statement);
+      const modResult = moderateContent(statement);
+      if (!modResult.allowed) return res.status(400).json({ message: "Content violates platform safety guidelines." });
+      const proposal = await externalAgentApiService.recordSandboxProposal({
+        context: externalAgentContext(req),
+        proposalType: "claim_proposal",
+        route: req.path,
+        payload: {
+          statement,
+          subject: parsed.data.subject ? sanitizeHTML(parsed.data.subject) : null,
+          sourceUrl: parsed.data.sourceUrl || null,
+          rationale: parsed.data.rationale ? sanitizeHTML(parsed.data.rationale) : null,
+          createsPublicClaim: false,
+        },
+      });
+      res.status(202).json(proposal);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/external-agents/evidence", requireExternalAgentCapability("attach_evidence", { actionLike: true }), async (req: any, res) => {
+    try {
+      const parsed = externalAgentEvidenceProposalSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid evidence proposal" });
+      const proposal = await externalAgentApiService.recordSandboxProposal({
+        context: externalAgentContext(req),
+        proposalType: "evidence_proposal",
+        route: req.path,
+        payload: {
+          claimId: parsed.data.claimId || null,
+          url: parsed.data.url,
+          label: sanitizeHTML(parsed.data.label),
+          evidenceType: parsed.data.evidenceType || "external_sandbox",
+          rationale: parsed.data.rationale ? sanitizeHTML(parsed.data.rationale) : null,
+          createsPublicEvidence: false,
+        },
+      });
+      res.status(202).json(proposal);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/external-agents/collaboration-requests", requireExternalAgentCapability("request_collaboration", { actionLike: true }), async (req: any, res) => {
+    try {
+      const parsed = externalAgentCollaborationSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid collaboration request" });
+      const proposal = await externalAgentApiService.recordSandboxProposal({
+        context: externalAgentContext(req),
+        proposalType: "collaboration_request",
+        route: req.path,
+        payload: {
+          topic: sanitizeHTML(parsed.data.topic),
+          message: sanitizeHTML(parsed.data.message),
+          targetAgentId: parsed.data.targetAgentId || null,
+        },
+      });
+      res.status(202).json(proposal);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/external-agents/simulate-action", requireExternalAgentCapability("sandbox_action_simulation", { actionLike: true }), async (req: any, res) => {
+    try {
+      const parsed = externalAgentSimulationSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid sandbox simulation request" });
+      const context = externalAgentContext(req);
+      const agentId = context.key.agentId || context.key.userId;
+      if (!agentId) {
+        return res.status(400).json({ message: "This external agent key is not linked to a sandbox agent identity." });
       }
-      const modResult = moderateContent(sanitizeHTML(content));
-      if (!modResult.allowed) {
-        return res.status(400).json({ message: "Content violates platform safety guidelines." });
-      }
-      const turn = await debateOrchestrator.submitHumanTurn(id, req.user.id, sanitizeHTML(content));
-      res.status(201).json(turn);
+      const result = await simulateAgentBehaviorDecision({
+        agentId,
+        actionType: parsed.data.actionType,
+        event: parsed.data.event,
+        memoryScope: "none",
+        includeGraphContext: parsed.data.includeGraphContext === true,
+        includeKnowledgePacketContext: parsed.data.includeKnowledgePacketContext === true,
+        graphAllowHypotheses: parsed.data.allowHypotheses === true,
+        knowledgePacketAllowHypotheses: parsed.data.allowHypotheses === true,
+      });
+      res.json({
+        sandboxOnly: true,
+        executed: false,
+        noLiveActionExecution: true,
+        simulation: result,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/public-graph/summary", requireExternalAgentCapability("read_public_graph"), async (_req, res) => {
+    try {
+      res.json(await knowledgeGraphService.getPublicSummary());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/public-graph/nodes", requireExternalAgentCapability("read_public_graph"), async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10);
+      const offset = parseInt(req.query.offset as string, 10);
+      const nodeType = typeof req.query.nodeType === "string" ? req.query.nodeType : undefined;
+      res.json(await knowledgeGraphService.listPublicNodes({
+        nodeType,
+        limit: Number.isFinite(limit) ? limit : undefined,
+        offset: Number.isFinite(offset) ? offset : undefined,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/public-graph/edges", requireExternalAgentCapability("read_public_graph"), async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10);
+      const offset = parseInt(req.query.offset as string, 10);
+      const relationType = typeof req.query.relationType === "string" ? req.query.relationType : undefined;
+      res.json(await knowledgeGraphService.listPublicEdges({
+        relationType,
+        limit: Number.isFinite(limit) ? limit : undefined,
+        offset: Number.isFinite(offset) ? offset : undefined,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/external-agents/passports/:exportId", requireExternalAgentCapability("read_public_passport"), async (req, res) => {
+    try {
+      const match = await storage.getAgentPassportExportById(req.params.exportId);
+      if (!match) return res.json({ valid: false, revoked: false, origin: "mougle.com", standard: "MAP-1" });
+      return res.json({
+        valid: !match.revoked,
+        revoked: !!match.revoked,
+        origin: "mougle.com",
+        standard: "MAP-1",
+        exportVersion: match.exportVersion,
+        exportedAt: match.exportedAt,
+      });
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -2397,6 +2673,43 @@ export async function registerRoutes(
       }
       const actor = getAdminActor(req);
       res.json(await safeModeService.applyAction(parsed.data, actor));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/external-agents/keys", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await externalAgentApiService.listKeys());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/external-agents/keys", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = externalAgentKeyCreateSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid external agent key request" });
+      res.status(201).json(await externalAgentApiService.createKey(parsed.data, getAdminActor(req)));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/external-agents/keys/:id", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = externalAgentKeyUpdateSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid external agent key update" });
+      res.json(await externalAgentApiService.updateKey(req.params.id, parsed.data, getAdminActor(req)));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/external-agents/keys/:id/revoke", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = externalAgentRevokeSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid revoke request" });
+      res.json(await externalAgentApiService.revokeKey(req.params.id, getAdminActor(req), parsed.data.reason));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/external-agents/audit", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = Number(req.query.limit) || 50;
+      res.json(await externalAgentApiService.listAudit(limit));
     } catch (err) { handleServiceError(res, err); }
   });
 

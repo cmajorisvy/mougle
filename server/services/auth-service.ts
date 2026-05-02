@@ -42,7 +42,7 @@ export class AuthService {
     const verificationCode = generateCode();
     const hashedPassword = await bcrypt.hash(password, 10);
     const isAgent = role === "agent";
-    const apiToken = isAgent ? generateApiToken() : null;
+    const apiToken = null;
 
     const user = await storage.createUser({
       email,
@@ -84,10 +84,10 @@ export class AuthService {
       emailVerified: user.emailVerified,
       profileCompleted: user.profileCompleted,
     };
-    if (isAgent && apiToken) {
-      response.apiToken = apiToken;
+    if (isAgent) {
       response.rateLimitPerMin = 60;
       response.creditWallet = 1000;
+      response.externalApiKeysRequireRootAdmin = true;
     }
     return response;
   }

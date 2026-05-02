@@ -1735,6 +1735,80 @@ export type AdminSafeModeActionPayload = {
   reason: string;
 };
 
+export type ExternalAgentCapability =
+  | "read_public_context"
+  | "submit_claim"
+  | "attach_evidence"
+  | "join_sandbox_debate"
+  | "request_collaboration"
+  | "sandbox_action_simulation"
+  | "read_public_graph"
+  | "read_public_passport";
+
+export const externalAgentCapabilityOptions: ExternalAgentCapability[] = [
+  "read_public_context",
+  "submit_claim",
+  "attach_evidence",
+  "join_sandbox_debate",
+  "request_collaboration",
+  "sandbox_action_simulation",
+  "read_public_graph",
+  "read_public_passport",
+];
+
+export type AdminExternalAgentKey = {
+  id: string;
+  userId: string | null;
+  agentId: string | null;
+  label: string;
+  tokenPrefix: string;
+  capabilities: ExternalAgentCapability[];
+  sandboxMode: boolean;
+  active: boolean;
+  revokedAt: string | null;
+  revokedBy: string | null;
+  rateLimitPerMinute: number;
+  rateLimitPerDay: number;
+  lastUsedAt: string | null;
+  lastUsedIpHash: string | null;
+  lastUsedUserAgentHash: string | null;
+  createdBy: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  tokenHashStored: boolean;
+  rawTokenAvailable: false;
+};
+
+export type AdminExternalAgentKeysResponse = {
+  keys: AdminExternalAgentKey[];
+  recentAudit: any[];
+  safeguards: {
+    hashedTokensOnly: boolean;
+    rawTokenReturnedOnce: boolean;
+    sandboxOnly: boolean;
+    noPrivateMemoryAccess: boolean;
+    genericBearerDoesNotSatisfyUserAuth: boolean;
+  };
+};
+
+export type AdminExternalAgentKeyCreatePayload = {
+  label: string;
+  userId?: string | null;
+  agentId?: string | null;
+  capabilities?: ExternalAgentCapability[];
+  sandboxMode?: boolean;
+  active?: boolean;
+  rateLimitPerMinute?: number;
+  rateLimitPerDay?: number;
+};
+
+export type AdminExternalAgentKeyCreateResponse = {
+  key: AdminExternalAgentKey;
+  rawToken: string;
+  tokenShownOnce: true;
+  warning: string;
+};
+
 async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
   if (!res.ok) return null;
@@ -2016,6 +2090,14 @@ export const api = {
       adminFetch<AdminSafeModeStatus>("/admin/safe-mode", { method: "PATCH", body: JSON.stringify(data) }),
     safeModeAction: (data: AdminSafeModeActionPayload) =>
       adminFetch<AdminSafeModeStatus>("/admin/safe-mode/action", { method: "POST", body: JSON.stringify(data) }),
+    externalAgentKeys: () => adminFetch<AdminExternalAgentKeysResponse>("/admin/external-agents/keys"),
+    createExternalAgentKey: (data: AdminExternalAgentKeyCreatePayload) =>
+      adminFetch<AdminExternalAgentKeyCreateResponse>("/admin/external-agents/keys", { method: "POST", body: JSON.stringify(data) }),
+    updateExternalAgentKey: (id: string, data: Partial<AdminExternalAgentKeyCreatePayload>) =>
+      adminFetch<AdminExternalAgentKey>(`/admin/external-agents/keys/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    revokeExternalAgentKey: (id: string, reason?: string) =>
+      adminFetch<AdminExternalAgentKey>(`/admin/external-agents/keys/${id}/revoke`, { method: "POST", body: JSON.stringify({ reason }) }),
+    externalAgentAudit: (limit?: number) => adminFetch<any[]>(`/admin/external-agents/audit?limit=${limit || 50}`),
     liveStudioDebates: (limit?: number) =>
       adminFetch<AdminLiveStudioDebateSummary[]>(`/admin/live-studio/debates?limit=${limit || 50}`),
     liveStudioState: (id: number) => adminFetch<AdminLiveStudioState>(`/admin/live-studio/debates/${id}`),
