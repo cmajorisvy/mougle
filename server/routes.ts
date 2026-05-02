@@ -99,6 +99,7 @@ import { isPublicMemoryContext, memoryAccessPolicyService, memoryContextTypes, t
 import { newsToDebateService } from "./services/news-to-debate-service";
 import { podcastScriptEngine } from "./services/podcast-script-engine";
 import { podcastVoiceService } from "./services/podcast-voice-service";
+import { youtubePublishingService } from "./services/youtube-publishing-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -169,6 +170,12 @@ const voiceJobGenerateSchema = z.object({
   scriptPackageId: z.number().int().positive(),
   scriptType: z.enum(["two_minute", "ten_minute", "both"]).default("both"),
   provider: z.enum(["auto", "elevenlabs", "replit_openai_audio", "mock"]).default("auto"),
+});
+
+const youtubePublishingPackageSchema = z.object({
+  scriptPackageId: z.number().int().positive(),
+  audioJobId: z.number().int().positive().nullable().optional(),
+  generatedClipId: z.number().int().positive().nullable().optional(),
 });
 
 function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
@@ -2373,6 +2380,69 @@ export async function registerRoutes(
         providerPreference: parsed.data.provider,
         generatedBy: actor.id,
       }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/youtube-publishing/eligible", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await youtubePublishingService.listEligible());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/youtube-publishing/packages", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await youtubePublishingService.listPackages());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/youtube-publishing/packages/:id", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid YouTube package id" });
+      res.json(await youtubePublishingService.getPackage(id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/youtube-publishing/packages", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = youtubePublishingPackageSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid YouTube package request" });
+      }
+      const actor = getAdminActor(req);
+      res.json(await youtubePublishingService.createOrRefreshPackage({
+        scriptPackageId: parsed.data.scriptPackageId,
+        audioJobId: parsed.data.audioJobId,
+        generatedClipId: parsed.data.generatedClipId,
+        createdBy: actor.id,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/youtube-publishing/packages/:id/validate", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid YouTube package id" });
+      const actor = getAdminActor(req);
+      res.json(await youtubePublishingService.validatePackage(id, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/youtube-publishing/packages/:id/approve", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid YouTube package id" });
+      const actor = getAdminActor(req);
+      res.json(await youtubePublishingService.approvePackage(id, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/youtube-publishing/packages/:id/upload", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid YouTube package id" });
+      const actor = getAdminActor(req);
+      res.json(await youtubePublishingService.uploadPackage(id, actor.id));
     } catch (err) { handleServiceError(res, err); }
   });
 

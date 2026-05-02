@@ -495,6 +495,112 @@ export type AdminVoiceJobGenerateResult = {
   };
 };
 
+export type AdminYouTubeChecklistItem = {
+  key: string;
+  label: string;
+  passed: boolean;
+  severity: "info" | "warning" | "blocking";
+  message: string;
+};
+
+export type AdminYouTubePackageMetadata = {
+  title: string;
+  description: string;
+  tags: string[];
+  thumbnailText: string;
+  shortsHooks: string[];
+  privacyStatus: "private";
+  scriptPackageStatus: string;
+  scriptAdminReviewStatus: string;
+  audioJobStatus: string | null;
+  videoAsset: {
+    generatedClipId: number | null;
+    title: string | null;
+    pathPresent: boolean;
+    format: string | null;
+    durationSeconds: number | null;
+  };
+  manualApprovalRequired: boolean;
+  internalReviewOnly: boolean;
+};
+
+export type AdminYouTubePublishingPackage = {
+  id: number;
+  scriptPackageId: number;
+  audioJobId: number | null;
+  generatedClipId: number | null;
+  status: string;
+  approvalStatus: string;
+  uploadStatus: string;
+  provider: "dry_run" | "youtube_data_api";
+  packageMetadata: AdminYouTubePackageMetadata;
+  readinessChecklist: AdminYouTubeChecklistItem[];
+  complianceChecklist: AdminYouTubeChecklistItem[];
+  sourceChecklist: AdminYouTubeChecklistItem[];
+  youtubeVideoId: string | null;
+  youtubeUrl: string | null;
+  youtubeStatus: string | null;
+  errorMessage: string | null;
+  createdBy: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  uploadedBy: string | null;
+  uploadedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminYouTubeProviderStatus = {
+  selected: "dry_run" | "youtube_data_api";
+  youtubeConfigured: boolean;
+  channelConfigured: boolean;
+  dryRunAvailable: true;
+  message: string;
+};
+
+export type AdminYouTubeVideoAsset = {
+  id: number;
+  title: string;
+  status: string;
+  uploadStatus: string | null;
+  durationSeconds: number | null;
+  format: string;
+  hasVideoPath: boolean;
+  youtubeUrl: string | null;
+};
+
+export type AdminYouTubeEligibleItem = {
+  scriptPackage: AdminPodcastScriptPackage;
+  latestAudioJob: AdminPodcastAudioJob | null;
+  videoAssets: AdminYouTubeVideoAsset[];
+  existingPackage: AdminYouTubePublishingPackage | null;
+};
+
+export type AdminYouTubeEligibleResponse = {
+  providerStatus: AdminYouTubeProviderStatus;
+  items: AdminYouTubeEligibleItem[];
+};
+
+export type AdminYouTubeCreatePackagePayload = {
+  scriptPackageId: number;
+  audioJobId?: number | null;
+  generatedClipId?: number | null;
+};
+
+export type AdminYouTubePackageActionResult = {
+  providerStatus: AdminYouTubeProviderStatus;
+  package: AdminYouTubePublishingPackage;
+  scriptPackage?: AdminPodcastScriptPackage;
+  audioJob?: AdminPodcastAudioJob | null;
+  videoAsset?: AdminYouTubeVideoAsset | null;
+  uploadResult?: {
+    videoId: string;
+    url: string;
+    status: string;
+    provider: "youtube_data_api";
+  };
+};
+
 export type UesSourceQuality = "calculated" | "partial" | "fallback";
 
 export type UesMetric = {
@@ -883,6 +989,17 @@ export const api = {
     voiceJob: (id: number) => adminFetch<AdminPodcastAudioJob>(`/admin/voice-jobs/${id}`),
     generateVoiceJob: (data: AdminVoiceJobGeneratePayload) =>
       adminFetch<AdminVoiceJobGenerateResult>("/admin/voice-jobs/generate", { method: "POST", body: JSON.stringify(data) }),
+    youtubeEligible: () => adminFetch<AdminYouTubeEligibleResponse>("/admin/youtube-publishing/eligible"),
+    youtubePackages: () => adminFetch<AdminYouTubePublishingPackage[]>("/admin/youtube-publishing/packages"),
+    youtubePackage: (id: number) => adminFetch<AdminYouTubePublishingPackage>(`/admin/youtube-publishing/packages/${id}`),
+    createYouTubePackage: (data: AdminYouTubeCreatePackagePayload) =>
+      adminFetch<AdminYouTubePackageActionResult>("/admin/youtube-publishing/packages", { method: "POST", body: JSON.stringify(data) }),
+    validateYouTubePackage: (id: number) =>
+      adminFetch<AdminYouTubePackageActionResult>(`/admin/youtube-publishing/packages/${id}/validate`, { method: "POST" }),
+    approveYouTubePackage: (id: number) =>
+      adminFetch<AdminYouTubePackageActionResult>(`/admin/youtube-publishing/packages/${id}/approve`, { method: "POST" }),
+    uploadYouTubePackage: (id: number) =>
+      adminFetch<AdminYouTubePackageActionResult>(`/admin/youtube-publishing/packages/${id}/upload`, { method: "POST" }),
     posts: () => adminFetch<any[]>("/admin/posts"),
     deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
     topics: () => adminFetch<any[]>("/admin/topics"),

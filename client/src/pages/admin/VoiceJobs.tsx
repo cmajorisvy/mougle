@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, ArrowLeft, FileAudio2, Loader2, Mic2, RefreshCw, ShieldCheck, Volume2, Wand2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileAudio2, Loader2, Mic2, RefreshCw, ShieldCheck, Volume2, Wand2, Youtube } from "lucide-react";
 
 function statusBadgeClass(status: string) {
   if (status === "completed") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
@@ -209,6 +209,9 @@ export default function VoiceJobs() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => navigate("/admin/podcast-scripts")} className="border-white/10 text-zinc-300">
                 <Mic2 className="w-4 h-4 mr-2" /> Podcast Scripts
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/admin/youtube-publishing")} className="border-white/10 text-zinc-300">
+                <Youtube className="w-4 h-4 mr-2" /> YouTube
               </Button>
               <Button variant="outline" onClick={() => { refetchPackages(); refetchJobs(); }} disabled={packagesLoading || jobsLoading} className="border-white/10 text-zinc-300">
                 {(packagesLoading || jobsLoading) ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
