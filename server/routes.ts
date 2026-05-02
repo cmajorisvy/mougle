@@ -105,6 +105,7 @@ import { socialDistributionApprovalService } from "./services/social-distributio
 import { userAgentBuilderService } from "./services/user-agent-builder-service";
 import { agentRunnerService as userAgentRunnerService } from "./services/agent-runner-service";
 import { agentMarketplaceCloneService, marketplaceCloneExportModes } from "./services/agent-marketplace-clone-service";
+import { safeModeControlFields, safeModeService } from "./services/safe-mode-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -172,6 +173,26 @@ const socialDistributionAutomationSettingsSchema = z.object({
   duplicateWindowHours: z.number().int().min(1).max(720).optional(),
   trustThreshold: z.number().min(0).max(1).optional(),
   uesThreshold: z.number().min(0).max(1).optional(),
+});
+
+const safeModeUpdateSchema = z.object({
+  globalSafeMode: z.boolean().optional(),
+  pauseAutonomousPublishing: z.boolean().optional(),
+  pauseMarketplaceApprovals: z.boolean().optional(),
+  pauseExternalAgentActions: z.boolean().optional(),
+  pauseSocialDistributionAutomation: z.boolean().optional(),
+  pauseYouTubeUploads: z.boolean().optional(),
+  pausePodcastAudioGeneration: z.boolean().optional(),
+  maintenanceBannerEnabled: z.boolean().optional(),
+  maintenanceBannerMessage: z.string().max(500).nullable().optional(),
+  reason: z.string().trim().min(1, "A non-empty reason/comment is required."),
+});
+
+const safeModeActionSchema = z.object({
+  action: z.enum(safeModeControlFields),
+  enabled: z.boolean(),
+  maintenanceBannerMessage: z.string().max(500).nullable().optional(),
+  reason: z.string().trim().min(1, "A non-empty reason/comment is required."),
 });
 
 const newsToDebateGenerateSchema = z.object({
@@ -2195,6 +2216,34 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/admin/safe-mode", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await safeModeService.getStatus());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/safe-mode", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = safeModeUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid safe-mode update request" });
+      }
+      const actor = getAdminActor(req);
+      res.json(await safeModeService.updateControls(parsed.data, actor));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/safe-mode/action", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = safeModeActionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid safe-mode action request" });
+      }
+      const actor = getAdminActor(req);
+      res.json(await safeModeService.applyAction(parsed.data, actor));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.get("/api/admin/users", requireRootAdmin, async (_req, res) => {
     try {
       const allUsers = await db.select().from(users_table).orderBy(desc(users_table.reputation));
@@ -2439,6 +2488,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid voice job request" });
       }
       const actor = getAdminActor(req);
+      await safeModeService.assertCapabilityAllowed("podcast_audio_generation", actor.id);
       res.json(await podcastVoiceService.generateVoiceJob({
         scriptPackageId: parsed.data.scriptPackageId,
         scriptType: parsed.data.scriptType,
@@ -2507,6 +2557,7 @@ export async function registerRoutes(
       const id = parseInt(req.params.id as string, 10);
       if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid YouTube package id" });
       const actor = getAdminActor(req);
+      await safeModeService.assertCapabilityAllowed("youtube_upload", actor.id);
       res.json(await youtubePublishingService.uploadPackage(id, actor.id));
     } catch (err) { handleServiceError(res, err); }
   });
@@ -2595,6 +2646,7 @@ export async function registerRoutes(
   app.post("/api/admin/social-distribution/automation/evaluate", requireRootAdmin, async (req, res) => {
     try {
       const actor = getAdminActor(req);
+      await safeModeService.assertCapabilityAllowed("social_safe_automation", actor.id);
       res.json(await socialDistributionApprovalService.runSafeAutomationEvaluation(actor.id));
     } catch (err) { handleServiceError(res, err); }
   });
@@ -4212,7 +4264,9 @@ Keep under 200 words.`
   app.post("/api/admin/marketplace-clones/:id/approve", requireRootAdmin, async (req, res) => {
     try {
       const admin = getAdminVerification(req);
-      const result = await agentMarketplaceCloneService.approvePackage(req.params.id, admin?.actor.id || ROOT_ADMIN_ACTOR_ID);
+      const actorId = admin?.actor.id || ROOT_ADMIN_ACTOR_ID;
+      await safeModeService.assertCapabilityAllowed("marketplace_clone_approval", actorId);
+      const result = await agentMarketplaceCloneService.approvePackage(req.params.id, actorId);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });

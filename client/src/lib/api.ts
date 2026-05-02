@@ -934,6 +934,87 @@ export type AdminCivilizationHealthDashboard = {
   };
 };
 
+export type AdminSafeModeControls = {
+  id: number;
+  globalSafeMode: boolean;
+  pauseAutonomousPublishing: boolean;
+  pauseMarketplaceApprovals: boolean;
+  pauseExternalAgentActions: boolean;
+  pauseSocialDistributionAutomation: boolean;
+  pauseYouTubeUploads: boolean;
+  pausePodcastAudioGeneration: boolean;
+  maintenanceBannerEnabled: boolean;
+  maintenanceBannerMessage: string | null;
+  updatedBy: string | null;
+  lastReason: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminSafeModeCapability =
+  | "youtube_upload"
+  | "social_safe_automation"
+  | "marketplace_clone_approval"
+  | "podcast_audio_generation"
+  | "external_agent_action"
+  | "agent_behavior_simulation";
+
+export type AdminSafeModeControlField =
+  | "globalSafeMode"
+  | "pauseAutonomousPublishing"
+  | "pauseMarketplaceApprovals"
+  | "pauseExternalAgentActions"
+  | "pauseSocialDistributionAutomation"
+  | "pauseYouTubeUploads"
+  | "pausePodcastAudioGeneration"
+  | "maintenanceBannerEnabled";
+
+export type AdminSafeModeStatus = {
+  controls: AdminSafeModeControls;
+  blockedCapabilities: Array<{
+    capability: AdminSafeModeCapability;
+    blocked: boolean;
+    reasons: string[];
+    controls: AdminSafeModeControlField[];
+  }>;
+  relatedControls: {
+    automationPolicy: {
+      id: number;
+      mode: string;
+      safeMode: boolean;
+      killSwitch: boolean;
+      updatedAt: string;
+    } | null;
+    founderEmergencyStopped: boolean;
+    socialAutomationSettings: AdminSocialDistributionAutomationSettings | null;
+  };
+  safeguards: {
+    rootAdminOnly: boolean;
+    manualActionsOnly: boolean;
+    globalSafeModeDoesNotBlockManualAdminWork: boolean;
+    explicitPauseFlagsGateMatchingFlowsOnly: boolean;
+    noAutonomousActivation: boolean;
+    noSecretsExposed: boolean;
+  };
+  knownConflicts: Array<{
+    key: string;
+    description: string;
+    status: string;
+  }>;
+};
+
+export type AdminSafeModeUpdatePayload = Partial<Record<AdminSafeModeControlField, boolean>> & {
+  maintenanceBannerMessage?: string | null;
+  reason: string;
+};
+
+export type AdminSafeModeActionPayload = {
+  action: AdminSafeModeControlField;
+  enabled: boolean;
+  maintenanceBannerMessage?: string | null;
+  reason: string;
+};
+
 async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
   if (!res.ok) return null;
@@ -1178,6 +1259,11 @@ export const api = {
     verify: () => adminFetch<AdminVerifyResponse>("/admin/verify"),
     stats: () => adminFetch<any>("/admin/stats"),
     civilizationHealth: () => adminFetch<AdminCivilizationHealthDashboard>("/admin/civilization-health"),
+    safeMode: () => adminFetch<AdminSafeModeStatus>("/admin/safe-mode"),
+    updateSafeMode: (data: AdminSafeModeUpdatePayload) =>
+      adminFetch<AdminSafeModeStatus>("/admin/safe-mode", { method: "PATCH", body: JSON.stringify(data) }),
+    safeModeAction: (data: AdminSafeModeActionPayload) =>
+      adminFetch<AdminSafeModeStatus>("/admin/safe-mode/action", { method: "POST", body: JSON.stringify(data) }),
     users: () => adminFetch<any[]>("/admin/users"),
     deleteUser: (id: string) => adminFetch<any>(`/admin/users/${id}`, { method: "DELETE" }),
     updateUser: (id: string, data: any) => adminFetch<any>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
