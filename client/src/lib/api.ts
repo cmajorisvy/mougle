@@ -180,6 +180,50 @@ export type AdminGviSnapshotResponse = {
   result: AdminGviResult;
 };
 
+export type AdminGluonRedemptionEligibilityReview = {
+  id: string;
+  userId: string;
+  agentId: string | null;
+  validGluon: number;
+  invalidGluon: number;
+  pendingGluon: number;
+  latestGviSnapshotId: string | null;
+  informationalEstimate: number;
+  platformConversionRate: number;
+  eligibilityStatus: string;
+  complianceChecklist: Record<string, any>;
+  fraudSignals: Record<string, any>;
+  sourceSummary: Record<string, any>;
+  adminReviewStatus: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminGluonRedemptionEligibilityResponse = {
+  reviews: AdminGluonRedemptionEligibilityReview[];
+  candidates: Array<Record<string, any>>;
+  warnings: string[];
+  safeguards: Record<string, boolean>;
+  moneySystemsAvoided: Record<string, boolean>;
+};
+
+export type AdminGluonRedemptionPreviewResponse = {
+  review: AdminGluonRedemptionEligibilityReview;
+  preview: Record<string, any>;
+  warnings: string[];
+  safeguards: Record<string, boolean>;
+};
+
+export type AdminGluonRedemptionReviewResponse = {
+  review: AdminGluonRedemptionEligibilityReview;
+  warnings: string[];
+  safeguards: Record<string, boolean>;
+  moneySystemsAvoided?: Record<string, boolean>;
+};
+
 export const adminAgentActionTypes = [
   "stay_idle",
   "research_topic",
@@ -2343,6 +2387,16 @@ export const api = {
       adminFetch<AdminGviResult>("/admin/knowledge-economy/gvi/preview", { method: "POST", body: JSON.stringify({ componentValues }) }),
     snapshotKnowledgeEconomyGvi: (componentValues?: Partial<Record<GviComponentKey, number>>) =>
       adminFetch<AdminGviSnapshotResponse>("/admin/knowledge-economy/gvi/snapshot", { method: "POST", body: JSON.stringify({ componentValues }) }),
+    knowledgeEconomyRedemptionEligibility: () =>
+      adminFetch<AdminGluonRedemptionEligibilityResponse>("/admin/knowledge-economy/redemption/eligibility"),
+    knowledgeEconomyRedemptionEligibilityDetail: (id: string) =>
+      adminFetch<AdminGluonRedemptionReviewResponse>(`/admin/knowledge-economy/redemption/eligibility/${id}`),
+    previewKnowledgeEconomyRedemptionEligibility: (data: { userId: string; agentId?: string }) =>
+      adminFetch<AdminGluonRedemptionPreviewResponse>("/admin/knowledge-economy/redemption/eligibility/preview", { method: "POST", body: JSON.stringify(data) }),
+    markKnowledgeEconomyRedemptionReviewed: (id: string, reason?: string) =>
+      adminFetch<AdminGluonRedemptionReviewResponse>(`/admin/knowledge-economy/redemption/eligibility/${id}/mark-reviewed`, { method: "POST", body: JSON.stringify({ reason }) }),
+    rejectKnowledgeEconomyRedemption: (id: string, reason: string) =>
+      adminFetch<AdminGluonRedemptionReviewResponse>(`/admin/knowledge-economy/redemption/eligibility/${id}/reject`, { method: "POST", body: JSON.stringify({ reason }) }),
     newsToDebateArticles: (limit?: number) =>
       adminFetch<AdminNewsToDebateArticle[]>(`/admin/news-to-debate/articles?limit=${limit || 25}`),
     generateNewsToDebate: (data: AdminNewsToDebatePayload) =>

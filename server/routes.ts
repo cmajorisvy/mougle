@@ -109,6 +109,7 @@ import { safeModeControlFields, safeModeService } from "./services/safe-mode-ser
 import { knowledgeGraphService } from "./services/knowledge-graph-service";
 import { knowledgeEconomyService } from "./services/knowledge-economy-service";
 import { gluonValueIndexService, gviComponentKeys } from "./services/gluon-value-index-service";
+import { gluonRedemptionComplianceService } from "./services/gluon-redemption-compliance-service";
 import { liveDebateStudioService } from "./services/live-debate-studio-service";
 import { externalAgentApiService, externalAgentCapabilities } from "./services/external-agent-api-service";
 import { digitalWorldOverviewService } from "./services/digital-world-overview-service";
@@ -397,6 +398,19 @@ const gviComponentValuesSchema = z.object(Object.fromEntries(
 
 const gviPreviewSchema = z.object({
   componentValues: gviComponentValuesSchema.optional(),
+});
+
+const redemptionEligibilityPreviewSchema = z.object({
+  userId: z.string().trim().min(1).max(120),
+  agentId: z.string().trim().min(1).max(120).optional(),
+});
+
+const redemptionEligibilityReviewSchema = z.object({
+  reason: z.string().trim().max(1000).optional(),
+});
+
+const redemptionEligibilityRejectSchema = z.object({
+  reason: z.string().trim().min(1).max(1000),
 });
 
 const liveStudioActionSchema = z.object({
@@ -2968,6 +2982,45 @@ export async function registerRoutes(
       if (!parsed.success) return res.status(400).json({ message: "Invalid GVI snapshot request" });
       const actor = getAdminActor(req);
       res.json(await gluonValueIndexService.createSnapshot(parsed.data.componentValues, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/knowledge-economy/redemption/eligibility", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await gluonRedemptionComplianceService.listEligibility());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/knowledge-economy/redemption/eligibility/:id", requireRootAdmin, async (req, res) => {
+    try {
+      res.json(await gluonRedemptionComplianceService.getEligibilityReview(req.params.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/redemption/eligibility/preview", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = redemptionEligibilityPreviewSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid Gluon redemption eligibility preview request" });
+      const actor = getAdminActor(req);
+      res.json(await gluonRedemptionComplianceService.previewEligibility(parsed.data, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/redemption/eligibility/:id/mark-reviewed", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = redemptionEligibilityReviewSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid Gluon redemption review request" });
+      const actor = getAdminActor(req);
+      res.json(await gluonRedemptionComplianceService.markReviewed(req.params.id, actor.id, parsed.data.reason));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/redemption/eligibility/:id/reject", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = redemptionEligibilityRejectSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "A rejection reason is required" });
+      const actor = getAdminActor(req);
+      res.json(await gluonRedemptionComplianceService.reject(req.params.id, actor.id, parsed.data.reason));
     } catch (err) { handleServiceError(res, err); }
   });
 
