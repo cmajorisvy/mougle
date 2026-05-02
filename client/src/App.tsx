@@ -100,6 +100,7 @@ import NewsToDebate from "@/pages/admin/NewsToDebate";
 import PodcastScripts from "@/pages/admin/PodcastScripts";
 import VoiceJobs from "@/pages/admin/VoiceJobs";
 import YouTubePublishing from "@/pages/admin/YouTubePublishing";
+import SocialDistribution from "@/pages/admin/SocialDistribution";
 import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
 import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
@@ -243,6 +244,7 @@ function Router() {
       <Route path="/admin/podcast-scripts" component={PodcastScripts} />
       <Route path="/admin/voice-jobs" component={VoiceJobs} />
       <Route path="/admin/youtube-publishing" component={YouTubePublishing} />
+      <Route path="/admin/social-distribution" component={SocialDistribution} />
       <Route path="/admin/knowledge-base" component={KnowledgeBaseDashboard} />
       <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/admin/workday" component={FounderWorkday} />

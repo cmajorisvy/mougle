@@ -601,6 +601,135 @@ export type AdminYouTubePackageActionResult = {
   };
 };
 
+export type AdminSocialDistributionProviderStatus = {
+  platform: string;
+  configured: boolean;
+  provider: "export_only" | "platform_api";
+  enabledForAutomation: boolean;
+  message: string;
+};
+
+export type AdminSocialDistributionCopyItem = {
+  platform: string;
+  text: string;
+  hashtags: string[];
+  linkUrl: string | null;
+  exportUrl: string | null;
+  characterCount: number;
+  dryRunOnly: boolean;
+};
+
+export type AdminSocialDistributionCopyPackage = {
+  sourceTitle: string;
+  sourceSummary: string;
+  sourceUrl: string | null;
+  sourceType: string;
+  mode: "manual" | "safe_automation";
+  posts: AdminSocialDistributionCopyItem[];
+  evidenceReferences: Array<{
+    label: string;
+    url: string | null;
+    claimId?: string;
+    confidenceScore?: number;
+    status?: string;
+  }>;
+  complianceNotes: string[];
+  safetyLabels: string[];
+  generatedAt: string;
+};
+
+export type AdminSocialDistributionGate = {
+  key: string;
+  label: string;
+  passed: boolean;
+  severity: "info" | "warning" | "blocking";
+  message: string;
+};
+
+export type AdminSocialDistributionPlatformResult = {
+  platform: string;
+  provider: "export_only" | "platform_api";
+  status: "pending" | "export_ready" | "posted" | "blocked" | "failed";
+  dryRun: boolean;
+  postUrl: string | null;
+  message: string;
+  postedAt: string | null;
+};
+
+export type AdminSocialDistributionPackage = {
+  id: number;
+  youtubePackageId: number | null;
+  scriptPackageId: number | null;
+  audioJobId: number | null;
+  sourceArticleId: number | null;
+  sourceType: string;
+  targetPlatforms: string[];
+  mode: "manual" | "safe_automation";
+  status: string;
+  approvalStatus: string;
+  postingStatus: string;
+  exportStatus: string;
+  generatedCopy: AdminSocialDistributionCopyPackage;
+  safetyGateResults: AdminSocialDistributionGate[];
+  platformResults: AdminSocialDistributionPlatformResult[];
+  errorMessage: string | null;
+  createdBy: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  postedBy: string | null;
+  postedAt: string | null;
+  exportedBy: string | null;
+  exportedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminSocialDistributionAutomationSettings = {
+  id: number;
+  safeAutomationEnabled: boolean;
+  paused: boolean;
+  killSwitch: boolean;
+  perPlatformEnabled: Record<string, { enabled: boolean; dailyLimit?: number }>;
+  dailyPostLimit: number;
+  duplicateWindowHours: number;
+  trustThreshold: number;
+  uesThreshold: number;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminSocialDistributionEligibleItem = {
+  youtubePackage: AdminYouTubePublishingPackage;
+  scriptPackage: AdminPodcastScriptPackage;
+  latestAudioJob: AdminPodcastAudioJob | null;
+  existingDistributionPackage: AdminSocialDistributionPackage | null;
+};
+
+export type AdminSocialDistributionEligibleResponse = {
+  providerStatus: AdminSocialDistributionProviderStatus[];
+  items: AdminSocialDistributionEligibleItem[];
+};
+
+export type AdminSocialDistributionGeneratePayload = {
+  youtubePackageId: number;
+  targetPlatforms?: string[];
+  mode?: "manual" | "safe_automation";
+};
+
+export type AdminSocialDistributionSettingsResponse = {
+  settings: AdminSocialDistributionAutomationSettings;
+  providerStatus: AdminSocialDistributionProviderStatus[];
+};
+
+export type AdminSocialDistributionAutomationResult = {
+  status: "blocked" | "prepared" | "exported";
+  message: string;
+  settings: AdminSocialDistributionAutomationSettings;
+  package: AdminSocialDistributionPackage | null;
+  gates: AdminSocialDistributionGate[];
+};
+
 export type UesSourceQuality = "calculated" | "partial" | "fallback";
 
 export type UesMetric = {
@@ -1000,6 +1129,26 @@ export const api = {
       adminFetch<AdminYouTubePackageActionResult>(`/admin/youtube-publishing/packages/${id}/approve`, { method: "POST" }),
     uploadYouTubePackage: (id: number) =>
       adminFetch<AdminYouTubePackageActionResult>(`/admin/youtube-publishing/packages/${id}/upload`, { method: "POST" }),
+    socialDistributionEligible: (limit?: number) =>
+      adminFetch<AdminSocialDistributionEligibleResponse>(`/admin/social-distribution/eligible?limit=${limit || 50}`),
+    socialDistributionPackages: (limit?: number) =>
+      adminFetch<AdminSocialDistributionPackage[]>(`/admin/social-distribution/packages?limit=${limit || 50}`),
+    socialDistributionPackage: (id: number) =>
+      adminFetch<AdminSocialDistributionPackage>(`/admin/social-distribution/packages/${id}`),
+    generateSocialDistributionPackage: (data: AdminSocialDistributionGeneratePayload) =>
+      adminFetch<AdminSocialDistributionPackage>("/admin/social-distribution/packages/generate", { method: "POST", body: JSON.stringify(data) }),
+    approveSocialDistributionPackage: (id: number) =>
+      adminFetch<AdminSocialDistributionPackage>(`/admin/social-distribution/packages/${id}/approve`, { method: "POST" }),
+    exportSocialDistributionPackage: (id: number) =>
+      adminFetch<AdminSocialDistributionPackage>(`/admin/social-distribution/packages/${id}/export`, { method: "POST" }),
+    postSocialDistributionPackage: (id: number) =>
+      adminFetch<AdminSocialDistributionPackage>(`/admin/social-distribution/packages/${id}/post`, { method: "POST" }),
+    socialDistributionAutomationSettings: () =>
+      adminFetch<AdminSocialDistributionSettingsResponse>("/admin/social-distribution/automation-settings"),
+    updateSocialDistributionAutomationSettings: (data: Partial<AdminSocialDistributionAutomationSettings>) =>
+      adminFetch<AdminSocialDistributionSettingsResponse>("/admin/social-distribution/automation-settings", { method: "PATCH", body: JSON.stringify(data) }),
+    runSocialDistributionAutomationEvaluation: () =>
+      adminFetch<AdminSocialDistributionAutomationResult>("/admin/social-distribution/automation/evaluate", { method: "POST" }),
     posts: () => adminFetch<any[]>("/admin/posts"),
     deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
     topics: () => adminFetch<any[]>("/admin/topics"),
