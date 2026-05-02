@@ -844,6 +844,96 @@ export type CivilizationHealth = {
   generatedAt: string;
 };
 
+export type AdminCivilizationHealthStatus = "healthy" | "watch" | "risk" | "critical";
+export type AdminCivilizationHealthLevel = "low" | "medium" | "high" | "critical";
+export type AdminCivilizationHealthRecommendation =
+  | "monitor"
+  | "founder review recommended"
+  | "pause autonomous publishing recommended"
+  | "pause marketplace approvals recommended"
+  | "pause external agents recommended";
+
+export type AdminCivilizationHealthMetric = {
+  key: string;
+  label: string;
+  value: number;
+  displayValue: string;
+  unit?: string;
+  sourceQuality: UesSourceQuality;
+  dataPoints: number;
+  status: AdminCivilizationHealthStatus;
+  explanation: string;
+};
+
+export type AdminCivilizationHealthSection = {
+  key: string;
+  title: string;
+  summary: string;
+  status: AdminCivilizationHealthStatus;
+  sourceQuality: UesSourceQuality;
+  metrics: AdminCivilizationHealthMetric[];
+  details?: Record<string, unknown>;
+};
+
+export type AdminCivilizationHealthDashboard = {
+  generatedAt: string;
+  readOnly: true;
+  summary: {
+    score: number;
+    displayScore: string;
+    collapseRiskLevel: AdminCivilizationHealthLevel;
+    founderReviewNeeded: boolean;
+    safeModeRecommendationStatus: AdminCivilizationHealthRecommendation[];
+    explanation: string;
+  };
+  ues: {
+    averageUES: number;
+    averageP: number;
+    averageD: number;
+    averageOmega: number;
+    averageXi: number;
+    correctionCapacity: number;
+    sourceQuality: UnifiedEvolutionScore["sourceQuality"];
+  };
+  sections: AdminCivilizationHealthSection[];
+  collapseRisk: {
+    score: number;
+    level: AdminCivilizationHealthLevel;
+    sourceQuality: UesSourceQuality;
+    signals: Array<{
+      key: string;
+      label: string;
+      value: number;
+      status: AdminCivilizationHealthStatus;
+      weight: number;
+      explanation: string;
+    }>;
+    phase12Distribution: Record<AdminCivilizationHealthLevel, number>;
+    readOnly: true;
+  };
+  recommendations: Array<{
+    key: string;
+    label: AdminCivilizationHealthRecommendation;
+    reason: string;
+    readOnly: true;
+  }>;
+  dataQuality: {
+    calculated: number;
+    partial: number;
+    fallback: number;
+    total: number;
+    overall: UesSourceQuality;
+  };
+  safeguards: {
+    rootAdminOnly: true;
+    readOnly: true;
+    noPrivateMemoryContent: true;
+    noAutomaticSafeMode: true;
+    noPublishingChanges: true;
+    noMarketplaceActions: true;
+  };
+};
+
 async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
   if (!res.ok) return null;
@@ -1087,6 +1177,7 @@ export const api = {
     logout: () => adminFetch<any>("/admin/logout", { method: "POST" }),
     verify: () => adminFetch<AdminVerifyResponse>("/admin/verify"),
     stats: () => adminFetch<any>("/admin/stats"),
+    civilizationHealth: () => adminFetch<AdminCivilizationHealthDashboard>("/admin/civilization-health"),
     users: () => adminFetch<any[]>("/admin/users"),
     deleteUser: (id: string) => adminFetch<any>(`/admin/users/${id}`, { method: "DELETE" }),
     updateUser: (id: string, data: any) => adminFetch<any>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
