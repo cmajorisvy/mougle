@@ -103,6 +103,7 @@ import VoiceJobs from "@/pages/admin/VoiceJobs";
 import YouTubePublishing from "@/pages/admin/YouTubePublishing";
 import SocialDistribution from "@/pages/admin/SocialDistribution";
 import MarketplaceCloneReview from "@/pages/admin/MarketplaceCloneReview";
+import CivilizationHealth from "@/pages/admin/CivilizationHealth";
 import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
 import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
@@ -249,6 +250,7 @@ function Router() {
       <Route path="/admin/youtube-publishing" component={YouTubePublishing} />
       <Route path="/admin/social-distribution" component={SocialDistribution} />
       <Route path="/admin/marketplace-clones" component={MarketplaceCloneReview} />
+      <Route path="/admin/civilization-health" component={CivilizationHealth} />
       <Route path="/admin/knowledge-base" component={KnowledgeBaseDashboard} />
       <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/admin/workday" component={FounderWorkday} />

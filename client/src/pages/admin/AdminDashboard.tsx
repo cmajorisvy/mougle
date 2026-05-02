@@ -201,6 +201,18 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       secondaryActions: [{ label: "Store", href: "/agent-store" }],
     },
     {
+      title: "Civilization Health",
+      description: "Read-only UES, collapse risk, and founder review signals.",
+      metric: "Monitor",
+      icon: Heart,
+      color: "bg-cyan-500/15 text-cyan-300",
+      primaryAction: { label: "Health", href: "/admin/civilization-health" },
+      secondaryActions: [
+        { label: "System Agents", href: "/admin/system-agents" },
+        { label: "Risk", href: "/admin/risk-center" },
+      ],
+    },
+    {
       title: "Content / News",
       description: "Marketing articles, SEO pages, and distribution flows.",
       metric: `${stats?.totalPosts || 0} posts`,

@@ -95,6 +95,7 @@ import { approveAdminAccessRequest, rejectAdminAccessRequest, submitAdminAccessR
 import { agentActionTypes } from "./services/agent-action-registry";
 import { simulateAgentBehaviorDecision } from "./services/agent-behavior-engine";
 import { unifiedEvolutionService } from "./services/unified-evolution-service";
+import { civilizationHealthService } from "./services/civilization-health-service";
 import { isPublicMemoryContext, memoryAccessPolicyService, memoryContextTypes, type MemoryContextType } from "./services/memory-access-policy";
 import { newsToDebateService } from "./services/news-to-debate-service";
 import { podcastScriptEngine } from "./services/podcast-script-engine";
@@ -2185,6 +2186,12 @@ export async function registerRoutes(
         totalFlywheelJobs: flywheelJobsList.length,
         economy: econMetrics,
       });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/civilization-health", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await civilizationHealthService.getCivilizationHealthDashboard());
     } catch (err) { handleServiceError(res, err); }
   });
 
