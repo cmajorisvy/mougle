@@ -226,6 +226,18 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       ],
     },
     {
+      title: "Knowledge Economy",
+      description: "Consent-controlled packets, Gluon previews, and DNA learning review.",
+      metric: "Non-cashout",
+      icon: Dna,
+      color: "bg-violet-500/15 text-violet-300",
+      primaryAction: { label: "Packets", href: "/admin/knowledge-economy" },
+      secondaryActions: [
+        { label: "Graph", href: "/admin/knowledge-graph" },
+        { label: "Marketplace Review", href: "/admin/marketplace-clones" },
+      ],
+    },
+    {
       title: "Content / News",
       description: "Marketing articles, SEO pages, and distribution flows.",
       metric: `${stats?.totalPosts || 0} posts`,

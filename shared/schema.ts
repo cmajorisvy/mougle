@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, json, pgTable, text, varchar, integer, boolean, timestamp, jsonb, real } from "drizzle-orm/pg-core";
+import { index, json, pgTable, text, varchar, integer, boolean, timestamp, jsonb, real, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -416,6 +416,9 @@ export const civilizationInvestments = pgTable("civilization_investments", {
 export const agentGenomes = pgTable("agent_genomes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull().unique(),
+  primeSeed: text("prime_seed"),
+  primeColorSignature: jsonb("prime_color_signature").$type<Record<string, any>>().notNull().default({}),
+  dnaMetadata: jsonb("dna_metadata").$type<Record<string, any>>().notNull().default({}),
   curiosity: real("curiosity").notNull().default(0.5),
   riskTolerance: real("risk_tolerance").notNull().default(0.5),
   collaborationBias: real("collaboration_bias").notNull().default(0.5),
@@ -1641,6 +1644,110 @@ export const agentMarketplaceClonePackages = pgTable("agent_marketplace_clone_pa
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const knowledgePackets = pgTable("knowledge_packets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  creatorAgentId: varchar("creator_agent_id").notNull(),
+  creatorUserId: varchar("creator_user_id").notNull(),
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  abstractedContent: text("abstracted_content").notNull(),
+  sourceType: text("source_type").notNull(),
+  domainTags: text("domain_tags").array().notNull().default(sql`ARRAY[]::text[]`),
+  industryTags: text("industry_tags").array().notNull().default(sql`ARRAY[]::text[]`),
+  geoTags: text("geo_tags").array().notNull().default(sql`ARRAY[]::text[]`),
+  professionTags: text("profession_tags").array().notNull().default(sql`ARRAY[]::text[]`),
+  vaultType: text("vault_type").notNull().default("business"),
+  sensitivity: text("sensitivity").notNull().default("restricted"),
+  privacyLevel: text("privacy_level").notNull().default("internal"),
+  consentPolicy: jsonb("consent_policy").$type<Record<string, any>>().notNull().default({}),
+  safetyReport: jsonb("safety_report").$type<Record<string, any>>().notNull().default({}),
+  sourceFingerprint: text("source_fingerprint").notNull(),
+  evidenceStrength: real("evidence_strength").notNull().default(0),
+  noveltyScore: real("novelty_score").notNull().default(0),
+  usefulnessPrediction: real("usefulness_prediction").notNull().default(0),
+  riskScore: real("risk_score").notNull().default(1),
+  complianceScore: real("compliance_score").notNull().default(0),
+  freshnessTimestamp: timestamp("freshness_timestamp").defaultNow(),
+  halfLifeDays: integer("half_life_days").notNull().default(90),
+  verificationStatus: text("verification_status").notNull().default("unverified"),
+  reviewStatus: text("review_status").notNull().default("draft"),
+  status: text("status").notNull().default("draft"),
+  acceptedByAgents: integer("accepted_by_agents").notNull().default(0),
+  rejectedByAgents: integer("rejected_by_agents").notNull().default(0),
+  challengedByAgents: integer("challenged_by_agents").notNull().default(0),
+  downstreamUsageCount: integer("downstream_usage_count").notNull().default(0),
+  weightedAcceptance: real("weighted_acceptance").notNull().default(0),
+  gluonEarned: real("gluon_earned").notNull().default(0),
+  parentPacketIds: text("parent_packet_ids").array().notNull().default(sql`ARRAY[]::text[]`),
+  derivedPacketIds: text("derived_packet_ids").array().notNull().default(sql`ARRAY[]::text[]`),
+  submittedAt: timestamp("submitted_at"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("knowledge_packets_creator_user_idx").on(table.creatorUserId),
+  index("knowledge_packets_creator_agent_idx").on(table.creatorAgentId),
+  index("knowledge_packets_fingerprint_idx").on(table.sourceFingerprint),
+]);
+
+export const knowledgePacketAcceptances = pgTable("knowledge_packet_acceptances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  packetId: varchar("packet_id").notNull(),
+  acceptingAgentId: varchar("accepting_agent_id").notNull(),
+  acceptingAgentType: text("accepting_agent_type").notNull(),
+  acceptingUserId: varchar("accepting_user_id"),
+  decision: text("decision").notNull(),
+  domainMatch: real("domain_match").notNull().default(0),
+  receiverAuthority: real("receiver_authority").notNull().default(0),
+  retentionScore: real("retention_score").notNull().default(0),
+  realWorldFeedbackScore: real("real_world_feedback_score").notNull().default(0),
+  weightedAcceptanceContribution: real("weighted_acceptance_contribution").notNull().default(0),
+  trustInputs: jsonb("trust_inputs").$type<Record<string, any>>().notNull().default({}),
+  uesInputs: jsonb("ues_inputs").$type<Record<string, any>>().notNull().default({}),
+  rationale: text("rationale"),
+  challengeReason: text("challenge_reason"),
+  sandboxOnly: boolean("sandbox_only").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("knowledge_packet_acceptances_packet_acceptor_unique").on(table.packetId, table.acceptingAgentId, table.acceptingAgentType),
+  index("knowledge_packet_acceptances_packet_idx").on(table.packetId),
+]);
+
+export const gluonLedgerEntries = pgTable("gluon_ledger_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  packetId: varchar("packet_id").notNull(),
+  agentId: varchar("agent_id"),
+  userId: varchar("user_id"),
+  eventType: text("event_type").notNull(),
+  amount: real("amount").notNull().default(0),
+  calculationInputs: jsonb("calculation_inputs").$type<Record<string, any>>().notNull().default({}),
+  status: text("status").notNull().default("simulated"),
+  nonConvertible: boolean("non_convertible").notNull().default(true),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("gluon_ledger_packet_idx").on(table.packetId),
+  index("gluon_ledger_agent_idx").on(table.agentId),
+  index("gluon_ledger_user_idx").on(table.userId),
+]);
+
+export const agentDnaMutationHistory = pgTable("agent_dna_mutation_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  agentId: varchar("agent_id").notNull(),
+  packetId: varchar("packet_id").notNull(),
+  mutationType: text("mutation_type").notNull(),
+  beforeDna: jsonb("before_dna").$type<Record<string, any>>().notNull().default({}),
+  afterDna: jsonb("after_dna").$type<Record<string, any>>().notNull().default({}),
+  scoreInputs: jsonb("score_inputs").$type<Record<string, any>>().notNull().default({}),
+  status: text("status").notNull().default("preview"),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("agent_dna_mutation_history_agent_idx").on(table.agentId),
+  index("agent_dna_mutation_history_packet_idx").on(table.packetId),
+]);
+
 export const agentPurchases = pgTable("agent_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   buyerId: varchar("buyer_id").notNull(),
@@ -1905,6 +2012,10 @@ export const insertUserAgentSchema = createInsertSchema(userAgents).omit({ id: t
 export const insertAgentKnowledgeSourceSchema = createInsertSchema(agentKnowledgeSources).omit({ id: true, createdAt: true, processedAt: true });
 export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({ id: true, createdAt: true, updatedAt: true, totalSales: true, totalRevenue: true, averageRating: true, reviewCount: true });
 export const insertAgentMarketplaceClonePackageSchema = createInsertSchema(agentMarketplaceClonePackages).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertKnowledgePacketSchema = createInsertSchema(knowledgePackets).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertKnowledgePacketAcceptanceSchema = createInsertSchema(knowledgePacketAcceptances).omit({ id: true, createdAt: true });
+export const insertGluonLedgerEntrySchema = createInsertSchema(gluonLedgerEntries).omit({ id: true, createdAt: true });
+export const insertAgentDnaMutationHistorySchema = createInsertSchema(agentDnaMutationHistory).omit({ id: true, createdAt: true });
 export const insertAgentPurchaseSchema = createInsertSchema(agentPurchases).omit({ id: true, createdAt: true });
 export const insertAgentUsageLogSchema = createInsertSchema(agentUsageLogs).omit({ id: true, createdAt: true });
 export const insertAgentReviewSchema = createInsertSchema(agentReviews).omit({ id: true, createdAt: true, helpful: true });
@@ -2010,6 +2121,14 @@ export type MarketplaceListing = typeof marketplaceListings.$inferSelect;
 export type InsertMarketplaceListing = z.infer<typeof insertMarketplaceListingSchema>;
 export type AgentMarketplaceClonePackage = typeof agentMarketplaceClonePackages.$inferSelect;
 export type InsertAgentMarketplaceClonePackage = z.infer<typeof insertAgentMarketplaceClonePackageSchema>;
+export type KnowledgePacket = typeof knowledgePackets.$inferSelect;
+export type InsertKnowledgePacket = typeof knowledgePackets.$inferInsert;
+export type KnowledgePacketAcceptance = typeof knowledgePacketAcceptances.$inferSelect;
+export type InsertKnowledgePacketAcceptance = typeof knowledgePacketAcceptances.$inferInsert;
+export type GluonLedgerEntry = typeof gluonLedgerEntries.$inferSelect;
+export type InsertGluonLedgerEntry = typeof gluonLedgerEntries.$inferInsert;
+export type AgentDnaMutationHistory = typeof agentDnaMutationHistory.$inferSelect;
+export type InsertAgentDnaMutationHistory = typeof agentDnaMutationHistory.$inferInsert;
 export type AgentPurchase = typeof agentPurchases.$inferSelect;
 export type InsertAgentPurchase = z.infer<typeof insertAgentPurchaseSchema>;
 export type AgentUsageLog = typeof agentUsageLogs.$inferSelect;

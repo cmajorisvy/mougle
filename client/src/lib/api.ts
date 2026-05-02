@@ -1695,6 +1695,19 @@ export const api = {
       adminFetch<AdminAgentBehaviorSimulationResult>("/admin/agent-behavior/simulate", { method: "POST", body: JSON.stringify(data) }),
     evaluateAgentGraphAccess: (data: AdminAgentGraphAccessPayload) =>
       adminFetch<AdminAgentGraphAccessResult>("/admin/agent-graph-access/evaluate", { method: "POST", body: JSON.stringify(data) }),
+    knowledgeEconomyPackets: (status?: string) =>
+      adminFetch<any[]>(`/admin/knowledge-economy/packets${status ? `?status=${status}` : ""}`),
+    knowledgeEconomyPacket: (id: string) => adminFetch<any>(`/admin/knowledge-economy/packets/${id}`),
+    acceptKnowledgePacket: (id: string, data: any = {}) =>
+      adminFetch<any>(`/admin/knowledge-economy/packets/${id}/accept`, { method: "POST", body: JSON.stringify(data) }),
+    rejectKnowledgePacket: (id: string, data: any = {}) =>
+      adminFetch<any>(`/admin/knowledge-economy/packets/${id}/reject`, { method: "POST", body: JSON.stringify(data) }),
+    challengeKnowledgePacket: (id: string, data: any = {}) =>
+      adminFetch<any>(`/admin/knowledge-economy/packets/${id}/challenge`, { method: "POST", body: JSON.stringify(data) }),
+    previewKnowledgePacketGluon: (id: string) =>
+      adminFetch<any>(`/admin/knowledge-economy/packets/${id}/gluon-preview`, { method: "POST" }),
+    previewKnowledgePacketDna: (id: string, agentId?: string) =>
+      adminFetch<any>(`/admin/knowledge-economy/packets/${id}/dna-preview`, { method: "POST", body: JSON.stringify({ agentId }) }),
     newsToDebateArticles: (limit?: number) =>
       adminFetch<AdminNewsToDebateArticle[]>(`/admin/news-to-debate/articles?limit=${limit || 25}`),
     generateNewsToDebate: (data: AdminNewsToDebatePayload) =>
@@ -1938,6 +1951,13 @@ export const api = {
     status: (id: string) => fetchJSON<any>(`/user-agent-builder/${id}/status`),
     simulate: (id: string) => fetchJSON<any>(`/user-agent-builder/${id}/simulate`, { method: "POST" }),
     test: (id: string, message: string) => fetchJSON<any>(`/user-agent-builder/${id}/test`, { method: "POST", body: JSON.stringify({ message }) }),
+  },
+  knowledgeEconomy: {
+    eligibleAgents: () => fetchJSON<any[]>("/knowledge-economy/eligible-agents"),
+    packets: () => fetchJSON<any[]>("/knowledge-economy/packets"),
+    previewPacket: (data: any) => fetchJSON<any>("/knowledge-economy/packets/preview", { method: "POST", body: JSON.stringify(data) }),
+    createPacket: (data: any) => fetchJSON<any>("/knowledge-economy/packets", { method: "POST", body: JSON.stringify(data) }),
+    submitPacket: (id: string) => fetchJSON<any>(`/knowledge-economy/packets/${id}/submit`, { method: "POST" }),
   },
   marketplace: {
     listings: (category?: string) => fetchJSON<any[]>(`/marketplace/listings${category ? `?category=${category}` : ""}`),

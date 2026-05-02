@@ -108,6 +108,7 @@ import { agentRunnerService as userAgentRunnerService } from "./services/agent-r
 import { agentMarketplaceCloneService, marketplaceCloneExportModes } from "./services/agent-marketplace-clone-service";
 import { safeModeControlFields, safeModeService } from "./services/safe-mode-service";
 import { knowledgeGraphService } from "./services/knowledge-graph-service";
+import { knowledgeEconomyService } from "./services/knowledge-economy-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -254,6 +255,47 @@ const marketplaceCloneRequestSchema = z.object({
 
 const marketplaceCloneSandboxSchema = z.object({
   prompt: z.string().trim().max(1000).optional(),
+});
+
+const knowledgeEconomyTagSchema = z.array(z.string().trim().min(1).max(64)).max(12).optional();
+const knowledgePacketPayloadSchema = z.object({
+  creatorAgentId: z.string().trim().min(1).max(120),
+  title: z.string().trim().min(4).max(180),
+  summary: z.string().trim().min(12).max(1200),
+  abstractedContent: z.string().trim().min(20).max(12000),
+  sourceType: z.string().trim().max(80).optional(),
+  domainTags: knowledgeEconomyTagSchema,
+  industryTags: knowledgeEconomyTagSchema,
+  geoTags: knowledgeEconomyTagSchema,
+  professionTags: knowledgeEconomyTagSchema,
+  vaultType: z.enum(["business", "public", "behavioral", "verified"]).optional(),
+  sensitivity: z.enum(["public", "low", "internal", "restricted"]).optional(),
+  privacyLevel: z.string().trim().max(80).optional(),
+  consentPolicy: z.record(z.any()).optional(),
+  evidenceStrength: z.number().min(0).max(1).optional(),
+  noveltyScore: z.number().min(0).max(1).optional(),
+  usefulnessPrediction: z.number().min(0).max(1).optional(),
+  riskScore: z.number().min(0).max(1).optional(),
+  complianceScore: z.number().min(0).max(1).optional(),
+  halfLifeDays: z.number().int().min(1).max(3650).optional(),
+  parentPacketIds: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+});
+
+const knowledgePacketReviewSchema = z.object({
+  acceptingAgentId: z.string().trim().min(1).max(120).optional(),
+  acceptingAgentType: z.enum(["system_agent", "user_agent", "root_admin"]).optional(),
+  acceptingUserId: z.string().trim().min(1).max(120).optional(),
+  domainMatch: z.number().min(0).max(1).optional(),
+  receiverAuthority: z.number().min(0).max(1).optional(),
+  retentionScore: z.number().min(0).max(1).optional(),
+  realWorldFeedbackScore: z.number().min(0).max(1).optional(),
+  rationale: z.string().trim().max(1200).optional(),
+  challengeReason: z.string().trim().max(1200).optional(),
+  sandboxOnly: z.boolean().optional(),
+});
+
+const knowledgePacketDnaPreviewSchema = z.object({
+  agentId: z.string().trim().min(1).max(120).optional(),
 });
 
 function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
@@ -2495,6 +2537,61 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/admin/knowledge-economy/packets", requireRootAdmin, async (req, res) => {
+    try {
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      res.json(await knowledgeEconomyService.listAdminPackets(status));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/knowledge-economy/packets/:id", requireRootAdmin, async (req, res) => {
+    try {
+      res.json(await knowledgeEconomyService.getPacketDetail(req.params.id, { admin: true }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/packets/:id/accept", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = knowledgePacketReviewSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid packet acceptance request" });
+      const actor = getAdminActor(req);
+      res.json(await knowledgeEconomyService.reviewPacket(req.params.id, { ...parsed.data, decision: "accepted" }, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/packets/:id/reject", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = knowledgePacketReviewSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid packet rejection request" });
+      const actor = getAdminActor(req);
+      res.json(await knowledgeEconomyService.reviewPacket(req.params.id, { ...parsed.data, decision: "rejected" }, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/packets/:id/challenge", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = knowledgePacketReviewSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid packet challenge request" });
+      const actor = getAdminActor(req);
+      res.json(await knowledgeEconomyService.reviewPacket(req.params.id, { ...parsed.data, decision: "challenged" }, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/packets/:id/gluon-preview", requireRootAdmin, async (req, res) => {
+    try {
+      res.json(await knowledgeEconomyService.previewGluon(req.params.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/packets/:id/dna-preview", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = knowledgePacketDnaPreviewSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid DNA preview request" });
+      const actor = getAdminActor(req);
+      res.json(await knowledgeEconomyService.previewDnaMutation(req.params.id, parsed.data.agentId, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.get("/api/admin/news-to-debate/articles", requireRootAdmin, async (req, res) => {
     try {
       const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 25;
@@ -3980,6 +4077,40 @@ Keep under 200 words.`
         publicActions: false,
         ...result,
       });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/knowledge-economy/eligible-agents", requireAuth, async (req, res) => {
+    try {
+      res.json(await knowledgeEconomyService.listEligibleAgents(req.user.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/knowledge-economy/packets/preview", requireAuth, async (req, res) => {
+    try {
+      const parsed = knowledgePacketPayloadSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid knowledge packet preview request" });
+      res.json(await knowledgeEconomyService.previewPacket(req.user.id, parsed.data));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/knowledge-economy/packets", requireAuth, async (req, res) => {
+    try {
+      const parsed = knowledgePacketPayloadSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid knowledge packet request" });
+      res.status(201).json(await knowledgeEconomyService.createPacket(req.user.id, parsed.data));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/knowledge-economy/packets/:id/submit", requireAuth, async (req, res) => {
+    try {
+      res.json(await knowledgeEconomyService.submitPacket(req.user.id, req.params.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/knowledge-economy/packets", requireAuth, async (req, res) => {
+    try {
+      res.json(await knowledgeEconomyService.listUserPackets(req.user.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
