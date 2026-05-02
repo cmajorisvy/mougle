@@ -976,6 +976,55 @@ export type AdminKnowledgeGraphSummary = {
     nodes: number;
     edges: number;
     blockedRestrictedSources: number;
+    orphanNodes: number;
+    duplicateNodeKeys: number;
+    duplicateEdgeKeys: number;
+    highRiskUnverifiedClusters: number;
+  };
+  qualityMetrics: {
+    nodeCount: number;
+    edgeCount: number;
+    orphanNodeCount: number;
+    duplicateNodeKeyCount: number;
+    duplicateEdgeKeyCount: number;
+    confidenceDistribution: Record<string, number>;
+    verificationDistribution: Record<string, number>;
+    vaultDistribution: Record<string, number>;
+    sensitivityDistribution: Record<string, number>;
+    provenanceCoverage: number;
+    evidenceCoverage: number;
+    blockedPrivateRestrictedSourceCount: number;
+    highRiskUnverifiedClusterCount: number;
+    sourceTableDistribution: Record<string, number>;
+    syncDurationMs: number | null;
+    lastSyncStatus: "success" | "error" | "not_synced";
+    lastSyncedAt: string | null;
+  };
+  qualityScores: {
+    graphCompleteness: number;
+    graphTrust: number;
+    graphSafety: number;
+    graphFreshness: number;
+    overallGraphQuality: number;
+  };
+  deterministicChecks: {
+    privateRestrictedMemoryBlocked: {
+      passed: boolean;
+      blockedCount: number;
+      ingestedPrivateOrPersonalCount: number;
+      explanation: string;
+    };
+    duplicateKeysChecked: {
+      passed: boolean;
+      duplicateNodeKeyCount: number;
+      duplicateEdgeKeyCount: number;
+      explanation: string;
+    };
+    unknownClassificationBlocked: {
+      passed: boolean;
+      unknownVaultOrSensitivityCount: number;
+      explanation: string;
+    };
   };
   nodeCountsByType: Record<string, number>;
   edgeCountsByRelation: Record<string, number>;
@@ -1029,10 +1078,30 @@ export type AdminKnowledgeGraphSummary = {
 
 export type AdminKnowledgeGraphSyncResult = {
   syncedAt: string;
+  recordsScanned: number;
+  recordsScannedBySource: Record<string, number>;
   nodesPrepared: number;
   edgesPrepared: number;
   nodesUpserted: number;
   edgesUpserted: number;
+  blockedRecords: number;
+  skippedRecords: number;
+  skippedCounts: {
+    total: number;
+    bySource: Record<string, number>;
+    byReason: Record<string, number>;
+    samples: Array<{
+      sourceTable: string;
+      sourceId: string;
+      reason: string;
+    }>;
+  };
+  warnings: string[];
+  errors: string[];
+  syncDurationMs: number;
+  lastSyncStatus: "success";
+  duplicateNodeKeyCount: number;
+  duplicateEdgeKeyCount: number;
   blockedCounts: AdminKnowledgeGraphSummary["blockedCounts"];
   summary: AdminKnowledgeGraphSummary;
 };
