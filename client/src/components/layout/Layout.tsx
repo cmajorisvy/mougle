@@ -48,7 +48,7 @@ const mainNav = [
   { icon: Trophy, label: "Rankings", href: "/ranking", group: "Grow" },
   { icon: TrendingUp, label: "Growth Insights", href: "/psychology", group: "Grow" },
   { icon: Store, label: "Intelligence Exchange", href: "/agent-marketplace", group: "Earn" },
-  { icon: IndianRupee, label: "Creator Earnings", href: "/creator-earnings", group: "Earn" },
+  { icon: IndianRupee, label: "Creator Tools", href: "/creator-earnings", group: "Earn" },
   { icon: ShoppingBag, label: "Marketplace", href: "/agent-store", group: "Earn" },
   { icon: Shield, label: "Trust Center", href: "/trust-moat", group: "System" },
   { icon: CreditCard, label: "Billing", href: "/billing", group: "System" },

@@ -1599,6 +1599,27 @@ export const marketplaceListings = pgTable("marketplace_listings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const agentMarketplaceClonePackages = pgTable("agent_marketplace_clone_packages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceAgentId: varchar("source_agent_id").notNull(),
+  creatorUserId: varchar("creator_user_id").notNull(),
+  marketplaceListingId: varchar("marketplace_listing_id"),
+  exportMode: text("export_mode").notNull(),
+  status: text("status").notNull().default("draft"),
+  packageMetadata: jsonb("package_metadata").default({}),
+  includedVaultSummary: jsonb("included_vault_summary").default({}),
+  excludedVaultSummary: jsonb("excluded_vault_summary").default({}),
+  safetyReport: jsonb("safety_report").default({}),
+  sanitizerReport: jsonb("sanitizer_report").default({}),
+  sandboxConfig: jsonb("sandbox_config").default({}),
+  trustSignals: jsonb("trust_signals").default({}),
+  reviewStatus: text("review_status").notNull().default("draft"),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const agentPurchases = pgTable("agent_purchases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   buyerId: varchar("buyer_id").notNull(),
@@ -1862,6 +1883,7 @@ export type AgentTrustHistory = typeof agentTrustHistory.$inferSelect;
 export const insertUserAgentSchema = createInsertSchema(userAgents).omit({ id: true, createdAt: true, updatedAt: true, totalUsageCount: true, totalCreditsEarned: true, rating: true, ratingCount: true, trustScore: true, qualityScore: true, weeklyUsageCount: true, monthlyUsageCount: true, xp: true, level: true });
 export const insertAgentKnowledgeSourceSchema = createInsertSchema(agentKnowledgeSources).omit({ id: true, createdAt: true, processedAt: true });
 export const insertMarketplaceListingSchema = createInsertSchema(marketplaceListings).omit({ id: true, createdAt: true, updatedAt: true, totalSales: true, totalRevenue: true, averageRating: true, reviewCount: true });
+export const insertAgentMarketplaceClonePackageSchema = createInsertSchema(agentMarketplaceClonePackages).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAgentPurchaseSchema = createInsertSchema(agentPurchases).omit({ id: true, createdAt: true });
 export const insertAgentUsageLogSchema = createInsertSchema(agentUsageLogs).omit({ id: true, createdAt: true });
 export const insertAgentReviewSchema = createInsertSchema(agentReviews).omit({ id: true, createdAt: true, helpful: true });
@@ -1965,6 +1987,8 @@ export type AgentKnowledgeSource = typeof agentKnowledgeSources.$inferSelect;
 export type InsertAgentKnowledgeSource = z.infer<typeof insertAgentKnowledgeSourceSchema>;
 export type MarketplaceListing = typeof marketplaceListings.$inferSelect;
 export type InsertMarketplaceListing = z.infer<typeof insertMarketplaceListingSchema>;
+export type AgentMarketplaceClonePackage = typeof agentMarketplaceClonePackages.$inferSelect;
+export type InsertAgentMarketplaceClonePackage = z.infer<typeof insertAgentMarketplaceClonePackageSchema>;
 export type AgentPurchase = typeof agentPurchases.$inferSelect;
 export type InsertAgentPurchase = z.infer<typeof insertAgentPurchaseSchema>;
 export type AgentUsageLog = typeof agentUsageLogs.$inferSelect;

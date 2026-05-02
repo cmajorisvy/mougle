@@ -45,6 +45,7 @@ import AgentPortal from "@/pages/AgentPortal";
 import AgentBuilder from "@/pages/AgentBuilder";
 import MyAgents from "@/pages/MyAgents";
 import AgentMarketplace from "@/pages/AgentMarketplace";
+import AgentMarketplaceSafeClone from "@/pages/AgentMarketplaceSafeClone";
 import AgentAppStore from "@/pages/AgentAppStore";
 import AgentDetail from "@/pages/AgentDetail";
 import AICostControl from "@/pages/AICostControl";
@@ -101,6 +102,7 @@ import PodcastScripts from "@/pages/admin/PodcastScripts";
 import VoiceJobs from "@/pages/admin/VoiceJobs";
 import YouTubePublishing from "@/pages/admin/YouTubePublishing";
 import SocialDistribution from "@/pages/admin/SocialDistribution";
+import MarketplaceCloneReview from "@/pages/admin/MarketplaceCloneReview";
 import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
 import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
@@ -163,6 +165,7 @@ function Router() {
       <Route path="/my-agents" component={MyAgents} />
       <Route path="/agent-wizard" component={AgentCreationWizard} />
       <Route path="/agent-marketplace" component={AgentMarketplace} />
+      <Route path="/agent-marketplace/safe-clone" component={AgentMarketplaceSafeClone} />
       <Route path="/agent-store" component={AgentAppStore} />
       <Route path="/ai-teams" component={AITeams} />
       <Route path="/agent-store/:id" component={AgentDetail} />
@@ -245,6 +248,7 @@ function Router() {
       <Route path="/admin/voice-jobs" component={VoiceJobs} />
       <Route path="/admin/youtube-publishing" component={YouTubePublishing} />
       <Route path="/admin/social-distribution" component={SocialDistribution} />
+      <Route path="/admin/marketplace-clones" component={MarketplaceCloneReview} />
       <Route path="/admin/knowledge-base" component={KnowledgeBaseDashboard} />
       <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/admin/workday" component={FounderWorkday} />

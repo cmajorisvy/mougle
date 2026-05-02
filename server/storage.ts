@@ -31,6 +31,7 @@ import {
   type UserAgent, type InsertUserAgent,
   type AgentKnowledgeSource, type InsertAgentKnowledgeSource,
   type MarketplaceListing, type InsertMarketplaceListing,
+  type AgentMarketplaceClonePackage, type InsertAgentMarketplaceClonePackage,
   type AgentPurchase, type InsertAgentPurchase,
   type AgentUsageLog, type InsertAgentUsageLog,
   type AgentLineage, type InsertAgentLineage,
@@ -86,7 +87,7 @@ import {
   activityMetrics, anomalyEvents, automationDecisions, automationPolicy,
   subscriptionPlans, userSubscriptions, creditPackages, creditPurchases, invoices, creditUsageLog,
   moderationLogs,
-  userAgents, agentKnowledgeSources, marketplaceListings, agentPurchases, agentUsageLogs,
+  userAgents, agentKnowledgeSources, marketplaceListings, agentMarketplaceClonePackages, agentPurchases, agentUsageLogs,
   agentReviews, agentVersions, agentCostLogs,
   agentTeams, teamMembers, teamTasks, teamMessages, teamWorkspaces,
   type AgentReview, type InsertAgentReview,
@@ -144,7 +145,7 @@ import {
   projects, projectPackages, projectAgentContributions, projectPackagePurchases, projectValidations, projectFeedback,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, asc, gte, lte } from "drizzle-orm";
+import { eq, desc, sql, and, asc, gte, lte, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Flywheel Metrics
@@ -483,6 +484,12 @@ export interface IStorage {
   getMarketplaceListings(category?: string): Promise<MarketplaceListing[]>;
   getMarketplaceListingByAgent(agentId: string): Promise<MarketplaceListing | undefined>;
   updateMarketplaceListing(id: string, data: Partial<MarketplaceListing>): Promise<MarketplaceListing>;
+  createAgentMarketplaceClonePackage(data: InsertAgentMarketplaceClonePackage): Promise<AgentMarketplaceClonePackage>;
+  getAgentMarketplaceClonePackage(id: string): Promise<AgentMarketplaceClonePackage | undefined>;
+  getAgentMarketplaceClonePackageByListingId(listingId: string): Promise<AgentMarketplaceClonePackage | undefined>;
+  getAgentMarketplaceClonePackagesByCreator(creatorUserId: string): Promise<AgentMarketplaceClonePackage[]>;
+  getAgentMarketplaceClonePackagesForReview(status?: string): Promise<AgentMarketplaceClonePackage[]>;
+  updateAgentMarketplaceClonePackage(id: string, data: Partial<AgentMarketplaceClonePackage>): Promise<AgentMarketplaceClonePackage>;
 
   createAgentPurchase(purchase: InsertAgentPurchase): Promise<AgentPurchase>;
   getAgentPurchasesByBuyer(buyerId: string): Promise<AgentPurchase[]>;
@@ -2153,12 +2160,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMarketplaceListings(category?: string): Promise<MarketplaceListing[]> {
+    const safeStatuses = ["approved"];
     if (category) {
       return db.select().from(marketplaceListings).where(
-        and(eq(marketplaceListings.status, "active"), eq(marketplaceListings.category, category))
+        and(inArray(marketplaceListings.status, safeStatuses), eq(marketplaceListings.category, category))
       ).orderBy(desc(marketplaceListings.totalSales));
     }
-    return db.select().from(marketplaceListings).where(eq(marketplaceListings.status, "active")).orderBy(desc(marketplaceListings.totalSales));
+    return db.select().from(marketplaceListings).where(inArray(marketplaceListings.status, safeStatuses)).orderBy(desc(marketplaceListings.totalSales));
   }
 
   async getMarketplaceListingByAgent(agentId: string): Promise<MarketplaceListing | undefined> {
@@ -2168,6 +2176,44 @@ export class DatabaseStorage implements IStorage {
 
   async updateMarketplaceListing(id: string, data: Partial<MarketplaceListing>): Promise<MarketplaceListing> {
     const [updated] = await db.update(marketplaceListings).set({ ...data, updatedAt: new Date() }).where(eq(marketplaceListings.id, id)).returning();
+    return updated;
+  }
+
+  async createAgentMarketplaceClonePackage(data: InsertAgentMarketplaceClonePackage): Promise<AgentMarketplaceClonePackage> {
+    const [created] = await db.insert(agentMarketplaceClonePackages).values(data).returning();
+    return created;
+  }
+
+  async getAgentMarketplaceClonePackage(id: string): Promise<AgentMarketplaceClonePackage | undefined> {
+    const [pkg] = await db.select().from(agentMarketplaceClonePackages).where(eq(agentMarketplaceClonePackages.id, id));
+    return pkg;
+  }
+
+  async getAgentMarketplaceClonePackageByListingId(listingId: string): Promise<AgentMarketplaceClonePackage | undefined> {
+    const [pkg] = await db.select().from(agentMarketplaceClonePackages).where(eq(agentMarketplaceClonePackages.marketplaceListingId, listingId));
+    return pkg;
+  }
+
+  async getAgentMarketplaceClonePackagesByCreator(creatorUserId: string): Promise<AgentMarketplaceClonePackage[]> {
+    return db.select().from(agentMarketplaceClonePackages)
+      .where(eq(agentMarketplaceClonePackages.creatorUserId, creatorUserId))
+      .orderBy(desc(agentMarketplaceClonePackages.createdAt));
+  }
+
+  async getAgentMarketplaceClonePackagesForReview(status?: string): Promise<AgentMarketplaceClonePackage[]> {
+    if (status) {
+      return db.select().from(agentMarketplaceClonePackages)
+        .where(eq(agentMarketplaceClonePackages.reviewStatus, status))
+        .orderBy(desc(agentMarketplaceClonePackages.createdAt));
+    }
+    return db.select().from(agentMarketplaceClonePackages).orderBy(desc(agentMarketplaceClonePackages.createdAt));
+  }
+
+  async updateAgentMarketplaceClonePackage(id: string, data: Partial<AgentMarketplaceClonePackage>): Promise<AgentMarketplaceClonePackage> {
+    const [updated] = await db.update(agentMarketplaceClonePackages)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(agentMarketplaceClonePackages.id, id))
+      .returning();
     return updated;
   }
 
@@ -2236,31 +2282,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStoreRankings(limit = 20): Promise<MarketplaceListing[]> {
+    const safeStatuses = ["approved"];
     return db.select().from(marketplaceListings)
-      .where(eq(marketplaceListings.status, "active"))
+      .where(inArray(marketplaceListings.status, safeStatuses))
       .orderBy(sql`(${marketplaceListings.totalSales} * 0.4 + ${marketplaceListings.averageRating} * 20 * 0.3 + ${marketplaceListings.reviewCount} * 0.3) DESC`)
       .limit(limit);
   }
 
   async getFeaturedListings(): Promise<MarketplaceListing[]> {
+    const safeStatuses = ["approved"];
     return db.select().from(marketplaceListings)
-      .where(and(eq(marketplaceListings.status, "active"), eq(marketplaceListings.featured, true)))
+      .where(and(inArray(marketplaceListings.status, safeStatuses), eq(marketplaceListings.featured, true)))
       .orderBy(desc(marketplaceListings.totalSales));
   }
 
   async getTrendingListings(limit = 10): Promise<MarketplaceListing[]> {
+    const safeStatuses = ["approved"];
     return db.select().from(marketplaceListings)
-      .where(eq(marketplaceListings.status, "active"))
+      .where(inArray(marketplaceListings.status, safeStatuses))
       .orderBy(desc(marketplaceListings.totalSales))
       .limit(limit);
   }
 
   async searchListings(query: string, category?: string): Promise<MarketplaceListing[]> {
+    const safeStatuses = ["approved"];
     const searchPattern = `%${query.toLowerCase()}%`;
     if (category) {
       return db.select().from(marketplaceListings).where(
         and(
-          eq(marketplaceListings.status, "active"),
+          inArray(marketplaceListings.status, safeStatuses),
           eq(marketplaceListings.category, category),
           sql`(LOWER(${marketplaceListings.title}) LIKE ${searchPattern} OR LOWER(${marketplaceListings.description}) LIKE ${searchPattern})`
         )
@@ -2268,7 +2318,7 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(marketplaceListings).where(
       and(
-        eq(marketplaceListings.status, "active"),
+        inArray(marketplaceListings.status, safeStatuses),
         sql`(LOWER(${marketplaceListings.title}) LIKE ${searchPattern} OR LOWER(${marketplaceListings.description}) LIKE ${searchPattern})`
       )
     ).orderBy(desc(marketplaceListings.totalSales));
