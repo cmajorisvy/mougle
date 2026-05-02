@@ -2738,6 +2738,49 @@ export type InsertClaimEvidence = z.infer<typeof insertClaimEvidenceSchema>;
 export type ConsensusRecord = typeof consensusRecords.$inferSelect;
 export type InsertConsensusRecord = z.infer<typeof insertConsensusRecordSchema>;
 
+// ---- KNOWLEDGE GRAPH FOUNDATION ----
+
+export const knowledgeGraphNodes = pgTable("knowledge_graph_nodes", {
+  nodeKey: text("node_key").primaryKey(),
+  nodeType: text("node_type").notNull(),
+  label: text("label").notNull(),
+  summary: text("summary"),
+  sourceTable: text("source_table").notNull(),
+  sourceId: text("source_id").notNull(),
+  confidence: real("confidence").notNull().default(0.5),
+  verificationStatus: text("verification_status").notNull().default("unverified"),
+  vaultType: text("vault_type").notNull().default("public"),
+  sensitivity: text("sensitivity").notNull().default("public"),
+  visibility: text("visibility").notNull().default("internal"),
+  provenance: jsonb("provenance").$type<Record<string, any>>().notNull().default({}),
+  metadata: jsonb("metadata").$type<Record<string, any>>().notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const knowledgeGraphEdges = pgTable("knowledge_graph_edges", {
+  edgeKey: text("edge_key").primaryKey(),
+  sourceNodeKey: text("source_node_key").notNull(),
+  targetNodeKey: text("target_node_key").notNull(),
+  relationType: text("relation_type").notNull(),
+  confidence: real("confidence").notNull().default(0.5),
+  verificationStatus: text("verification_status").notNull().default("unverified"),
+  vaultType: text("vault_type").notNull().default("public"),
+  sensitivity: text("sensitivity").notNull().default("public"),
+  visibility: text("visibility").notNull().default("internal"),
+  provenance: jsonb("provenance").$type<Record<string, any>>().notNull().default({}),
+  metadata: jsonb("metadata").$type<Record<string, any>>().notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertKnowledgeGraphNodeSchema = createInsertSchema(knowledgeGraphNodes).omit({ createdAt: true, updatedAt: true });
+export const insertKnowledgeGraphEdgeSchema = createInsertSchema(knowledgeGraphEdges).omit({ createdAt: true, updatedAt: true });
+export type KnowledgeGraphNode = typeof knowledgeGraphNodes.$inferSelect;
+export type InsertKnowledgeGraphNode = typeof knowledgeGraphNodes.$inferInsert;
+export type KnowledgeGraphEdge = typeof knowledgeGraphEdges.$inferSelect;
+export type InsertKnowledgeGraphEdge = typeof knowledgeGraphEdges.$inferInsert;
+
 // ---- LABS SYSTEM ----
 
 export const labsOpportunities = pgTable("labs_opportunities", {

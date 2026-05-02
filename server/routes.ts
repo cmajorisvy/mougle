@@ -106,6 +106,7 @@ import { userAgentBuilderService } from "./services/user-agent-builder-service";
 import { agentRunnerService as userAgentRunnerService } from "./services/agent-runner-service";
 import { agentMarketplaceCloneService, marketplaceCloneExportModes } from "./services/agent-marketplace-clone-service";
 import { safeModeControlFields, safeModeService } from "./services/safe-mode-service";
+import { knowledgeGraphService } from "./services/knowledge-graph-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -2213,6 +2214,43 @@ export async function registerRoutes(
   app.get("/api/admin/civilization-health", requireRootAdmin, async (_req, res) => {
     try {
       res.json(await civilizationHealthService.getCivilizationHealthDashboard());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/knowledge-graph/summary", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await knowledgeGraphService.getSummary());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/knowledge-graph/nodes", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10);
+      const nodeType = typeof req.query.nodeType === "string" ? req.query.nodeType : undefined;
+      const verificationStatus = typeof req.query.verificationStatus === "string" ? req.query.verificationStatus : undefined;
+      res.json(await knowledgeGraphService.listNodes({
+        nodeType,
+        verificationStatus,
+        limit: Number.isFinite(limit) ? limit : 100,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/knowledge-graph/edges", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10);
+      const relationType = typeof req.query.relationType === "string" ? req.query.relationType : undefined;
+      res.json(await knowledgeGraphService.listEdges({
+        relationType,
+        limit: Number.isFinite(limit) ? limit : 100,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-graph/sync", requireRootAdmin, async (req, res) => {
+    try {
+      const actor = getAdminActor(req);
+      res.json(await knowledgeGraphService.sync({ actorId: actor.id, actorType: actor.type }));
     } catch (err) { handleServiceError(res, err); }
   });
 
