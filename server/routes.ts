@@ -100,6 +100,7 @@ import { newsToDebateService } from "./services/news-to-debate-service";
 import { podcastScriptEngine } from "./services/podcast-script-engine";
 import { podcastVoiceService } from "./services/podcast-voice-service";
 import { youtubePublishingService } from "./services/youtube-publishing-service";
+import { socialDistributionApprovalService } from "./services/social-distribution-approval-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -147,6 +148,26 @@ const agentBehaviorSimulationSchema = z.object({
   costBudget: z.number().min(0).max(1).optional(),
   memoryScope: z.enum(["none", "public", "behavioral", "private"]).optional(),
   allowPrivateMemory: z.boolean().optional(),
+});
+
+const socialDistributionGenerateSchema = z.object({
+  youtubePackageId: z.number().int().positive(),
+  targetPlatforms: z.array(z.string().min(1)).optional(),
+  mode: z.enum(["manual", "safe_automation"]).optional(),
+});
+
+const socialDistributionAutomationSettingsSchema = z.object({
+  safeAutomationEnabled: z.boolean().optional(),
+  paused: z.boolean().optional(),
+  killSwitch: z.boolean().optional(),
+  perPlatformEnabled: z.record(z.object({
+    enabled: z.boolean(),
+    dailyLimit: z.number().int().min(0).optional(),
+  })).optional(),
+  dailyPostLimit: z.number().int().min(0).max(50).optional(),
+  duplicateWindowHours: z.number().int().min(1).max(720).optional(),
+  trustThreshold: z.number().min(0).max(1).optional(),
+  uesThreshold: z.number().min(0).max(1).optional(),
 });
 
 const newsToDebateGenerateSchema = z.object({
@@ -2443,6 +2464,94 @@ export async function registerRoutes(
       if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid YouTube package id" });
       const actor = getAdminActor(req);
       res.json(await youtubePublishingService.uploadPackage(id, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/social-distribution/eligible", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10);
+      res.json(await socialDistributionApprovalService.listEligiblePackages(Number.isFinite(limit) ? limit : 50));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/social-distribution/packages", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10);
+      res.json(await socialDistributionApprovalService.listPackages(Number.isFinite(limit) ? limit : 50));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/social-distribution/packages/:id", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid social distribution package id" });
+      res.json(await socialDistributionApprovalService.getPackage(id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social-distribution/packages/generate", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = socialDistributionGenerateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid social distribution package request" });
+      }
+      const actor = getAdminActor(req);
+      res.status(201).json(await socialDistributionApprovalService.generatePackage({ ...parsed.data, createdBy: actor.id }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social-distribution/packages/:id/approve", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid social distribution package id" });
+      const actor = getAdminActor(req);
+      res.json(await socialDistributionApprovalService.approvePackage(id, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social-distribution/packages/:id/export", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid social distribution package id" });
+      const actor = getAdminActor(req);
+      res.json(await socialDistributionApprovalService.exportPackage(id, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social-distribution/packages/:id/post", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid social distribution package id" });
+      const actor = getAdminActor(req);
+      res.json(await socialDistributionApprovalService.postPackage(id, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/social-distribution/automation-settings", requireRootAdmin, async (_req, res) => {
+    try {
+      const settings = await socialDistributionApprovalService.getSettings();
+      const providerStatus = await socialDistributionApprovalService.platformStatuses(settings);
+      res.json({ settings, providerStatus });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.patch("/api/admin/social-distribution/automation-settings", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = socialDistributionAutomationSettingsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid social automation settings request" });
+      }
+      const actor = getAdminActor(req);
+      const settings = await socialDistributionApprovalService.updateSettings(parsed.data as any, actor.id);
+      const providerStatus = await socialDistributionApprovalService.platformStatuses(settings);
+      res.json({ settings, providerStatus });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/social-distribution/automation/evaluate", requireRootAdmin, async (req, res) => {
+    try {
+      const actor = getAdminActor(req);
+      res.json(await socialDistributionApprovalService.runSafeAutomationEvaluation(actor.id));
     } catch (err) { handleServiceError(res, err); }
   });
 

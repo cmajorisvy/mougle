@@ -153,6 +153,11 @@ export const socialPublisherService = {
           console.log("[SocialPublisher] Skipping — kill switch or safe mode active");
           return;
         }
+        const { socialDistributionApprovalService } = await import("./social-distribution-approval-service");
+        if (!(await socialDistributionApprovalService.canLegacyAutoPublisherRun())) {
+          console.log("[SocialPublisher] Skipping — Phase 17 social automation is disabled, paused, or killed");
+          return;
+        }
         const processed = await this.processPendingPosts();
         if (processed > 0) {
           console.log(`[SocialPublisher] Auto-published ${processed} posts`);

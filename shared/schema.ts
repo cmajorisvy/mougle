@@ -936,11 +936,108 @@ export const youtubePublishingPackages = pgTable("youtube_publishing_packages", 
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export type SocialDistributionCopyItem = {
+  platform: string;
+  text: string;
+  hashtags: string[];
+  linkUrl: string | null;
+  exportUrl: string | null;
+  characterCount: number;
+  dryRunOnly: boolean;
+};
+
+export type SocialDistributionCopyPackage = {
+  sourceTitle: string;
+  sourceSummary: string;
+  sourceUrl: string | null;
+  sourceType: "youtube_publishing_package" | "podcast_script_package" | "podcast_audio_job" | "news_to_debate";
+  mode: "manual" | "safe_automation";
+  posts: SocialDistributionCopyItem[];
+  evidenceReferences: Array<{
+    label: string;
+    url: string | null;
+    claimId?: string;
+    confidenceScore?: number;
+    status?: string;
+  }>;
+  complianceNotes: string[];
+  safetyLabels: string[];
+  generatedAt: string;
+};
+
+export type SocialDistributionSafetyGateResult = {
+  key: string;
+  label: string;
+  passed: boolean;
+  severity: "info" | "warning" | "blocking";
+  message: string;
+};
+
+export type SocialDistributionPlatformResult = {
+  platform: string;
+  provider: "export_only" | "platform_api";
+  status: "pending" | "export_ready" | "posted" | "blocked" | "failed";
+  dryRun: boolean;
+  postUrl: string | null;
+  message: string;
+  postedAt: string | null;
+};
+
+export type SocialDistributionPlatformSettings = {
+  enabled: boolean;
+  dailyLimit?: number;
+};
+
+export const socialDistributionPackages = pgTable("social_distribution_packages", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  youtubePackageId: integer("youtube_package_id"),
+  scriptPackageId: integer("script_package_id"),
+  audioJobId: integer("audio_job_id"),
+  sourceArticleId: integer("source_article_id"),
+  sourceType: text("source_type").notNull().default("youtube_publishing_package"),
+  targetPlatforms: text("target_platforms").array().notNull().default(sql`ARRAY['twitter','linkedin']`),
+  mode: text("mode").notNull().default("manual"),
+  status: text("status").notNull().default("ready_for_review"),
+  approvalStatus: text("approval_status").notNull().default("pending"),
+  postingStatus: text("posting_status").notNull().default("not_posted"),
+  exportStatus: text("export_status").notNull().default("not_exported"),
+  generatedCopy: jsonb("generated_copy").$type<SocialDistributionCopyPackage>().notNull(),
+  safetyGateResults: jsonb("safety_gate_results").$type<SocialDistributionSafetyGateResult[]>().notNull().default([]),
+  platformResults: jsonb("platform_results").$type<SocialDistributionPlatformResult[]>().notNull().default([]),
+  errorMessage: text("error_message"),
+  createdBy: text("created_by").notNull(),
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  postedBy: text("posted_by"),
+  postedAt: timestamp("posted_at"),
+  exportedBy: text("exported_by"),
+  exportedAt: timestamp("exported_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const socialDistributionAutomationSettings = pgTable("social_distribution_automation_settings", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  safeAutomationEnabled: boolean("safe_automation_enabled").notNull().default(false),
+  paused: boolean("paused").notNull().default(true),
+  killSwitch: boolean("kill_switch").notNull().default(false),
+  perPlatformEnabled: jsonb("per_platform_enabled").$type<Record<string, SocialDistributionPlatformSettings>>().notNull().default({}),
+  dailyPostLimit: integer("daily_post_limit").notNull().default(3),
+  duplicateWindowHours: integer("duplicate_window_hours").notNull().default(72),
+  trustThreshold: real("trust_threshold").notNull().default(0.65),
+  uesThreshold: real("ues_threshold").notNull().default(0.55),
+  updatedBy: text("updated_by"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertFlywheelJobSchema = createInsertSchema(flywheelJobs).omit({ id: true, createdAt: true, startedAt: true, completedAt: true } as any);
 export const insertGeneratedClipSchema = createInsertSchema(generatedClips).omit({ id: true, createdAt: true } as any);
 export const insertPodcastScriptPackageSchema = createInsertSchema(podcastScriptPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
 export const insertPodcastAudioJobSchema = createInsertSchema(podcastAudioJobs).omit({ id: true, createdAt: true, updatedAt: true } as any);
 export const insertYouTubePublishingPackageSchema = createInsertSchema(youtubePublishingPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
+export const insertSocialDistributionPackageSchema = createInsertSchema(socialDistributionPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
+export const insertSocialDistributionAutomationSettingsSchema = createInsertSchema(socialDistributionAutomationSettings).omit({ id: true, createdAt: true, updatedAt: true } as any);
 
 export type InsertFlywheelJob = typeof flywheelJobs.$inferInsert;
 export type FlywheelJob = typeof flywheelJobs.$inferSelect;
@@ -952,6 +1049,10 @@ export type InsertPodcastAudioJob = typeof podcastAudioJobs.$inferInsert;
 export type PodcastAudioJob = typeof podcastAudioJobs.$inferSelect;
 export type InsertYouTubePublishingPackage = typeof youtubePublishingPackages.$inferInsert;
 export type YouTubePublishingPackage = typeof youtubePublishingPackages.$inferSelect;
+export type InsertSocialDistributionPackage = typeof socialDistributionPackages.$inferInsert;
+export type SocialDistributionPackage = typeof socialDistributionPackages.$inferSelect;
+export type InsertSocialDistributionAutomationSettings = typeof socialDistributionAutomationSettings.$inferInsert;
+export type SocialDistributionAutomationSettings = typeof socialDistributionAutomationSettings.$inferSelect;
 
 export const newsArticles = pgTable("news_articles", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
