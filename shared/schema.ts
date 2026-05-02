@@ -969,6 +969,97 @@ export const youtubePublishingPackages = pgTable("youtube_publishing_packages", 
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export type AvatarVideoRenderProvider = "dry_run" | "heygen" | "d_id" | "synthesia" | "unreal";
+export type AvatarVideoRenderStatus = "draft" | "preview_ready" | "dry_run_completed" | "failed" | "canceled";
+export type AvatarVideoSceneTemplate = "news_desk" | "podcast_studio" | "debate_arena_summary" | "minimal_cards";
+
+export type AvatarVideoAvatarProfile = {
+  agentKey: string;
+  displayName: string;
+  role: string;
+  renderRole: "presenter_host" | "conclusion_presence" | "speaker_card";
+  avatarStyle: string;
+  source: "script_assignment" | "voice_profile" | "required_system_mapping";
+};
+
+export type AvatarVideoSegmentMapping = {
+  segmentIndex: number;
+  scriptType: "two_minute" | "ten_minute" | "mougle_conclusion";
+  agentKey: string;
+  displayName: string;
+  role: string;
+  textPreview: string;
+  audioAvailable: boolean;
+  audioUrl: string | null;
+  audioPath: string | null;
+  status: string;
+};
+
+export type AvatarVideoPreviewMetadata = {
+  title: string;
+  thumbnailText: string;
+  descriptionPreview: string;
+  shortsHooks: string[];
+  complianceNotes: string[];
+  sourceEvidenceReferences: Array<{
+    label: string;
+    url: string | null;
+    claimId?: string;
+    confidenceScore?: number;
+    status?: string;
+  }>;
+  providerStatus: {
+    selected: AvatarVideoRenderProvider;
+    dryRunDefault: true;
+    liveProviderCalls: false;
+    message: string;
+  };
+  safety: {
+    internalAdminReviewOnly: true;
+    manualRootAdminTriggerOnly: true;
+    publicPublishing: false;
+    youtubeUpload: false;
+    socialPosting: false;
+    privateMemoryUsed: false;
+    userOwnedAvatarsIncluded: false;
+    unreal3dImplementation: false;
+  };
+  safeModeWarnings: string[];
+  excludedSpeakers: Array<{
+    agentKey: string;
+    displayName: string;
+    reason: string;
+  }>;
+  generatedAt: string;
+};
+
+export const avatarVideoRenderJobs = pgTable("avatar_video_render_jobs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  scriptPackageId: integer("script_package_id").notNull(),
+  audioJobId: integer("audio_job_id"),
+  youtubePackageId: integer("youtube_package_id"),
+  status: text("status").notNull().default("draft"),
+  provider: text("provider").notNull().default("dry_run"),
+  sceneTemplate: text("scene_template").notNull().default("news_desk"),
+  avatarProfileMapping: jsonb("avatar_profile_mapping").$type<Record<string, AvatarVideoAvatarProfile>>().notNull().default({}),
+  segmentMapping: jsonb("segment_mapping").$type<AvatarVideoSegmentMapping[]>().notNull().default([]),
+  previewMetadata: jsonb("preview_metadata").$type<AvatarVideoPreviewMetadata>().notNull(),
+  estimatedCost: real("estimated_cost").notNull().default(0),
+  actualCost: real("actual_cost").notNull().default(0),
+  adminReviewStatus: text("admin_review_status").notNull().default("internal_admin_review"),
+  outputPath: text("output_path"),
+  outputUrl: text("output_url"),
+  errorMessage: text("error_message"),
+  createdBy: text("created_by").notNull(),
+  previewedAt: timestamp("previewed_at"),
+  renderedBy: text("rendered_by"),
+  renderedAt: timestamp("rendered_at"),
+  canceledBy: text("canceled_by"),
+  canceledAt: timestamp("canceled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export type SocialDistributionCopyItem = {
   platform: string;
   text: string;
@@ -1069,6 +1160,7 @@ export const insertGeneratedClipSchema = createInsertSchema(generatedClips).omit
 export const insertPodcastScriptPackageSchema = createInsertSchema(podcastScriptPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
 export const insertPodcastAudioJobSchema = createInsertSchema(podcastAudioJobs).omit({ id: true, createdAt: true, updatedAt: true } as any);
 export const insertYouTubePublishingPackageSchema = createInsertSchema(youtubePublishingPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
+export const insertAvatarVideoRenderJobSchema = createInsertSchema(avatarVideoRenderJobs).omit({ id: true, createdAt: true, updatedAt: true } as any);
 export const insertSocialDistributionPackageSchema = createInsertSchema(socialDistributionPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
 export const insertSocialDistributionAutomationSettingsSchema = createInsertSchema(socialDistributionAutomationSettings).omit({ id: true, createdAt: true, updatedAt: true } as any);
 
@@ -1082,6 +1174,8 @@ export type InsertPodcastAudioJob = typeof podcastAudioJobs.$inferInsert;
 export type PodcastAudioJob = typeof podcastAudioJobs.$inferSelect;
 export type InsertYouTubePublishingPackage = typeof youtubePublishingPackages.$inferInsert;
 export type YouTubePublishingPackage = typeof youtubePublishingPackages.$inferSelect;
+export type InsertAvatarVideoRenderJob = typeof avatarVideoRenderJobs.$inferInsert;
+export type AvatarVideoRenderJob = typeof avatarVideoRenderJobs.$inferSelect;
 export type InsertSocialDistributionPackage = typeof socialDistributionPackages.$inferInsert;
 export type SocialDistributionPackage = typeof socialDistributionPackages.$inferSelect;
 export type InsertSocialDistributionAutomationSettings = typeof socialDistributionAutomationSettings.$inferInsert;

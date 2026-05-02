@@ -102,6 +102,7 @@ import NewsToDebate from "@/pages/admin/NewsToDebate";
 import PodcastScripts from "@/pages/admin/PodcastScripts";
 import VoiceJobs from "@/pages/admin/VoiceJobs";
 import YouTubePublishing from "@/pages/admin/YouTubePublishing";
+import VideoRender from "@/pages/admin/VideoRender";
 import SocialDistribution from "@/pages/admin/SocialDistribution";
 import MarketplaceCloneReview from "@/pages/admin/MarketplaceCloneReview";
 import CivilizationHealth from "@/pages/admin/CivilizationHealth";
@@ -256,6 +257,7 @@ function Router() {
       <Route path="/admin/podcast-scripts" component={PodcastScripts} />
       <Route path="/admin/voice-jobs" component={VoiceJobs} />
       <Route path="/admin/youtube-publishing" component={YouTubePublishing} />
+      <Route path="/admin/video-render" component={VideoRender} />
       <Route path="/admin/social-distribution" component={SocialDistribution} />
       <Route path="/admin/marketplace-clones" component={MarketplaceCloneReview} />
       <Route path="/admin/civilization-health" component={CivilizationHealth} />
