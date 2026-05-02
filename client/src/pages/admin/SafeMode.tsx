@@ -18,6 +18,7 @@ import {
   Loader2,
   Megaphone,
   PauseCircle,
+  Radio,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
@@ -190,6 +191,10 @@ export default function SafeMode() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => navigate("/admin/civilization-health")} className="border-white/10 text-zinc-300">
                 Civilization Health
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/admin/live-studio")} className="border-white/10 text-zinc-300">
+                <Radio className="w-4 h-4 mr-2" />
+                Live Studio
               </Button>
               <Button variant="outline" onClick={() => refetch()} disabled={isFetching} className="border-white/10 text-zinc-300">
                 {isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}

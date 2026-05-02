@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, ArrowLeft, FileText, Loader2, Newspaper, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileText, Loader2, Newspaper, Radio, ShieldCheck, Sparkles } from "lucide-react";
 
 function reliabilityClass(quality: string) {
   if (quality === "high") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
@@ -223,6 +223,10 @@ export default function NewsToDebate() {
             <Button variant="outline" onClick={() => refetch()} disabled={articlesLoading} className="border-white/10 text-zinc-300">
               {articlesLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
               Refresh Articles
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/admin/live-studio")} className="border-white/10 text-zinc-300">
+              <Radio className="w-4 h-4 mr-2" />
+              Live Studio
             </Button>
           </div>
         </div>

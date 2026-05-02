@@ -110,6 +110,7 @@ import { safeModeControlFields, safeModeService } from "./services/safe-mode-ser
 import { knowledgeGraphService } from "./services/knowledge-graph-service";
 import { knowledgeEconomyService } from "./services/knowledge-economy-service";
 import { gluonValueIndexService, gviComponentKeys } from "./services/gluon-value-index-service";
+import { liveDebateStudioService } from "./services/live-debate-studio-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -311,6 +312,16 @@ const gviComponentValuesSchema = z.object(Object.fromEntries(
 
 const gviPreviewSchema = z.object({
   componentValues: gviComponentValuesSchema.optional(),
+});
+
+const liveStudioActionSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
+const liveStudioQuestionSchema = z.object({
+  question: z.string().trim().min(1).max(1000),
+  authorLabel: z.string().trim().max(120).optional(),
+  reason: z.string().trim().max(500).optional(),
 });
 
 function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
@@ -2386,6 +2397,77 @@ export async function registerRoutes(
       }
       const actor = getAdminActor(req);
       res.json(await safeModeService.applyAction(parsed.data, actor));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/live-studio/debates", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : undefined;
+      res.json(await liveDebateStudioService.listDebates(Number.isFinite(limit) ? limit : undefined));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/live-studio/debates/:id", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid debate id" });
+      res.json(await liveDebateStudioService.getStudioState(id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/live-studio/debates/:id/pause", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid debate id" });
+      const parsed = liveStudioActionSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid pause request" });
+      const actor = getAdminActor(req);
+      res.json(await liveDebateStudioService.pauseDebate(id, parsed.data, { ...actor, ipAddress: req.ip }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/live-studio/debates/:id/resume", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid debate id" });
+      const parsed = liveStudioActionSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid resume request" });
+      const actor = getAdminActor(req);
+      res.json(await liveDebateStudioService.resumeDebate(id, parsed.data, { ...actor, ipAddress: req.ip }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/live-studio/debates/:id/end", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid debate id" });
+      const parsed = liveStudioActionSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid end request" });
+      const actor = getAdminActor(req);
+      res.json(await liveDebateStudioService.endDebate(id, parsed.data, { ...actor, ipAddress: req.ip }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/live-studio/debates/:id/questions", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid debate id" });
+      const parsed = liveStudioQuestionSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid question request" });
+      const actor = getAdminActor(req);
+      res.json(await liveDebateStudioService.addQuestionPlaceholder(id, parsed.data, { ...actor, ipAddress: req.ip }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/live-studio/debates/:id/participants/:participantId/eject", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      const participantId = parseInt(req.params.participantId as string, 10);
+      if (!Number.isFinite(id) || !Number.isFinite(participantId)) return res.status(400).json({ message: "Invalid debate or participant id" });
+      const parsed = liveStudioActionSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid eject request" });
+      const actor = getAdminActor(req);
+      res.json(await liveDebateStudioService.ejectParticipant(id, participantId, parsed.data, { ...actor, ipAddress: req.ip }));
     } catch (err) { handleServiceError(res, err); }
   });
 

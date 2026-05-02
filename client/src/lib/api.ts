@@ -1239,6 +1239,157 @@ export type AdminCivilizationHealthDashboard = {
   };
 };
 
+export type AdminLiveStudioDisplayStatus = "draft" | "scheduled" | "live" | "paused" | "ended" | "archived";
+
+export type AdminLiveStudioDebateSummary = {
+  id: number;
+  title: string;
+  topic: string;
+  status: string;
+  displayStatus: AdminLiveStudioDisplayStatus;
+  format: string;
+  currentRound: number;
+  totalRounds: number;
+  participantCount: number;
+  activeParticipantCount: number;
+  transcriptTurnCount: number;
+  tcsAverage: number | null;
+  confidenceScore: number | null;
+  createdAt: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+};
+
+export type AdminLiveStudioParticipant = {
+  id: number;
+  userId: string;
+  displayName: string;
+  username: string | null;
+  avatar: string | null;
+  userRole: string | null;
+  badge: string | null;
+  rankLevel: string | null;
+  role: string;
+  participantType: string;
+  position: string | null;
+  ttsVoice: string | null;
+  speakingOrder: number;
+  totalSpeakingTime: number;
+  turnsUsed: number;
+  isActive: boolean;
+  joinedAt: string | null;
+  ues: {
+    UES: number;
+    P: number;
+    D: number;
+    Omega: number;
+    Xi: number;
+    collapseRisk: string;
+    sourceQuality: string;
+  } | null;
+};
+
+export type AdminLiveStudioState = {
+  generatedAt: string;
+  adminOnly: true;
+  controlsRootAdminOnly: true;
+  noAutonomousExecution: true;
+  debate: {
+    id: number;
+    title: string;
+    topic: string;
+    description: string | null;
+    status: string;
+    displayStatus: AdminLiveStudioDisplayStatus;
+    format: string;
+    currentRound: number;
+    totalRounds: number;
+    currentSpeakerId: string | null;
+    turnDurationSeconds: number;
+    confidenceScore: number | null;
+    createdAt: string | null;
+    startedAt: string | null;
+    endedAt: string | null;
+  };
+  stage: {
+    currentSpeaker: AdminLiveStudioParticipant | null;
+    nextSpeaker: AdminLiveStudioParticipant | null;
+    timer: {
+      simulatedOnly: true;
+      turnDurationSeconds: number;
+      elapsedSeconds: number;
+      remainingSeconds: number;
+      running: boolean;
+      source: string;
+    };
+    statusLabels: AdminLiveStudioDisplayStatus[];
+  };
+  participants: AdminLiveStudioParticipant[];
+  transcript: Array<{
+    id: number;
+    debateId: number;
+    participantId: number;
+    participantName: string;
+    participantType: string | null;
+    roundNumber: number;
+    turnOrder: number;
+    content: string;
+    wordCount: number;
+    durationSeconds: number | null;
+    tcsScore: number | null;
+    audienceReaction: Record<string, any>;
+    startedAt: string | null;
+    endedAt: string | null;
+    createdAt: string | null;
+  }>;
+  evidence: {
+    claims: any[];
+    evidence: any[];
+    consensus: any[];
+    legacyClaims: any[];
+    legacyEvidence: any[];
+    linkedDataOnly: true;
+  };
+  metrics: {
+    tcsAverage: number | null;
+    uesAverage: number | null;
+    participantUesCount: number;
+    claimsCount: number;
+    evidenceCount: number;
+    transcriptTurnCount: number;
+  };
+  mougleSummary: {
+    consensusSummary: string | null;
+    disagreementSummary: string | null;
+    confidenceScore: number | null;
+  };
+  safeMode: {
+    globalSafeMode: boolean;
+    pauseExternalAgentActions: boolean;
+    banners: string[];
+  };
+  adminQuestionQueue: {
+    placeholderOnly: true;
+    persistentStorageDeferred: true;
+    items: any[];
+  };
+  safeguards: {
+    noPublicMutationRoutes: true;
+    noAutonomousLiveStream: true;
+    noAutonomousAgentExecution: true;
+    noPrivateMemoryExposure: true;
+    displayOnlyTimer: true;
+  };
+};
+
+export type AdminLiveStudioQuestionResult = {
+  accepted: boolean;
+  placeholderOnly: true;
+  persisted: false;
+  message: string;
+  state: AdminLiveStudioState;
+};
+
 export type AdminKnowledgeGraphNode = {
   nodeKey: string;
   nodeType: string;
@@ -1865,6 +2016,19 @@ export const api = {
       adminFetch<AdminSafeModeStatus>("/admin/safe-mode", { method: "PATCH", body: JSON.stringify(data) }),
     safeModeAction: (data: AdminSafeModeActionPayload) =>
       adminFetch<AdminSafeModeStatus>("/admin/safe-mode/action", { method: "POST", body: JSON.stringify(data) }),
+    liveStudioDebates: (limit?: number) =>
+      adminFetch<AdminLiveStudioDebateSummary[]>(`/admin/live-studio/debates?limit=${limit || 50}`),
+    liveStudioState: (id: number) => adminFetch<AdminLiveStudioState>(`/admin/live-studio/debates/${id}`),
+    pauseLiveStudioDebate: (id: number, reason?: string) =>
+      adminFetch<AdminLiveStudioState>(`/admin/live-studio/debates/${id}/pause`, { method: "POST", body: JSON.stringify({ reason }) }),
+    resumeLiveStudioDebate: (id: number, reason?: string) =>
+      adminFetch<AdminLiveStudioState>(`/admin/live-studio/debates/${id}/resume`, { method: "POST", body: JSON.stringify({ reason }) }),
+    endLiveStudioDebate: (id: number, reason?: string) =>
+      adminFetch<AdminLiveStudioState>(`/admin/live-studio/debates/${id}/end`, { method: "POST", body: JSON.stringify({ reason }) }),
+    addLiveStudioQuestion: (id: number, data: { question: string; authorLabel?: string; reason?: string }) =>
+      adminFetch<AdminLiveStudioQuestionResult>(`/admin/live-studio/debates/${id}/questions`, { method: "POST", body: JSON.stringify(data) }),
+    ejectLiveStudioParticipant: (id: number, participantId: number, reason?: string) =>
+      adminFetch<AdminLiveStudioState>(`/admin/live-studio/debates/${id}/participants/${participantId}/eject`, { method: "POST", body: JSON.stringify({ reason }) }),
     users: () => adminFetch<any[]>("/admin/users"),
     deleteUser: (id: string) => adminFetch<any>(`/admin/users/${id}`, { method: "DELETE" }),
     updateUser: (id: string, data: any) => adminFetch<any>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
