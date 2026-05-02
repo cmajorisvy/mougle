@@ -2,18 +2,22 @@ import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import type { AdminGviResult, GviComponentKey } from "@/lib/api";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   ArrowLeft,
+  BarChart3,
   CheckCircle2,
   Dna,
   Loader2,
   PackageCheck,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   XCircle,
@@ -40,6 +44,156 @@ function score(value: unknown) {
   return parsed.toFixed(2);
 }
 
+const gviComponentKeys: GviComponentKey[] = ["USD", "EUR", "GBP", "CNY", "gold", "crude_oil"];
+
+function gviValue(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return "1.0000";
+  return parsed.toFixed(4);
+}
+
+function parseGviInputs(inputs: Record<string, string>) {
+  const componentValues: Partial<Record<GviComponentKey, number>> = {};
+  for (const key of gviComponentKeys) {
+    const raw = inputs[key]?.trim();
+    if (!raw) continue;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) componentValues[key] = parsed;
+  }
+  return componentValues;
+}
+
+function GviSection({
+  current,
+  displayed,
+  inputs,
+  setInputs,
+  previewPending,
+  snapshotPending,
+  onPreview,
+  onSnapshot,
+}: {
+  current?: AdminGviResult;
+  displayed?: AdminGviResult;
+  inputs: Record<string, string>;
+  setInputs: (inputs: Record<string, string>) => void;
+  previewPending: boolean;
+  snapshotPending: boolean;
+  onPreview: () => void;
+  onSnapshot: () => void;
+}) {
+  if (!displayed) {
+    return (
+      <Card className="bg-[#10101a]/90 border-white/[0.08] p-5">
+        <Loader2 className="w-4 h-4 animate-spin text-violet-300" />
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="bg-[#10101a]/90 border-white/[0.08] p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-cyan-300" />
+            <h2 className="text-lg font-semibold text-white">Gluon Value Index</h2>
+            <Badge className="bg-cyan-500/10 text-cyan-300 border-cyan-500/20">Read-only</Badge>
+          </div>
+          <p className="text-sm text-zinc-400 mt-2 max-w-3xl">
+            GVI is a manual/fallback basket index for internal reference only. It does not change credits, balances, payouts, purchases, or platform access.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-4 text-xs">
+            {displayed.warnings.map((warning) => (
+              <div key={warning} className="rounded-lg border border-emerald-500/15 bg-emerald-500/[0.06] p-3 text-emerald-100/80">
+                {warning}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.08] px-5 py-4 min-w-48">
+          <p className="text-xs text-cyan-100/70">Current GVI</p>
+          <p className="text-3xl font-bold text-cyan-200">{gviValue(displayed.gviScore)}</p>
+          <p className="text-xs text-cyan-100/60 mt-1">
+            {displayed.fallbackUsed ? "Fallback/manual values used" : "Manual snapshot values used"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-[1.3fr_0.7fr] gap-4 mt-5">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500 mb-3">Basket Components</p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {displayed.components.map((component) => (
+              <div key={component.key} className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium text-zinc-100">{component.label}</p>
+                  <Badge className={component.fallback || component.stale ? "bg-yellow-500/10 text-yellow-300 border-yellow-500/20" : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"}>
+                    {component.fallback ? "fallback" : component.stale ? "stale" : "manual"}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+                  <div>
+                    <p className="text-zinc-500">Weight</p>
+                    <p className="text-zinc-200">{Math.round(component.weight * 100)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-500">Index</p>
+                    <p className="text-zinc-200">{gviValue(component.componentIndex)}</p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-500">Baseline</p>
+                    <p className="text-zinc-200">{gviValue(component.baselineValue)}</p>
+                  </div>
+                  <div>
+                    <p className="text-zinc-500">Current</p>
+                    <p className="text-zinc-200">{gviValue(component.currentValue)}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+          <p className="text-xs uppercase tracking-wide text-zinc-500 mb-3">Manual Preview</p>
+          <div className="grid grid-cols-2 gap-2">
+            {gviComponentKeys.map((key) => {
+              const currentValue = current?.componentValues?.[key];
+              return (
+                <div key={key}>
+                  <p className="text-[10px] text-zinc-500 mb-1">{key.replace("_", " ")}</p>
+                  <Input
+                    value={inputs[key] || ""}
+                    onChange={(event) => setInputs({ ...inputs, [key]: event.target.value })}
+                    placeholder={currentValue == null ? "manual" : String(currentValue)}
+                    className="bg-black/30 border-white/10 text-xs"
+                    inputMode="decimal"
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <Button variant="outline" className="border-cyan-500/20 bg-cyan-500/10 text-cyan-100" onClick={onPreview} disabled={previewPending}>
+              {previewPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              Preview
+            </Button>
+            <Button className="bg-violet-600 hover:bg-violet-500 text-white" onClick={onSnapshot} disabled={snapshotPending}>
+              {snapshotPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              Save Snapshot
+            </Button>
+          </div>
+          <div className="mt-3 text-xs text-zinc-500 space-y-1">
+            <p>{displayed.formula}</p>
+            <p>{displayed.componentFormula}</p>
+            <p>No live external requests, API keys, or automatic workers are used.</p>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function KnowledgeEconomy() {
   const [, navigate] = useLocation();
   const { admin, isLoading } = useAdminAuth();
@@ -47,6 +201,8 @@ export default function KnowledgeEconomy() {
   const [selectedPacketId, setSelectedPacketId] = useState<string | null>(null);
   const [noteById, setNoteById] = useState<Record<string, string>>({});
   const [previewById, setPreviewById] = useState<Record<string, any>>({});
+  const [gviInputs, setGviInputs] = useState<Record<string, string>>({});
+  const [gviPreview, setGviPreview] = useState<AdminGviResult | null>(null);
   const isRootAdmin = admin?.actor?.type === "root_admin" && admin.role === "super_admin";
 
   useEffect(() => {
@@ -56,6 +212,12 @@ export default function KnowledgeEconomy() {
   const packetsQuery = useQuery({
     queryKey: ["/api/admin/knowledge-economy/packets"],
     queryFn: () => api.admin.knowledgeEconomyPackets(),
+    enabled: isRootAdmin,
+  });
+
+  const gviQuery = useQuery({
+    queryKey: ["/api/admin/knowledge-economy/gvi"],
+    queryFn: () => api.admin.knowledgeEconomyGvi(),
     enabled: isRootAdmin,
   });
 
@@ -95,6 +257,19 @@ export default function KnowledgeEconomy() {
     onSuccess: (data, id) => setPreviewById((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), dna: data } })),
   });
 
+  const gviPreviewMutation = useMutation({
+    mutationFn: () => api.admin.previewKnowledgeEconomyGvi(parseGviInputs(gviInputs)),
+    onSuccess: (data) => setGviPreview(data),
+  });
+
+  const gviSnapshotMutation = useMutation({
+    mutationFn: () => api.admin.snapshotKnowledgeEconomyGvi(parseGviInputs(gviInputs)),
+    onSuccess: (data) => {
+      setGviPreview(data.result);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/knowledge-economy/gvi"] });
+    },
+  });
+
   if (isLoading || packetsQuery.isLoading) {
     return (
       <div className="min-h-screen bg-[#070711] text-white flex items-center justify-center">
@@ -107,6 +282,7 @@ export default function KnowledgeEconomy() {
 
   const packets = packetsQuery.data || [];
   const selected = detailQuery.data;
+  const displayedGvi = gviPreview || gviQuery.data;
 
   return (
     <div className="min-h-screen bg-[#070711] text-white">
@@ -145,6 +321,17 @@ export default function KnowledgeEconomy() {
           </div>
         </Card>
 
+        <GviSection
+          current={gviQuery.data}
+          displayed={displayedGvi}
+          inputs={gviInputs}
+          setInputs={setGviInputs}
+          previewPending={gviPreviewMutation.isPending}
+          snapshotPending={gviSnapshotMutation.isPending}
+          onPreview={() => gviPreviewMutation.mutate()}
+          onSnapshot={() => gviSnapshotMutation.mutate()}
+        />
+
         {packets.length === 0 ? (
           <Card className="bg-[#10101a]/90 border-white/[0.08] p-10 text-center">
             <PackageCheck className="w-10 h-10 mx-auto text-zinc-600 mb-3" />
@@ -158,6 +345,9 @@ export default function KnowledgeEconomy() {
                 const packetWarnings = warnings(packet);
                 const preview = previewById[packet.id] || {};
                 const canAccept = packetBlockers.length === 0 && !["accepted", "rejected"].includes(packet.reviewStatus);
+                const informationalEstimate = displayedGvi && Number.isFinite(Number(packet.gluonEarned))
+                  ? Number(packet.gluonEarned) * displayedGvi.gviScore
+                  : null;
 
                 return (
                   <Card key={packet.id} className="bg-[#10101a]/90 border-white/[0.08] p-5">
@@ -170,7 +360,7 @@ export default function KnowledgeEconomy() {
                           <Badge className="bg-white/[0.05] text-zinc-300 border-white/[0.08]">{packet.vaultType}/{packet.sensitivity}</Badge>
                         </div>
                         <p className="text-sm text-zinc-400 line-clamp-2">{packet.summary}</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                           <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
                             <p className="text-xs text-zinc-500">Weighted Acceptance</p>
                             <p className="text-lg font-semibold text-cyan-300">{score(packet.weightedAcceptance)}</p>
@@ -178,6 +368,11 @@ export default function KnowledgeEconomy() {
                           <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
                             <p className="text-xs text-zinc-500">Gluon</p>
                             <p className="text-lg font-semibold text-violet-300">{score(packet.gluonEarned)}</p>
+                          </div>
+                          <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
+                            <p className="text-xs text-zinc-500">GVI Estimate</p>
+                            <p className="text-lg font-semibold text-cyan-300">{informationalEstimate == null ? "0.00" : score(informationalEstimate)}</p>
+                            <p className="text-[10px] text-zinc-500">Disabled, non-cashout, informational only</p>
                           </div>
                           <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
                             <p className="text-xs text-zinc-500">Risk</p>
@@ -307,4 +502,3 @@ export default function KnowledgeEconomy() {
     </div>
   );
 }
-

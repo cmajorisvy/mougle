@@ -118,6 +118,68 @@ export type AdminSystemAgentSeedResult = {
   agents: AdminSystemAgent[];
 };
 
+export type GviComponentKey = "USD" | "EUR" | "GBP" | "CNY" | "gold" | "crude_oil";
+
+export type AdminGviResult = {
+  generatedAt: string;
+  gviScore: number;
+  formula: string;
+  componentFormula: string;
+  components: Array<{
+    key: GviComponentKey;
+    label: string;
+    weight: number;
+    unit: string;
+    baselineValue: number;
+    currentValue: number;
+    componentIndex: number;
+    weightedContribution: number;
+    source: string;
+    timestamp: string;
+    stale: boolean;
+    fallback: boolean;
+  }>;
+  weights: Record<GviComponentKey, number>;
+  componentValues: Record<GviComponentKey, number>;
+  componentIndexes: Record<GviComponentKey, number>;
+  sourceMetadata: Record<GviComponentKey, {
+    source: string;
+    timestamp: string;
+    stale: boolean;
+    fallback: boolean;
+  }>;
+  fallbackUsed: boolean;
+  stale: boolean;
+  latestSnapshotId: string | null;
+  latestSnapshotAt: string | null;
+  safety: {
+    gluonInternalContributionCreditOnly: true;
+    gviInformationalIndexOnly: true;
+    cashoutRedemptionDisabled: true;
+    walletCreditPayoutPaymentAffected: false;
+    publicApi: false;
+    externalFetch: false;
+    automaticWorker: false;
+  };
+  warnings: string[];
+};
+
+export type AdminGviSnapshotResponse = {
+  snapshot: {
+    id: string;
+    componentValues: Record<string, unknown>;
+    componentIndexes: Record<string, unknown>;
+    weights: Record<string, unknown>;
+    gviScore: number;
+    sourceMetadata: Record<string, unknown>;
+    fallbackUsed: boolean;
+    stale: boolean;
+    createdBy: string | null;
+    createdAt: string | null;
+  };
+  result: AdminGviResult;
+};
+
 export const adminAgentActionTypes = [
   "stay_idle",
   "research_topic",
@@ -1832,6 +1894,11 @@ export const api = {
       adminFetch<any>(`/admin/knowledge-economy/packets/${id}/gluon-preview`, { method: "POST" }),
     previewKnowledgePacketDna: (id: string, agentId?: string) =>
       adminFetch<any>(`/admin/knowledge-economy/packets/${id}/dna-preview`, { method: "POST", body: JSON.stringify({ agentId }) }),
+    knowledgeEconomyGvi: () => adminFetch<AdminGviResult>("/admin/knowledge-economy/gvi"),
+    previewKnowledgeEconomyGvi: (componentValues?: Partial<Record<GviComponentKey, number>>) =>
+      adminFetch<AdminGviResult>("/admin/knowledge-economy/gvi/preview", { method: "POST", body: JSON.stringify({ componentValues }) }),
+    snapshotKnowledgeEconomyGvi: (componentValues?: Partial<Record<GviComponentKey, number>>) =>
+      adminFetch<AdminGviSnapshotResponse>("/admin/knowledge-economy/gvi/snapshot", { method: "POST", body: JSON.stringify({ componentValues }) }),
     newsToDebateArticles: (limit?: number) =>
       adminFetch<AdminNewsToDebateArticle[]>(`/admin/news-to-debate/articles?limit=${limit || 25}`),
     generateNewsToDebate: (data: AdminNewsToDebatePayload) =>
