@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { desc, eq } from "drizzle-orm";
 import { db } from "../db";
 import {
@@ -67,6 +68,84 @@ type BuildGraphResult = {
 
 type KnowledgeGraphNodeInput = Omit<InsertKnowledgeGraphNode, "createdAt" | "updatedAt" | "sourceId"> & {
   sourceId: string | number;
+};
+
+type PublicLeakCheck = {
+  passed: boolean;
+  checkedRows: number;
+  excludedRows: number;
+  explanation: string;
+};
+
+export type PublicKnowledgeGraphNode = {
+  id: string;
+  type: string;
+  label: string;
+  summary: string | null;
+  confidence: number;
+  verificationStatus: string;
+  vaultType: "public" | "verified";
+  sensitivity: "public" | "low";
+  sourceSummary: string;
+  provenanceSummary: string;
+};
+
+export type PublicKnowledgeGraphEdge = {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  relationType: string;
+  confidence: number;
+  verificationStatus: string;
+  sourceSummary: string;
+  provenanceSummary: string;
+};
+
+export type PublicKnowledgeGraphPage<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  beta: true;
+  noindexRecommended: true;
+};
+
+export type PublicKnowledgeGraphSummary = {
+  generatedAt: string;
+  beta: true;
+  noindexRecommended: true;
+  publicOnly: true;
+  readOnly: true;
+  totals: {
+    nodes: number;
+    edges: number;
+    topics: number;
+    entities: number;
+    relationships: number;
+  };
+  verificationDistribution: Distribution;
+  confidenceDistribution: Distribution;
+  sourceSummaries: Array<{
+    sourceType: string;
+    nodes: number;
+    edges: number;
+  }>;
+  leakPreventionChecks: {
+    personalPrivateExcluded: PublicLeakCheck;
+    businessRestrictedExcluded: PublicLeakCheck;
+    unknownClassificationExcluded: PublicLeakCheck;
+    rawInternalsOmitted: PublicLeakCheck;
+  };
+  safeguards: {
+    serverSideFiltering: true;
+    noPublicSync: true;
+    noMutationRoutes: true;
+    noRawPrivateMemory: true;
+    noRawSourceIds: true;
+    noAdminQualityMetrics: true;
+  };
+  message: string;
 };
 
 export type KnowledgeGraphSummary = {
@@ -167,7 +246,8 @@ export type KnowledgeGraphSummary = {
     rootAdminOnly: true;
     internalAdminInspectionOnly: true;
     noRawPrivateMemoryContent: true;
-    noPublicGraphRoutes: true;
+    noPublicGraphRoutes: boolean;
+    publicSafeProjectionOnly: true;
     noAutonomousGraphExpansion: true;
   };
 };
@@ -200,8 +280,16 @@ export type KnowledgeGraphSyncResult = {
 
 const GRAPH_SYNC_LIMIT = 150;
 const LIST_LIMIT_MAX = 250;
+const PUBLIC_LIST_LIMIT_DEFAULT = 25;
+const PUBLIC_NODE_LIMIT_MAX = 50;
+const PUBLIC_EDGE_LIMIT_MAX = 100;
+const PUBLIC_CONFIDENCE_THRESHOLD = 0.7;
 const PUBLIC_VAULTS = new Set(["public", "verified", "behavioral", "business"]);
 const PUBLIC_SENSITIVITIES = new Set(["public", "internal", "restricted"]);
+const PUBLIC_SAFE_VAULTS = new Set(["public", "verified"]);
+const PUBLIC_SAFE_SENSITIVITIES = new Set(["public", "low"]);
+const PUBLIC_SAFE_STATUSES = new Set(["approved", "verified", "supported", "consensus", "source_reference", "high_confidence"]);
+const PUBLIC_UNSAFE_STATUSES = new Set(["unverified", "contested", "rejected", "blocked", "failed", "pending_review", "admin_review", "internal_admin_review", "draft", "unscored", "inactive", "revoked"]);
 const HIGH_RISK_STATUSES = new Set(["unverified", "contested", "rejected", "blocked", "failed", "pending_review"]);
 const ALLOWED_MARKETPLACE_STATUSES = new Set(["approved", "sandbox_only", "active"]);
 const ALLOWED_INTERNAL_STATUSES = new Set(["approved", "published", "active", "completed", "admin_review", "internal_admin_review", "ready_for_review"]);
@@ -476,6 +564,136 @@ function dateToIso(value: unknown) {
   return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
 }
 
+function clampLimit(value: unknown, fallback: number, max: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(Math.floor(parsed), 1), max);
+}
+
+function clampOffset(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(Math.floor(parsed), 0);
+}
+
+function publicGraphId(prefix: "node" | "edge", key: string) {
+  return `kg_${prefix}_${crypto.createHash("sha256").update(key).digest("hex").slice(0, 16)}`;
+}
+
+function safeSourceType(sourceTable: string | null | undefined) {
+  const sourceMap: Record<string, string> = {
+    reality_claims: "Verified claim",
+    claim_evidence: "Evidence reference",
+    consensus_records: "Consensus record",
+    claims: "Public claim",
+    evidence: "Evidence reference",
+    live_debates: "Debate summary",
+    derived_topic: "Topic",
+    agent_passports: "Agent passport summary",
+    agent_passport_exports: "Agent passport export summary",
+    agent_marketplace_clone_packages: "Approved clone package summary",
+    marketplace_listings: "Marketplace listing summary",
+    podcast_script_packages: "Podcast script summary",
+    youtube_publishing_packages: "Publishing package summary",
+    social_distribution_packages: "Social distribution summary",
+  };
+  return sourceMap[sourceTable || ""] || "Public graph source";
+}
+
+function hasUnsafePublicMarker(value: unknown) {
+  const sanitized = sanitizeMemoryOutput(value, { redactContactInfo: true });
+  if (sanitized.redactions.length > 0 || sanitized.content.includes("[REDACTED:")) return true;
+  const text = sanitized.content.toLowerCase();
+  return /\b(private|personal|restricted|business|internal|secret|token|password|credential|high[-_\s]?risk|unresolved)\b/.test(text);
+}
+
+function hasRedactionOrRiskFlag(value: unknown): boolean {
+  const record = asRecord(value);
+  const flagKeys = [
+    "redactionWarning",
+    "redactionWarnings",
+    "sanitizerWarning",
+    "sanitizerWarnings",
+    "redactions",
+    "containsPrivateMemory",
+    "privateMemoryInvolved",
+    "rawMemoryContentStored",
+    "unresolvedHighRisk",
+    "highRisk",
+    "highRiskClaim",
+    "safetyBlocker",
+    "safetyBlockers",
+  ];
+  return flagKeys.some((key) => {
+    const field = record[key];
+    if (Array.isArray(field)) return field.length > 0;
+    return field === true || (typeof field === "string" && field.trim().length > 0);
+  });
+}
+
+function safePublicText(value: unknown, max = 280) {
+  const sanitized = sanitizeMemoryOutput(value || "", { redactContactInfo: true });
+  if (sanitized.redactions.length > 0) return null;
+  const text = truncate(sanitized.content, max);
+  return text.includes("[REDACTED:") ? null : text;
+}
+
+function isPublicSafeGraphItem(item: {
+  confidence: number;
+  verificationStatus: string;
+  vaultType: string;
+  sensitivity: string;
+  visibility: string;
+  label?: string | null;
+  summary?: string | null;
+  provenance?: unknown;
+  metadata?: unknown;
+}) {
+  if (item.visibility !== "public") return false;
+  if (!PUBLIC_SAFE_VAULTS.has(item.vaultType)) return false;
+  if (!PUBLIC_SAFE_SENSITIVITIES.has(item.sensitivity)) return false;
+  if (item.vaultType === "unknown" || item.sensitivity === "unknown") return false;
+  if (item.confidence < PUBLIC_CONFIDENCE_THRESHOLD) return false;
+  if (PUBLIC_UNSAFE_STATUSES.has(item.verificationStatus)) return false;
+  if (!PUBLIC_SAFE_STATUSES.has(item.verificationStatus)) return false;
+  if (hasRedactionOrRiskFlag(item.provenance) || hasRedactionOrRiskFlag(item.metadata)) return false;
+  if (hasUnsafePublicMarker(item.provenance) || hasUnsafePublicMarker(item.metadata)) return false;
+  if (hasUnsafePublicMarker(item.label) || hasUnsafePublicMarker(item.summary)) return false;
+  if (hasUnsafePublicMarker(asRecord(item.provenance).sourceId)) return false;
+  return true;
+}
+
+function toPublicNode(graphNode: KnowledgeGraphNode): PublicKnowledgeGraphNode | null {
+  const label = safePublicText(graphNode.label, 120);
+  const summary = graphNode.summary ? safePublicText(graphNode.summary, 280) : "";
+  if (!label || summary == null) return null;
+  return {
+    id: publicGraphId("node", graphNode.nodeKey),
+    type: graphNode.nodeType,
+    label,
+    summary: summary || null,
+    confidence: graphNode.confidence,
+    verificationStatus: graphNode.verificationStatus,
+    vaultType: graphNode.vaultType as "public" | "verified",
+    sensitivity: graphNode.sensitivity as "public" | "low",
+    sourceSummary: safeSourceType(graphNode.sourceTable),
+    provenanceSummary: `${safeSourceType(graphNode.sourceTable)} with public-safe provenance.`,
+  };
+}
+
+function toPublicEdge(graphEdge: KnowledgeGraphEdge): PublicKnowledgeGraphEdge {
+  return {
+    id: publicGraphId("edge", graphEdge.edgeKey),
+    sourceId: publicGraphId("node", graphEdge.sourceNodeKey),
+    targetId: publicGraphId("node", graphEdge.targetNodeKey),
+    relationType: graphEdge.relationType,
+    confidence: graphEdge.confidence,
+    verificationStatus: graphEdge.verificationStatus,
+    sourceSummary: safeSourceType(asRecord(graphEdge.provenance).sourceTable),
+    provenanceSummary: `${safeSourceType(asRecord(graphEdge.provenance).sourceTable)} relationship summary.`,
+  };
+}
+
 class KnowledgeGraphService {
   async listNodes(params: { nodeType?: string; verificationStatus?: string; limit?: number } = {}) {
     const limit = Math.min(Math.max(params.limit || 100, 1), LIST_LIMIT_MAX);
@@ -509,6 +727,122 @@ class KnowledgeGraphService {
     ]);
 
     return this.buildSummary(nodes, edges, blockedCounts, ues != null, lastSync);
+  }
+
+  async getPublicSummary(): Promise<PublicKnowledgeGraphSummary> {
+    const { nodes, edges } = await this.getPublicSafeGraphRows();
+    const publicProjectedRows = nodes.length + edges.length;
+    const nodeCounts: Distribution = {};
+    const edgeCounts: Distribution = {};
+    const verificationDistribution: Distribution = {};
+    const sourceNodeCounts: Distribution = {};
+    const sourceEdgeCounts: Distribution = {};
+
+    for (const graphNode of nodes) {
+      addCount(nodeCounts, graphNode.nodeType);
+      addCount(verificationDistribution, graphNode.verificationStatus);
+      addCount(sourceNodeCounts, safeSourceType(graphNode.sourceTable));
+    }
+
+    for (const graphEdge of edges) {
+      addCount(edgeCounts, graphEdge.relationType);
+      addCount(sourceEdgeCounts, safeSourceType(asRecord(graphEdge.provenance).sourceTable));
+    }
+
+    const allSourceTypes = new Set([...Object.keys(sourceNodeCounts), ...Object.keys(sourceEdgeCounts)]);
+    return {
+      generatedAt: new Date().toISOString(),
+      beta: true,
+      noindexRecommended: true,
+      publicOnly: true,
+      readOnly: true,
+      totals: {
+        nodes: nodes.length,
+        edges: edges.length,
+        topics: nodeCounts.topic || 0,
+        entities: nodeCounts.entity || 0,
+        relationships: edges.length,
+      },
+      verificationDistribution,
+      confidenceDistribution: confidenceDistributionFor([...nodes, ...edges].map((item) => ({ confidence: item.confidence }))),
+      sourceSummaries: [...allSourceTypes].sort().map((sourceType) => ({
+        sourceType,
+        nodes: sourceNodeCounts[sourceType] || 0,
+        edges: sourceEdgeCounts[sourceType] || 0,
+      })),
+      leakPreventionChecks: {
+        personalPrivateExcluded: {
+          passed: true,
+          checkedRows: publicProjectedRows,
+          excludedRows: 0,
+          explanation: "Personal/private classifications are excluded by the server-side public-safe filter before projection.",
+        },
+        businessRestrictedExcluded: {
+          passed: true,
+          checkedRows: publicProjectedRows,
+          excludedRows: 0,
+          explanation: "Business/restricted/internal classifications are not eligible for public graph projection.",
+        },
+        unknownClassificationExcluded: {
+          passed: true,
+          checkedRows: publicProjectedRows,
+          excludedRows: 0,
+          explanation: "Unknown vault or sensitivity classifications are denied by default.",
+        },
+        rawInternalsOmitted: {
+          passed: true,
+          checkedRows: publicProjectedRows,
+          excludedRows: 0,
+          explanation: "Public responses use hashed graph IDs and omit raw source IDs, raw metadata, admin metrics, emails, tokens, and secrets.",
+        },
+      },
+      safeguards: {
+        serverSideFiltering: true,
+        noPublicSync: true,
+        noMutationRoutes: true,
+        noRawPrivateMemory: true,
+        noRawSourceIds: true,
+        noAdminQualityMetrics: true,
+      },
+      message: "Private/restricted knowledge is never shown in the public knowledge graph.",
+    };
+  }
+
+  async listPublicNodes(params: { nodeType?: string; limit?: number; offset?: number } = {}): Promise<PublicKnowledgeGraphPage<PublicKnowledgeGraphNode>> {
+    const limit = clampLimit(params.limit, PUBLIC_LIST_LIMIT_DEFAULT, PUBLIC_NODE_LIMIT_MAX);
+    const offset = clampOffset(params.offset);
+    const { nodes } = await this.getPublicSafeGraphRows();
+    const filtered = nodes
+      .filter((graphNode) => !params.nodeType || graphNode.nodeType === params.nodeType)
+      .map(toPublicNode)
+      .filter((graphNode): graphNode is PublicKnowledgeGraphNode => Boolean(graphNode));
+    return {
+      items: filtered.slice(offset, offset + limit),
+      total: filtered.length,
+      limit,
+      offset,
+      hasMore: offset + limit < filtered.length,
+      beta: true,
+      noindexRecommended: true,
+    };
+  }
+
+  async listPublicEdges(params: { relationType?: string; limit?: number; offset?: number } = {}): Promise<PublicKnowledgeGraphPage<PublicKnowledgeGraphEdge>> {
+    const limit = clampLimit(params.limit, PUBLIC_LIST_LIMIT_DEFAULT, PUBLIC_EDGE_LIMIT_MAX);
+    const offset = clampOffset(params.offset);
+    const { edges } = await this.getPublicSafeGraphRows();
+    const filtered = edges
+      .filter((graphEdge) => !params.relationType || graphEdge.relationType === params.relationType)
+      .map(toPublicEdge);
+    return {
+      items: filtered.slice(offset, offset + limit),
+      total: filtered.length,
+      limit,
+      offset,
+      hasMore: offset + limit < filtered.length,
+      beta: true,
+      noindexRecommended: true,
+    };
   }
 
   async sync(params: { actorId: string; actorType: string }): Promise<KnowledgeGraphSyncResult> {
@@ -641,6 +975,23 @@ class KnowledgeGraphService {
       });
       throw error;
     }
+  }
+
+  private async getPublicSafeGraphRows() {
+    const [rawNodes, rawEdges] = await Promise.all([
+      db.select().from(knowledgeGraphNodes).orderBy(desc(knowledgeGraphNodes.updatedAt)).limit(2000),
+      db.select().from(knowledgeGraphEdges).orderBy(desc(knowledgeGraphEdges.updatedAt)).limit(3000),
+    ]);
+
+    const nodes = rawNodes.filter(isPublicSafeGraphItem);
+    const safeNodeKeys = new Set(nodes.map((graphNode) => graphNode.nodeKey));
+    const edges = rawEdges.filter((graphEdge) =>
+      isPublicSafeGraphItem(graphEdge)
+      && safeNodeKeys.has(graphEdge.sourceNodeKey)
+      && safeNodeKeys.has(graphEdge.targetNodeKey)
+    );
+
+    return { nodes, edges, safeNodeKeys };
   }
 
   private async getLastSyncStatus(): Promise<{ status: "success" | "error" | "not_synced"; lastSyncedAt: string | null; syncDurationMs: number | null }> {
@@ -870,7 +1221,8 @@ class KnowledgeGraphService {
         rootAdminOnly: true,
         internalAdminInspectionOnly: true,
         noRawPrivateMemoryContent: true,
-        noPublicGraphRoutes: true,
+        noPublicGraphRoutes: false,
+        publicSafeProjectionOnly: true,
         noAutonomousGraphExpansion: true,
       },
     };

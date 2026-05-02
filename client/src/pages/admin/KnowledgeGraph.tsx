@@ -130,7 +130,7 @@ function Safeguards({ summary }: { summary: AdminKnowledgeGraphSummary }) {
     ["Root Admin Only", summary.safeguards.rootAdminOnly],
     ["Internal Inspection", summary.safeguards.internalAdminInspectionOnly],
     ["No Raw Private Memory", summary.safeguards.noRawPrivateMemoryContent],
-    ["No Public Graph Routes", summary.safeguards.noPublicGraphRoutes],
+    ["Public-Safe Projection Only", summary.safeguards.publicSafeProjectionOnly],
     ["Manual Sync Only", summary.safeguards.noAutonomousGraphExpansion],
   ];
 

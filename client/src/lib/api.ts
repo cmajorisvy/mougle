@@ -1071,7 +1071,8 @@ export type AdminKnowledgeGraphSummary = {
     rootAdminOnly: true;
     internalAdminInspectionOnly: true;
     noRawPrivateMemoryContent: true;
-    noPublicGraphRoutes: true;
+    noPublicGraphRoutes: boolean;
+    publicSafeProjectionOnly: true;
     noAutonomousGraphExpansion: true;
   };
 };
@@ -1104,6 +1105,97 @@ export type AdminKnowledgeGraphSyncResult = {
   duplicateEdgeKeyCount: number;
   blockedCounts: AdminKnowledgeGraphSummary["blockedCounts"];
   summary: AdminKnowledgeGraphSummary;
+};
+
+export type PublicKnowledgeGraphNode = {
+  id: string;
+  type: string;
+  label: string;
+  summary: string | null;
+  confidence: number;
+  verificationStatus: string;
+  vaultType: "public" | "verified";
+  sensitivity: "public" | "low";
+  sourceSummary: string;
+  provenanceSummary: string;
+};
+
+export type PublicKnowledgeGraphEdge = {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  relationType: string;
+  confidence: number;
+  verificationStatus: string;
+  sourceSummary: string;
+  provenanceSummary: string;
+};
+
+export type PublicKnowledgeGraphPage<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  beta: true;
+  noindexRecommended: true;
+};
+
+export type PublicKnowledgeGraphSummary = {
+  generatedAt: string;
+  beta: true;
+  noindexRecommended: true;
+  publicOnly: true;
+  readOnly: true;
+  totals: {
+    nodes: number;
+    edges: number;
+    topics: number;
+    entities: number;
+    relationships: number;
+  };
+  verificationDistribution: Record<string, number>;
+  confidenceDistribution: Record<string, number>;
+  sourceSummaries: Array<{
+    sourceType: string;
+    nodes: number;
+    edges: number;
+  }>;
+  leakPreventionChecks: {
+    personalPrivateExcluded: {
+      passed: boolean;
+      checkedRows: number;
+      excludedRows: number;
+      explanation: string;
+    };
+    businessRestrictedExcluded: {
+      passed: boolean;
+      checkedRows: number;
+      excludedRows: number;
+      explanation: string;
+    };
+    unknownClassificationExcluded: {
+      passed: boolean;
+      checkedRows: number;
+      excludedRows: number;
+      explanation: string;
+    };
+    rawInternalsOmitted: {
+      passed: boolean;
+      checkedRows: number;
+      excludedRows: number;
+      explanation: string;
+    };
+  };
+  safeguards: {
+    serverSideFiltering: true;
+    noPublicSync: true;
+    noMutationRoutes: true;
+    noRawPrivateMemory: true;
+    noRawSourceIds: true;
+    noAdminQualityMetrics: true;
+  };
+  message: string;
 };
 
 export type AdminSafeModeControls = {
@@ -1390,6 +1482,23 @@ export const api = {
     insights: (status?: string) => fetchJSON<any[]>(`/collective/insights${status ? `?status=${status}` : ""}`),
     memory: () => fetchJSON<any>("/collective/memory"),
     trigger: () => fetchJSON<any>("/collective/trigger", { method: "POST" }),
+  },
+  publicKnowledgeGraph: {
+    summary: () => fetchJSON<PublicKnowledgeGraphSummary>("/public/knowledge-graph/summary"),
+    nodes: (params?: { nodeType?: string; limit?: number; offset?: number }) => {
+      const search = new URLSearchParams();
+      if (params?.nodeType) search.set("nodeType", params.nodeType);
+      if (params?.limit) search.set("limit", String(params.limit));
+      if (params?.offset) search.set("offset", String(params.offset));
+      return fetchJSON<PublicKnowledgeGraphPage<PublicKnowledgeGraphNode>>(`/public/knowledge-graph/nodes${search.toString() ? `?${search}` : ""}`);
+    },
+    edges: (params?: { relationType?: string; limit?: number; offset?: number }) => {
+      const search = new URLSearchParams();
+      if (params?.relationType) search.set("relationType", params.relationType);
+      if (params?.limit) search.set("limit", String(params.limit));
+      if (params?.offset) search.set("offset", String(params.offset));
+      return fetchJSON<PublicKnowledgeGraphPage<PublicKnowledgeGraphEdge>>(`/public/knowledge-graph/edges${search.toString() ? `?${search}` : ""}`);
+    },
   },
   debates: {
     list: (status?: string) => fetchJSON<any[]>(`/debates${status ? `?status=${status}` : ""}`),
