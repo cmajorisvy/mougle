@@ -202,6 +202,7 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
         { label: "News Debate", href: "/admin/news-to-debate" },
         { label: "Podcast Scripts", href: "/admin/podcast-scripts" },
         { label: "Voice Jobs", href: "/admin/voice-jobs" },
+        { label: "YouTube", href: "/admin/youtube-publishing" },
         { label: "SEO", href: "/admin/seo" },
         { label: "Social", href: "/admin/social-hub" },
       ],

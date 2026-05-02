@@ -881,10 +881,66 @@ export const podcastAudioJobs = pgTable("podcast_audio_jobs", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export type YouTubePublishingChecklistItem = {
+  key: string;
+  label: string;
+  passed: boolean;
+  severity: "info" | "warning" | "blocking";
+  message: string;
+};
+
+export type YouTubePublishingPackageMetadata = {
+  title: string;
+  description: string;
+  tags: string[];
+  thumbnailText: string;
+  shortsHooks: string[];
+  privacyStatus: "private";
+  scriptPackageStatus: string;
+  scriptAdminReviewStatus: string;
+  audioJobStatus: string | null;
+  videoAsset: {
+    generatedClipId: number | null;
+    title: string | null;
+    pathPresent: boolean;
+    format: string | null;
+    durationSeconds: number | null;
+  };
+  manualApprovalRequired: true;
+  internalReviewOnly: true;
+};
+
+export const youtubePublishingPackages = pgTable("youtube_publishing_packages", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  scriptPackageId: integer("script_package_id").notNull(),
+  audioJobId: integer("audio_job_id"),
+  generatedClipId: integer("generated_clip_id"),
+  status: text("status").notNull().default("draft"),
+  approvalStatus: text("approval_status").notNull().default("pending"),
+  uploadStatus: text("upload_status").notNull().default("not_uploaded"),
+  provider: text("provider").notNull().default("dry_run"),
+  packageMetadata: jsonb("package_metadata").$type<YouTubePublishingPackageMetadata>().notNull(),
+  readinessChecklist: jsonb("readiness_checklist").$type<YouTubePublishingChecklistItem[]>().notNull().default([]),
+  complianceChecklist: jsonb("compliance_checklist").$type<YouTubePublishingChecklistItem[]>().notNull().default([]),
+  sourceChecklist: jsonb("source_checklist").$type<YouTubePublishingChecklistItem[]>().notNull().default([]),
+  youtubeVideoId: text("youtube_video_id"),
+  youtubeUrl: text("youtube_url"),
+  youtubeStatus: text("youtube_status"),
+  errorMessage: text("error_message"),
+  createdBy: text("created_by").notNull(),
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  uploadedBy: text("uploaded_by"),
+  uploadedAt: timestamp("uploaded_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertFlywheelJobSchema = createInsertSchema(flywheelJobs).omit({ id: true, createdAt: true, startedAt: true, completedAt: true } as any);
 export const insertGeneratedClipSchema = createInsertSchema(generatedClips).omit({ id: true, createdAt: true } as any);
 export const insertPodcastScriptPackageSchema = createInsertSchema(podcastScriptPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
 export const insertPodcastAudioJobSchema = createInsertSchema(podcastAudioJobs).omit({ id: true, createdAt: true, updatedAt: true } as any);
+export const insertYouTubePublishingPackageSchema = createInsertSchema(youtubePublishingPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
 
 export type InsertFlywheelJob = typeof flywheelJobs.$inferInsert;
 export type FlywheelJob = typeof flywheelJobs.$inferSelect;
@@ -894,6 +950,8 @@ export type InsertPodcastScriptPackage = typeof podcastScriptPackages.$inferInse
 export type PodcastScriptPackage = typeof podcastScriptPackages.$inferSelect;
 export type InsertPodcastAudioJob = typeof podcastAudioJobs.$inferInsert;
 export type PodcastAudioJob = typeof podcastAudioJobs.$inferSelect;
+export type InsertYouTubePublishingPackage = typeof youtubePublishingPackages.$inferInsert;
+export type YouTubePublishingPackage = typeof youtubePublishingPackages.$inferSelect;
 
 export const newsArticles = pgTable("news_articles", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
