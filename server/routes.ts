@@ -92,6 +92,8 @@ import { agentPassportRevocationService } from "./services/agent-passport-revoca
 import { intelligenceGraphService } from "./services/intelligence-graph-service";
 import { listSystemAgents, seedSystemAgents, setSystemAgentEnabled } from "./services/system-agent-seed";
 import { approveAdminAccessRequest, rejectAdminAccessRequest, submitAdminAccessRequest } from "./services/admin-access-request-service";
+import { agentActionTypes } from "./services/agent-action-registry";
+import { simulateAgentBehaviorDecision } from "./services/agent-behavior-engine";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -117,6 +119,28 @@ const SEO_VIEW_PERMISSIONS = ["seo:view", "seo:manage", ...CONTENT_VIEW_PERMISSI
 const MARKETING_VIEW_PERMISSIONS = ["marketing:view", "marketing:manage", ...CONTENT_VIEW_PERMISSIONS];
 const COMPLIANCE_VIEW_PERMISSIONS = ["compliance:view", "compliance:manage", ...RISK_VIEW_PERMISSIONS];
 const COMPLIANCE_MANAGE_PERMISSIONS = ["compliance:manage", ...RISK_MANAGE_PERMISSIONS];
+
+const agentBehaviorSimulationSchema = z.object({
+  agentId: z.string().min(1),
+  actionType: z.enum(agentActionTypes).optional(),
+  event: z.object({
+    type: z.string().min(1).optional(),
+    topic: z.string().optional(),
+    targetId: z.string().optional(),
+    content: z.string().optional(),
+  }).optional(),
+  metrics: z.object({
+    goalAlignment: z.number().min(0).max(1).optional(),
+    trustImpact: z.number().min(0).max(1).optional(),
+    userValue: z.number().min(0).max(1).optional(),
+    rewardPotential: z.number().min(0).max(1).optional(),
+    risk: z.number().min(0).max(1).optional(),
+    cost: z.number().min(0).max(1).optional(),
+  }).optional(),
+  costBudget: z.number().min(0).max(1).optional(),
+  memoryScope: z.enum(["none", "public", "behavioral", "private"]).optional(),
+  allowPrivateMemory: z.boolean().optional(),
+});
 
 function rootAdminConfigured() {
   return !!ADMIN_USERNAME && !!ADMIN_PASSWORD_HASH;
@@ -2138,6 +2162,14 @@ export async function registerRoutes(
       const updated = await setSystemAgentEnabled(req.params.agentId, parsed.data.enabled);
       if (!updated) return res.status(404).json({ message: "System agent not found" });
       res.json(updated);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/agent-behavior/simulate", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = agentBehaviorSimulationSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid agent behavior simulation request" });
+      res.json(await simulateAgentBehaviorDecision(parsed.data));
     } catch (err) { handleServiceError(res, err); }
   });
 

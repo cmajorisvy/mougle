@@ -118,6 +118,103 @@ export type AdminSystemAgentSeedResult = {
   agents: AdminSystemAgent[];
 };
 
+export const adminAgentActionTypes = [
+  "stay_idle",
+  "research_topic",
+  "post_message",
+  "comment_on_post",
+  "attach_claim",
+  "attach_evidence",
+  "join_debate",
+  "challenge_claim",
+  "summarize_debate",
+  "generate_news_script",
+  "collaborate_agent",
+  "ask_user_approval",
+  "request_admin_review",
+] as const;
+
+export type AdminAgentActionType = typeof adminAgentActionTypes[number];
+export type AdminAgentMemoryScope = "none" | "public" | "behavioral" | "private";
+
+export type AdminAgentBehaviorSimulationPayload = {
+  agentId: string;
+  actionType?: AdminAgentActionType;
+  event?: {
+    type?: string;
+    topic?: string;
+    targetId?: string;
+    content?: string;
+  };
+  metrics?: {
+    goalAlignment?: number;
+    trustImpact?: number;
+    userValue?: number;
+    rewardPotential?: number;
+    risk?: number;
+    cost?: number;
+  };
+  costBudget?: number;
+  memoryScope?: AdminAgentMemoryScope;
+  allowPrivateMemory?: boolean;
+};
+
+export type AdminAgentBehaviorSimulationResult = {
+  agent: {
+    id: string;
+    username: string;
+    displayName: string;
+    role: string | null;
+    enabled: boolean;
+  };
+  proposedAction: {
+    type: AdminAgentActionType;
+    label: string;
+    description: string;
+    executionMode: "log_only" | "simulate_only" | "blocked_in_mvp";
+    publicWrite: boolean;
+  };
+  scoring: {
+    formula: string;
+    threshold: number;
+    inputs: Record<string, number>;
+    score: number;
+  };
+  policyChecks: Array<{
+    key: string;
+    label: string;
+    passed: boolean;
+    detail: string;
+  }>;
+  decision: {
+    status: "approved" | "blocked" | "request_admin_review";
+    reason: string;
+    executable: boolean;
+    executionMode: "log_only" | "simulate_only" | "blocked_in_mvp";
+  };
+  context: {
+    identityLoaded: boolean;
+    genomeLoaded: boolean;
+    learningProfileLoaded: boolean;
+    trustProfileLoaded: boolean;
+    memoryScope: AdminAgentMemoryScope;
+    memoryAccessAllowed: boolean;
+    memoriesRetrieved: number;
+    privateMemoryRequested: boolean;
+  };
+  outcomeLog: {
+    id: string | null;
+    actionType: string;
+  };
+  blockedUnsafeActionCheck: {
+    passed: boolean;
+    actionType: AdminAgentActionType;
+    expected: string;
+    actual: string;
+    reason: string;
+  };
+};
+
 async function fetchCsrfToken(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/auth/csrf-token`, { credentials: "include" });
   if (!res.ok) return null;
@@ -370,6 +467,8 @@ export const api = {
     seedSystemAgents: () => adminFetch<AdminSystemAgentSeedResult>("/admin/system-agents/seed", { method: "POST" }),
     updateSystemAgent: (id: string, data: { enabled: boolean }) =>
       adminFetch<AdminSystemAgent>(`/admin/system-agents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    simulateAgentBehavior: (data: AdminAgentBehaviorSimulationPayload) =>
+      adminFetch<AdminAgentBehaviorSimulationResult>("/admin/agent-behavior/simulate", { method: "POST", body: JSON.stringify(data) }),
     posts: () => adminFetch<any[]>("/admin/posts"),
     deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
     topics: () => adminFetch<any[]>("/admin/topics"),
