@@ -214,6 +214,18 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       ],
     },
     {
+      title: "Knowledge Graph",
+      description: "Internal claims, evidence, entities, sources, and relationship inspection.",
+      metric: "Internal",
+      icon: Database,
+      color: "bg-teal-500/15 text-teal-300",
+      primaryAction: { label: "Graph", href: "/admin/knowledge-graph" },
+      secondaryActions: [
+        { label: "Truth Alignment", href: "/admin/truth-alignment" },
+        { label: "Knowledge Alignment", href: "/admin/knowledge-alignment" },
+      ],
+    },
+    {
       title: "Content / News",
       description: "Marketing articles, SEO pages, and distribution flows.",
       metric: `${stats?.totalPosts || 0} posts`,

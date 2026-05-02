@@ -934,6 +934,109 @@ export type AdminCivilizationHealthDashboard = {
   };
 };
 
+export type AdminKnowledgeGraphNode = {
+  nodeKey: string;
+  nodeType: string;
+  label: string;
+  summary: string | null;
+  sourceTable: string;
+  sourceId: string;
+  confidence: number;
+  verificationStatus: string;
+  vaultType: string;
+  sensitivity: string;
+  visibility: string;
+  provenance: Record<string, any>;
+  metadata: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminKnowledgeGraphEdge = {
+  edgeKey: string;
+  sourceNodeKey: string;
+  targetNodeKey: string;
+  relationType: string;
+  confidence: number;
+  verificationStatus: string;
+  vaultType: string;
+  sensitivity: string;
+  visibility: string;
+  provenance: Record<string, any>;
+  metadata: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminKnowledgeGraphSummary = {
+  generatedAt: string;
+  internalOnly: true;
+  manualSyncOnly: true;
+  totals: {
+    nodes: number;
+    edges: number;
+    blockedRestrictedSources: number;
+  };
+  nodeCountsByType: Record<string, number>;
+  edgeCountsByRelation: Record<string, number>;
+  verificationDistribution: Record<string, number>;
+  vaultDistribution: Record<string, number>;
+  sensitivityDistribution: Record<string, number>;
+  topConnected: Array<{
+    nodeKey: string;
+    nodeType: string;
+    label: string;
+    connectionCount: number;
+    verificationStatus: string;
+  }>;
+  highRiskClusters: Array<{
+    nodeKey: string;
+    nodeType: string;
+    label: string;
+    verificationStatus: string;
+    confidence: number;
+    reason: string;
+  }>;
+  blockedCounts: {
+    total: number;
+    bySource: Record<string, number>;
+    byReason: Record<string, number>;
+    samples: Array<{
+      sourceTable: string;
+      reason: string;
+      vaultType: string;
+      sensitivity: string;
+    }>;
+  };
+  provenanceSummaries: Array<{
+    sourceTable: string;
+    nodes: number;
+    edges: number;
+  }>;
+  qualitySignals: {
+    uesAvailable: boolean;
+    sourceQuality: UesSourceQuality;
+    notes: string[];
+  };
+  safeguards: {
+    rootAdminOnly: true;
+    internalAdminInspectionOnly: true;
+    noRawPrivateMemoryContent: true;
+    noPublicGraphRoutes: true;
+    noAutonomousGraphExpansion: true;
+  };
+};
+
+export type AdminKnowledgeGraphSyncResult = {
+  syncedAt: string;
+  nodesPrepared: number;
+  edgesPrepared: number;
+  nodesUpserted: number;
+  edgesUpserted: number;
+  blockedCounts: AdminKnowledgeGraphSummary["blockedCounts"];
+  summary: AdminKnowledgeGraphSummary;
+};
+
 export type AdminSafeModeControls = {
   id: number;
   globalSafeMode: boolean;
@@ -1259,6 +1362,21 @@ export const api = {
     verify: () => adminFetch<AdminVerifyResponse>("/admin/verify"),
     stats: () => adminFetch<any>("/admin/stats"),
     civilizationHealth: () => adminFetch<AdminCivilizationHealthDashboard>("/admin/civilization-health"),
+    knowledgeGraphSummary: () => adminFetch<AdminKnowledgeGraphSummary>("/admin/knowledge-graph/summary"),
+    knowledgeGraphNodes: (params?: { nodeType?: string; verificationStatus?: string; limit?: number }) => {
+      const search = new URLSearchParams();
+      if (params?.nodeType) search.set("nodeType", params.nodeType);
+      if (params?.verificationStatus) search.set("verificationStatus", params.verificationStatus);
+      if (params?.limit) search.set("limit", String(params.limit));
+      return adminFetch<AdminKnowledgeGraphNode[]>(`/admin/knowledge-graph/nodes${search.toString() ? `?${search}` : ""}`);
+    },
+    knowledgeGraphEdges: (params?: { relationType?: string; limit?: number }) => {
+      const search = new URLSearchParams();
+      if (params?.relationType) search.set("relationType", params.relationType);
+      if (params?.limit) search.set("limit", String(params.limit));
+      return adminFetch<AdminKnowledgeGraphEdge[]>(`/admin/knowledge-graph/edges${search.toString() ? `?${search}` : ""}`);
+    },
+    syncKnowledgeGraph: () => adminFetch<AdminKnowledgeGraphSyncResult>("/admin/knowledge-graph/sync", { method: "POST" }),
     safeMode: () => adminFetch<AdminSafeModeStatus>("/admin/safe-mode"),
     updateSafeMode: (data: AdminSafeModeUpdatePayload) =>
       adminFetch<AdminSafeModeStatus>("/admin/safe-mode", { method: "PATCH", body: JSON.stringify(data) }),
