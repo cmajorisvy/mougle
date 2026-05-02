@@ -163,6 +163,12 @@ export type AdminAgentBehaviorSimulationPayload = {
   graphAllowHypotheses?: boolean;
   graphExplicitBusinessPermission?: boolean;
   graphMinimumConfidence?: number;
+  includeKnowledgePacketContext?: boolean;
+  knowledgePacketQuery?: string;
+  knowledgePacketAllowHypotheses?: boolean;
+  knowledgePacketExplicitBusinessPermission?: boolean;
+  knowledgePacketMinimumConfidence?: number;
+  knowledgePacketLimit?: number;
 };
 
 export type AdminAgentGraphRequesterType = "system_agent" | "user_agent" | "root_admin";
@@ -327,6 +333,124 @@ export type AdminAgentBehaviorSimulationResult = {
     policy: AdminAgentGraphAccessResult["policy"] | null;
     explanations: string[];
     deterministicChecks: AdminAgentGraphAccessResult["deterministicChecks"] | null;
+  };
+  knowledgePacketContext: {
+    enabled: boolean;
+    knowledgePacketsConsidered: number;
+    knowledgePacketsUsed: number;
+    packetRankingReasons: string[];
+    blockedPacketCounts: {
+      total: number;
+      byReason: Record<string, number>;
+    };
+    policy: {
+      requesterType: "system_agent" | "user_agent" | "root_admin";
+      requesterAgentId: string;
+      allowedVaults: string[];
+      allowedSensitivity: string[];
+      hypothesesAllowed: boolean;
+      explicitBusinessPermission: boolean;
+      minimumConfidence: number;
+      mutationAllowed: false;
+      gluonAwardAllowed: false;
+    } | null;
+    packets: Array<{
+      id: string;
+      title: string;
+      safeSummary: string;
+      sourceType: string;
+      domainTags: string[];
+      industryTags: string[];
+      vaultType: string;
+      sensitivity: string;
+      privacyLevel: string;
+      verificationStatus: string;
+      reviewStatus: string;
+      status: string;
+      knowledgeStatus: "fact" | "hypothesis" | "pattern";
+      confidence: number;
+      provenanceSummary: string;
+      rankingScore: number;
+      rankingReasons: string[];
+      weightedAcceptance: number;
+      gluonSignal: {
+        amount: number;
+        normalized: number;
+        nonConvertible: true;
+        rankingOnly: true;
+      };
+      creatorTrust: {
+        available: boolean;
+        ues: number | null;
+        sourceQuality: string | null;
+      };
+      freshness: number;
+      consentSummary: {
+        creatorConsent: boolean;
+        crossAgentLearningConsent: boolean;
+        businessKnowledgeApproved: boolean;
+      };
+    }>;
+    simulatedGluonSignals: Array<{
+      packetId: string;
+      title: string;
+      amount: number;
+      normalized: number;
+      weightedAcceptance: number;
+      nonConvertible: true;
+      rankingOnly: true;
+    }>;
+    hypothesisItems: Array<{
+      packetId: string;
+      title: string;
+      reason: string;
+    }>;
+    blockedItems: {
+      total: number;
+      byReason: Record<string, number>;
+    };
+    explanations: string[];
+    deterministicChecks: Record<string, {
+      passed: boolean;
+      expected: string;
+      actual: string;
+      explanation: string;
+    }> | null;
+  };
+  dnaContext: {
+    enabled: boolean;
+    primeColorSignature: Record<string, any>;
+    knowledgeDomains: string[];
+    behaviorStyle: Record<string, number | string>;
+    trustEconomicGenome: Record<string, number | string | boolean>;
+    dnaMetadata: Record<string, any>;
+    mutationHistorySummary: {
+      totalRecent: number;
+      preview: number;
+      applied: number;
+      rejected: number;
+      latestPreviewAt: string | null;
+    };
+    mutationPreviewOnly: true;
+    liveGenomeMutated: false;
+    oldEvolutionServiceTriggered: false;
+    explanations: string[];
+  };
+  reasoningTraceSummary: {
+    graphContextUsed: boolean;
+    knowledgePacketContextUsed: boolean;
+    dnaContextUsed: boolean;
+    reasoningInputsUsed: string[];
+    safetyGatesApplied: string[];
+    noMutationConfirmation: {
+      graphMutation: false;
+      packetMutation: false;
+      dnaMutationApply: false;
+      gluonAward: false;
+      walletOrPayout: false;
+      autonomousExecution: false;
+      publicPublishing: false;
+    };
   };
   blockedUnsafeActionCheck: {
     passed: boolean;
