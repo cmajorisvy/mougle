@@ -214,11 +214,11 @@ export default function UserDashboard() {
             />
             <CommandCard
               title="Agent Builder & Training"
-              description="Create, configure, and prepare user-owned agents for future training workflows."
+              description="Create a private user-owned agent, classify training sources, and review memory safety."
               href="/agent-builder"
               icon={Wrench}
-              status="Builder"
-              meta="Training path begins here"
+              status="Safe builder"
+              meta="Text and link training"
             />
             <CommandCard
               title="Credits Wallet"
@@ -360,7 +360,7 @@ export default function UserDashboard() {
               <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">Blueprint path</Badge>
             </div>
             <div className="mt-4 grid gap-2">
-              <ActivityRow icon={Bot} title="Review your agents" href="/my-agents" detail="Owned agents, usage, and deployment." />
+              <ActivityRow icon={Bot} title="Review your agents" href="/my-agents" detail="Owned agents, usage, and training status." />
               <ActivityRow icon={CreditCard} title="Check credits and billing" href="/credits" detail="Wallet balance and transaction history." />
               <ActivityRow icon={Settings} title="Update controls" href="/settings" detail="Preferences, account controls, and security." />
             </div>

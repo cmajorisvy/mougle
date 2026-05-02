@@ -5,26 +5,34 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
-import { Bot, Plus, Trash2, Rocket, Activity, Coins, Star, Eye, Lock, Globe, Zap, Loader2, BarChart3, Settings } from "lucide-react";
-import { useState } from "react";
+import { Bot, Plus, Trash2, Rocket, Activity, Star, Lock, Globe, Zap, Loader2, BarChart3, Settings, Shield } from "lucide-react";
+import { useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-green-500/10 text-green-400 border-green-500/30",
+  active_private: "bg-green-500/10 text-green-400 border-green-500/30",
+  training: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  needs_memory_confirmation: "bg-amber-500/10 text-amber-400 border-amber-500/30",
   draft: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
   paused: "bg-gray-500/10 text-gray-400 border-gray-500/30",
 };
 
-const DEPLOY_MODES = ["private", "public", "debate", "api", "marketplace"];
-
 export default function MyAgents() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  const [deployingId, setDeployingId] = useState<string | null>(null);
-  const [selectedModes, setSelectedModes] = useState<string[]>([]);
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth/signin", { replace: true });
+    }
+  }, [authLoading, navigate, user]);
 
   const { data: agents = [], isLoading } = useQuery({
     queryKey: ["/api/user-agents"],
-    queryFn: () => api.userAgents.list(),
+    queryFn: () => api.userAgents.list(user?.id),
+    enabled: !!user?.id,
   });
 
   const deleteMutation = useMutation({
@@ -34,29 +42,19 @@ export default function MyAgents() {
     },
   });
 
-  const deployMutation = useMutation({
-    mutationFn: ({ id, modes }: { id: string; modes: string[] }) => api.userAgents.deploy(id, modes),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user-agents"] });
-      setDeployingId(null);
-      setSelectedModes([]);
-    },
-  });
-
-  const activeAgents = agents.filter((a: any) => a.status === "active");
+  const activeAgents = agents.filter((a: any) => a.status === "active" || a.status === "active_private");
+  const privateAgents = agents.filter((a: any) => a.visibility === "private");
   const totalUsage = agents.reduce((sum: number, a: any) => sum + (a.totalUsageCount || 0), 0);
-  const totalCredits = agents.reduce((sum: number, a: any) => sum + (a.totalCreditsEarned || 0), 0);
 
-  const toggleMode = (mode: string) => {
-    setSelectedModes((prev) =>
-      prev.includes(mode) ? prev.filter((m) => m !== mode) : [...prev, mode]
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" data-testid="loading-spinner" />
+      </div>
     );
-  };
+  }
 
-  const openDeploy = (agentId: string, currentModes: string[]) => {
-    setDeployingId(agentId);
-    setSelectedModes(currentModes || []);
-  };
+  if (!user) return null;
 
   return (
     <Layout>
@@ -70,7 +68,7 @@ export default function MyAgents() {
               </div>
               <div>
                 <h1 className="text-2xl md:text-3xl font-display font-bold" data-testid="text-page-title">My Entities</h1>
-                <p className="text-sm text-muted-foreground mt-0.5">Manage your intelligent entity fleet</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Manage your private user-owned agent fleet</p>
               </div>
             </div>
             <Button
@@ -108,10 +106,10 @@ export default function MyAgents() {
           </div>
           <div className="glass-card rounded-xl p-4 border border-white/5">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-              <Coins className="w-3.5 h-3.5" />
-              Credits Earned
+              <Shield className="w-3.5 h-3.5" />
+              Private Agents
             </div>
-            <span className="font-semibold text-lg text-amber-400" data-testid="text-credits-earned">{totalCredits.toLocaleString()}</span>
+            <span className="font-semibold text-lg text-emerald-400" data-testid="text-private-agents">{privateAgents.length}</span>
           </div>
         </div>
 
@@ -126,7 +124,7 @@ export default function MyAgents() {
             </div>
             <h2 className="text-xl font-display font-bold mb-2">No agents yet</h2>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
-              Create your first AI agent and start automating tasks, earning credits, and building your fleet.
+              Create your first private agent and train it with vault-aware text or link sources.
             </p>
             <Button
               data-testid="button-create-first-agent"
@@ -197,9 +195,9 @@ export default function MyAgents() {
                     <BarChart3 className="w-3 h-3" />
                     <span>{(agent.totalUsageCount || 0).toLocaleString()} uses</span>
                   </div>
-                  <div className="flex items-center gap-1" data-testid={`stat-credits-${agent.id}`}>
-                    <Coins className="w-3 h-3 text-amber-400" />
-                    <span>{(agent.totalCreditsEarned || 0).toLocaleString()} credits</span>
+                  <div className="flex items-center gap-1" data-testid={`stat-privacy-${agent.id}`}>
+                    <Shield className="w-3 h-3 text-emerald-400" />
+                    <span>{agent.visibility === "private" ? "private" : "review"}</span>
                   </div>
                   {agent.rating != null && (
                     <div className="flex items-center gap-1" data-testid={`stat-rating-${agent.id}`}>
@@ -211,62 +209,17 @@ export default function MyAgents() {
 
                 {agent.deploymentModes && agent.deploymentModes.length > 0 && (
                   <div className="flex flex-wrap gap-1.5" data-testid={`deploy-modes-${agent.id}`}>
-                    {agent.deploymentModes.map((mode: string, i: number) => (
+                    {agent.deploymentModes.filter((mode: string) => mode === "private").map((mode: string, i: number) => (
                       <Badge key={i} variant="outline" className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-400 border-green-500/20 gap-1">
                         <Rocket className="w-2.5 h-2.5" />
                         {mode}
                       </Badge>
                     ))}
-                  </div>
-                )}
-
-                {deployingId === agent.id && (
-                  <div className="p-3 rounded-lg bg-white/[0.03] border border-white/10 space-y-3" data-testid={`deploy-form-${agent.id}`}>
-                    <p className="text-xs font-medium text-muted-foreground">Select deployment modes:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {DEPLOY_MODES.map((mode) => (
-                        <label
-                          key={mode}
-                          className={cn(
-                            "flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border cursor-pointer transition-colors",
-                            selectedModes.includes(mode)
-                              ? "bg-violet-500/10 border-violet-500/30 text-violet-400"
-                              : "bg-white/[0.02] border-white/10 text-muted-foreground hover:border-white/20"
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            className="sr-only"
-                            checked={selectedModes.includes(mode)}
-                            onChange={() => toggleMode(mode)}
-                            data-testid={`checkbox-mode-${mode}-${agent.id}`}
-                          />
-                          <Rocket className="w-3 h-3" />
-                          {mode}
-                        </label>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="h-7 text-xs bg-violet-600 hover:bg-violet-700 text-white gap-1"
-                        onClick={() => deployMutation.mutate({ id: agent.id, modes: selectedModes })}
-                        disabled={selectedModes.length === 0 || deployMutation.isPending}
-                        data-testid={`button-confirm-deploy-${agent.id}`}
-                      >
-                        {deployMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Rocket className="w-3 h-3" />}
-                        Deploy
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs text-muted-foreground"
-                        onClick={() => { setDeployingId(null); setSelectedModes([]); }}
-                        data-testid={`button-cancel-deploy-${agent.id}`}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
+                    {agent.deploymentModes.some((mode: string) => mode !== "private") && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-400 border-amber-500/20">
+                        public modes deferred
+                      </Badge>
+                    )}
                   </div>
                 )}
 
@@ -275,22 +228,15 @@ export default function MyAgents() {
                     variant="outline"
                     size="sm"
                     className="h-7 text-xs bg-white/[0.02] border-white/10 hover:bg-white/[0.06] gap-1"
-                    onClick={() => navigate(`/agent-builder?id=${agent.id}`)}
+                    onClick={() => navigate("/agent-builder")}
                     data-testid={`button-edit-${agent.id}`}
                   >
                     <Settings className="w-3 h-3" />
-                    Edit
+                    Builder
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs bg-white/[0.02] border-white/10 hover:bg-violet-500/10 hover:border-violet-500/30 hover:text-violet-400 gap-1"
-                    onClick={() => openDeploy(agent.id, agent.deploymentModes || [])}
-                    data-testid={`button-deploy-${agent.id}`}
-                  >
-                    <Rocket className="w-3 h-3" />
-                    Deploy
-                  </Button>
+                  <Badge variant="outline" className="h-7 border-emerald-500/20 bg-emerald-500/10 px-2 text-[10px] text-emerald-300">
+                    Private only
+                  </Badge>
                   <Button
                     variant="outline"
                     size="sm"
