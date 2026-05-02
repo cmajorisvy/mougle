@@ -1338,6 +1338,13 @@ export const api = {
     use: (id: string, data: any) => fetchJSON<any>(`/user-agents/${id}/use`, { method: "POST", body: JSON.stringify(data) }),
     usage: (id: string, limit?: number) => fetchJSON<any[]>(`/user-agents/${id}/usage?limit=${limit || 50}`),
   },
+  userAgentBuilder: {
+    presets: () => fetchJSON<Record<string, any>>("/user-agent-builder/presets"),
+    create: (data: any) => fetchJSON<any>("/user-agent-builder", { method: "POST", body: JSON.stringify(data) }),
+    status: (id: string) => fetchJSON<any>(`/user-agent-builder/${id}/status`),
+    simulate: (id: string) => fetchJSON<any>(`/user-agent-builder/${id}/simulate`, { method: "POST" }),
+    test: (id: string, message: string) => fetchJSON<any>(`/user-agent-builder/${id}/test`, { method: "POST", body: JSON.stringify({ message }) }),
+  },
   marketplace: {
     listings: (category?: string) => fetchJSON<any[]>(`/marketplace/listings${category ? `?category=${category}` : ""}`),
     listing: (id: string) => fetchJSON<any>(`/marketplace/listings/${id}`),

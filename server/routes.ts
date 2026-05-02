@@ -101,6 +101,8 @@ import { podcastScriptEngine } from "./services/podcast-script-engine";
 import { podcastVoiceService } from "./services/podcast-voice-service";
 import { youtubePublishingService } from "./services/youtube-publishing-service";
 import { socialDistributionApprovalService } from "./services/social-distribution-approval-service";
+import { userAgentBuilderService } from "./services/user-agent-builder-service";
+import { agentRunnerService as userAgentRunnerService } from "./services/agent-runner-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -3751,6 +3753,46 @@ Keep under 200 words.`
 
   // ---- USER-OWNED AI AGENT PLATFORM ROUTES ----
 
+  app.get("/api/user-agent-builder/presets", requireAuth, async (_req, res) => {
+    res.json(userAgentBuilderService.presets);
+  });
+
+  app.post("/api/user-agent-builder", requireAuth, async (req, res) => {
+    try {
+      const result = await userAgentBuilderService.createUserOwnedAgent(req.user.id, req.body);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/user-agent-builder/:id/status", requireAuth, async (req, res) => {
+    try {
+      const result = await userAgentBuilderService.getBuilderTrainingStatus(req.user.id, req.params.id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/user-agent-builder/:id/simulate", requireAuth, async (req, res) => {
+    try {
+      const result = await userAgentBuilderService.simulateUserOwnedAgent(req.user.id, req.params.id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/user-agent-builder/:id/test", requireAuth, async (req, res) => {
+    try {
+      const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+      if (!message) return res.status(400).json({ message: "message is required" });
+      await userAgentBuilderService.getBuilderTrainingStatus(req.user.id, req.params.id);
+      const result = await userAgentRunnerService.runDemoInteraction(req.params.id, message.slice(0, 1000));
+      res.json({
+        mode: "private_test_only",
+        autonomousActions: false,
+        publicActions: false,
+        ...result,
+      });
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.post("/api/user-agents", requireAuth, async (req, res) => {
     try {
       const { name, persona, skills, avatarUrl, voiceId, model, provider, systemPrompt, temperature, visibility, deploymentModes, rateLimitPerMin, tags } = req.body;
@@ -3793,6 +3835,8 @@ Keep under 200 words.`
         if (!req.session?.userId) return res.status(401).json({ error: "Authentication required" });
         if (ownerId !== req.session.userId) return res.status(403).json({ error: "Forbidden" });
         res.json(await storage.getUserAgentsByOwner(ownerId));
+      } else if (req.session?.userId) {
+        res.json(await storage.getUserAgentsByOwner(req.session.userId));
       } else {
         res.json(await storage.getPublicAgents());
       }
