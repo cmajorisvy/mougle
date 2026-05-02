@@ -440,6 +440,10 @@ export default function KnowledgeGraph() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => navigate("/admin/knowledge-economy")} className="border-violet-500/20 bg-violet-500/10 text-violet-200">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Knowledge Economy
+              </Button>
               <Button variant="outline" onClick={() => summaryQuery.refetch()} disabled={summaryQuery.isFetching} className="border-white/10 text-zinc-300">
                 {summaryQuery.isFetching ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                 Refresh

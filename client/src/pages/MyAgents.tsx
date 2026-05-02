@@ -3,10 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { Bot, Plus, Trash2, Rocket, Activity, Star, Lock, Globe, Zap, Loader2, BarChart3, Settings, Shield } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -22,6 +24,14 @@ export default function MyAgents() {
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
+  const [packetAgentId, setPacketAgentId] = useState("");
+  const [packetForm, setPacketForm] = useState({
+    title: "",
+    summary: "",
+    abstractedContent: "",
+    vaultType: "business",
+    businessKnowledgeApproved: false,
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -39,6 +49,41 @@ export default function MyAgents() {
     mutationFn: (id: string) => api.userAgents.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user-agents"] });
+    },
+  });
+
+  const { data: packets = [] } = useQuery({
+    queryKey: ["/api/knowledge-economy/packets"],
+    queryFn: () => api.knowledgeEconomy.packets(),
+    enabled: !!user?.id,
+  });
+
+  const createPacketMutation = useMutation({
+    mutationFn: () => api.knowledgeEconomy.createPacket({
+      creatorAgentId: packetAgentId,
+      title: packetForm.title,
+      summary: packetForm.summary,
+      abstractedContent: packetForm.abstractedContent,
+      sourceType: "abstracted_experience",
+      vaultType: packetForm.vaultType,
+      sensitivity: packetForm.vaultType === "public" ? "public" : packetForm.vaultType === "verified" ? "internal" : "restricted",
+      privacyLevel: "internal",
+      consentPolicy: {
+        creatorConsent: true,
+        crossAgentLearningConsent: true,
+        businessKnowledgeApproved: packetForm.businessKnowledgeApproved,
+        rawMemoryShared: false,
+      },
+      evidenceStrength: packetForm.vaultType === "verified" ? 0.75 : 0.45,
+      noveltyScore: 0.5,
+      usefulnessPrediction: 0.5,
+      riskScore: 0.25,
+      complianceScore: 0.6,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/knowledge-economy/packets"] });
+      setPacketForm({ title: "", summary: "", abstractedContent: "", vaultType: "business", businessKnowledgeApproved: false });
+      setPacketAgentId("");
     },
   });
 
@@ -111,6 +156,80 @@ export default function MyAgents() {
             </div>
             <span className="font-semibold text-lg text-emerald-400" data-testid="text-private-agents">{privateAgents.length}</span>
           </div>
+        </div>
+
+        <div className="glass-card rounded-2xl border border-white/5 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="text-lg font-display font-bold">Knowledge Packets</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Draft abstracted, consent-controlled learning packets from your own private agents. Raw memory, cashout, and marketplace transactions stay disabled.
+              </p>
+            </div>
+            <Badge variant="outline" className="w-fit bg-violet-500/10 border-violet-500/20 text-violet-300">
+              {packets.length} packet{packets.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+
+          {packetAgentId ? (
+            <div className="mt-5 grid gap-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <Input
+                  value={packetForm.title}
+                  onChange={(event) => setPacketForm((prev) => ({ ...prev, title: event.target.value }))}
+                  placeholder="Packet title"
+                  className="bg-background/40"
+                />
+                <select
+                  value={packetForm.vaultType}
+                  onChange={(event) => setPacketForm((prev) => ({ ...prev, vaultType: event.target.value }))}
+                  className="h-9 rounded-md border border-input bg-background/40 px-3 text-sm"
+                >
+                  <option value="business">Business / restricted</option>
+                  <option value="public">Public knowledge</option>
+                  <option value="behavioral">Behavioral style only</option>
+                  <option value="verified">Verified source-backed</option>
+                </select>
+              </div>
+              <Input
+                value={packetForm.summary}
+                onChange={(event) => setPacketForm((prev) => ({ ...prev, summary: event.target.value }))}
+                placeholder="Short abstracted summary"
+                className="bg-background/40"
+              />
+              <Textarea
+                value={packetForm.abstractedContent}
+                onChange={(event) => setPacketForm((prev) => ({ ...prev, abstractedContent: event.target.value }))}
+                placeholder="Abstract the lesson or pattern. Do not paste private memory, secrets, credentials, or customer data."
+                className="min-h-28 bg-background/40"
+              />
+              <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={packetForm.businessKnowledgeApproved}
+                  onChange={(event) => setPacketForm((prev) => ({ ...prev, businessKnowledgeApproved: event.target.checked }))}
+                  className="mt-0.5"
+                />
+                I approve supervised business-vault use for this abstracted packet. Personal/private memory is still blocked.
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  className="bg-violet-600 hover:bg-violet-500 text-white"
+                  disabled={createPacketMutation.isPending || !packetForm.title || !packetForm.summary || !packetForm.abstractedContent}
+                  onClick={() => createPacketMutation.mutate()}
+                >
+                  {createPacketMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
+                  Create Draft Packet
+                </Button>
+                <Button size="sm" variant="outline" className="border-white/10" onClick={() => setPacketAgentId("")}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mt-4">Use “Draft packet” on one of your private agents below.</p>
+          )}
         </div>
 
         {isLoading ? (
@@ -246,6 +365,16 @@ export default function MyAgents() {
                   >
                     <Shield className="w-3 h-3" />
                     Safe clone
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs bg-white/[0.02] border-white/10 hover:bg-violet-500/10 hover:border-violet-500/30 gap-1"
+                    onClick={() => setPacketAgentId(agent.id)}
+                    data-testid={`button-draft-packet-${agent.id}`}
+                  >
+                    <Zap className="w-3 h-3" />
+                    Draft packet
                   </Button>
                   <Button
                     variant="outline"

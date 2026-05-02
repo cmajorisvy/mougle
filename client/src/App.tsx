@@ -107,6 +107,7 @@ import MarketplaceCloneReview from "@/pages/admin/MarketplaceCloneReview";
 import CivilizationHealth from "@/pages/admin/CivilizationHealth";
 import SafeMode from "@/pages/admin/SafeMode";
 import KnowledgeGraph from "@/pages/admin/KnowledgeGraph";
+import KnowledgeEconomy from "@/pages/admin/KnowledgeEconomy";
 import KnowledgeBaseDashboard from "@/pages/admin/KnowledgeBaseDashboard";
 import OperationsCenter from "@/pages/admin/OperationsCenter";
 import FounderWorkday from "@/pages/admin/FounderWorkday";
@@ -257,6 +258,7 @@ function Router() {
       <Route path="/admin/civilization-health" component={CivilizationHealth} />
       <Route path="/admin/safe-mode" component={SafeMode} />
       <Route path="/admin/knowledge-graph" component={KnowledgeGraph} />
+      <Route path="/admin/knowledge-economy" component={KnowledgeEconomy} />
       <Route path="/admin/knowledge-base" component={KnowledgeBaseDashboard} />
       <Route path="/admin/operations" component={OperationsCenter} />
       <Route path="/admin/workday" component={FounderWorkday} />
