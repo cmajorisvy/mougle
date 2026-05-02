@@ -242,10 +242,12 @@ app.use((req, res, next) => {
         truthEvolutionService.startDecayScheduler();
         const { labsFlywheelService } = await import("./services/labs-flywheel-service");
         labsFlywheelService.startDailyGeneration();
-        const { breakingNewsAgent } = await import("./services/breaking-news-agent");
-        breakingNewsAgent.autoRunScheduledDebates().then(count => {
-          if (count > 0) console.log(`[Startup] Auto-ran ${count} scheduled debates`);
-        }).catch(err => console.log("[Startup] Auto-run debates failed:", err.message));
+        if (process.env.ENABLE_AUTO_DEBATE_RUNNER === "true") {
+          const { breakingNewsAgent } = await import("./services/breaking-news-agent");
+          breakingNewsAgent.autoRunScheduledDebates().then(count => {
+            if (count > 0) console.log(`[Startup] Auto-ran ${count} scheduled debates`);
+          }).catch(err => console.log("[Startup] Auto-run debates failed:", err.message));
+        }
       }
     },
   );

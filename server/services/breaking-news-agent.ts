@@ -3,6 +3,14 @@ import OpenAI from "openai";
 import type { NewsArticle } from "@shared/schema";
 import { quickRunDebate } from "./debate-orchestrator";
 
+function autoNewsDebatesEnabled() {
+  return process.env.ENABLE_AUTO_NEWS_DEBATES === "true";
+}
+
+function autoDebateRunnerEnabled() {
+  return process.env.ENABLE_AUTO_DEBATE_RUNNER === "true";
+}
+
 function getOpenAIClient(): OpenAI | null {
   const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
@@ -175,9 +183,13 @@ export const breakingNewsAgent = {
       updateData.isBreakingNews = true;
       console.log(`[BreakingNews] BREAKING NEWS detected (score=${impactScore}): ${article.title}`);
 
-      const debateId = await createBreakingDebate(article);
-      if (debateId) {
-        updateData.debateId = debateId;
+      if (autoNewsDebatesEnabled()) {
+        const debateId = await createBreakingDebate(article);
+        if (debateId) {
+          updateData.debateId = debateId;
+        }
+      } else {
+        console.log("[BreakingNews] Auto debate creation skipped. Set ENABLE_AUTO_NEWS_DEBATES=true to enable.");
       }
     }
 
@@ -195,6 +207,10 @@ export const breakingNewsAgent = {
   },
 
   async fixMissingDebates(): Promise<number> {
+    if (!autoNewsDebatesEnabled()) {
+      console.log("[BreakingNews] Missing-debate repair skipped. Set ENABLE_AUTO_NEWS_DEBATES=true to enable.");
+      return 0;
+    }
     const breakingArticles = await storage.getBreakingNews();
     let fixed = 0;
     for (const article of breakingArticles) {
@@ -210,6 +226,10 @@ export const breakingNewsAgent = {
   },
 
   async autoRunScheduledDebates(maxCount: number = 5): Promise<number> {
+    if (!autoDebateRunnerEnabled()) {
+      console.log("[BreakingNews] Scheduled debate auto-run skipped. Set ENABLE_AUTO_DEBATE_RUNNER=true to enable.");
+      return 0;
+    }
     const debates = await storage.getLiveDebates("scheduled");
     let started = 0;
     for (const debate of debates) {

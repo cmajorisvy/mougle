@@ -96,6 +96,7 @@ import { agentActionTypes } from "./services/agent-action-registry";
 import { simulateAgentBehaviorDecision } from "./services/agent-behavior-engine";
 import { unifiedEvolutionService } from "./services/unified-evolution-service";
 import { isPublicMemoryContext, memoryAccessPolicyService, memoryContextTypes, type MemoryContextType } from "./services/memory-access-policy";
+import { newsToDebateService } from "./services/news-to-debate-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -121,6 +122,7 @@ const SEO_VIEW_PERMISSIONS = ["seo:view", "seo:manage", ...CONTENT_VIEW_PERMISSI
 const MARKETING_VIEW_PERMISSIONS = ["marketing:view", "marketing:manage", ...CONTENT_VIEW_PERMISSIONS];
 const COMPLIANCE_VIEW_PERMISSIONS = ["compliance:view", "compliance:manage", ...RISK_VIEW_PERMISSIONS];
 const COMPLIANCE_MANAGE_PERMISSIONS = ["compliance:manage", ...RISK_MANAGE_PERMISSIONS];
+const INTERNAL_DEBATE_STATUSES = new Set(["draft", "internal", "admin_review"]);
 
 const agentBehaviorSimulationSchema = z.object({
   agentId: z.string().min(1),
@@ -144,11 +146,42 @@ const agentBehaviorSimulationSchema = z.object({
   allowPrivateMemory: z.boolean().optional(),
 });
 
+const newsToDebateGenerateSchema = z.object({
+  articleId: z.number().int().positive().optional(),
+  manualArticle: z.object({
+    title: z.string().trim().min(8).max(300),
+    sourceUrl: z.string().trim().url().max(1000),
+    sourceName: z.string().trim().max(160).optional(),
+    content: z.string().trim().min(40).max(30000),
+    publishedAt: z.string().trim().optional(),
+  }).optional(),
+}).refine((data) => data.articleId || data.manualArticle, {
+  message: "Provide articleId or manualArticle",
+});
+
 function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
   if (typeof value === "string" && memoryContextTypes.includes(value as MemoryContextType) && isPublicMemoryContext(value as MemoryContextType)) {
     return value as MemoryContextType;
   }
   return "agent_behavior";
+}
+
+function isInternalDebateStatus(status: string | null | undefined) {
+  return !!status && INTERNAL_DEBATE_STATUSES.has(status);
+}
+
+async function ensurePublicDebate(req: any, res: any) {
+  const id = parseInt(req.params.id as string);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ message: "Invalid debate id" });
+    return null;
+  }
+  const debate = await storage.getLiveDebate(id);
+  if (!debate || isInternalDebateStatus(debate.status)) {
+    res.status(404).json({ message: "Debate not found" });
+    return null;
+  }
+  return debate;
 }
 
 function rootAdminConfigured() {
@@ -1646,8 +1679,11 @@ export async function registerRoutes(
   app.get("/api/debates", async (req, res) => {
     try {
       const status = req.query.status as string | undefined;
+      if (isInternalDebateStatus(status)) {
+        return res.json([]);
+      }
       const debates = await storage.getLiveDebates(status);
-      res.json(debates);
+      res.json(debates.filter((debate) => !isInternalDebateStatus(debate.status)));
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -1655,7 +1691,7 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id as string);
       const detail = await debateOrchestrator.getDebateWithDetails(id);
-      if (!detail) return res.status(404).json({ message: "Debate not found" });
+      if (!detail || isInternalDebateStatus(detail.status)) return res.status(404).json({ message: "Debate not found" });
       res.json(detail);
     } catch (err) { handleServiceError(res, err); }
   });
@@ -1663,6 +1699,8 @@ export async function registerRoutes(
   app.post("/api/debates/:id/join", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
+      const debate = await ensurePublicDebate(req, res);
+      if (!debate) return;
       if (req.body?.userId) {
         delete req.body.userId;
       }
@@ -1675,6 +1713,8 @@ export async function registerRoutes(
   app.post("/api/debates/:id/auto-populate", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
+      const debate = await ensurePublicDebate(req, res);
+      if (!debate) return;
       const count = parseInt(req.body.count) || 3;
       const added = await debateOrchestrator.autoPopulateAgents(id, count);
       res.json(added);
@@ -1684,6 +1724,8 @@ export async function registerRoutes(
   app.post("/api/debates/:id/start", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
+      const existing = await ensurePublicDebate(req, res);
+      if (!existing) return;
       const debate = await debateOrchestrator.startDebate(id);
       res.json(debate);
     } catch (err) { handleServiceError(res, err); }
@@ -1692,6 +1734,8 @@ export async function registerRoutes(
   app.post("/api/debates/:id/turn", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
+      const debate = await ensurePublicDebate(req, res);
+      if (!debate) return;
       if (req.body?.userId) {
         delete req.body.userId;
       }
@@ -1704,6 +1748,8 @@ export async function registerRoutes(
   app.post("/api/debates/:id/quick-run", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
+      const debate = await ensurePublicDebate(req, res);
+      if (!debate) return;
       const agentCount = parseInt(req.body.agentCount) || 3;
       const rounds = req.body.rounds ? parseInt(req.body.rounds) : undefined;
       const result = await debateOrchestrator.quickRunDebate(id, agentCount, rounds);
@@ -1714,13 +1760,17 @@ export async function registerRoutes(
   app.post("/api/debates/:id/end", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
+      const existing = await ensurePublicDebate(req, res);
+      if (!existing) return;
       const debate = await debateOrchestrator.endDebate(id);
       res.json(debate);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.get("/api/debates/:id/stream", (req, res) => {
+  app.get("/api/debates/:id/stream", async (req, res) => {
     const id = parseInt(req.params.id as string);
+    const debate = await ensurePublicDebate(req, res);
+    if (!debate) return;
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -1740,8 +1790,8 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id as string);
       const { youtubeStreamKey } = req.body;
-      const debate = await storage.getLiveDebate(id);
-      if (!debate) return res.status(404).json({ message: "Debate not found" });
+      const debate = await ensurePublicDebate(req, res);
+      if (!debate) return;
 
       const agents = await storage.getAgentUsers();
       const participants = await storage.getDebateParticipants(id);
@@ -1805,6 +1855,8 @@ export async function registerRoutes(
   app.post("/api/debates/:id/studio/override-speaker", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
+      const debate = await ensurePublicDebate(req, res);
+      if (!debate) return;
       const { speakerId } = req.body;
       await storage.updateLiveDebate(id, { currentSpeakerId: speakerId || null });
       debateOrchestrator.emitOverride(id, speakerId);
@@ -1815,6 +1867,8 @@ export async function registerRoutes(
   app.post("/api/debates/:id/studio/speech", requireAuth, async (req, res) => {
     try {
       const id = parseInt(req.params.id as string);
+      const debate = await ensurePublicDebate(req, res);
+      if (!debate) return;
       const { transcript, userId } = req.body;
       if (!transcript || !userId) return res.status(400).json({ message: "transcript and userId required" });
       const turn = await debateOrchestrator.submitHumanTurn(id, userId, transcript);
@@ -1824,6 +1878,8 @@ export async function registerRoutes(
 
   app.post("/api/debates/:id/studio/tts", requireAuth, async (req, res) => {
     try {
+      const debate = await ensurePublicDebate(req, res);
+      if (!debate) return;
       const { text, voice } = req.body;
       if (!text) return res.status(400).json({ message: "text required" });
       const { textToSpeech } = await import("./replit_integrations/audio/client");
@@ -1848,6 +1904,10 @@ export async function registerRoutes(
         return res.status(503).json({ message: "Video generation is temporarily disabled" });
       }
       const debateId = parseInt(req.params.debateId as string);
+      const debate = await storage.getLiveDebate(debateId);
+      if (!debate || isInternalDebateStatus(debate.status)) {
+        return res.status(404).json({ message: "Debate not found" });
+      }
       const job = await contentFlywheel.runFlywheelPipeline(debateId);
       res.json(job);
     } catch (err) { handleServiceError(res, err); }
@@ -2203,6 +2263,23 @@ export async function registerRoutes(
       const parsed = agentBehaviorSimulationSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid agent behavior simulation request" });
       res.json(await simulateAgentBehaviorDecision(parsed.data));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/news-to-debate/articles", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 25;
+      res.json(await newsToDebateService.listCandidateArticles(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/news-to-debate/generate", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = newsToDebateGenerateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid News-to-Debate request" });
+      }
+      res.json(await newsToDebateService.generateDraft(parsed.data));
     } catch (err) { handleServiceError(res, err); }
   });
 
