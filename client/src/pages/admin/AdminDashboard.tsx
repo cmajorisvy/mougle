@@ -200,6 +200,7 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
       primaryAction: { label: "Content", href: "/admin/marketing" },
       secondaryActions: [
         { label: "News Debate", href: "/admin/news-to-debate" },
+        { label: "Podcast Scripts", href: "/admin/podcast-scripts" },
         { label: "SEO", href: "/admin/seo" },
         { label: "Social", href: "/admin/social-hub" },
       ],

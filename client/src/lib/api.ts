@@ -323,6 +323,90 @@ export type AdminNewsToDebateResult = {
   generatedAt: string;
 };
 
+export type AdminPodcastScriptDebate = {
+  id: number;
+  title: string;
+  topic: string;
+  status: string;
+  format: string;
+  consensusSummary: string | null;
+  sourceReliability: number | null;
+  createdAt: string | null;
+  sourceArticle: {
+    id: number;
+    title: string;
+    sourceName: string;
+    sourceUrl: string;
+  } | null;
+};
+
+export type AdminPodcastScriptPackagePayload = {
+  twoMinuteNewsScript: string;
+  tenMinutePodcastScript: string;
+  youtubeTitle: string;
+  youtubeDescription: string;
+  shortsHooks: string[];
+  thumbnailText: string;
+  speakerAssignments: Array<{
+    agentKey: string;
+    displayName: string;
+    role: string;
+    assignment: string;
+  }>;
+  complianceSafetyNotes: string[];
+  sourceEvidenceReferences: Array<{
+    label: string;
+    url: string | null;
+    claimId?: string;
+    confidenceScore?: number;
+    status?: string;
+  }>;
+  adminReviewStatus: string;
+};
+
+export type AdminPodcastScriptSafetyNotes = {
+  manualTriggerOnly: boolean;
+  internalDraftOnly: boolean;
+  audioGenerated: boolean;
+  ttsGenerated: boolean;
+  youtubeUpload: boolean;
+  podcastHostingUpload: boolean;
+  socialPosting: boolean;
+  publicPublishing: boolean;
+  privateMemoryUsed: boolean;
+  sourceReliability: number | null;
+  weakOrDisputedClaims: Array<{
+    claimId: string;
+    statement: string;
+    status: string;
+    confidenceScore: number;
+    reason: string;
+  }>;
+  notes: string[];
+};
+
+export type AdminPodcastScriptPackage = {
+  id: number;
+  debateId: number;
+  sourceArticleId: number | null;
+  status: string;
+  scriptPackage: AdminPodcastScriptPackagePayload;
+  safetyNotes: AdminPodcastScriptSafetyNotes;
+  generatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminPodcastScriptGenerateResult = {
+  mode: "admin_review_script_package";
+  safety: AdminPodcastScriptSafetyNotes;
+  package: AdminPodcastScriptPackage;
+  debate: AdminPodcastScriptDebate;
+  packagePreview: AdminPodcastScriptPackagePayload;
+  sourceReferences: AdminPodcastScriptPackagePayload["sourceEvidenceReferences"];
+  generatedAt: string;
+};
+
 export type UesSourceQuality = "calculated" | "partial" | "fallback";
 
 export type UesMetric = {
@@ -698,6 +782,12 @@ export const api = {
       adminFetch<AdminNewsToDebateArticle[]>(`/admin/news-to-debate/articles?limit=${limit || 25}`),
     generateNewsToDebate: (data: AdminNewsToDebatePayload) =>
       adminFetch<AdminNewsToDebateResult>("/admin/news-to-debate/generate", { method: "POST", body: JSON.stringify(data) }),
+    podcastScriptDebates: (limit?: number) =>
+      adminFetch<AdminPodcastScriptDebate[]>(`/admin/podcast-scripts/debates?limit=${limit || 25}`),
+    podcastScriptPackages: (debateId?: number) =>
+      adminFetch<AdminPodcastScriptPackage[]>(`/admin/podcast-scripts${debateId ? `?debateId=${debateId}` : ""}`),
+    generatePodcastScriptPackage: (debateId: number) =>
+      adminFetch<AdminPodcastScriptGenerateResult>("/admin/podcast-scripts/generate", { method: "POST", body: JSON.stringify({ debateId }) }),
     posts: () => adminFetch<any[]>("/admin/posts"),
     deletePost: (id: string) => adminFetch<any>(`/admin/posts/${id}`, { method: "DELETE" }),
     topics: () => adminFetch<any[]>("/admin/topics"),

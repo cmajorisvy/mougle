@@ -777,13 +777,73 @@ export const generatedClips = pgTable("generated_clips", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export type PodcastScriptPackagePayload = {
+  twoMinuteNewsScript: string;
+  tenMinutePodcastScript: string;
+  youtubeTitle: string;
+  youtubeDescription: string;
+  shortsHooks: string[];
+  thumbnailText: string;
+  speakerAssignments: Array<{
+    agentKey: string;
+    displayName: string;
+    role: string;
+    assignment: string;
+  }>;
+  complianceSafetyNotes: string[];
+  sourceEvidenceReferences: Array<{
+    label: string;
+    url: string | null;
+    claimId?: string;
+    confidenceScore?: number;
+    status?: string;
+  }>;
+  adminReviewStatus: string;
+};
+
+export type PodcastScriptSafetyNotes = {
+  manualTriggerOnly: true;
+  internalDraftOnly: true;
+  audioGenerated: false;
+  ttsGenerated: false;
+  youtubeUpload: false;
+  podcastHostingUpload: false;
+  socialPosting: false;
+  publicPublishing: false;
+  privateMemoryUsed: false;
+  sourceReliability: number | null;
+  weakOrDisputedClaims: Array<{
+    claimId: string;
+    statement: string;
+    status: string;
+    confidenceScore: number;
+    reason: string;
+  }>;
+  notes: string[];
+};
+
+export const podcastScriptPackages = pgTable("podcast_script_packages", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  debateId: integer("debate_id").notNull(),
+  sourceArticleId: integer("source_article_id"),
+  status: text("status").notNull().default("admin_review"),
+  scriptPackage: jsonb("script_package").$type<PodcastScriptPackagePayload>().notNull(),
+  safetyNotes: jsonb("safety_notes").$type<PodcastScriptSafetyNotes>().notNull(),
+  generatedBy: text("generated_by").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertFlywheelJobSchema = createInsertSchema(flywheelJobs).omit({ id: true, createdAt: true, startedAt: true, completedAt: true } as any);
 export const insertGeneratedClipSchema = createInsertSchema(generatedClips).omit({ id: true, createdAt: true } as any);
+export const insertPodcastScriptPackageSchema = createInsertSchema(podcastScriptPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
 
 export type InsertFlywheelJob = typeof flywheelJobs.$inferInsert;
 export type FlywheelJob = typeof flywheelJobs.$inferSelect;
 export type InsertGeneratedClip = typeof generatedClips.$inferInsert;
 export type GeneratedClip = typeof generatedClips.$inferSelect;
+export type InsertPodcastScriptPackage = typeof podcastScriptPackages.$inferInsert;
+export type PodcastScriptPackage = typeof podcastScriptPackages.$inferSelect;
 
 export const newsArticles = pgTable("news_articles", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
