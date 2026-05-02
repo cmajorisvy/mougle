@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, ArrowLeft, FileText, Loader2, Mic2, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileText, Loader2, Mic2, ShieldCheck, Sparkles, Volume2 } from "lucide-react";
 
 function statusBadgeClass(status: string) {
   if (status.includes("review")) return "bg-yellow-500/10 text-yellow-300 border-yellow-500/20";
@@ -192,10 +192,15 @@ export default function PodcastScripts() {
                 Convert internal News-to-Debate drafts into admin-review news and podcast script packages.
               </p>
             </div>
-            <Button variant="outline" onClick={() => refetchDebates()} disabled={debatesLoading} className="border-white/10 text-zinc-300">
-              {debatesLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
-              Refresh Drafts
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => navigate("/admin/voice-jobs")} className="border-white/10 text-zinc-300">
+                <Volume2 className="w-4 h-4 mr-2" /> Voice Jobs
+              </Button>
+              <Button variant="outline" onClick={() => refetchDebates()} disabled={debatesLoading} className="border-white/10 text-zinc-300">
+                {debatesLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+                Refresh Drafts
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -98,6 +98,7 @@ import { unifiedEvolutionService } from "./services/unified-evolution-service";
 import { isPublicMemoryContext, memoryAccessPolicyService, memoryContextTypes, type MemoryContextType } from "./services/memory-access-policy";
 import { newsToDebateService } from "./services/news-to-debate-service";
 import { podcastScriptEngine } from "./services/podcast-script-engine";
+import { podcastVoiceService } from "./services/podcast-voice-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -162,6 +163,12 @@ const newsToDebateGenerateSchema = z.object({
 
 const podcastScriptGenerateSchema = z.object({
   debateId: z.number().int().positive(),
+});
+
+const voiceJobGenerateSchema = z.object({
+  scriptPackageId: z.number().int().positive(),
+  scriptType: z.enum(["two_minute", "ten_minute", "both"]).default("both"),
+  provider: z.enum(["auto", "elevenlabs", "replit_openai_audio", "mock"]).default("auto"),
 });
 
 function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
@@ -2310,6 +2317,62 @@ export async function registerRoutes(
       }
       const actor = getAdminActor(req);
       res.json(await podcastScriptEngine.generatePackage({ debateId: parsed.data.debateId, generatedBy: actor.id }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/voice-jobs/packages", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 50;
+      res.json(await podcastVoiceService.listEligibleScriptPackages(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/voice-jobs", requireRootAdmin, async (req, res) => {
+    try {
+      const scriptPackageId = typeof req.query.scriptPackageId === "string" ? parseInt(req.query.scriptPackageId, 10) : undefined;
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 50;
+      res.json(await podcastVoiceService.listJobs({
+        scriptPackageId: Number.isFinite(scriptPackageId) ? scriptPackageId : undefined,
+        limit,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/voice-jobs/:id/segments/:segmentIndex/audio", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      const segmentIndex = parseInt(req.params.segmentIndex as string, 10);
+      if (!Number.isFinite(id) || !Number.isFinite(segmentIndex)) {
+        return res.status(400).json({ message: "Invalid voice job audio request" });
+      }
+      const audio = await podcastVoiceService.getSegmentAudio(id, segmentIndex);
+      res.setHeader("Content-Type", audio.mimeType);
+      res.setHeader("Content-Disposition", `inline; filename="${audio.filename}"`);
+      res.send(audio.buffer);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/voice-jobs/:id", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid voice job id" });
+      res.json(await podcastVoiceService.getJob(id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/voice-jobs/generate", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = voiceJobGenerateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid voice job request" });
+      }
+      const actor = getAdminActor(req);
+      res.json(await podcastVoiceService.generateVoiceJob({
+        scriptPackageId: parsed.data.scriptPackageId,
+        scriptType: parsed.data.scriptType,
+        providerPreference: parsed.data.provider,
+        generatedBy: actor.id,
+      }));
     } catch (err) { handleServiceError(res, err); }
   });
 

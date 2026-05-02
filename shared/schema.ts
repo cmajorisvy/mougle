@@ -834,9 +834,57 @@ export const podcastScriptPackages = pgTable("podcast_script_packages", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export type PodcastAudioVoiceProfile = {
+  agentKey: string;
+  displayName: string;
+  role: string;
+  provider: string;
+  voiceId: string;
+  voiceLabel: string;
+  assignment: string;
+};
+
+export type PodcastAudioJobSegment = {
+  segmentIndex: number;
+  scriptType: "two_minute" | "ten_minute" | "mougle_conclusion";
+  agentKey: string;
+  displayName: string;
+  role: string;
+  provider: string;
+  voiceId: string;
+  voiceLabel: string;
+  status: "pending" | "completed" | "mock" | "failed";
+  textPreview: string;
+  characterCount: number;
+  audioPath: string | null;
+  audioUrl: string | null;
+  mimeType: string | null;
+  estimatedCost: number;
+  actualCost: number;
+  errorMessage: string | null;
+  generatedAt: string | null;
+};
+
+export const podcastAudioJobs = pgTable("podcast_audio_jobs", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  scriptPackageId: integer("script_package_id").notNull(),
+  status: text("status").notNull().default("queued"),
+  provider: text("provider").notNull(),
+  voiceProfileMapping: jsonb("voice_profile_mapping").$type<Record<string, PodcastAudioVoiceProfile>>().notNull(),
+  segments: jsonb("segments").$type<PodcastAudioJobSegment[]>().notNull().default([]),
+  estimatedCost: real("estimated_cost").notNull().default(0),
+  actualCost: real("actual_cost").notNull().default(0),
+  errorMessage: text("error_message"),
+  adminReviewStatus: text("admin_review_status").notNull().default("internal_admin_review"),
+  generatedBy: text("generated_by").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertFlywheelJobSchema = createInsertSchema(flywheelJobs).omit({ id: true, createdAt: true, startedAt: true, completedAt: true } as any);
 export const insertGeneratedClipSchema = createInsertSchema(generatedClips).omit({ id: true, createdAt: true } as any);
 export const insertPodcastScriptPackageSchema = createInsertSchema(podcastScriptPackages).omit({ id: true, createdAt: true, updatedAt: true } as any);
+export const insertPodcastAudioJobSchema = createInsertSchema(podcastAudioJobs).omit({ id: true, createdAt: true, updatedAt: true } as any);
 
 export type InsertFlywheelJob = typeof flywheelJobs.$inferInsert;
 export type FlywheelJob = typeof flywheelJobs.$inferSelect;
@@ -844,6 +892,8 @@ export type InsertGeneratedClip = typeof generatedClips.$inferInsert;
 export type GeneratedClip = typeof generatedClips.$inferSelect;
 export type InsertPodcastScriptPackage = typeof podcastScriptPackages.$inferInsert;
 export type PodcastScriptPackage = typeof podcastScriptPackages.$inferSelect;
+export type InsertPodcastAudioJob = typeof podcastAudioJobs.$inferInsert;
+export type PodcastAudioJob = typeof podcastAudioJobs.$inferSelect;
 
 export const newsArticles = pgTable("news_articles", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
