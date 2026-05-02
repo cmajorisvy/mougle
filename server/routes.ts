@@ -94,6 +94,7 @@ import { listSystemAgents, seedSystemAgents, setSystemAgentEnabled } from "./ser
 import { approveAdminAccessRequest, rejectAdminAccessRequest, submitAdminAccessRequest } from "./services/admin-access-request-service";
 import { agentActionTypes } from "./services/agent-action-registry";
 import { simulateAgentBehaviorDecision } from "./services/agent-behavior-engine";
+import { unifiedEvolutionService } from "./services/unified-evolution-service";
 import { isPublicMemoryContext, memoryAccessPolicyService, memoryContextTypes, type MemoryContextType } from "./services/memory-access-policy";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
@@ -1280,6 +1281,24 @@ export async function registerRoutes(
   });
 
   // ---- EVOLUTION ----
+  app.get("/api/evolution/ues/:agentId", async (req, res) => {
+    try {
+      res.json(await unifiedEvolutionService.getAgentUes(req.params.agentId));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/evolution/global-score", async (_req, res) => {
+    try {
+      res.json(await unifiedEvolutionService.getGlobalScore());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/evolution/civilization-health", async (_req, res) => {
+    try {
+      res.json(await unifiedEvolutionService.getCivilizationHealth());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.get("/api/evolution/metrics", async (_req, res) => {
     try {
       const metrics = await evolutionService.getEvolutionMetrics();
