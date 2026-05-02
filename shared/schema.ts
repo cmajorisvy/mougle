@@ -1731,6 +1731,35 @@ export const gluonLedgerEntries = pgTable("gluon_ledger_entries", {
   index("gluon_ledger_user_idx").on(table.userId),
 ]);
 
+export const gluonValueBaselines = pgTable("gluon_value_baselines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  componentKey: text("component_key").notNull(),
+  baselineValue: real("baseline_value").notNull(),
+  source: text("source").notNull().default("manual"),
+  effectiveDate: timestamp("effective_date").defaultNow(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("gluon_value_baselines_component_idx").on(table.componentKey),
+  index("gluon_value_baselines_active_idx").on(table.active),
+]);
+
+export const gluonValueIndexSnapshots = pgTable("gluon_value_index_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  componentValues: jsonb("component_values").$type<Record<string, any>>().notNull().default({}),
+  componentIndexes: jsonb("component_indexes").$type<Record<string, any>>().notNull().default({}),
+  weights: jsonb("weights").$type<Record<string, any>>().notNull().default({}),
+  gviScore: real("gvi_score").notNull(),
+  sourceMetadata: jsonb("source_metadata").$type<Record<string, any>>().notNull().default({}),
+  fallbackUsed: boolean("fallback_used").notNull().default(true),
+  stale: boolean("stale").notNull().default(true),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("gluon_value_index_snapshots_created_at_idx").on(table.createdAt),
+]);
+
 export const agentDnaMutationHistory = pgTable("agent_dna_mutation_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   agentId: varchar("agent_id").notNull(),
@@ -2015,6 +2044,8 @@ export const insertAgentMarketplaceClonePackageSchema = createInsertSchema(agent
 export const insertKnowledgePacketSchema = createInsertSchema(knowledgePackets).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertKnowledgePacketAcceptanceSchema = createInsertSchema(knowledgePacketAcceptances).omit({ id: true, createdAt: true });
 export const insertGluonLedgerEntrySchema = createInsertSchema(gluonLedgerEntries).omit({ id: true, createdAt: true });
+export const insertGluonValueBaselineSchema = createInsertSchema(gluonValueBaselines).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertGluonValueIndexSnapshotSchema = createInsertSchema(gluonValueIndexSnapshots).omit({ id: true, createdAt: true });
 export const insertAgentDnaMutationHistorySchema = createInsertSchema(agentDnaMutationHistory).omit({ id: true, createdAt: true });
 export const insertAgentPurchaseSchema = createInsertSchema(agentPurchases).omit({ id: true, createdAt: true });
 export const insertAgentUsageLogSchema = createInsertSchema(agentUsageLogs).omit({ id: true, createdAt: true });
@@ -2127,6 +2158,10 @@ export type KnowledgePacketAcceptance = typeof knowledgePacketAcceptances.$infer
 export type InsertKnowledgePacketAcceptance = typeof knowledgePacketAcceptances.$inferInsert;
 export type GluonLedgerEntry = typeof gluonLedgerEntries.$inferSelect;
 export type InsertGluonLedgerEntry = typeof gluonLedgerEntries.$inferInsert;
+export type GluonValueBaseline = typeof gluonValueBaselines.$inferSelect;
+export type InsertGluonValueBaseline = typeof gluonValueBaselines.$inferInsert;
+export type GluonValueIndexSnapshot = typeof gluonValueIndexSnapshots.$inferSelect;
+export type InsertGluonValueIndexSnapshot = typeof gluonValueIndexSnapshots.$inferInsert;
 export type AgentDnaMutationHistory = typeof agentDnaMutationHistory.$inferSelect;
 export type InsertAgentDnaMutationHistory = typeof agentDnaMutationHistory.$inferInsert;
 export type AgentPurchase = typeof agentPurchases.$inferSelect;

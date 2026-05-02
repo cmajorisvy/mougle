@@ -109,6 +109,7 @@ import { agentMarketplaceCloneService, marketplaceCloneExportModes } from "./ser
 import { safeModeControlFields, safeModeService } from "./services/safe-mode-service";
 import { knowledgeGraphService } from "./services/knowledge-graph-service";
 import { knowledgeEconomyService } from "./services/knowledge-economy-service";
+import { gluonValueIndexService, gviComponentKeys } from "./services/gluon-value-index-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -302,6 +303,14 @@ const knowledgePacketReviewSchema = z.object({
 
 const knowledgePacketDnaPreviewSchema = z.object({
   agentId: z.string().trim().min(1).max(120).optional(),
+});
+
+const gviComponentValuesSchema = z.object(Object.fromEntries(
+  gviComponentKeys.map((key) => [key, z.number().positive().optional()])
+) as Record<typeof gviComponentKeys[number], z.ZodOptional<z.ZodNumber>>).partial();
+
+const gviPreviewSchema = z.object({
+  componentValues: gviComponentValuesSchema.optional(),
 });
 
 function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
@@ -2540,6 +2549,29 @@ export async function registerRoutes(
       const parsed = agentGraphAccessEvaluateSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid agent graph access evaluation request" });
       res.json(await agentGraphAccessService.retrieveRelevantGraphContext(parsed.data));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/knowledge-economy/gvi", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await gluonValueIndexService.getCurrent());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/gvi/preview", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = gviPreviewSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: "Invalid GVI preview request" });
+      res.json(await gluonValueIndexService.preview(parsed.data.componentValues));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/knowledge-economy/gvi/snapshot", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = gviPreviewSchema.safeParse(req.body || {});
+      if (!parsed.success) return res.status(400).json({ message: "Invalid GVI snapshot request" });
+      const actor = getAdminActor(req);
+      res.json(await gluonValueIndexService.createSnapshot(parsed.data.componentValues, actor.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
