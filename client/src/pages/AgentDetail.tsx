@@ -74,6 +74,7 @@ export default function AgentDetail() {
   const [reviewContent, setReviewContent] = useState("");
   const [demoMessage, setDemoMessage] = useState("");
   const [demoHistory, setDemoHistory] = useState<{ role: string; content: string }[]>([]);
+  const [sandboxInteracted, setSandboxInteracted] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
 
   const { data: listing, isLoading } = useQuery({
@@ -103,9 +104,7 @@ export default function AgentDetail() {
   const reviewMutation = useMutation({
     mutationFn: () =>
       api.store.postReview({
-        agentId: listing?.agentId,
         listingId,
-        reviewerId: currentUserId,
         rating: reviewRating,
         title: reviewTitle,
         content: reviewContent,
@@ -127,6 +126,7 @@ export default function AgentDetail() {
         { role: "assistant", content: data?.response || data?.message || "No response" },
       ]);
       setDemoMessage("");
+      setSandboxInteracted(true);
     },
     onError: () => {
       setDemoHistory((prev) => [
@@ -172,12 +172,13 @@ export default function AgentDetail() {
     );
   }
 
-  const agentName = listing.agentName || listing.name || "AI Agent";
+  const agentName = listing.agent?.name || listing.agentName || listing.name || "AI Agent";
   const description = listing.description || "A sanitized agent clone prepared for sandbox preview.";
   const seller = listing.sellerName || listing.seller || "Creator";
   const model = listing.model || listing.agentModel || "GPT-4o";
   const category = listing.category || "General";
-  const trustScore = listing.trustScore ?? listing.trust_score ?? 85;
+  const trustScore = listing.trustRanking?.score ?? listing.trustScore ?? listing.trust_score ?? 0;
+  const trustLabel = listing.trustRanking?.label || listing.trustLabel || "sandbox-only";
   const version = listing.version || listing.currentVersion || "1.0.0";
   const avgRating = listing.averageRating || listing.rating || 0;
   const reviewCount = listing.reviewCount || reviews.length || 0;
@@ -186,7 +187,8 @@ export default function AgentDetail() {
   const includedSafeRefs = listing.clonePackage?.includedVaultSummary?.total || 0;
   const excludedRefs = listing.clonePackage?.excludedVaultSummary?.total || 0;
   const skills = listing.skills || listing.capabilities || listing.tags || [];
-  const canReview = false;
+  const isCreator = !!currentUserId && currentUserId === listing.sellerId;
+  const canReview = !!currentUserId && !!clonePackageId && !isCreator && sandboxInteracted;
 
   return (
     <Layout>
@@ -230,7 +232,7 @@ export default function AgentDetail() {
                     <History className="w-3.5 h-3.5" /> v{version}
                   </span>
                   <span className="flex items-center gap-1" data-testid="text-trust-score">
-                    <Shield className="w-3.5 h-3.5 text-green-400" /> Trust: {trustScore}%
+                    <Shield className="w-3.5 h-3.5 text-green-400" /> Trust: {trustScore}% · {trustLabel.replace(/_/g, " ")}
                   </span>
                 </div>
 
@@ -352,6 +354,7 @@ export default function AgentDetail() {
             {canReview && currentUserId && (
               <form onSubmit={handleSubmitReview} className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-5 space-y-4" data-testid="form-review">
                 <h3 className="text-sm font-semibold text-white">Write a Review</h3>
+                <p className="text-xs text-gray-500">Reviews are sandbox-only, sanitized, and held for admin moderation before public display.</p>
                 <ClickableStarRating rating={reviewRating} onRate={setReviewRating} />
                 <input
                   type="text"
@@ -380,10 +383,22 @@ export default function AgentDetail() {
               </form>
             )}
 
+            {!canReview && currentUserId && !isCreator && clonePackageId && (
+              <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-5 text-sm text-gray-400" data-testid="review-sandbox-required">
+                Run a sandbox preview in this session to unlock moderated feedback. Purchase history is not required in this MVP.
+              </div>
+            )}
+
+            {isCreator && (
+              <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-5 text-sm text-gray-400" data-testid="review-self-blocked">
+                Creators cannot review their own safe-clone listings.
+              </div>
+            )}
+
             {reviews.length === 0 ? (
               <div className="rounded-xl bg-[#141422]/80 border border-white/[0.06] p-8 text-center" data-testid="empty-reviews">
                 <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-400 text-sm">Reviews are deferred until safe clone transactions are enabled.</p>
+                <p className="text-gray-400 text-sm">No approved sandbox reviews yet. Public display only shows sanitized reviews after moderation.</p>
               </div>
             ) : (
               <div className="space-y-3" data-testid="reviews-list">

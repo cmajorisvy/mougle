@@ -33,12 +33,10 @@ import {
   liveDebates as liveDebates_table,
   insertTopicSchema,
   userAgents as userAgents_table,
-  marketplaceListings as marketplaceListings_table,
   agentPurchases as agentPurchases_table,
   transactions as transactions_table,
   creditUsageLog,
   projectPackagePurchases,
-  agentReviews as agentReviews_table,
   appExports as appExports_table,
   networkGravity,
   civilizationMetrics,
@@ -115,6 +113,7 @@ import { liveDebateStudioService } from "./services/live-debate-studio-service";
 import { externalAgentApiService, externalAgentCapabilities } from "./services/external-agent-api-service";
 import { digitalWorldOverviewService } from "./services/digital-world-overview-service";
 import { avatarVideoRenderProviders, avatarVideoSceneTemplates, avatarVideoRenderService } from "./services/avatar-video-render-service";
+import { marketplaceReviewTrustService } from "./services/marketplace-review-trust-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -344,6 +343,13 @@ const marketplaceCloneSandboxSchema = z.object({
   prompt: z.string().trim().max(1000).optional(),
 });
 
+const marketplaceReviewSubmitSchema = z.object({
+  listingId: z.string().trim().min(1),
+  rating: z.number().int().min(1).max(5),
+  title: z.string().trim().min(1).max(120),
+  content: z.string().trim().min(1).max(1200),
+});
+
 const knowledgeEconomyTagSchema = z.array(z.string().trim().min(1).max(64)).max(12).optional();
 const knowledgePacketPayloadSchema = z.object({
   creatorAgentId: z.string().trim().min(1).max(120),
@@ -412,27 +418,6 @@ function publicMemoryContextFromQuery(value: unknown): MemoryContextType {
 
 function isInternalDebateStatus(status: string | null | undefined) {
   return !!status && INTERNAL_DEBATE_STATUSES.has(status);
-}
-
-function publicMarketplaceAgentSummary(agent: any) {
-  if (!agent) return null;
-  return {
-    id: agent.id,
-    name: agent.name,
-    persona: agent.persona,
-    skills: Array.isArray(agent.skills) ? agent.skills : [],
-    avatarUrl: agent.avatarUrl,
-    model: agent.model,
-    provider: agent.provider,
-    categorySlug: agent.categorySlug,
-    industrySlug: agent.industrySlug,
-    roleSlug: agent.roleSlug,
-    trustScore: agent.trustScore,
-    qualityScore: agent.qualityScore,
-    rating: agent.rating,
-    ratingCount: agent.ratingCount,
-    version: agent.version,
-  };
 }
 
 async function ensurePublicDebate(req: any, res: any) {
@@ -4886,61 +4871,21 @@ Keep under 200 words.`
 
   app.get("/api/marketplace/listings", async (req, res) => {
     try {
-      const category = req.query.category as string | undefined;
-      const listings = await storage.getMarketplaceListings(category);
-      const enriched = await Promise.all(listings.map(async (l) => {
-        const agent = await storage.getUserAgent(l.agentId);
-        const seller = await storage.getUser(l.sellerId);
-        const clonePackage = await storage.getAgentMarketplaceClonePackageByListingId(l.id);
-        return {
-          ...l,
-          agent: publicMarketplaceAgentSummary(agent),
-          sellerName: seller?.displayName,
-          safeCloneOnly: true,
-          transactionsEnabled: false,
-          clonePackage: clonePackage ? {
-            id: clonePackage.id,
-            exportMode: clonePackage.exportMode,
-            status: clonePackage.status,
-            reviewStatus: clonePackage.reviewStatus,
-            includedVaultSummary: clonePackage.includedVaultSummary,
-            excludedVaultSummary: clonePackage.excludedVaultSummary,
-            safetyReport: clonePackage.safetyReport,
-            sanitizerReport: clonePackage.sanitizerReport,
-            trustSignals: clonePackage.trustSignals,
-          } : null,
-        };
-      }));
-      res.json(enriched);
+      const result = await marketplaceReviewTrustService.listPublicListings({
+        category: typeof req.query.category === "string" ? req.query.category : undefined,
+        query: typeof req.query.q === "string" ? req.query.q : undefined,
+        featuredOnly: req.query.featured === "true",
+        limit: typeof req.query.limit === "string" ? Number(req.query.limit) || undefined : undefined,
+        sort: req.query.sort === "recent" || req.query.sort === "sandbox" ? req.query.sort : "trust",
+      });
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
   app.get("/api/marketplace/listings/:id", async (req, res) => {
     try {
-      const listing = await storage.getMarketplaceListing(req.params.id);
-      if (!listing) return res.status(404).json({ error: "Listing not found" });
-      if (listing.status !== "approved") return res.status(404).json({ error: "Listing not found" });
-      const agent = await storage.getUserAgent(listing.agentId);
-      const seller = await storage.getUser(listing.sellerId);
-      const clonePackage = await storage.getAgentMarketplaceClonePackageByListingId(listing.id);
-      res.json({
-        ...listing,
-        agent: publicMarketplaceAgentSummary(agent),
-        sellerName: seller?.displayName,
-        safeCloneOnly: true,
-        transactionsEnabled: false,
-        clonePackage: clonePackage ? {
-          id: clonePackage.id,
-          exportMode: clonePackage.exportMode,
-          status: clonePackage.status,
-          reviewStatus: clonePackage.reviewStatus,
-          includedVaultSummary: clonePackage.includedVaultSummary,
-          excludedVaultSummary: clonePackage.excludedVaultSummary,
-          safetyReport: clonePackage.safetyReport,
-          sanitizerReport: clonePackage.sanitizerReport,
-          trustSignals: clonePackage.trustSignals,
-        } : null,
-      });
+      const result = await marketplaceReviewTrustService.getPublicListing(req.params.id);
+      res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -4954,6 +4899,13 @@ Keep under 200 words.`
   app.get("/api/marketplace/safe-clone/packages", requireAuth, async (req, res) => {
     try {
       const result = await agentMarketplaceCloneService.listCreatorPackages(req.user.id);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/marketplace/safe-clone/reviews", requireAuth, async (req, res) => {
+    try {
+      const result = await marketplaceReviewTrustService.listCreatorReviewSummaries(req.user.id);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
@@ -5015,6 +4967,38 @@ Keep under 200 words.`
       const admin = getAdminVerification(req);
       const reason = typeof req.body?.reason === "string" ? req.body.reason : undefined;
       const result = await agentMarketplaceCloneService.rejectPackage(req.params.id, admin?.actor.id || ROOT_ADMIN_ACTOR_ID, reason);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/marketplace-reviews", requireRootAdmin, async (req, res) => {
+    try {
+      const status = typeof req.query.status === "string" ? req.query.status : undefined;
+      const result = await marketplaceReviewTrustService.listAdminReviews(status);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketplace-reviews/:id/approve", requireRootAdmin, async (req, res) => {
+    try {
+      const admin = getAdminVerification(req);
+      const result = await marketplaceReviewTrustService.moderateReview(req.params.id, "approved", admin?.actor.id || ROOT_ADMIN_ACTOR_ID);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketplace-reviews/:id/hide", requireRootAdmin, async (req, res) => {
+    try {
+      const admin = getAdminVerification(req);
+      const result = await marketplaceReviewTrustService.moderateReview(req.params.id, "hidden", admin?.actor.id || ROOT_ADMIN_ACTOR_ID);
+      res.json(result);
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/marketplace-reviews/:id/reject", requireRootAdmin, async (req, res) => {
+    try {
+      const admin = getAdminVerification(req);
+      const result = await marketplaceReviewTrustService.moderateReview(req.params.id, "rejected", admin?.actor.id || ROOT_ADMIN_ACTOR_ID);
       res.json(result);
     } catch (err) { handleServiceError(res, err); }
   });
@@ -5744,45 +5728,23 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
   app.get("/api/store/rankings", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
-      const listings = await storage.getStoreRankings(limit);
-      const enriched = await Promise.all(listings.map(async (l) => {
-        const agent = await storage.getUserAgent(l.agentId);
-        const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent: publicMarketplaceAgentSummary(agent), sellerName: seller?.displayName, qualityScore: agent ? agentRunnerService.computeQualityScore(l) : 0 };
-      }));
-      enriched.sort((a, b) => {
-        const trustA = a.agent?.trustScore || 0;
-        const trustB = b.agent?.trustScore || 0;
-        const qualA = a.qualityScore || 0;
-        const qualB = b.qualityScore || 0;
-        return (trustB * 0.4 + qualB * 0.6) - (trustA * 0.4 + qualA * 0.6);
-      });
-      res.json(enriched);
+      const listings = await marketplaceReviewTrustService.listPublicListings({ limit, sort: "trust" });
+      res.json(listings);
     } catch (err) { handleServiceError(res, err); }
   });
 
   app.get("/api/store/featured", async (req, res) => {
     try {
-      const listings = await storage.getFeaturedListings();
-      const enriched = await Promise.all(listings.map(async (l) => {
-        const agent = await storage.getUserAgent(l.agentId);
-        const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent: publicMarketplaceAgentSummary(agent), sellerName: seller?.displayName };
-      }));
-      res.json(enriched);
+      const listings = await marketplaceReviewTrustService.listPublicListings({ featuredOnly: true, limit: 20, sort: "trust" });
+      res.json(listings);
     } catch (err) { handleServiceError(res, err); }
   });
 
   app.get("/api/store/trending", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
-      const listings = await storage.getTrendingListings(limit);
-      const enriched = await Promise.all(listings.map(async (l) => {
-        const agent = await storage.getUserAgent(l.agentId);
-        const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent: publicMarketplaceAgentSummary(agent), sellerName: seller?.displayName };
-      }));
-      res.json(enriched);
+      const listings = await marketplaceReviewTrustService.listPublicListings({ limit, sort: "sandbox" });
+      res.json(listings);
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -5791,13 +5753,8 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
       const query = (req.query.q as string) || "";
       const category = req.query.category as string | undefined;
       if (!query) return res.json([]);
-      const listings = await storage.searchListings(query, category);
-      const enriched = await Promise.all(listings.map(async (l) => {
-        const agent = await storage.getUserAgent(l.agentId);
-        const seller = await storage.getUser(l.sellerId);
-        return { ...l, agent: publicMarketplaceAgentSummary(agent), sellerName: seller?.displayName };
-      }));
-      res.json(enriched);
+      const listings = await marketplaceReviewTrustService.listPublicListings({ query, category, limit: 50, sort: "trust" });
+      res.json(listings);
     } catch (err) { handleServiceError(res, err); }
   });
 
@@ -5805,51 +5762,17 @@ By exporting this application from Mougle, I ("Creator") acknowledge and agree:
 
   app.get("/api/store/reviews/:listingId", async (req, res) => {
     try {
-      const reviews = await storage.getReviewsByListing(req.params.listingId);
-      const enriched = await Promise.all(reviews.map(async (r) => {
-        const reviewer = await storage.getUser(r.reviewerId);
-        return { ...r, reviewerName: reviewer?.displayName, reviewerAvatar: reviewer?.avatar };
-      }));
-      res.json(enriched);
+      const reviews = await marketplaceReviewTrustService.listPublicReviews(req.params.listingId);
+      res.json(reviews);
     } catch (err) { handleServiceError(res, err); }
   });
 
-  app.post("/api/store/reviews", async (req, res) => {
+  app.post("/api/store/reviews", requireAuth, async (req, res) => {
     try {
-      const { agentId, listingId, reviewerId, rating, title, content } = req.body;
-      if (!agentId || !listingId || !reviewerId || !rating) {
-        return res.status(400).json({ error: "agentId, listingId, reviewerId, and rating required" });
-      }
-      if (rating < 1 || rating > 5) return res.status(400).json({ error: "Rating must be 1-5" });
-      const hasPurchased = await storage.hasUserPurchasedAgent(reviewerId, agentId);
-      if (!hasPurchased) return res.status(403).json({ error: "Must purchase agent before reviewing" });
-
-      const review = await db.transaction(async (tx) => {
-        const [created] = await tx.insert(agentReviews_table).values({ agentId, listingId, reviewerId, rating, title, content }).returning();
-
-        const allReviews = await tx.select().from(agentReviews_table).where(eq(agentReviews_table.listingId, listingId));
-        const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-        const reviewCount = allReviews.length;
-
-        await tx.update(marketplaceListings_table)
-          .set({ averageRating: avgRating, reviewCount })
-          .where(eq(marketplaceListings_table.id, listingId));
-
-        const [agent] = await tx.select().from(userAgents_table).where(eq(userAgents_table.id, agentId));
-        if (agent) {
-          const trustScore = agentRunnerService.computeTrustScore({ ...agent, rating: avgRating, ratingCount: reviewCount });
-          await tx.update(userAgents_table)
-            .set({ rating: avgRating, ratingCount: reviewCount, trustScore })
-            .where(eq(userAgents_table.id, agentId));
-        }
-
-        return created;
-      });
-
-      const trustEventType = rating >= 4 ? "positive_rating" : rating <= 2 ? "negative_rating" : "neutral_rating";
-      agentTrustEngine.recordEvent(agentId, trustEventType, listingId, reviewerId).catch(() => {});
-
-      res.json(review);
+      const parsed = marketplaceReviewSubmitSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid review" });
+      const result = await marketplaceReviewTrustService.createReview(req.user.id, parsed.data);
+      res.status(201).json(result);
     } catch (err) { handleServiceError(res, err); }
   });
 

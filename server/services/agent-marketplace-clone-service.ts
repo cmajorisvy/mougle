@@ -583,6 +583,15 @@ async function sandboxTest(packageId: string, actorUserId: string, input: Sandbo
   const prompt = normalizeString(input.prompt, 1000);
   const promptPreview = sanitizeMemoryOutput(prompt || "Show what this clone can safely do.", { redactContactInfo: true });
 
+  await audit("marketplace_clone_sandbox_test", actorUserId, "user", "success", {
+    listingId: detail.marketplaceListingId,
+    promptLength: prompt.length,
+    promptRedactions: promptPreview.redactions,
+    usesSanitizedPackageOnly: true,
+    rawPromptStored: false,
+    rawSandboxTranscriptStored: false,
+  }, detail.id);
+
   return {
     mode: "sandbox_only",
     packageId: detail.id,

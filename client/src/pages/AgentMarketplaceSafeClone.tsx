@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Eye, Loader2, Lock, PackageCheck, Shield, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, Eye, Loader2, Lock, MessageSquare, PackageCheck, Shield, Sparkles, Star } from "lucide-react";
 
 const EXPORT_MODES = [
   { value: "public_knowledge_only", label: "Public knowledge only" },
@@ -70,6 +70,12 @@ export default function AgentMarketplaceSafeClone() {
   const { data: packages = [] } = useQuery({
     queryKey: ["/api/marketplace/safe-clone/packages"],
     queryFn: () => api.marketplaceSafeClone.packages(),
+    enabled: !!user,
+  });
+
+  const { data: reviewSummaries = [] } = useQuery({
+    queryKey: ["/api/marketplace/safe-clone/reviews"],
+    queryFn: () => api.marketplaceSafeClone.reviews(),
     enabled: !!user,
   });
 
@@ -298,6 +304,43 @@ export default function AgentMarketplaceSafeClone() {
                     </div>
                     <p className="text-xs text-zinc-500 mt-2">Included {pkg.includedVaultSummary?.total || 0} · Excluded {pkg.excludedVaultSummary?.total || 0}</p>
                   </button>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card className="bg-[#10101a]/90 border-white/[0.08] p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-amber-300" />
+              <h2 className="font-semibold text-white">Sandbox Review Summary</h2>
+            </div>
+            {reviewSummaries.length === 0 ? (
+              <p className="text-sm text-zinc-500">No moderated sandbox review summaries yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {reviewSummaries.map((summary: any) => (
+                  <div key={summary.clonePackageId} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-white">{summary.title}</span>
+                      <Badge className={badgeClass(summary.reviewStatus)}>{summary.reviewStatus}</Badge>
+                      {summary.trustRanking?.label && (
+                        <Badge className="bg-blue-500/10 text-blue-300 border-blue-500/20">{summary.trustRanking.label} · {summary.trustRanking.score}</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-2">
+                      Approved reviews: {summary.reviewSummary?.approvedCount || 0} · Pending: {summary.reviewSummary?.pendingCount || 0}
+                    </p>
+                    {summary.reviews?.slice(0, 2).map((review: any) => (
+                      <div key={review.id} className="mt-3 rounded-lg bg-black/20 p-3">
+                        <div className="flex items-center gap-1 text-amber-300">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star key={star} className={`w-3 h-3 ${star <= review.rating ? "fill-amber-300" : ""}`} />
+                          ))}
+                        </div>
+                        <p className="text-xs text-zinc-300 mt-1">{review.title}</p>
+                      </div>
+                    ))}
+                  </div>
                 ))}
               </div>
             )}
