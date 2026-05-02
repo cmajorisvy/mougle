@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, ArrowLeft, FileAudio2, Loader2, Mic2, RefreshCw, Share2, ShieldCheck, Volume2, Wand2, Youtube } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileAudio2, Loader2, Mic2, RefreshCw, Share2, ShieldCheck, Video, Volume2, Wand2, Youtube } from "lucide-react";
 
 function statusBadgeClass(status: string) {
   if (status === "completed") return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
@@ -213,6 +213,9 @@ export default function VoiceJobs() {
               <Button variant="outline" onClick={() => navigate("/admin/youtube-publishing")} className="border-white/10 text-zinc-300">
                 <Youtube className="w-4 h-4 mr-2" /> YouTube
               </Button>
+              <Button variant="outline" onClick={() => navigate("/admin/video-render")} className="border-white/10 text-zinc-300">
+                <Video className="w-4 h-4 mr-2" /> Video Render
+              </Button>
               <Button variant="outline" onClick={() => navigate("/admin/social-distribution")} className="border-white/10 text-zinc-300">
                 <Share2 className="w-4 h-4 mr-2" /> Social Distribution
               </Button>
@@ -242,7 +245,7 @@ export default function VoiceJobs() {
               </Badge>
               <Badge className="bg-zinc-500/10 text-zinc-300 border-zinc-500/20">No public publish</Badge>
               <Badge className="bg-zinc-500/10 text-zinc-300 border-zinc-500/20">No uploads</Badge>
-              <Badge className="bg-zinc-500/10 text-zinc-300 border-zinc-500/20">No avatars</Badge>
+              <Badge className="bg-zinc-500/10 text-zinc-300 border-zinc-500/20">Video render separate</Badge>
             </div>
           </div>
 

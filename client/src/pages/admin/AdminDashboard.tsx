@@ -275,6 +275,7 @@ function OverviewTab({ onSelectTab }: { onSelectTab: (tab: Tab) => void }) {
         { label: "Podcast Scripts", href: "/admin/podcast-scripts" },
         { label: "Voice Jobs", href: "/admin/voice-jobs" },
         { label: "YouTube", href: "/admin/youtube-publishing" },
+        { label: "Video Render", href: "/admin/video-render" },
         { label: "Social Distribution", href: "/admin/social-distribution" },
         { label: "SEO", href: "/admin/seo" },
         { label: "Social", href: "/admin/social-hub" },

@@ -398,6 +398,7 @@ async function getDigitalWorldOverview(): Promise<DigitalWorldOverview> {
         link("Podcast Scripts", "/admin/podcast-scripts", "primary"),
         link("Voice Jobs", "/admin/voice-jobs"),
         link("YouTube Publishing", "/admin/youtube-publishing"),
+        link("Video Render", "/admin/video-render"),
         link("Social Distribution", "/admin/social-distribution"),
       ],
     },

@@ -906,6 +906,130 @@ export type AdminYouTubePackageActionResult = {
   };
 };
 
+export type AdminAvatarVideoProvider = "dry_run" | "heygen" | "d_id" | "synthesia" | "unreal";
+export type AdminAvatarVideoSceneTemplate = "news_desk" | "podcast_studio" | "debate_arena_summary" | "minimal_cards";
+
+export type AdminAvatarVideoProviderStatus = {
+  selected: AdminAvatarVideoProvider;
+  dryRunDefault: true;
+  liveProviderCalls: false;
+  configured: boolean;
+  placeholderOnly: boolean;
+  message: string;
+};
+
+export type AdminAvatarVideoProfile = {
+  agentKey: string;
+  displayName: string;
+  role: string;
+  renderRole: "presenter_host" | "conclusion_presence" | "speaker_card";
+  avatarStyle: string;
+  source: "script_assignment" | "voice_profile" | "required_system_mapping";
+};
+
+export type AdminAvatarVideoSegmentMapping = {
+  segmentIndex: number;
+  scriptType: "two_minute" | "ten_minute" | "mougle_conclusion";
+  agentKey: string;
+  displayName: string;
+  role: string;
+  textPreview: string;
+  audioAvailable: boolean;
+  audioUrl: string | null;
+  audioPath: string | null;
+  status: string;
+};
+
+export type AdminAvatarVideoPreviewMetadata = {
+  title: string;
+  thumbnailText: string;
+  descriptionPreview: string;
+  shortsHooks: string[];
+  complianceNotes: string[];
+  sourceEvidenceReferences: AdminPodcastScriptPackagePayload["sourceEvidenceReferences"];
+  providerStatus: {
+    selected: AdminAvatarVideoProvider;
+    dryRunDefault: true;
+    liveProviderCalls: false;
+    message: string;
+  };
+  safety: {
+    internalAdminReviewOnly: boolean;
+    manualRootAdminTriggerOnly: boolean;
+    publicPublishing: boolean;
+    youtubeUpload: boolean;
+    socialPosting: boolean;
+    privateMemoryUsed: boolean;
+    userOwnedAvatarsIncluded: boolean;
+    unreal3dImplementation: boolean;
+  };
+  safeModeWarnings: string[];
+  excludedSpeakers: Array<{
+    agentKey: string;
+    displayName: string;
+    reason: string;
+  }>;
+  generatedAt: string;
+};
+
+export type AdminAvatarVideoRenderJob = {
+  id: number;
+  scriptPackageId: number;
+  audioJobId: number | null;
+  youtubePackageId: number | null;
+  status: string;
+  provider: AdminAvatarVideoProvider;
+  sceneTemplate: AdminAvatarVideoSceneTemplate;
+  avatarProfileMapping: Record<string, AdminAvatarVideoProfile>;
+  segmentMapping: AdminAvatarVideoSegmentMapping[];
+  previewMetadata: AdminAvatarVideoPreviewMetadata;
+  estimatedCost: number;
+  actualCost: number;
+  adminReviewStatus: string;
+  outputPath: string | null;
+  outputUrl: string | null;
+  errorMessage: string | null;
+  createdBy: string;
+  previewedAt: string | null;
+  renderedBy: string | null;
+  renderedAt: string | null;
+  canceledBy: string | null;
+  canceledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminAvatarVideoEligibleItem = {
+  scriptPackage: AdminPodcastScriptPackage;
+  latestAudioJob: AdminPodcastAudioJob | null;
+  youtubePackage: AdminYouTubePublishingPackage | null;
+  existingRenderJob: AdminAvatarVideoRenderJob | null;
+};
+
+export type AdminAvatarVideoEligibleResponse = {
+  providerStatus: AdminAvatarVideoProviderStatus;
+  safeModeWarnings: string[];
+  sceneTemplates: AdminAvatarVideoSceneTemplate[];
+  providers: AdminAvatarVideoProvider[];
+  items: AdminAvatarVideoEligibleItem[];
+};
+
+export type AdminAvatarVideoCreatePayload = {
+  scriptPackageId: number;
+  audioJobId?: number | null;
+  youtubePackageId?: number | null;
+  provider?: AdminAvatarVideoProvider;
+  sceneTemplate?: AdminAvatarVideoSceneTemplate;
+};
+
+export type AdminAvatarVideoActionResult = {
+  providerStatus: AdminAvatarVideoProviderStatus;
+  job: AdminAvatarVideoRenderJob;
+  scriptPackage?: AdminPodcastScriptPackage;
+  audioJob?: AdminPodcastAudioJob | null;
+  youtubePackage?: AdminYouTubePublishingPackage | null;
+};
+
 export type AdminSocialDistributionProviderStatus = {
   platform: string;
   configured: boolean;
@@ -2247,6 +2371,20 @@ export const api = {
       adminFetch<AdminYouTubePackageActionResult>(`/admin/youtube-publishing/packages/${id}/approve`, { method: "POST" }),
     uploadYouTubePackage: (id: number) =>
       adminFetch<AdminYouTubePackageActionResult>(`/admin/youtube-publishing/packages/${id}/upload`, { method: "POST" }),
+    videoRenderEligiblePackages: (limit?: number) =>
+      adminFetch<AdminAvatarVideoEligibleResponse>(`/admin/video-render/eligible-packages?limit=${limit || 50}`),
+    videoRenderJobs: (limit?: number) =>
+      adminFetch<AdminAvatarVideoRenderJob[]>(`/admin/video-render/jobs?limit=${limit || 50}`),
+    videoRenderJob: (id: number) =>
+      adminFetch<AdminAvatarVideoRenderJob>(`/admin/video-render/jobs/${id}`),
+    createVideoRenderJob: (data: AdminAvatarVideoCreatePayload) =>
+      adminFetch<AdminAvatarVideoActionResult>("/admin/video-render/jobs", { method: "POST", body: JSON.stringify(data) }),
+    previewVideoRenderJob: (id: number) =>
+      adminFetch<AdminAvatarVideoActionResult>(`/admin/video-render/jobs/${id}/preview`, { method: "POST" }),
+    renderVideoRenderJob: (id: number) =>
+      adminFetch<AdminAvatarVideoActionResult>(`/admin/video-render/jobs/${id}/render`, { method: "POST" }),
+    cancelVideoRenderJob: (id: number) =>
+      adminFetch<AdminAvatarVideoActionResult>(`/admin/video-render/jobs/${id}/cancel`, { method: "POST" }),
     socialDistributionEligible: (limit?: number) =>
       adminFetch<AdminSocialDistributionEligibleResponse>(`/admin/social-distribution/eligible?limit=${limit || 50}`),
     socialDistributionPackages: (limit?: number) =>

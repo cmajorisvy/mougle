@@ -114,6 +114,7 @@ import { gluonValueIndexService, gviComponentKeys } from "./services/gluon-value
 import { liveDebateStudioService } from "./services/live-debate-studio-service";
 import { externalAgentApiService, externalAgentCapabilities } from "./services/external-agent-api-service";
 import { digitalWorldOverviewService } from "./services/digital-world-overview-service";
+import { avatarVideoRenderProviders, avatarVideoSceneTemplates, avatarVideoRenderService } from "./services/avatar-video-render-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -320,6 +321,14 @@ const youtubePublishingPackageSchema = z.object({
   scriptPackageId: z.number().int().positive(),
   audioJobId: z.number().int().positive().nullable().optional(),
   generatedClipId: z.number().int().positive().nullable().optional(),
+});
+
+const avatarVideoRenderJobSchema = z.object({
+  scriptPackageId: z.number().int().positive(),
+  audioJobId: z.number().int().positive().nullable().optional(),
+  youtubePackageId: z.number().int().positive().nullable().optional(),
+  provider: z.enum(avatarVideoRenderProviders).default("dry_run"),
+  sceneTemplate: z.enum(avatarVideoSceneTemplates).default("news_desk"),
 });
 
 const marketplaceCloneRequestSchema = z.object({
@@ -3128,6 +3137,69 @@ export async function registerRoutes(
         providerPreference: parsed.data.provider,
         generatedBy: actor.id,
       }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/video-render/eligible-packages", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 50;
+      res.json(await avatarVideoRenderService.listEligiblePackages(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/video-render/jobs", requireRootAdmin, async (req, res) => {
+    try {
+      const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 50;
+      res.json(await avatarVideoRenderService.listJobs(limit));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/video-render/jobs/:id", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid video render job id" });
+      res.json(await avatarVideoRenderService.getJob(id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/video-render/jobs", requireRootAdmin, async (req, res) => {
+    try {
+      const parsed = avatarVideoRenderJobSchema.safeParse(req.body || {});
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message || "Invalid video render job request" });
+      }
+      const actor = getAdminActor(req);
+      res.json(await avatarVideoRenderService.createJob({
+        ...parsed.data,
+        createdBy: actor.id,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/video-render/jobs/:id/preview", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid video render job id" });
+      const actor = getAdminActor(req);
+      res.json(await avatarVideoRenderService.previewJob(id, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/video-render/jobs/:id/render", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid video render job id" });
+      const actor = getAdminActor(req);
+      res.json(await avatarVideoRenderService.renderJob(id, actor.id));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.post("/api/admin/video-render/jobs/:id/cancel", requireRootAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id as string, 10);
+      if (!Number.isFinite(id)) return res.status(400).json({ message: "Invalid video render job id" });
+      const actor = getAdminActor(req);
+      res.json(await avatarVideoRenderService.cancelJob(id, actor.id));
     } catch (err) { handleServiceError(res, err); }
   });
 
