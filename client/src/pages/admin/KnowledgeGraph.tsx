@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import {
   AlertTriangle,
   ArrowLeft,
+  CheckCircle2,
   Database,
   GitBranch,
   Loader2,
@@ -24,6 +25,10 @@ function labelFor(value: string) {
 
 function formatCount(value: number | undefined) {
   return Math.round(value || 0).toLocaleString();
+}
+
+function percent(value: number | undefined) {
+  return `${Math.round(Math.max(0, Math.min(1, value || 0)) * 100)}%`;
 }
 
 function confidence(value: number) {
@@ -81,6 +86,41 @@ function DistributionPanel({ title, items }: { title: string; items: Record<stri
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function QualityScoreCard({ label, value, note }: { label: string; value: number; note: string }) {
+  const colorClass = value >= 0.75
+    ? "text-emerald-300"
+    : value >= 0.5
+      ? "text-yellow-300"
+      : "text-red-300";
+  return (
+    <div className="rounded-lg border border-white/[0.08] bg-black/20 p-4">
+      <p className="text-xs text-zinc-500">{label}</p>
+      <p className={`text-2xl font-semibold mt-1 ${colorClass}`}>{percent(value)}</p>
+      <p className="text-xs text-zinc-500 mt-2 leading-5">{note}</p>
+    </div>
+  );
+}
+
+function CheckPanel({
+  title,
+  passed,
+  detail,
+}: {
+  title: string;
+  passed: boolean;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-lg border border-white/[0.08] bg-white/[0.03] p-3">
+      <div className="flex items-center gap-2">
+        {passed ? <CheckCircle2 className="w-4 h-4 text-emerald-300" /> : <AlertTriangle className="w-4 h-4 text-red-300" />}
+        <p className="text-sm font-medium text-white">{title}</p>
+      </div>
+      <p className="text-xs text-zinc-500 mt-2 leading-5">{detail}</p>
     </div>
   );
 }
@@ -208,8 +248,53 @@ export default function KnowledgeGraph() {
         )}
 
         {syncMutation.data && (
-          <Card className="bg-cyan-500/10 border-cyan-500/20 p-4 text-cyan-100">
-            Synced {formatCount(syncMutation.data.nodesUpserted)} nodes and {formatCount(syncMutation.data.edgesUpserted)} edges. Blocked {formatCount(syncMutation.data.blockedCounts.total)} restricted/private memory sources.
+          <Card className="bg-cyan-500/10 border-cyan-500/20 p-5 text-cyan-100">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Sync Result</h2>
+                <p className="text-sm text-cyan-100/80 mt-1">
+                  Manual sync completed in {formatCount(syncMutation.data.syncDurationMs)} ms with status {syncMutation.data.lastSyncStatus}.
+                </p>
+              </div>
+              <Badge className="bg-cyan-500/15 text-cyan-200 border-cyan-500/20">Manual root-admin sync</Badge>
+            </div>
+            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
+              {[
+                ["Records scanned", syncMutation.data.recordsScanned],
+                ["Nodes upserted", syncMutation.data.nodesUpserted],
+                ["Edges upserted", syncMutation.data.edgesUpserted],
+                ["Blocked records", syncMutation.data.blockedRecords],
+                ["Skipped records", syncMutation.data.skippedRecords],
+                ["Warnings", syncMutation.data.warnings.length],
+                ["Errors", syncMutation.data.errors.length],
+                ["Duplicate keys", syncMutation.data.duplicateNodeKeyCount + syncMutation.data.duplicateEdgeKeyCount],
+              ].map(([label, value]) => (
+                <div key={label as string} className="rounded-lg border border-cyan-500/10 bg-black/20 p-3">
+                  <p className="text-xs text-cyan-100/60">{label}</p>
+                  <p className="text-xl font-semibold text-white mt-1">{formatCount(Number(value))}</p>
+                </div>
+              ))}
+            </div>
+            {(syncMutation.data.warnings.length > 0 || syncMutation.data.errors.length > 0) && (
+              <div className="grid md:grid-cols-2 gap-3 mt-4">
+                {syncMutation.data.warnings.length > 0 && (
+                  <div className="rounded-lg border border-yellow-500/10 bg-yellow-500/[0.06] p-3">
+                    <p className="text-sm font-medium text-yellow-200">Warnings</p>
+                    <ul className="text-xs text-yellow-100/80 mt-2 space-y-1">
+                      {syncMutation.data.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {syncMutation.data.errors.length > 0 && (
+                  <div className="rounded-lg border border-red-500/10 bg-red-500/[0.06] p-3">
+                    <p className="text-sm font-medium text-red-200">Errors</p>
+                    <ul className="text-xs text-red-100/80 mt-2 space-y-1">
+                      {syncMutation.data.errors.map((error) => <li key={error}>{error}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
         )}
 
@@ -231,22 +316,24 @@ export default function KnowledgeGraph() {
                     </Badge>
                   </div>
                   <p className="text-sm text-zinc-500 mt-4">Internal Graph Foundation</p>
-                  <p className="text-5xl font-bold text-white mt-1">{formatCount(summary.totals.nodes)} nodes</p>
+                  <p className="text-5xl font-bold text-white mt-1">{percent(summary.qualityScores.overallGraphQuality)}</p>
                   <p className="text-sm text-zinc-400 mt-4 max-w-3xl leading-6">
-                    Manual sync builds deterministic internal graph records and preserves private/restricted material as blocked aggregate counts only.
+                    Overall graph quality combines completeness, trust, safety, and freshness. Manual sync preserves private/restricted material as blocked aggregate counts only.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3 min-w-[280px]">
                   {[
+                    ["Nodes", summary.totals.nodes],
                     ["Edges", summary.totals.edges],
+                    ["Orphans", summary.totals.orphanNodes],
                     ["Blocked", summary.totals.blockedRestrictedSources],
-                    ["Node Types", Object.keys(summary.nodeCountsByType).length],
-                    ["Relations", Object.keys(summary.edgeCountsByRelation).length],
+                    ["High Risk", summary.totals.highRiskUnverifiedClusters],
+                    ["Last Sync", summary.qualityMetrics.lastSyncStatus],
                   ].map(([label, value]) => (
-                    <Card key={label as string} className="bg-black/20 border-white/[0.06] p-3">
+                    <div key={label as string} className="rounded-lg bg-black/20 border border-white/[0.06] p-3">
                       <p className="text-[11px] text-zinc-500">{label}</p>
-                      <p className="text-xl font-semibold text-white mt-1">{formatCount(Number(value))}</p>
-                    </Card>
+                      <p className="text-xl font-semibold text-white mt-1">{typeof value === "number" ? formatCount(value) : labelFor(String(value))}</p>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -254,11 +341,72 @@ export default function KnowledgeGraph() {
 
             <Safeguards summary={summary} />
 
+            <Card className="bg-[#10101a]/90 border-white/[0.08] p-5">
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Graph Quality Metrics</h2>
+                  <p className="text-sm text-zinc-500 mt-1">
+                    Formula: completeness 30%, trust 30%, safety 30%, freshness 10%.
+                  </p>
+                </div>
+                <Badge className={statusClass(summary.qualityMetrics.lastSyncStatus)}>
+                  Last sync: {labelFor(summary.qualityMetrics.lastSyncStatus)}
+                </Badge>
+              </div>
+              <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-3 mt-4">
+                <QualityScoreCard label="Completeness" value={summary.qualityScores.graphCompleteness} note="Edge density, evidence coverage, provenance coverage, minus orphan penalty." />
+                <QualityScoreCard label="Trust" value={summary.qualityScores.graphTrust} note="Verified/approved ratio and confidence, reduced by high-risk clusters." />
+                <QualityScoreCard label="Safety" value={summary.qualityScores.graphSafety} note="Private/unknown/duplicate checks and blocked-count visibility." />
+                <QualityScoreCard label="Freshness" value={summary.qualityScores.graphFreshness} note="Based on recency of the latest successful manual sync." />
+                <QualityScoreCard label="Overall Quality" value={summary.qualityScores.overallGraphQuality} note="Weighted readiness signal for future internal RAG/search work." />
+              </div>
+              <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
+                {[
+                  ["Provenance coverage", percent(summary.qualityMetrics.provenanceCoverage)],
+                  ["Evidence coverage", percent(summary.qualityMetrics.evidenceCoverage)],
+                  ["Duplicate node keys", formatCount(summary.qualityMetrics.duplicateNodeKeyCount)],
+                  ["Duplicate edge keys", formatCount(summary.qualityMetrics.duplicateEdgeKeyCount)],
+                  ["Sync duration", summary.qualityMetrics.syncDurationMs == null ? "No sync" : `${formatCount(summary.qualityMetrics.syncDurationMs)} ms`],
+                  ["Last synced", summary.qualityMetrics.lastSyncedAt ? new Date(summary.qualityMetrics.lastSyncedAt).toLocaleString() : "Not synced"],
+                  ["Blocked records", formatCount(summary.qualityMetrics.blockedPrivateRestrictedSourceCount)],
+                  ["High-risk clusters", formatCount(summary.qualityMetrics.highRiskUnverifiedClusterCount)],
+                ].map(([label, value]) => (
+                  <div key={label as string} className="rounded-lg border border-white/[0.08] bg-black/20 p-3">
+                    <p className="text-xs text-zinc-500">{label}</p>
+                    <p className="text-sm font-semibold text-white mt-1">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid md:grid-cols-3 gap-3 mt-4">
+                <CheckPanel
+                  title="Private/Restricted Block Check"
+                  passed={summary.deterministicChecks.privateRestrictedMemoryBlocked.passed}
+                  detail={summary.deterministicChecks.privateRestrictedMemoryBlocked.explanation}
+                />
+                <CheckPanel
+                  title="Duplicate-Key Check"
+                  passed={summary.deterministicChecks.duplicateKeysChecked.passed}
+                  detail={summary.deterministicChecks.duplicateKeysChecked.explanation}
+                />
+                <CheckPanel
+                  title="Unknown Classification Check"
+                  passed={summary.deterministicChecks.unknownClassificationBlocked.passed}
+                  detail={summary.deterministicChecks.unknownClassificationBlocked.explanation}
+                />
+              </div>
+            </Card>
+
             <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
               <DistributionCard title="Node Counts By Type" items={summary.nodeCountsByType} />
               <DistributionCard title="Edge Counts By Relation" items={summary.edgeCountsByRelation} />
+              <DistributionCard title="Confidence Distribution" items={summary.qualityMetrics.confidenceDistribution} />
+              <DistributionCard title="Source Table Distribution" items={summary.qualityMetrics.sourceTableDistribution} />
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-4">
               <DistributionCard title="Verification Distribution" items={summary.verificationDistribution} />
               <DistributionCard title="Vault Distribution" items={summary.vaultDistribution} />
+              <DistributionCard title="Sensitivity Distribution" items={summary.sensitivityDistribution} />
             </div>
 
             <div className="grid xl:grid-cols-[1fr_.9fr] gap-5">

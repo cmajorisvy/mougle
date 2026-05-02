@@ -1,4 +1,4 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "../db";
 import {
   agentKnowledgeSources,
@@ -20,6 +20,7 @@ import {
   projectPackages,
   projects,
   realityClaims,
+  riskAuditLogs,
   socialDistributionPackages,
   truthMemories,
   youtubePublishingPackages,
@@ -49,10 +50,19 @@ type BlockedSource = {
   sensitivity: string;
 };
 
+type SkippedSource = {
+  sourceTable: string;
+  sourceId: string;
+  reason: string;
+};
+
 type BuildGraphResult = {
   nodes: InsertKnowledgeGraphNode[];
   edges: InsertKnowledgeGraphEdge[];
   blockedSources: BlockedSource[];
+  skippedSources: SkippedSource[];
+  recordsScanned: number;
+  recordsScannedBySource: Distribution;
 };
 
 type KnowledgeGraphNodeInput = Omit<InsertKnowledgeGraphNode, "createdAt" | "updatedAt" | "sourceId"> & {
@@ -67,6 +77,55 @@ export type KnowledgeGraphSummary = {
     nodes: number;
     edges: number;
     blockedRestrictedSources: number;
+    orphanNodes: number;
+    duplicateNodeKeys: number;
+    duplicateEdgeKeys: number;
+    highRiskUnverifiedClusters: number;
+  };
+  qualityMetrics: {
+    nodeCount: number;
+    edgeCount: number;
+    orphanNodeCount: number;
+    duplicateNodeKeyCount: number;
+    duplicateEdgeKeyCount: number;
+    confidenceDistribution: Distribution;
+    verificationDistribution: Distribution;
+    vaultDistribution: Distribution;
+    sensitivityDistribution: Distribution;
+    provenanceCoverage: number;
+    evidenceCoverage: number;
+    blockedPrivateRestrictedSourceCount: number;
+    highRiskUnverifiedClusterCount: number;
+    sourceTableDistribution: Distribution;
+    syncDurationMs: number | null;
+    lastSyncStatus: "success" | "error" | "not_synced";
+    lastSyncedAt: string | null;
+  };
+  qualityScores: {
+    graphCompleteness: number;
+    graphTrust: number;
+    graphSafety: number;
+    graphFreshness: number;
+    overallGraphQuality: number;
+  };
+  deterministicChecks: {
+    privateRestrictedMemoryBlocked: {
+      passed: boolean;
+      blockedCount: number;
+      ingestedPrivateOrPersonalCount: number;
+      explanation: string;
+    };
+    duplicateKeysChecked: {
+      passed: boolean;
+      duplicateNodeKeyCount: number;
+      duplicateEdgeKeyCount: number;
+      explanation: string;
+    };
+    unknownClassificationBlocked: {
+      passed: boolean;
+      unknownVaultOrSensitivityCount: number;
+      explanation: string;
+    };
   };
   nodeCountsByType: Distribution;
   edgeCountsByRelation: Distribution;
@@ -115,10 +174,26 @@ export type KnowledgeGraphSummary = {
 
 export type KnowledgeGraphSyncResult = {
   syncedAt: string;
+  recordsScanned: number;
+  recordsScannedBySource: Distribution;
   nodesPrepared: number;
   edgesPrepared: number;
   nodesUpserted: number;
   edgesUpserted: number;
+  blockedRecords: number;
+  skippedRecords: number;
+  skippedCounts: {
+    total: number;
+    bySource: Distribution;
+    byReason: Distribution;
+    samples: SkippedSource[];
+  };
+  warnings: string[];
+  errors: string[];
+  syncDurationMs: number;
+  lastSyncStatus: "success";
+  duplicateNodeKeyCount: number;
+  duplicateEdgeKeyCount: number;
   blockedCounts: KnowledgeGraphSummary["blockedCounts"];
   summary: KnowledgeGraphSummary;
 };
@@ -337,6 +412,70 @@ function summarizeBlocked(blockedSources: BlockedSource[]) {
   };
 }
 
+function summarizeSkipped(skippedSources: SkippedSource[]) {
+  const bySource: Distribution = {};
+  const byReason: Distribution = {};
+  for (const skipped of skippedSources) {
+    addCount(bySource, skipped.sourceTable);
+    addCount(byReason, skipped.reason);
+  }
+  return {
+    total: skippedSources.length,
+    bySource,
+    byReason,
+    samples: skippedSources.slice(0, 12),
+  };
+}
+
+function countDuplicateKeys<T extends Record<string, any>>(items: T[], key: keyof T) {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const value = String(item[key]);
+    counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  return [...counts.values()].filter((count) => count > 1).reduce((total, count) => total + count - 1, 0);
+}
+
+function confidenceDistributionFor(items: Array<{ confidence: number }>) {
+  const distribution: Distribution = { low: 0, medium: 0, high: 0 };
+  for (const item of items) {
+    if (item.confidence < 0.35) distribution.low += 1;
+    else if (item.confidence < 0.7) distribution.medium += 1;
+    else distribution.high += 1;
+  }
+  return distribution;
+}
+
+function averageConfidence(items: Array<{ confidence: number }>) {
+  if (items.length === 0) return 0;
+  return clamp01(items.reduce((sum, item) => sum + clamp01(item.confidence), 0) / items.length);
+}
+
+function scoreFreshness(lastSyncedAt: string | null) {
+  if (!lastSyncedAt) return 0;
+  const ageMs = Date.now() - new Date(lastSyncedAt).getTime();
+  if (!Number.isFinite(ageMs) || ageMs < 0) return 0.5;
+  const ageHours = ageMs / (60 * 60 * 1000);
+  if (ageHours <= 1) return 1;
+  if (ageHours <= 24) return 0.85;
+  if (ageHours <= 24 * 7) return 0.65;
+  if (ageHours <= 24 * 30) return 0.35;
+  return 0.1;
+}
+
+function scoreStatus(score: number): SourceQuality {
+  if (score >= 0.7) return "calculated";
+  if (score > 0) return "partial";
+  return "fallback";
+}
+
+function dateToIso(value: unknown) {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  const parsed = new Date(String(value));
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
 class KnowledgeGraphService {
   async listNodes(params: { nodeType?: string; verificationStatus?: string; limit?: number } = {}) {
     const limit = Math.min(Math.max(params.limit || 100, 1), LIST_LIMIT_MAX);
@@ -361,93 +500,164 @@ class KnowledgeGraphService {
   }
 
   async getSummary(): Promise<KnowledgeGraphSummary> {
-    const [nodes, edges, blockedCounts, ues] = await Promise.all([
+    const [nodes, edges, blockedCounts, ues, lastSync] = await Promise.all([
       db.select().from(knowledgeGraphNodes).limit(2000),
       db.select().from(knowledgeGraphEdges).limit(3000),
       this.getBlockedMemorySummary(),
       unifiedEvolutionService.getGlobalScore().catch(() => null),
+      this.getLastSyncStatus(),
     ]);
 
-    return this.buildSummary(nodes, edges, blockedCounts, ues != null);
+    return this.buildSummary(nodes, edges, blockedCounts, ues != null, lastSync);
   }
 
   async sync(params: { actorId: string; actorType: string }): Promise<KnowledgeGraphSyncResult> {
-    const prepared = await this.buildGraph();
-    const nodes = uniqueByKey(prepared.nodes, "nodeKey");
-    const edges = uniqueByKey(prepared.edges, "edgeKey");
+    const startedAt = Date.now();
+    try {
+      const prepared = await this.buildGraph();
+      const duplicateNodeKeyCount = countDuplicateKeys(prepared.nodes, "nodeKey");
+      const duplicateEdgeKeyCount = countDuplicateKeys(prepared.edges, "edgeKey");
+      const nodes = uniqueByKey(prepared.nodes, "nodeKey");
+      const edges = uniqueByKey(prepared.edges, "edgeKey");
 
-    let nodesUpserted = 0;
-    let edgesUpserted = 0;
+      let nodesUpserted = 0;
+      let edgesUpserted = 0;
 
-    for (const graphNode of nodes) {
-      await db.insert(knowledgeGraphNodes).values(graphNode).onConflictDoUpdate({
-        target: knowledgeGraphNodes.nodeKey,
-        set: {
-          nodeType: graphNode.nodeType,
-          label: graphNode.label,
-          summary: graphNode.summary,
-          sourceTable: graphNode.sourceTable,
-          sourceId: graphNode.sourceId,
-          confidence: graphNode.confidence,
-          verificationStatus: graphNode.verificationStatus,
-          vaultType: graphNode.vaultType,
-          sensitivity: graphNode.sensitivity,
-          visibility: graphNode.visibility,
-          provenance: graphNode.provenance,
-          metadata: graphNode.metadata,
-          updatedAt: new Date(),
+      for (const graphNode of nodes) {
+        await db.insert(knowledgeGraphNodes).values(graphNode).onConflictDoUpdate({
+          target: knowledgeGraphNodes.nodeKey,
+          set: {
+            nodeType: graphNode.nodeType,
+            label: graphNode.label,
+            summary: graphNode.summary,
+            sourceTable: graphNode.sourceTable,
+            sourceId: graphNode.sourceId,
+            confidence: graphNode.confidence,
+            verificationStatus: graphNode.verificationStatus,
+            vaultType: graphNode.vaultType,
+            sensitivity: graphNode.sensitivity,
+            visibility: graphNode.visibility,
+            provenance: graphNode.provenance,
+            metadata: graphNode.metadata,
+            updatedAt: new Date(),
+          },
+        });
+        nodesUpserted += 1;
+      }
+
+      for (const graphEdge of edges) {
+        await db.insert(knowledgeGraphEdges).values(graphEdge).onConflictDoUpdate({
+          target: knowledgeGraphEdges.edgeKey,
+          set: {
+            sourceNodeKey: graphEdge.sourceNodeKey,
+            targetNodeKey: graphEdge.targetNodeKey,
+            relationType: graphEdge.relationType,
+            confidence: graphEdge.confidence,
+            verificationStatus: graphEdge.verificationStatus,
+            vaultType: graphEdge.vaultType,
+            sensitivity: graphEdge.sensitivity,
+            visibility: graphEdge.visibility,
+            provenance: graphEdge.provenance,
+            metadata: graphEdge.metadata,
+            updatedAt: new Date(),
+          },
+        });
+        edgesUpserted += 1;
+      }
+
+      const syncDurationMs = Date.now() - startedAt;
+      const blockedCounts = summarizeBlocked(prepared.blockedSources);
+      const skippedCounts = summarizeSkipped(prepared.skippedSources);
+      const warnings = [
+        duplicateNodeKeyCount > 0 ? `${duplicateNodeKeyCount} duplicate prepared node keys were de-duplicated before upsert.` : null,
+        duplicateEdgeKeyCount > 0 ? `${duplicateEdgeKeyCount} duplicate prepared edge keys were de-duplicated before upsert.` : null,
+        prepared.blockedSources.length > 0 ? `${prepared.blockedSources.length} private/restricted/unknown memory records were blocked from ingestion.` : null,
+        prepared.skippedSources.length > 0 ? `${prepared.skippedSources.length} source records were skipped because their approval/status was unclear or unsafe.` : null,
+      ].filter((warning): warning is string => Boolean(warning));
+
+      await riskManagementService.logAudit({
+        actorId: params.actorId,
+        actorType: params.actorType,
+        action: "knowledge_graph_sync",
+        resourceType: "knowledge_graph",
+        resourceId: "manual_sync",
+        outcome: "success",
+        riskLevel: prepared.blockedSources.length > 0 || duplicateNodeKeyCount > 0 || duplicateEdgeKeyCount > 0 ? "medium" : "low",
+        details: {
+          recordsScanned: prepared.recordsScanned,
+          recordsScannedBySource: prepared.recordsScannedBySource,
+          nodesPrepared: nodes.length,
+          edgesPrepared: edges.length,
+          nodesUpserted,
+          edgesUpserted,
+          blockedCounts,
+          skippedCounts,
+          duplicateNodeKeyCount,
+          duplicateEdgeKeyCount,
+          warnings,
+          errors: [],
+          syncDurationMs,
+          manualSyncOnly: true,
+          noRawPrivateMemoryContent: true,
         },
       });
-      nodesUpserted += 1;
-    }
 
-    for (const graphEdge of edges) {
-      await db.insert(knowledgeGraphEdges).values(graphEdge).onConflictDoUpdate({
-        target: knowledgeGraphEdges.edgeKey,
-        set: {
-          sourceNodeKey: graphEdge.sourceNodeKey,
-          targetNodeKey: graphEdge.targetNodeKey,
-          relationType: graphEdge.relationType,
-          confidence: graphEdge.confidence,
-          verificationStatus: graphEdge.verificationStatus,
-          vaultType: graphEdge.vaultType,
-          sensitivity: graphEdge.sensitivity,
-          visibility: graphEdge.visibility,
-          provenance: graphEdge.provenance,
-          metadata: graphEdge.metadata,
-          updatedAt: new Date(),
-        },
-      });
-      edgesUpserted += 1;
-    }
-
-    const blockedCounts = summarizeBlocked(prepared.blockedSources);
-    await riskManagementService.logAudit({
-      actorId: params.actorId,
-      actorType: params.actorType,
-      action: "knowledge_graph_sync",
-      resourceType: "knowledge_graph",
-      resourceId: "manual_sync",
-      outcome: "success",
-      riskLevel: prepared.blockedSources.length > 0 ? "medium" : "low",
-      details: {
+      const summary = await this.getSummary();
+      return {
+        syncedAt: new Date().toISOString(),
+        recordsScanned: prepared.recordsScanned,
+        recordsScannedBySource: prepared.recordsScannedBySource,
         nodesPrepared: nodes.length,
         edgesPrepared: edges.length,
+        nodesUpserted,
+        edgesUpserted,
+        blockedRecords: prepared.blockedSources.length,
+        skippedRecords: prepared.skippedSources.length,
+        skippedCounts,
+        warnings,
+        errors: [],
+        syncDurationMs,
+        lastSyncStatus: "success",
+        duplicateNodeKeyCount,
+        duplicateEdgeKeyCount,
         blockedCounts,
-        manualSyncOnly: true,
-        noRawPrivateMemoryContent: true,
-      },
-    });
+        summary,
+      };
+    } catch (error) {
+      const syncDurationMs = Date.now() - startedAt;
+      await riskManagementService.logAudit({
+        actorId: params.actorId,
+        actorType: params.actorType,
+        action: "knowledge_graph_sync",
+        resourceType: "knowledge_graph",
+        resourceId: "manual_sync",
+        outcome: "error",
+        riskLevel: "high",
+        details: {
+          syncDurationMs,
+          errorMessage: error instanceof Error ? error.message : "Unknown knowledge graph sync error",
+          manualSyncOnly: true,
+        },
+      });
+      throw error;
+    }
+  }
 
-    const summary = await this.getSummary();
+  private async getLastSyncStatus(): Promise<{ status: "success" | "error" | "not_synced"; lastSyncedAt: string | null; syncDurationMs: number | null }> {
+    const [lastSync] = await db.select().from(riskAuditLogs)
+      .where(eq(riskAuditLogs.action, "knowledge_graph_sync"))
+      .orderBy(desc(riskAuditLogs.createdAt))
+      .limit(1);
+
+    if (!lastSync) {
+      return { status: "not_synced", lastSyncedAt: null, syncDurationMs: null };
+    }
+
+    const details = asRecord(lastSync.details);
     return {
-      syncedAt: new Date().toISOString(),
-      nodesPrepared: nodes.length,
-      edgesPrepared: edges.length,
-      nodesUpserted,
-      edgesUpserted,
-      blockedCounts,
-      summary,
+      status: lastSync.outcome === "success" ? "success" : "error",
+      lastSyncedAt: dateToIso(lastSync.createdAt),
+      syncDurationMs: typeof details.syncDurationMs === "number" ? details.syncDurationMs : null,
     };
   }
 
@@ -456,6 +666,7 @@ class KnowledgeGraphService {
     edges: KnowledgeGraphEdge[],
     blockedCounts: KnowledgeGraphSummary["blockedCounts"],
     uesAvailable: boolean,
+    lastSync: { status: "success" | "error" | "not_synced"; lastSyncedAt: string | null; syncDurationMs: number | null },
   ): KnowledgeGraphSummary {
     const nodeCountsByType: Distribution = {};
     const edgeCountsByRelation: Distribution = {};
@@ -464,6 +675,7 @@ class KnowledgeGraphService {
     const sensitivityDistribution: Distribution = {};
     const sourceNodeCounts: Distribution = {};
     const sourceEdgeCounts: Distribution = {};
+    const sourceTableDistribution: Distribution = {};
     const connectionCounts: Distribution = {};
 
     for (const graphNode of nodes) {
@@ -472,6 +684,7 @@ class KnowledgeGraphService {
       addCount(vaultDistribution, graphNode.vaultType);
       addCount(sensitivityDistribution, graphNode.sensitivity);
       addCount(sourceNodeCounts, graphNode.sourceTable);
+      addCount(sourceTableDistribution, graphNode.sourceTable);
     }
 
     for (const graphEdge of edges) {
@@ -479,9 +692,64 @@ class KnowledgeGraphService {
       addCount(sourceEdgeCounts, asRecord(graphEdge.provenance).sourceTable || graphEdge.relationType);
       addCount(connectionCounts, graphEdge.sourceNodeKey);
       addCount(connectionCounts, graphEdge.targetNodeKey);
+      addCount(sourceTableDistribution, asRecord(graphEdge.provenance).sourceTable || graphEdge.relationType);
     }
 
     const nodesByKey = new Map(nodes.map((graphNode) => [graphNode.nodeKey, graphNode]));
+    const connectedNodeKeys = new Set<string>();
+    for (const graphEdge of edges) {
+      connectedNodeKeys.add(graphEdge.sourceNodeKey);
+      connectedNodeKeys.add(graphEdge.targetNodeKey);
+    }
+    const orphanNodeCount = nodes.filter((graphNode) => !connectedNodeKeys.has(graphNode.nodeKey)).length;
+    const duplicateNodeKeyCount = countDuplicateKeys(nodes, "nodeKey");
+    const duplicateEdgeKeyCount = countDuplicateKeys(edges, "edgeKey");
+    const privateOrPersonalIngested = nodes.filter((graphNode) =>
+      graphNode.vaultType === "personal" || graphNode.sensitivity === "private" || graphNode.sensitivity === "secret"
+    ).length + edges.filter((graphEdge) =>
+      graphEdge.vaultType === "personal" || graphEdge.sensitivity === "private" || graphEdge.sensitivity === "secret"
+    ).length;
+    const unknownClassifications = nodes.filter((graphNode) =>
+      graphNode.vaultType === "unknown" || graphNode.sensitivity === "unknown"
+    ).length + edges.filter((graphEdge) =>
+      graphEdge.vaultType === "unknown" || graphEdge.sensitivity === "unknown"
+    ).length;
+    const itemsWithConfidence = [...nodes, ...edges].map((item) => ({ confidence: item.confidence }));
+    const confidenceDistribution = confidenceDistributionFor(itemsWithConfidence);
+    const averageGraphConfidence = averageConfidence(itemsWithConfidence);
+    const provenanceEligibleCount = nodes.length + edges.length;
+    const provenanceCoveredCount = nodes.filter((graphNode) => Boolean(asRecord(graphNode.provenance).sourceTable)).length
+      + edges.filter((graphEdge) => Boolean(asRecord(graphEdge.provenance).sourceTable)).length;
+    const provenanceCoverage = provenanceEligibleCount > 0 ? clamp01(provenanceCoveredCount / provenanceEligibleCount) : 0;
+    const claimNodeKeys = new Set(nodes.filter((graphNode) => graphNode.nodeType === "claim").map((graphNode) => graphNode.nodeKey));
+    const claimsWithEvidence = new Set<string>();
+    for (const graphEdge of edges) {
+      if (["supports", "contradicts", "evidence_for"].includes(graphEdge.relationType)) {
+        if (claimNodeKeys.has(graphEdge.targetNodeKey)) claimsWithEvidence.add(graphEdge.targetNodeKey);
+        if (claimNodeKeys.has(graphEdge.sourceNodeKey)) claimsWithEvidence.add(graphEdge.sourceNodeKey);
+      }
+    }
+    const evidenceCoverage = claimNodeKeys.size > 0 ? clamp01(claimsWithEvidence.size / claimNodeKeys.size) : 0;
+    const verifiedStatuses = new Set(["verified", "approved", "supported", "consensus", "active", "scored", "source_reference", "exported"]);
+    const verifiedApprovedRatio = nodes.length > 0
+      ? clamp01(nodes.filter((graphNode) => verifiedStatuses.has(graphNode.verificationStatus)).length / nodes.length)
+      : 0;
+    const highRiskUnverifiedClusterCount = nodes.filter((graphNode) =>
+      HIGH_RISK_STATUSES.has(graphNode.verificationStatus) || graphNode.confidence < 0.35
+    ).length;
+    const highRiskRatio = nodes.length > 0 ? clamp01(highRiskUnverifiedClusterCount / nodes.length) : 0;
+    const orphanPenalty = nodes.length > 0 ? clamp01(orphanNodeCount / nodes.length) : 0;
+    const edgeDensity = nodes.length > 0 ? clamp01(edges.length / nodes.length) : 0;
+    const duplicateHealth = duplicateNodeKeyCount === 0 && duplicateEdgeKeyCount === 0 ? 1 : 0;
+    const blockedVisibilityScore = blockedCounts.total >= 0 ? 1 : 0;
+    const noPrivateIngestionScore = privateOrPersonalIngested === 0 ? 1 : 0;
+    const noUnknownScore = unknownClassifications === 0 ? 1 : 0;
+    const graphFreshness = lastSync.status === "success" ? scoreFreshness(lastSync.lastSyncedAt) : 0;
+    const graphCompleteness = clamp01((0.35 * edgeDensity) + (0.35 * evidenceCoverage) + (0.30 * provenanceCoverage) - (0.35 * orphanPenalty));
+    const graphTrust = clamp01((0.45 * verifiedApprovedRatio) + (0.35 * averageGraphConfidence) + (0.20 * evidenceCoverage) - (0.35 * highRiskRatio));
+    const graphSafety = clamp01((0.30 * noPrivateIngestionScore) + (0.25 * noUnknownScore) + (0.25 * duplicateHealth) + (0.20 * blockedVisibilityScore));
+    const overallGraphQuality = clamp01((0.30 * graphCompleteness) + (0.30 * graphTrust) + (0.30 * graphSafety) + (0.10 * graphFreshness));
+
     const topConnected = Object.entries(connectionCounts)
       .map(([nodeKey, connectionCount]) => ({ nodeKey, connectionCount, node: nodesByKey.get(nodeKey) }))
       .filter((item): item is { nodeKey: string; connectionCount: number; node: KnowledgeGraphNode } => Boolean(item.node))
@@ -523,6 +791,61 @@ class KnowledgeGraphService {
         nodes: nodes.length,
         edges: edges.length,
         blockedRestrictedSources: blockedCounts.total,
+        orphanNodes: orphanNodeCount,
+        duplicateNodeKeys: duplicateNodeKeyCount,
+        duplicateEdgeKeys: duplicateEdgeKeyCount,
+        highRiskUnverifiedClusters: highRiskUnverifiedClusterCount,
+      },
+      qualityMetrics: {
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+        orphanNodeCount,
+        duplicateNodeKeyCount,
+        duplicateEdgeKeyCount,
+        confidenceDistribution,
+        verificationDistribution,
+        vaultDistribution,
+        sensitivityDistribution,
+        provenanceCoverage,
+        evidenceCoverage,
+        blockedPrivateRestrictedSourceCount: blockedCounts.total,
+        highRiskUnverifiedClusterCount,
+        sourceTableDistribution,
+        syncDurationMs: lastSync.syncDurationMs,
+        lastSyncStatus: lastSync.status,
+        lastSyncedAt: lastSync.lastSyncedAt,
+      },
+      qualityScores: {
+        graphCompleteness,
+        graphTrust,
+        graphSafety,
+        graphFreshness,
+        overallGraphQuality,
+      },
+      deterministicChecks: {
+        privateRestrictedMemoryBlocked: {
+          passed: privateOrPersonalIngested === 0,
+          blockedCount: blockedCounts.total,
+          ingestedPrivateOrPersonalCount: privateOrPersonalIngested,
+          explanation: privateOrPersonalIngested === 0
+            ? "No personal/private/secret memory classifications are present in graph nodes or edges; blocked sources are aggregate only."
+            : "Personal/private/secret classifications were found in graph rows and must be remediated.",
+        },
+        duplicateKeysChecked: {
+          passed: duplicateNodeKeyCount === 0 && duplicateEdgeKeyCount === 0,
+          duplicateNodeKeyCount,
+          duplicateEdgeKeyCount,
+          explanation: duplicateNodeKeyCount === 0 && duplicateEdgeKeyCount === 0
+            ? "No duplicate graph keys were found in persisted graph rows."
+            : "Duplicate graph keys were detected.",
+        },
+        unknownClassificationBlocked: {
+          passed: unknownClassifications === 0,
+          unknownVaultOrSensitivityCount: unknownClassifications,
+          explanation: unknownClassifications === 0
+            ? "Unknown vault/sensitivity classifications are not present in graph rows."
+            : "Unknown vault/sensitivity classifications were found in graph rows.",
+        },
       },
       nodeCountsByType,
       edgeCountsByRelation,
@@ -535,10 +858,11 @@ class KnowledgeGraphService {
       provenanceSummaries,
       qualitySignals: {
         uesAvailable,
-        sourceQuality: nodes.length > 10 && edges.length > 10 ? "calculated" : nodes.length > 0 ? "partial" : "fallback",
+        sourceQuality: scoreStatus(overallGraphQuality),
         notes: [
           "Summary is based on internal graph records only.",
           "Private/restricted memory appears only as aggregate blocked counts.",
+          "Quality score = 30% completeness + 30% trust + 30% safety + 10% freshness.",
           uesAvailable ? "Phase 12 UES global score is available as read-only context." : "Phase 12 UES global score was unavailable; graph summary still loaded.",
         ],
       },
@@ -580,6 +904,7 @@ class KnowledgeGraphService {
     const nodes: InsertKnowledgeGraphNode[] = [];
     const edges: InsertKnowledgeGraphEdge[] = [];
     const blockedSources: BlockedSource[] = [];
+    const skippedSources: SkippedSource[] = [];
 
     const [
       realityClaimRows,
@@ -624,6 +949,30 @@ class KnowledgeGraphService {
       selectLimited<typeof projects.$inferSelect>(projects),
       selectLimited<typeof projectPackages.$inferSelect>(projectPackages),
     ]);
+
+    const recordsScannedBySource: Distribution = {
+      reality_claims: realityClaimRows.length,
+      claim_evidence: claimEvidenceRows.length,
+      consensus_records: consensusRows.length,
+      claims: legacyClaimRows.length,
+      evidence: legacyEvidenceRows.length,
+      live_debates: debateRows.length,
+      debate_participants: participantRows.length,
+      debate_turns: turnRows.length,
+      agent_knowledge_sources: knowledgeRows.length,
+      agent_memory: memoryRows.length,
+      truth_memories: truthRows.length,
+      agent_passports: passportRows.length,
+      agent_passport_exports: passportExportRows.length,
+      agent_marketplace_clone_packages: cloneRows.length,
+      marketplace_listings: listingRows.length,
+      podcast_script_packages: scriptRows.length,
+      youtube_publishing_packages: youtubeRows.length,
+      social_distribution_packages: socialRows.length,
+      projects: projectRows.length,
+      project_packages: projectPackageRows.length,
+    };
+    const recordsScanned = Object.values(recordsScannedBySource).reduce((sum, value) => sum + value, 0);
 
     for (const claim of realityClaimRows) {
       const key = `claim:reality:${claim.id}`;
@@ -797,7 +1146,10 @@ class KnowledgeGraphService {
     }
 
     for (const debate of debateRows) {
-      if (["deleted", "rejected"].includes(debate.status)) continue;
+      if (["deleted", "rejected"].includes(debate.status)) {
+        skippedSources.push({ sourceTable: "live_debates", sourceId: sourceId(debate.id), reason: `Debate status ${debate.status} is not graph-safe.` });
+        continue;
+      }
       const key = `debate:${debate.id}`;
       nodes.push(node({
         nodeKey: key,
@@ -1042,7 +1394,10 @@ class KnowledgeGraphService {
     }
 
     for (const clonePackage of cloneRows) {
-      if (!ALLOWED_MARKETPLACE_STATUSES.has(clonePackage.reviewStatus) && !ALLOWED_MARKETPLACE_STATUSES.has(clonePackage.status)) continue;
+      if (!ALLOWED_MARKETPLACE_STATUSES.has(clonePackage.reviewStatus) && !ALLOWED_MARKETPLACE_STATUSES.has(clonePackage.status)) {
+        skippedSources.push({ sourceTable: "agent_marketplace_clone_packages", sourceId: clonePackage.id, reason: "Safe clone package is not approved or sandbox-only." });
+        continue;
+      }
       const key = `marketplace-clone:${clonePackage.id}`;
       nodes.push(node({
         nodeKey: key,
@@ -1075,7 +1430,10 @@ class KnowledgeGraphService {
     }
 
     for (const listing of listingRows) {
-      if (!ALLOWED_MARKETPLACE_STATUSES.has(listing.status)) continue;
+      if (!ALLOWED_MARKETPLACE_STATUSES.has(listing.status)) {
+        skippedSources.push({ sourceTable: "marketplace_listings", sourceId: listing.id, reason: `Marketplace listing status ${listing.status} is not graph-safe.` });
+        continue;
+      }
       const key = `marketplace-listing:${listing.id}`;
       nodes.push(node({
         nodeKey: key,
@@ -1095,7 +1453,10 @@ class KnowledgeGraphService {
     }
 
     for (const scriptPackage of scriptRows) {
-      if (!ALLOWED_INTERNAL_STATUSES.has(scriptPackage.status)) continue;
+      if (!ALLOWED_INTERNAL_STATUSES.has(scriptPackage.status)) {
+        skippedSources.push({ sourceTable: "podcast_script_packages", sourceId: sourceId(scriptPackage.id), reason: `Podcast script status ${scriptPackage.status} is not approved/internal review.` });
+        continue;
+      }
       const key = `podcast-script:${scriptPackage.id}`;
       const packageRecord = asRecord(scriptPackage.scriptPackage);
       nodes.push(node({
@@ -1246,7 +1607,7 @@ class KnowledgeGraphService {
       }));
     }
 
-    return { nodes, edges, blockedSources };
+    return { nodes, edges, blockedSources, skippedSources, recordsScanned, recordsScannedBySource };
   }
 }
 
