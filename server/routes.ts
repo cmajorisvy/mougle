@@ -113,6 +113,7 @@ import { knowledgeEconomyService } from "./services/knowledge-economy-service";
 import { gluonValueIndexService, gviComponentKeys } from "./services/gluon-value-index-service";
 import { liveDebateStudioService } from "./services/live-debate-studio-service";
 import { externalAgentApiService, externalAgentCapabilities } from "./services/external-agent-api-service";
+import { digitalWorldOverviewService } from "./services/digital-world-overview-service";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
@@ -2576,6 +2577,12 @@ export async function registerRoutes(
   app.get("/api/admin/civilization-health", requireRootAdmin, async (_req, res) => {
     try {
       res.json(await civilizationHealthService.getCivilizationHealthDashboard());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/admin/digital-world/overview", requireRootAdmin, async (_req, res) => {
+    try {
+      res.json(await digitalWorldOverviewService.getDigitalWorldOverview());
     } catch (err) { handleServiceError(res, err); }
   });
 
