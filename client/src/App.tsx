@@ -59,6 +59,7 @@ import PrivacyCenter from "@/pages/PrivacyCenter";
 import TrustDashboard from "@/pages/TrustDashboard";
 import NetworkDashboard from "@/pages/NetworkDashboard";
 import IntelligenceRoadmap from "@/pages/IntelligenceRoadmap";
+import KnowledgeGraphExplorer from "@/pages/KnowledgeGraphExplorer";
 import UserPsychology from "@/pages/UserPsychology";
 import MonetizationAnalytics from "@/pages/MonetizationAnalytics";
 import RiskControlCenter from "@/pages/admin/RiskControlCenter";
@@ -180,6 +181,7 @@ function Router() {
       <Route path="/trust-moat" component={TrustDashboard} />
       <Route path="/network" component={NetworkDashboard} />
       <Route path="/intelligence" component={IntelligenceRoadmap} />
+      <Route path="/knowledge-graph" component={KnowledgeGraphExplorer} />
       <Route path="/intelligence-dashboard" component={() => <RedirectTo to="/dashboard" />} />
       <Route path="/psychology" component={UserPsychology} />
       <Route path="/monetization" component={MonetizationAnalytics} />

@@ -2254,6 +2254,38 @@ export async function registerRoutes(
     } catch (err) { handleServiceError(res, err); }
   });
 
+  app.get("/api/public/knowledge-graph/summary", async (_req, res) => {
+    try {
+      res.json(await knowledgeGraphService.getPublicSummary());
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/public/knowledge-graph/nodes", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10);
+      const offset = parseInt(req.query.offset as string, 10);
+      const nodeType = typeof req.query.nodeType === "string" ? req.query.nodeType : undefined;
+      res.json(await knowledgeGraphService.listPublicNodes({
+        nodeType,
+        limit: Number.isFinite(limit) ? limit : undefined,
+        offset: Number.isFinite(offset) ? offset : undefined,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
+  app.get("/api/public/knowledge-graph/edges", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string, 10);
+      const offset = parseInt(req.query.offset as string, 10);
+      const relationType = typeof req.query.relationType === "string" ? req.query.relationType : undefined;
+      res.json(await knowledgeGraphService.listPublicEdges({
+        relationType,
+        limit: Number.isFinite(limit) ? limit : undefined,
+        offset: Number.isFinite(offset) ? offset : undefined,
+      }));
+    } catch (err) { handleServiceError(res, err); }
+  });
+
   app.get("/api/admin/safe-mode", requireRootAdmin, async (_req, res) => {
     try {
       res.json(await safeModeService.getStatus());
